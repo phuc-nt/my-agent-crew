@@ -68,7 +68,8 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `shell_write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà lệnh `shell_run` được ghi. Đặt danh sách này là bật sandbox kể cả khi còn mạng: lệnh chỉ ghi được ở đây và thư mục tạm, không gọi được `open`/`launchctl`/`osascript`, nên agent lấy và ghi dữ liệu được nhưng không sửa được code, script hay cấu hình quanh nó. Với `shell_network: false` mà danh sách rỗng thì workspace chỉ đọc với shell; đường dẫn ra ngoài workspace là lỗi khởi động |
 | `shell_deny_patterns` | danh sách | `[]` | mảnh lệnh (chuỗi con, không phân biệt hoa thường) mà `shell_run` từ chối thẳng, không hỏi duyệt, kèm lời dặn dừng lại và báo cần gì để người dùng quyết. Dùng để giữ agent làm việc trong repo người khác khỏi DDL, SQL ghi tay, `python3 -c`. Rào mềm như `shell_ask_patterns` |
 | `write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà `workspace_write`, `workspace_edit` và `artifact_export` (xuất một canvas ra tệp) được ghi; ghi chỗ khác bị từ chối với lỗi nêu danh sách này, và không thư mục nào được tạo. Rỗng thì ghi được mọi nơi trong workspace. Dùng cho agent autonomous có workspace là một repo, nơi tệp lạc chỗ có thể bị commit lên; đường dẫn ra ngoài workspace là lỗi khởi động. Không ảnh hưởng `shell_run`, xem `shell_write_paths` |
-| `script_calls` | `read_only` hoặc `gated` | `read_only` | script của `tool_script` gọi được những tool nào. `read_only`: chỉ tool chỉ đọc. `gated`: thêm cả tool có ghi mà agent đang giữ (`workspace_write`, `shell_run`, tool MCP không nằm trong `read_only`, …); mỗi lời gọi như vậy được cổng duyệt xét **trước khi chạy**, theo đúng luật của một lời gọi trực tiếp, và lời gọi nào cổng phải hỏi người thì script dừng ở đó chứ không chờ ai. Hai tool luôn phải hỏi (`ask_user`, `schedule_create`) vẫn ở ngoài. Agent `gated` còn giữ `delegate` thì script của nó giao việc được cho agent khác (`tools.delegate`), chỉ trong lượt của chính nó: không khi đang làm việc được giao, không trong job. Xem [tools.md](tools.md#gọi-tool-từ-script). Chỉ đọc từ `agent.yaml` của chính agent: không có khoá toàn cục, không có biến môi trường, không agent nào thừa hưởng của agent khác, kể cả của master. Giá trị nào khác hai chữ đó (`Gated`, `true`, để trống) là lỗi khởi động, còn lưu qua API thì bị từ chối (422). Tắt bằng cách bỏ khoá hoặc ghi `read_only`. Sửa qua API có hiệu lực ngay; sửa tay cần khởi động lại |
+| `script_calls` | `none`, `read_only` hoặc `gated` | `read_only` | agent có được trao `tool_script` không, và script của nó gọi được những tool nào. `none`: agent không được trao `tool_script`, dù nó giữ tool đọc nào và dù một máy chủ MCP có tool cho script gọi; nó không viết script nào trong lượt của mình. Lịch có khoá `script` của nó vẫn chạy, chỉ đọc, vì script đó do chủ viết trong tệp chứ không do agent viết ([Job chạy script](#job-chạy-script)). `read_only`: chỉ tool chỉ đọc. `gated`: thêm cả tool có ghi mà agent đang giữ (`workspace_write`, `shell_run`, tool MCP không nằm trong `read_only`, …); mỗi lời gọi như vậy được cổng duyệt xét **trước khi chạy**, theo đúng luật của một lời gọi trực tiếp, và lời gọi nào cổng phải hỏi người thì script dừng ở đó chứ không chờ ai. Hai tool luôn phải hỏi (`ask_user`, `schedule_create`) vẫn ở ngoài. Agent `gated` còn giữ `delegate` thì script của nó giao việc được cho agent khác (`tools.delegate`), chỉ trong lượt của chính nó: không khi đang làm việc được giao, không trong job. Xem [tools.md](tools.md#gọi-tool-từ-script). Chỉ đọc từ `agent.yaml` của chính agent: không có khoá toàn cục, không có biến môi trường, không agent nào thừa hưởng của agent khác, kể cả của master. Giá trị nào khác ba chữ đó (`Gated`, `"true"`, để trống) là lỗi khởi động, còn lưu qua API thì bị từ chối (422). Một giá trị đúng/sai của YAML cũng vậy, và lỗi nói luôn chữ phải viết: `off`, `no`, `false`, `on`, `yes`, `true` viết trần được YAML đọc thành đúng/sai chứ không thành chữ, nên muốn tắt thì ghi `none` ("script_calls must be none, read_only or gated, not a boolean …: write none to hand the agent no tool_script, or the one of the three meant"). Về mức mặc định bằng cách bỏ khoá hoặc ghi `read_only`. Sửa qua API có hiệu lực ngay, kể cả việc lấy lại và trao lại `tool_script`; sửa tay cần khởi động lại |
+| `script_llm` | bool | `true` | script của agent có được tự hỏi model bằng `llm.classify` / `llm.summarise` không ([tools.md](tools.md#gọi-tool-từ-script), bullet "Script tự hỏi model"). `false`: script không hỏi được model nào, trong lượt của agent lẫn trong job `script` của nó; mô tả của `tool_script` không nhắc tới `llm` nữa, và script vẫn gọi `llm.` thì nhận một lỗi bắt được ("không hỏi model được ở đây."), không model nào được gọi và không đồng nào bị tính. Dùng cho agent mà chủ muốn script chỉ là code: lọc, đếm, gọi tool, không có khoản tiền nào nằm ngoài lượt của model. Chỉ đọc từ `agent.yaml` của chính agent, như `script_calls`: không có khoá toàn cục, không có biến môi trường, không thừa hưởng của master. Phải là đúng/sai thật của YAML; `"false"` trong dấu nháy, `0` hay để trống là lỗi khởi động ("script_llm must be true or false"), còn lưu qua API thì bị từ chối (422). Sửa qua API có hiệu lực ngay; sửa tay cần khởi động lại |
 | `schedules` | danh sách | `[]` | job, xem [Lịch](#lịch) |
 | `memory_consolidate` | chuỗi cron | không có | theo lịch này, viết lại `MEMORY.md` từ ghi chú ngày rồi biên dịch wiki vault từ chính các ghi chú đó, xem [memory.md](memory.md) |
 | `telegram` | map | không có | `token_env` + `chat_id`, tuỳ chọn `approval_ttl_seconds` (60–43200) cho cuộc trò chuyện mở từ chat đó; chỉ đọc trên `agent.yaml` của master, ở nơi khác bị bỏ qua kèm cảnh báo, xem [channels.md](channels.md) |
@@ -218,9 +219,17 @@ Form của trình sửa mở từ `declared`. Ghi ngược phần "đang chạy"
 có danh sách cho phép thành agent bị chốt ở bộ tool của hôm nay, biến master giao việc cho cả đội
 thành master chỉ giao cho đội của hôm nay, và lên lịch job củng cố hai lần.
 
-**Tệp giữ nguyên hình dạng.** Ghi là round-trip (ruamel), nên chú thích, thứ tự khoá và
-những khoá mà phiên bản server này không biết đều sống sót qua một lần sửa từ
-trình duyệt. Manifest được ghi qua tệp tạm rồi chuyển vào chỗ, nên sập
+**Tệp giữ nguyên hình dạng, trừ bên trong khoá mà lần lưu nêu.** Ghi là round-trip (ruamel),
+nên thứ tự khoá, những khoá mà phiên bản server này không biết, và chú thích nằm ngoài các khoá
+lần lưu nêu đều sống sót qua một lần sửa từ trình duyệt. Khoá được nêu thì được viết lại cả giá
+trị: khoá một giá trị (`cost_cap_usd`) giữ chú thích cuối dòng của nó, còn với một danh sách
+hay một khối (`schedules`, `tools`, `delegates`), chú thích nằm bên trong
+nó mất theo giá trị cũ (chú thích cuối dòng của một khoá con, dòng chú thích đứng trước các
+dòng từ thứ hai trở đi, chú thích giữa các khoá), dấu ngoặc người viết tay đặt quanh một chuỗi
+cũng vậy, và dòng chú thích đứng ngay sau khối, tức là dòng mở đầu cho khoá kế tiếp, mất theo.
+Dòng chú thích đứng trước dòng đầu tiên của danh sách thì còn. Trình sửa trên web gửi lại cả
+danh sách `schedules` mỗi khi một dòng lịch đổi, nên tệp có chú thích trong các lịch thì nên
+sửa tay. Manifest được ghi qua tệp tạm rồi chuyển vào chỗ, nên sập
 giữa lúc ghi không thể để lại một profile không còn parse được. Chuỗi nhiều dòng mà một lần lưu
 mang tới (prompt hay script của một lịch) được viết thành khối (`prompt: |`), mỗi dòng một dòng
 trong tệp. Chuỗi có ký tự mà khối không chở nguyên vẹn được (tab, `\r`, ký tự không in ra) vẫn
@@ -395,7 +404,9 @@ Tên kỹ năng và tên công cụ được kể so với của chính master (
 Loại nào agent không có thì không có dòng. `tool_script` có ở mọi agent giữ ít nhất một tool chỉ
 đọc ([tools.md](tools.md#gọi-tool-từ-script)), nên thường nó nằm trong "như của bạn"; tên nó chỉ
 hiện ra khi master và agent khác nhau ở đúng điểm đó, ví dụ một master chỉ còn tool ghi đọc thấy
-`thêm: …, tool_script` ở agent còn đọc được. Agent mà `agent.yaml` ghi `script_calls: gated` thì
+`thêm: …, tool_script` ở agent còn đọc được, hoặc `như của bạn, không có: tool_script` ở agent
+ghi `script_calls: none`, để master không giao cho nó việc phải gộp nhiều lời gọi vào một
+script. Agent mà `agent.yaml` ghi `script_calls: gated` thì
 dòng Công cụ của nó kết thúc bằng `; script gọi được cả công cụ ghi`, hoặc
 `; script gọi được cả công cụ ghi, kể cả shell_run` khi nó giữ `shell_run`
 (`· Công cụ: như của bạn; script gọi được cả công cụ ghi, kể cả shell_run`). Tên tool không nói
@@ -739,22 +750,28 @@ job prompt gọi một script shell trong workspace.)
 - **Chạy bằng gì.** Đúng bộ máy và đúng các giới hạn của `tool_script`: cùng ngôn ngữ, cùng tiến
   trình con không khoá không mạng, cùng 25 lời gọi và 300 giây. Agent không cần giữ
   `tool_script`: job chạy trên những tool script của agent gọi được, dù tool ấy có được giao hay
-  không. Script dài tối đa 20.000 ký tự và được xét cả đoạn lúc nạp, như khi model viết: sai cú
+  không, kể cả ở agent ghi `script_calls: none`. Chữ đó lấy `tool_script` khỏi tay model; script
+  của lịch là chữ của chủ, viết trong tệp của agent. Script dài tối đa 20.000 ký tự và được xét
+  cả đoạn lúc nạp, như khi model viết: sai cú
   pháp hay dùng thứ ngôn ngữ không có thì crew không khởi động, và lần lưu qua
   `PATCH /api/agents/{id}` trả 422, cả hai kèm tên agent, tên lịch và lời của phép xét.
 - **Gọi được gì.** Theo `script_calls` của chính agent ([agent.yaml](#agentyaml)). Mặc định
-  `read_only`: chỉ những tool đọc mà script của một lượt gọi được. Với `gated`, script gọi thêm
+  `read_only`: chỉ những tool đọc mà script của một lượt gọi được; agent ghi `none` cũng chạy
+  script của lịch ở đúng mức chỉ đọc đó. Với `gated`, script gọi thêm
   tool có ghi, và cổng duyệt xét từng lời gọi như trong cuộc trò chuyện autonomous mà một job
   prompt mở ra: tool cần duyệt mà không có lý do hỏi riêng thì chạy, lệnh shell không khớp mẫu
   nào cũng chạy. Giao việc cho agent khác (`tools.delegate`) thì không, ở cả hai mức: job không
   có cuộc trò chuyện nào để làm cha của việc được giao, nên script dừng với câu bảo gọi trực
   tiếp.
 - **Hỏi model từ script.** `llm.classify` và `llm.summarise` dùng được trong script của job như
-  trong một lượt, ở cả hai mức `script_calls` ([tools.md](tools.md#gọi-tool-từ-script), bullet
+  trong một lượt, ở mọi mức `script_calls` ([tools.md](tools.md#gọi-tool-từ-script), bullet
   "Script tự hỏi model"): model của chính agent, route đầu tiên, tối đa 10 lần mỗi script. Mỗi
   lần là một lần trả tiền, nên job dùng nó không còn là job "không tốn gì khi không có gì để
   nói": script hỏi bao nhiêu lần mỗi sáng thì trả bấy nhiêu lần. Lọc bằng code trước, chỉ hỏi
-  model cho phần code không quyết được.
+  model cho phần code không quyết được. Agent ghi `script_llm: false`
+  ([agent.yaml](#agentyaml)) thì script của job không hỏi được model nào: lời gọi `llm.` là một
+  lỗi script bắt được ("không hỏi model được ở đây."), không bắt thì run là `error`, và không
+  lần hỏi nào được gửi đi hay bị tính tiền.
 - **Không bao giờ hỏi người.** Không ai trông một job và không có cuộc trò chuyện nào để một câu
   trả lời quay về, nên lời gọi mà cổng phải hỏi dù ai đang trông (lệnh khớp `shell_ask_patterns`,
   hay một tool tự khai lý do phải hỏi) làm script **dừng tại đó**, tool chưa chạy; lệnh khớp
@@ -773,6 +790,20 @@ job prompt gọi một script shell trong workspace.)
   cắt. Lời gọi có trả tiền cho model (`image_read`, `pdf_read` trên trang scan, một lần script
   hỏi model bằng `llm.`) được tính vào run; sổ cái sử dụng ghi lần hỏi model đó dưới mục đích
   `script`, không kèm cuộc trò chuyện nào.
+- **Hỏng thì có tin báo.** Script chạy xong mà không in gì thì không ai nghe gì, đó là chủ ý.
+  Script hỏng cũng không mở lượt nào, nên nếu im lặng thì từ chat hai chuyện ấy trông như nhau.
+  Vì vậy run của script kết thúc `error` thì crew gửi một tin tới kênh của đội
+  ([channels.md](channels.md#giao-theo-lịch)), ba dòng: `Lịch "<tên lịch>" gặp lỗi khi chạy
+  script:`, rồi lý do, rồi `Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.` Lý do là thứ bước
+  `tool_script` của run giữ lại từ câu script nói khi dừng, gộp về một dòng: nguyên văn khi
+  không quá 600 ký tự, dài hơn thì phần đầu và phần cuối, nên câu chỉ cách sửa ở cuối một lời
+  từ chối vẫn tới nơi. Tin không bao giờ chứa nguyên văn script hay tham số của một lời gọi. Mỗi
+  run hỏng một tin, không gộp và không giãn: lịch chạy mỗi 5 phút mà hỏng mãi thì 5 phút một
+  tin, cho tới khi sửa script hoặc tạm dừng lịch từ thẻ job. Chạy tay bằng nút hay
+  `POST /api/jobs/{agent}/{id}/run` cũng báo như vậy. Chỉ run của chính script được báo ở đây:
+  lượt mà `then_prompt` mở ra hỏng thì được giao như lượt của job prompt, job `command` hỏng thì
+  không có tin nào, và run đóng lại là `interrupted` vì server tắt giữa chừng cũng không. Không
+  có kênh thì không gì được gửi; gửi không được thì ghi log và thôi, run vẫn như nó đã kết thúc.
 - **`then_prompt`.** Script chạy xong **và** in ra thứ gì đó không trống thì crew mở một lượt như
   job prompt mở: cuộc trò chuyện autonomous mới, `skills` và `approval_ttl_seconds` của lịch áp
   cho nó. Tin mở lượt là `then_prompt`, rồi một câu nói rằng phần bên dưới là những gì script

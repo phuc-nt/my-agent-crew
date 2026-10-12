@@ -250,6 +250,32 @@ bỏ qua dấu chấm/than cuối) thì không được đẩy lên chat, log gh
 `job <id>: nothing to report, not delivered`. Run vẫn nằm trong trang Jobs và rail hoạt động,
 nên vẫn thấy job đã chạy. Câu trả lời dài hơn, kể cả bắt đầu bằng "OK, nhưng…", vẫn được gửi.
 
+**Job script hỏng thì có một tin báo.** Lịch chạy thẳng một script (khoá `script`,
+[agents.md](agents.md#job-chạy-script)) không mở lượt nào khi script hỏng, nên không có cuộc
+trò chuyện nào để giao: nhìn từ chat, job hỏng và job chạy tốt mà không in gì trông như nhau.
+Vì vậy khi run của chính script kết thúc `error`, kênh nhận một tin của runtime gồm ba dòng:
+
+```
+Lịch "<tên lịch>" gặp lỗi khi chạy script:
+<lý do>
+Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.
+```
+
+- Lý do là phần step `tool_script` của run đã giữ: gộp thành một dòng, nguyên vẹn khi không quá
+  600 ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký tự cuối, để câu dặn ở cuối một lời từ
+  chối không bị cắt mất. Tin **không bao giờ** mang mã của script hay tham số của một lời gọi.
+- Tin của thành viên đội mang dòng `[Name]` ở đầu như bản tin theo lịch; tin của master thì
+  không. Tin đi nguyên văn: một dòng trong lý do có hình dạng dòng đính kèm không gửi tệp nào.
+- Mỗi run hỏng một tin, không gộp và không giãn: lịch hỏng mãi thì mỗi lần tới hạn một tin, cho
+  tới khi script được sửa hoặc lịch bị tạm dừng. Chạy tay (`POST /api/jobs/{agent}/{id}/run`)
+  cũng báo như vậy.
+- Không có tin trong các trường hợp sau: script chạy tốt, dù có in gì hay không; lượt mà
+  `then_prompt` mở ra (lượt đó là một cuộc trò chuyện và được giao như prompt job ở trên, kể cả
+  khi hỏng); job `command` hỏng; run bị cắt vì server dừng (`interrupted`); không có kênh nào.
+- Log ghi `job <id>: failure notice sent=<bool>`. Gửi hỏng thì log ghi
+  `job <id>: failure notice not sent` kèm lỗi, không thử lại; run vẫn giữ nguyên kết cục của nó
+  và các job tới hạn sau vẫn chạy.
+
 ## Offset và restart
 
 Offset của `getUpdates` được ghi vào `MY_AGENT_HOME/telegram.offset` trước khi mỗi update được

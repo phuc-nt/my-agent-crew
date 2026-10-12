@@ -440,7 +440,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lưu được, gửi lại được, thêm cái thứ hai ngoài home là 422 và chữ của tệp thứ hai không vào
     system prompt; loại này không bảo lãnh cho loại kia: workspace ngoài home không thành thư mục
     skill hay tệp persona, thư mục skill không thành workspace, tệp persona không thành thư mục
-    skill hay workspace; tạo agent mới trỏ tới chỗ một agent khác đang làm việc ngoài home là 422)
+    skill hay workspace; workspace ngoài home mà người viết tay vào tệp sau lần khởi động chưa
+    phải là cái agent đang chạy với: lưu một khoá khác là 422 nêu đường dẫn ấy, agent đang chạy
+    giữ workspace cũ; tạo agent mới trỏ tới chỗ một agent khác đang làm việc ngoài home là 422)
 - **Danh sách công cụ của agent mở từ những gì tệp viết, không từ những gì agent đang giữ**
   - pytest: `tests/test_api_agents_declared.py::test_the_tools_an_agent_holds_are_not_what_its_file_lists`,
     `tests/test_api_agents_declared.py::test_a_save_answers_with_the_tools_the_file_now_lists`,
@@ -5404,10 +5406,20 @@ khi chạy; phần đó có mục riêng ở dưới.
     trần; các script của một lượt dùng chung một bộ đếm; cái model yêu cầu sau script đã tiêu hết
     trần được đóng lại không chạy, nên lời gọi nào cũng có kết quả; lô không còn đủ chỗ thì không
     chạy phần nào; script không bắt được việc hết trần; tên không có thì không tính; lượt sau đếm
-    lại từ đầu; lý do dừng tới người đọc bằng lời chứ không bằng mã), `tests/test_loop_guard.py`
+    lại từ đầu; lý do dừng tới người đọc bằng lời chứ không bằng mã; chỗ đã lấy cho những lời gọi
+    rốt cuộc không được làm thì trả lại được cho bộ đếm, trả lại không làm một lượt đã chạm trần
+    thành chưa chạm, và bộ đếm không xuống dưới không), `tests/test_loop_guard.py`
     (cùng một script gọi đi gọi lại thì được nhắc rồi bị dừng như mọi lời gọi lặp; script mỗi lần
     một khác thì không phải lặp), `tests/test_tool_reply_openings.py` (lời mở của câu từ chối
     `NESTED_HALTED_TOOL` mà web đọc là lỗi đúng là chữ server viết).
+  - pytest: `tests/test_script_gate.py::test_the_calls_a_batch_did_not_make_are_left_for_the_next_script_of_the_turn`
+    (lô sáu lời gọi, một trong đó gọi một tên không có, bị dừng ở lời gọi thứ ba khi quyền tự chủ
+    đã bị thu lại: lượt chỉ bị tính hai lời gọi đã chạy, và script kế tiếp của lượt dùng được hết
+    phần còn lại của trần),
+    `tests/test_script_batch_run.py::test_a_batch_cut_short_takes_from_the_turns_count_the_calls_that_began`
+    (lô bị cắt khi các lời gọi còn treo: trong lúc lô chạy thì chỗ được giữ cho cả lô, cắt xong
+    thì lượt chỉ bị tính những lời gọi đã bắt đầu, bốn với lô chỉ đọc chạy cùng lúc và một với lô
+    có ghi chạy từng lời gọi).
   - vitest: `lib/run-summary.test.ts` (run dừng vì `nested_calls` đọc thành câu, còn run xong mang
     chữ đó thì để nguyên), `state/thread-stored-status.test.tsx` (lời gọi bị đóng vì lượt hết trần
     lời gọi lồng vẫn là thẻ `failed` sau khi tải lại; câu chỉ giống mà thiếu con số thì không).
@@ -5427,6 +5439,16 @@ khi chạy; phần đó có mục riêng ở dưới.
     dài hơn 160 chữ số bị cắt như chữ, đúng 160 thì giữ là số), `tests/test_script_tool.py` (lời
     gọi của script cũng vậy), `tests/test_trajectory_redact.py` (bí mật nằm ở tên tham số vẫn
     được che).
+- **Bước tool hỏng giữ cả phần đầu lẫn phần cuối của điều nó nói**:
+  - pytest: `tests/test_failure_previews.py` (bước hỏng giữ nguyên điều nó nói khi vừa 600 ký tự;
+    dài hơn thì giữ 200 ký tự đầu, dấu `…` và 400 ký tự cuối, quá một ký tự cũng cắt, nên phần
+    dặn ở cuối một câu từ chối không bị cắt mất; độ dài được đo trên một dòng như nó được giữ,
+    sau khi mỗi quãng trắng thành một dấu cách; bước đạt vẫn giữ 160 ký tự như trước; lời gọi
+    hỏng của một script giữ được dòng nói tool ấy gọi thế nào, lời gọi đạt của script vẫn là 160;
+    lần hỏi model hỏng của script giữ lý do dài hơn 160; tuyến bị bỏ qua và điều model nói vẫn
+    giữ 160; hai câu từ chối của cổng duyệt đều kết bằng phần chỉ cách làm, tức là phần mà phép
+    cắt này giữ lại), `tests/test_script_job_gate.py` (bước đóng của một job script hỏng giữ câu
+    từ chối theo cùng phép cắt ấy).
 - **Ai được giao `tool_script`**:
   - pytest: `tests/test_script_handout.py` (agent không nêu máy chủ nào được dựng với
     `tool_script` đứng cuối, và script của nó gọi các tool có sẵn chỉ đọc; tool không theo danh
@@ -5465,13 +5487,15 @@ khi chạy; phần đó có mục riêng ở dưới.
     bằng không và không có khi chưa ai đặt), `tests/test_trajectory_redact.py`
     (bí mật nằm trong lời gọi của script được che cùng phần còn lại của bản ghi).
 - **Script gọi cả tool ghi (`script_calls: gated`)**:
-  - pytest: `tests/test_script_calls_setting.py` (hai giá trị là đúng hai chữ tệp ghi; mặc định
-    là chỉ đọc; chỉ đọc từ `agent.yaml` của chính agent, agent mặc định không truyền nó cho ai và
-    cấu hình chung có ghi gì cũng không được thừa hưởng; giá trị lạ, viết hoa, `true`, rỗng hay
-    bỏ trống làm tệp không nạp được, và cả đội không được đọc lên với một tệp như vậy; sửa qua
-    API thì bật, tắt được và agent đang chạy theo ngay; sửa một khoá khác thì giữ nguyên nó; tạo
-    agent mới kèm khoá này được; giá trị lạ bị từ chối 422 trước khi ghi tệp, khi sửa cũng như
-    khi tạo).
+  - pytest: `tests/test_script_calls_setting.py` (ba giá trị là đúng ba chữ tệp ghi, `none`,
+    `read_only`, `gated`; mặc định là chỉ đọc; chỉ đọc từ `agent.yaml` của chính agent, agent mặc
+    định không truyền nó cho ai và cấu hình chung có ghi gì cũng không được thừa hưởng; giá trị
+    lạ, viết hoa, chuỗi `true`, `off` hay `None`, rỗng, bỏ trống, một con số hay một danh sách làm
+    tệp không nạp được, câu lỗi nêu cả ba chữ; boolean thật cũng bị từ chối, mở đầu bằng đúng câu
+    ấy; cả đội không được đọc lên với một tệp như vậy; sửa qua API thì bật, tắt được và agent đang
+    chạy theo ngay; sửa một khoá khác thì giữ nguyên nó; tạo agent mới kèm khoá này được; giá trị
+    lạ bị từ chối 422 trước khi ghi tệp, khi sửa cũng như khi tạo, boolean thì được dặn thêm chữ
+    phải viết). `none` lấy gì của agent thì ở mục "Công tắc script theo agent" bên dưới.
   - pytest: `tests/test_script_gated_scope.py` (script như thế gọi được tool có ghi và tool phải
     hỏi trước; đúng hai tool luôn chờ người, `ask_user` và `schedule_create`, đứng ngoài dù chúng
     khai kiểu nào; năm tool không script nào gọi và bốn tên của `tools` vẫn đứng ngoài; tool ghi
@@ -5532,10 +5556,34 @@ khi chạy; phần đó có mục riêng ở dưới.
     chỉ nêu tool đọc, agent chỉ có tool ghi không được giao script, khoá được thừa hưởng, giá
     trị nào cũng nạp, thiếu khoá coi là bật, trình sửa không biết khoá, dấu luôn hay không bao
     giờ được ghi, roster đánh dấu sai agent hay sai câu) đều bị test bắt.
+- **Công tắc script theo agent (`script_calls: none`, `script_llm: false`)**:
+  - pytest: `tests/test_script_switches.py` (tệp ghi `none` được đọc thành đúng chữ ấy; tệp ghi
+    `off`, `no`, `false`, `on`, `yes`, `true`, viết hoa hay thường, mà YAML đọc thành boolean, làm
+    tệp không nạp được, câu lỗi nêu cả ba chữ và dặn viết `none`; agent ghi `none` được dựng không
+    có `tool_script` và giữ mọi tool khác theo đúng thứ tự; tool của máy chủ MCP mà script gọi
+    được cũng không đem `tool_script` về, kể cả khi máy chủ nối lại; script của một lịch vẫn chạy
+    ở agent như thế, và chỉ đọc: lời gọi lệnh làm script dừng với dòng bảo gọi trực tiếp, lệnh
+    không chạy; master được kể agent ấy không có `tool_script`, và đổi từ `gated` sang `none` thì
+    roster thôi ghi nó viết script có ghi; `script_llm` mặc định bật, chỉ đọc từ tệp của chính
+    agent, cấu hình chung có tắt cũng không được thừa hưởng; chỉ boolean thật mới đặt được nó:
+    chuỗi `false`, `true`, `no`, `off`, chuỗi rỗng, 0, 1, bỏ trống hay một danh sách làm tệp không
+    nạp được; agent tắt `script_llm` đọc lời mô tả `tool_script` không có chữ `llm` nào, ở cả hai
+    mức `script_calls`, phần còn lại giữ nguyên từng chữ; script vẫn hỏi thì nhận một lỗi bắt
+    được và chạy tiếp, không bắt thì dừng như mọi lỗi, không model nào được hỏi và không lời gọi
+    nào được ghi; lần hỏi bị từ chối như thế vẫn được script đếm, nên script bắt lỗi rồi hỏi tiếp
+    bị dừng ở lần hỏi quá mức, không lời gọi nào trên thẻ run và không model nào nghe; script của
+    một lịch ở agent ấy cũng không hỏi được model: run `error`, không tiền, không cuộc trò chuyện;
+    cả hai khoá không nằm trong danh sách khoá cần khởi động lại; sửa qua API thì agent đang chạy
+    mất `tool_script` ngay và được trao lại khi đổi về `read_only`, tệp ghi đúng chữ `none` chứ
+    không phải `null` của YAML; tắt `script_llm` qua API thì lời mô tả đổi ngay, gỡ khoá thì về
+    mặc định và tệp không còn dòng ấy; sửa một khoá khác giữ nguyên cả hai; tạo agent mới kèm cả
+    hai được; giá trị không phải boolean cho `script_llm`, và boolean cho `script_calls`, bị từ
+    chối 422 trước khi ghi tệp, câu lỗi của `script_calls` dặn chữ phải gửi).
 - **Script giữ lại giữa các lần chạy (`store` / `load`)**:
   - pytest: `tests/test_script_store.py` (script đọc lại được điều chính nó vừa ghi, và không gì
     vào bảng trước khi nó chạy xong; cái đã giữ còn đó cho script sau của cùng cuộc trò chuyện;
-    `store(khoá, None)` bỏ khoá, khoá chưa từng có cũng không sao; script hỏng vì một lỗi không
+    `store(khoá, None)` bỏ khoá, khoá chưa từng có cũng không sao, còn `None` nằm trong một list
+    hay dict thì được giữ như mọi giá trị; script hỏng vì một lỗi không
     ai bắt hay bị dừng ở lời gọi nó không được gọi thì giá trị mới và khoá nó vừa bỏ đều không
     được ghi; script hết giờ hay bị dừng giữa chừng không giữ gì; lần chạy xong sau mà làm chỗ
     giữ quá mức thì không cái nào của nó được giữ, kể cả cái đứng riêng thì vừa, và kết quả là
@@ -5543,8 +5591,8 @@ khi chạy; phần đó có mục riêng ở dưới.
     cùng tên không đọc được của nhau; lượt của cuộc trò chuyện do job mở giữ dưới lịch của job;
     lượt người tiếp lời trong cuộc ấy giữ dưới chính cuộc trò chuyện; script chạy ngoài mọi cuộc
     trò chuyện được báo là không có chỗ giữ, bắt được và chạy tiếp; model được kể hai tên, rằng
-    khoá chưa có thì đọc ra None và rằng chỉ giữ khi script xong không lỗi, ở cả hai chế độ
-    `script_calls`).
+    khoá chưa có thì đọc ra None, rằng `store(khoá, None)` là quên khoá đó và rằng chỉ giữ khi
+    script xong không lỗi, ở cả hai chế độ `script_calls`).
   - pytest: `tests/test_script_limits.py` (khoá là chuỗi không rỗng, dài đúng tới mức và không
     hơn, kể cả khi bỏ khoá; giá trị dài đúng tới mức và không hơn, giá trị quá dài không được
     giữ và script đọc lại giá trị có trước đó; giá trị được đo theo JSON nó được lưu thành, tính
@@ -5560,8 +5608,33 @@ khi chạy; phần đó có mục riêng ở dưới.
   - pytest: `tests/test_api_script_store.py` (agent chưa giữ gì thì danh sách rỗng; mỗi chỗ giữ
     kèm tổng số ký tự, mỗi giá trị kèm số ký tự của nó và giờ ghi theo UTC, xếp theo chỗ rồi
     theo khoá; giá trị dài chỉ hiện phần đầu kèm độ dài thật; agent chỉ thấy cái script của
-    chính nó giữ; agent không có thì 404; không động từ nào ghi được qua địa chỉ này; cái script
+    chính nó giữ; agent không có thì 404; `limit_chars` nằm một lần ở gốc, là đúng mức mà
+    `store` của script bị giữ, 262.144, cả khi agent chưa giữ gì; chỗ giữ của một lịch mang
+    `kind: job`, `ref` là id của lịch và `title` là tên lịch; lịch cùng id của agent khác không
+    đặt tên cho chỗ của agent này, chỗ ấy là `orphan`; lịch tạo từ một cuộc trò chuyện đặt tên
+    cho chỗ của nó cho tới khi bị gỡ, gỡ rồi thì chỗ ấy còn đó và là `orphan`; chỗ giữ của một
+    cuộc trò chuyện mang `kind: conv` và tiêu đề của cuộc ấy, cuộc không còn thì `title` là
+    `null` và là `orphan`; tiêu đề chỉ có khoảng trắng thì `title` là `null` mà không phải
+    `orphan`; chỗ không thuộc hai loại, kể cả tên chỉ gần giống tiền tố, là `other`, `ref` là cả
+    tên, không bao giờ `orphan`; POST, PUT và PATCH không ghi được gì qua địa chỉ này; cái script
     của một lượt giữ thì hiện ra, và mất theo khi xoá cuộc trò chuyện).
+  - pytest: `tests/test_api_script_store_edit.py` (một giá trị được đọc nguyên dù dài tới đâu,
+    kèm số ký tự và giờ ghi như trong danh sách; khoá có `&`, `=`, `/`, `#`, `?`, `%`, dấu cách,
+    dấu `+`, chữ có dấu, hay dài hết mức, được gọi đúng như script đã viết, khi đọc cũng như khi
+    xoá; giá trị không có ở đó là 404, kể cả tên chỗ hay khoá chỉ giống phần đầu, chứa ký tự đại
+    diện của `LIKE`, khoá rỗng, hay giá trị agent khác giữ ở chỗ cùng tên; agent không có thì 404
+    dù bảng có dòng mang id ấy; thiếu `namespace` hay `key` khi đọc là 422; xoá một khoá thì chỉ
+    khoá ấy mất, ở danh sách, ở lần đọc và với script đọc kế tiếp; không nêu khoá thì xoá cả chỗ,
+    và chỗ chỉ giống phần đầu tên là chỗ khác; xoá cái không có trả `deleted: 0` và không phải
+    lỗi, khoá rỗng không bao giờ là cả chỗ; agent chỉ xoá được cái script của chính nó giữ; agent
+    không có thì 404 và không gì bị xoá; xoá mà không nêu `namespace` là 422, không địa chỉ nào
+    xoá hết mọi thứ của một agent trong một lần; cái đã xoá vẫn mất khi script kế tiếp bị từ chối
+    vì ghi quá mức; script đang chạy mà đã đọc chỗ giữ thì đi tiếp theo cái nó đã thấy và khi xong
+    chỉ ghi lại khoá chính nó ghi, cái nó chỉ đọc vẫn mất; script chưa đọc thì thấy chỗ giữ như
+    sau lần xoá; script bỏ một khoá đã bị xoá vẫn xong êm; xoá agent thì mọi chỗ giữ của nó mất,
+    của agent khác còn nguyên, và agent mới mang cùng id bắt đầu trống; agent không xoá được, vì
+    còn agent khác giao việc cho nó, vì là master, hay vì thư mục không dời đi được, thì giữ
+    nguyên cái nó đã giữ).
   - pytest: `tests/test_store.py` (xoá một cuộc trò chuyện xoá cả chỗ giữ của nó, của agent nào
     cũng vậy, và không đụng chỗ của cuộc khác hay của job; lần xoá hỏng giữa chừng thì cái đã
     giữ còn nguyên, vì xoá trong cùng một giao dịch).
@@ -5664,6 +5737,23 @@ khi chạy; phần đó có mục riêng ở dưới.
     cuộc trò chuyện, id lời gọi của riêng nó, không tính vào lượt nào; lượt của job chạy sau
     một job script là của riêng nó, trần lời gọi lồng còn nguyên; job script kết thúc thế nào
     thì cũng trả lại nguyên những gì tác vụ đang chạy theo).
+  - pytest: `tests/test_script_job_failure_notice.py` (job script hỏng thì agent của lịch ấy được
+    báo đúng một tin: tên lịch trong ngoặc kép, lý do là đúng cái step của run giữ, và chỗ xem
+    run; câu từ chối của cổng duyệt tới nơi nguyên vẹn, dài hơn 160 ký tự và kết bằng phần dặn
+    gọi trực tiếp; lỗi dài thì tin mang phần đầu và phần cuối như step giữ, 601 ký tự, trong khi
+    tóm tắt của run vẫn 160; tin không mang chữ nào của script, tên tool hay tham số của một lời
+    gọi, dù cả hai có trên run; tên lịch nhiều dòng hay rất dài được kể thành một dòng, cắt bằng
+    `…`, và tin vẫn đúng ba dòng; run không giữ gì thì lý do là tóm tắt của nó, không có nữa thì
+    là trạng thái; script chạy tốt, in hay không in, không có tin; lượt mà script mở thì do việc
+    gửi câu trả lời lo, dù lượt xong hay hỏng; job lệnh hỏng và job prompt hỏng không có tin này;
+    gửi hỏng, vì Telegram từ chối hay vì một lỗi khác, thì ghi một dòng log mức lỗi kèm ngoại lệ,
+    run vẫn là run hỏng vì lý do của script; đồng hồ không có ai để báo thì không nói và không
+    ghi log gì; gửi được hay không được ghi ở log mức thông tin, không kèm chữ nào của script;
+    không có kênh thì job kết thúc như cũ; master được báo bằng lời của bot, agent khác thì dưới
+    dòng `[Tên]`; tin được gửi nguyên văn, dòng trông như `FILE:` hay `MEDIA:` không đính kèm tệp
+    nào; agent mà bot không biết thì không được báo gì; chat từ chối tin thì run và đồng hồ giữ
+    nguyên, job không còn bị coi là đang chạy; job chạy từ `POST /api/jobs/{agent}/{id}/run` được
+    báo như job đồng hồ chạy, và không có thêm tin "lượt chưa xong" nào).
   - pytest: `tests/test_approval_ttl.py::test_the_web_editor_and_the_server_agree_on_what_a_schedule_row_holds`
     (danh sách khoá của một dòng lịch mà trình sửa trên web giữ trùng với danh sách của server,
     nay gồm cả `script` và `then_prompt`, dù trình sửa viết danh sách ấy trên mấy dòng),
@@ -5713,6 +5803,14 @@ khi chạy; phần đó có mục riêng ở dưới.
     lượt, lần hỏi quá trần không tới model và lượt dừng, lời gọi sau một lần hỏi thấy trần còn
     ít đi một; script của một lịch hỏi model của agent ở cả hai mức, tiền vào run của job, sổ
     cái ghi không kèm cuộc trò chuyện nào và không cuộc nào bị dựng ra).
+  - pytest: `tests/test_script_model_calls.py`, phần trần chi phí của cuộc trò chuyện (câu từ chối
+    dùng đúng lời mà lượt dừng vì tiền; lần hỏi đầu đưa cuộc trò chuyện chạm trần thì lần hỏi thứ
+    hai không được gửi, script dừng ở đó, lượt dừng vì `budget`, không gì được hỏi hay tính tiền
+    sau đó; còn tiền, hay cuộc trò chuyện không đặt trần, thì cả hai lần hỏi chạy; script bắt đầu
+    khi đã hết tiền vẫn chạy và đọc tool, chỉ lần hỏi model là không được gửi; lần hỏi bị từ chối
+    vì tiền không được đếm vào số lần hỏi, số lời gọi của script hay trần của lượt, và `try` của
+    script không bắt được; cuộc trò chuyện bị xoá trong lúc script chạy không phải là lý do từ
+    chối).
   - pytest: `tests/test_script_model_answers.py` (câu trả lời nêu đúng một nhãn thì thành nhãn
     đó: viết hoa khác, cách chữ khác, dấu gõ rời, bọc trong ngoặc kép, chữ đậm, dấu code hay kèm
     dấu chấm, hoặc là nhãn duy nhất đứng trong một câu; câu trả lời là trọn một nhãn thì là nhãn
@@ -5812,11 +5910,16 @@ khi chạy; phần đó có mục riêng ở dưới.
   - pytest: `tests/test_store.py` (tìm con theo id của lời gọi chạy script: chỉ những id là id đó
     kèm dấu hai chấm và một dãy chữ số, không phải id chỉ giống phần đầu, khác hoa thường, chứa
     ký tự đại diện của `LIKE` hay có chữ sau số; id rỗng không tìm ra gì, kể cả cuộc trò chuyện
-    ghi một con số mà không có id nào trước dấu hai chấm; một cuộc trò chuyện đã giao những gì
-    thì kể cả việc script của nó giao, khi được hỏi kèm tên tool script).
+    ghi một con số mà không có id nào trước dấu hai chấm; id kết thúc ngay ở dấu hai chấm, không
+    có số nào, là id trọn vẹn của một lời gọi khác: con ấy thuộc lời gọi mang đúng id đó, không
+    thuộc script, và con của một cuộc trò chuyện khác mang id như thế không bị đếm vào những gì
+    cuộc này đã giao; một cuộc trò chuyện đã giao những gì thì kể cả việc script của nó giao, khi
+    được hỏi kèm tên tool script).
   - pytest: `tests/test_tools_delegate.py` (việc script đã giao được đếm vào mức tám việc: bảy
     việc của script cộng một lời gọi trực tiếp là đủ, lời gọi thứ chín bị từ chối, và con của
-    cuộc trò chuyện khác không bị đếm; mẫu `CHILD_HEADER` của web, đọc từ
+    cuộc trò chuyện khác không bị đếm; mức ấy là của cuộc trò chuyện chứ không của lượt nào:
+    người nói tiếp rồi thì việc kế vẫn bị từ chối, câu từ chối nêu cuộc trò chuyện và không có
+    chữ "lượt", còn một cuộc trò chuyện mới thì giao được; mẫu `CHILD_HEADER` của web, đọc từ
     `web/src/lib/nested-calls.ts`, tìm ra id cuộc trò chuyện con trong phần được giữ của lời
     gọi), `tests/test_server_agents_activity_jobs.py` (run của con do script mở nằm trong hoạt
     động của cuộc trò chuyện cha, còn con của cuộc khác có id lời gọi chỉ giống phần đầu thì
