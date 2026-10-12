@@ -19,9 +19,9 @@ quanh nó.
 | Đội agent theo vai, router, đồ thị task DAG | Phần lớn giá trị đến từ một agent giỏi; code điều phối chiếm phần lớn codebase và danh sách bug | Một vòng lặp agent; profile chỉ thay đổi đầu vào của nó. Không có agent sống lâu nói chuyện với nhau: giao việc là một tool call, sâu một cấp, và cuộc trò chuyện con chạy một lượt rồi trả câu trả lời |
 | Profile + YAML công ty + cài đặt theo từng agent | Bề mặt cấu hình quá lớn để giữ được test; secret có thể lọt vào YAML | Biến môi trường + `config.yaml` theo whitelist; `agent.yaml` có bộ key cố định và không có secret |
 | Web UI thêm muộn, nhiều trang | UI chạy sau tính năng; test là một thế giới riêng | UI là bề mặt chính; ba tầng test dùng chung một hợp đồng event |
-| Tệp phình quá 1000 dòng | Khó review, khó cho công cụ LLM | Ngân sách 200 dòng được một test ép buộc |
+| Tệp phình quá 1000 dòng | Khó review, khó cho công cụ LLM | Ngân sách 200 dòng được một test ép buộc, cho cả mã Python lẫn mã nguồn của web |
 | Theo dõi chi phí lạc quan | Giá chưa biết bị âm thầm tính là 0 | `cost_usd=None` được tính vào `unknown_cost_calls` và hiển thị trên UI |
-| Chuỗi tiếng Việt rải rác | Định danh trôi dạt, khó bản địa hoá | Chỉ `texts.py` và `i18n/vi.ts` |
+| Chuỗi tiếng Việt rải rác | Định danh trôi dạt, khó bản địa hoá | Chỉ `texts*.py` và `web/src/i18n/` |
 
 ## Hình dạng runtime
 
@@ -700,7 +700,8 @@ viết xong sau khi người dùng đã rời đi sẽ đưa một cuộc cũ l�
 đọc cho thứ không ai viết thêm.
 
 Về thị giác, mọi giá trị đi qua một bộ token trong `web/src/styles/tokens.css`: thang chữ,
-khoảng cách, bo góc, bóng, bề mặt và các màu trạng thái, mỗi màu có bản sáng và tối. Chế độ
+khoảng cách, bo góc, bóng, bề mặt và các màu trạng thái, mỗi màu có bản sáng và tối (bản tối
+nằm ở `tokens-preferences.css`). Chế độ
 tối theo hệ điều hành, không có công tắc riêng. Font Inter đóng gói kèm bundle, gồm cả bộ
 ký tự tiếng Việt, không tải từ CDN. Icon là một bộ nét SVG vẽ tay trong
 `components/ui/icon.tsx` thay cho emoji, vì emoji mỗi nền tảng vẽ một kiểu và theme không

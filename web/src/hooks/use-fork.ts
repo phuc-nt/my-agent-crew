@@ -8,7 +8,7 @@ type UserItem = ThreadItem & { kind: "user" };
 
 /** A number id from the server as a plain digit string; a bubble the send call has not
  *  had a chance to reload since still carries its optimistic `local-N` placeholder — see
- *  `use-thread.ts`, which does not reload after a turn it started itself. */
+ *  `use-thread-turn.ts`, which does not reload after a turn it started itself. */
 function isServerId(id: string): boolean {
   return /^\d+$/.test(id);
 }

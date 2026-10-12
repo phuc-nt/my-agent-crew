@@ -11,7 +11,7 @@ title: Quy ước code
 
 - Python 3.12+, `uv` quản lý môi trường. `uv sync` rồi `uv run …`.
 - `ruff` với `line-length = 100`, rule `E, F, I, UP, B`. Trong lúc làm: `uv run ruff check --fix . && uv run ruff format .`. Trước khi commit thì chạy đủ bộ cổng ở [§4](#4-cổng-phải-chạy-trước-khi-commit).
-- **Ngôn ngữ: tiếng Anh ở mọi nơi, trừ `docs/`.** Định danh (module, hàm, biến, key YAML, cột DB, tên event, id agent), comment, docstring, thông báo script, README, CHANGELOG, commit message đều tiếng Anh. Tiếng Việt chỉ ở hai chỗ: chuỗi hiển thị cho người dùng (`texts.py` / `texts_*.py`, `web/src/i18n/vi.ts`, prompt và persona của agent) và bộ tài liệu `docs/` — viết cho đội maintain người Việt. Không viết chuỗi hiển thị trực tiếp trong code logic.
+- **Ngôn ngữ: tiếng Anh ở mọi nơi, trừ `docs/`.** Định danh (module, hàm, biến, key YAML, cột DB, tên event, id agent), comment, docstring, thông báo script, README, CHANGELOG, commit message đều tiếng Anh. Tiếng Việt chỉ ở hai chỗ: chuỗi hiển thị cho người dùng (`texts.py` / `texts_*.py`, `web/src/i18n/vi.ts` cùng các tệp theo vùng ở `web/src/i18n/vi/`, prompt và persona của agent) và bộ tài liệu `docs/` — viết cho đội maintain người Việt. Không viết chuỗi hiển thị trực tiếp trong code logic.
 - Mỗi tệp một mối quan tâm; tệp trên ~200 dòng thì cân nhắc tách theo ranh giới có sẵn (`routes_*.py`, `telegram_*.py`, `texts_*.py` là ví dụ).
 - Docstring đầu module nói *vì sao* module tồn tại, không lặp lại tên hàm.
 - Không đưa id plan, số phase, nhãn audit vào comment, tên test, hay commit message.
@@ -20,7 +20,8 @@ title: Quy ước code
 
 - TypeScript strict, React 19, không thư viện state ngoài reducer trong `state/`.
 - `npm run typecheck && npm test` trong lúc làm; `npm run bundle` khi đổi web để cập nhật `my_agent_crew/server/static` (CI kiểm diff). Trước khi commit: đủ bộ cổng ở [§4](#4-cổng-phải-chạy-trước-khi-commit).
-- Chuỗi hiển thị trong `i18n/vi.ts`. Tên component kebab-case, một component một tệp.
+- Chuỗi hiển thị trong `i18n/vi/`, mỗi vùng một tệp, gom lại thành `vi` ở `i18n/vi.ts`. Tên component kebab-case, một component một tệp.
+- Tệp nguồn dưới `web/src` (`.ts`, `.tsx`, `.css`) tối đa 200 dòng, cùng test ngân sách với mã Python; tệp test và `web/src/test/` không tính.
 
 ## 3. Test
 

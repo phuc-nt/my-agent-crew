@@ -58,7 +58,7 @@ test("forking at the second saved message keeps the first turn, prefills the com
 });
 
 // The bubble a send just produced keeps its optimistic `local-N` id until the next reload
-// (`use-thread.ts` does not reload after its own turn), so forking right after sending has
+// (`use-thread-turn.ts` does not reload after its own turn), so forking right after sending has
 // to resolve that id through a fresh read of the conversation rather than trusting it as-is.
 test("forking right after sending, before any reload, still resolves to the real message", async ({ page }) => {
   await mockApi(page, {

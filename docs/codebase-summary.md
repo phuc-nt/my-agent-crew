@@ -94,8 +94,8 @@ riêng: `#/manage/activity/<run_id>` mở đúng lượt đó, tải lại vẫn
 | `src/state/` | reducer cho luồng chat và hoạt động; các canvas model còn đang viết trong lượt (`writing-previews.ts`) |
 | `src/components/` | mọi thành phần giao diện, mỗi mảng quản lý một nhóm; `canvas/` giữ panel, dock, thư viện, trang riêng, dòng canvas trên thẻ giao việc, thẻ cùng khung chỉ đọc của canvas agent còn đang viết (`canvas-writing-card.tsx`, `canvas-writing-view.tsx`), và công tắc tắt việc xem trước ấy ở mục Cài đặt (`live-preview-setting.tsx`); `script-calls.tsx` vẽ danh sách lời gọi của một script và dòng hai số đo, dùng chung cho thẻ run và thẻ tool trong khung chat |
 | `src/lib/` | hàm thuần dùng chung: diff dòng, tiến độ run và câu tóm tắt vì sao run dừng, kết quả giao việc, lọc lịch sử run, các run đã bấm "Đã xem", thời gian tương đối theo lịch của người xem, cron đọc thành chữ, định dạng token và cache, xuất cuộc trò chuyện ra Markdown, lọc lệnh `/`, link `[[…]]` của wiki, đọc đối số JSON chưa đóng của một lời viết canvas, luật chung cho lời gọi của script dù chúng tới qua step của run, sự kiện của lượt hay kết quả đã lưu (`nested-calls.ts`), và lớp bọc `localStorage` mà mọi thứ trình duyệt nhớ đều đi qua |
-| `src/i18n/` | mọi chuỗi tiếng Việt của web |
-| `src/styles/` | CSS theo mảng; `tokens.css` giữ thang chữ, khoảng cách, màu sáng/tối |
+| `src/i18n/` | mọi chuỗi tiếng Việt của web: `vi.ts` gom các tệp theo vùng ở `vi/` thành một đối tượng `vi` |
+| `src/styles/` | CSS theo mảng, mỗi tệp tối đa 200 dòng, `styles.css` liệt kê chúng theo thứ tự áp dụng; `tokens.css` giữ thang chữ, khoảng cách và màu sáng, `tokens-preferences.css` giữ màu tối và phần giảm chuyển động |
 | `public/` | favicon, icon cài app và manifest, chép nguyên vào gốc bundle |
 | `scripts/` | `render-icons.mjs`: vẽ các PNG icon từ `public/favicon.svg` |
 | `e2e/` | spec Playwright + mock `/api`; `live-stream.ts` giữ một lượt còn mở để spec đẩy từng event vào |
