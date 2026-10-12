@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { AgentInfo, InstallResult, JobInfo, StatsInfo } from "../api/types";
 
@@ -35,12 +35,14 @@ export function useCrew(): CrewController {
     }
   }, []);
 
+  // The list is read when a run ends and again when the stream says it changed after that,
+  // so two reads are often out at once. Only the one asked for last is shown: an answer
+  // read earlier that lands later would put older news over newer.
+  const jobsRead = useRef(0);
   const refreshJobs = useCallback(async () => {
-    try {
-      setJobs(await api.listJobs());
-    } catch {
-      setJobs(null);
-    }
+    const read = ++jobsRead.current;
+    const answer = await api.listJobs().catch(() => null);
+    if (read === jobsRead.current) setJobs(answer);
   }, []);
 
   const refreshStats = useCallback(async () => {

@@ -22,17 +22,21 @@ const RECENT_LIMIT = 50;
  *
  *  `onConversation` receives the conversations the same stream carries — a thread the
  *  server renamed after reading the first message — so the sidebar can update itself
- *  without the list being fetched again. */
+ *  without the list being fetched again.
+ *
+ *  `onJobs` is called when the stream says the job list changed after a run was over: a
+ *  failed run is counted into its job's streak, and the owner told of it, only then. */
 export function useActivity(
   enabled = true,
   onConversation?: (conversation: Conversation) => void,
+  onJobs?: () => void,
 ): ActivityController {
   const [state, dispatch] = useReducer(activityReducer, emptyActivity);
   const [attempt, setAttempt] = useState(0);
   const [connecting, setConnecting] = useState(true);
   // Held in a ref so a new callback identity does not tear down the subscription.
-  const notify = useRef(onConversation);
-  notify.current = onConversation;
+  const notify = useRef({ onConversation, onJobs });
+  notify.current = { onConversation, onJobs };
   const everSynced = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -54,7 +58,11 @@ export function useActivity(
     return subscribeActivity(
       (payload) => {
         if (payload.type === "conversation") {
-          notify.current?.(payload.conversation);
+          notify.current.onConversation?.(payload.conversation);
+          return;
+        }
+        if (payload.type === "jobs") {
+          notify.current.onJobs?.();
           return;
         }
         if (payload.type === "artifact") {
