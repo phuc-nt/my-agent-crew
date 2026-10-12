@@ -485,6 +485,23 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trong home thì 200 như trước và nằm lại trong tệp như đã gõ). Kiểm chứng đột biến: năm sửa đổi ở
     phép xét cách viết (không xét gì, không nhận chuỗi tệp đang ghi, xét cả đường dẫn trong home,
     không nhận đường dẫn thật, để chuỗi của loại này bảo lãnh cho loại kia) đều bị test bắt.
+- **Hồ sơ agent sai hình dạng bị từ chối bằng 422 nêu tên khoá, không bao giờ là 500**
+  - pytest: `tests/test_profile_wrong_shapes.py` (đi hết mọi khoá của hồ sơ, mọi trường của một
+    dòng lịch thuộc cả ba loại và mọi trường của `telegram`, lấy từ chính bảng khoá của mã, nhân
+    với mười tám hình dạng sai: số, công tắc, `null`, chuỗi, chuỗi rỗng, danh sách, mapping, danh
+    sách chứa số, `null`, mapping, danh sách hay chuỗi rỗng; thêm bảy chuỗi đường dẫn lạ cho từng
+    khoá đường dẫn, viết trơ trọi và viết trong danh sách: `~` của người không có, `~` trơ trọi,
+    toàn dấu cách, có ký tự NUL, 5000 ký tự gồm nhiều thư mục, một tên 5000 ký tự và một tên 300
+    ký tự; 1176 hồ sơ ở bộ đọc, 2442 lời gọi ở `PATCH
+    /api/agents/{id}` và `POST /api/agents`, kể cả thân yêu cầu và `agent_id` sai hình dạng: mỗi
+    lời gọi là 200/201 hoặc 422, không bao giờ 5xx; sau 422 từng byte của mọi `agent.yaml` và đội
+    đang chạy không đổi; sau lần lưu được thì cả đội vẫn liệt kê được và mọi job giữ một việc là
+    chuỗi; các ca từng làm 500 nay bị từ chối bằng tên khoá, ở lần sửa, lần tạo và lần sửa
+    master; tệp viết tay mang hình dạng ấy thì `POST /api/agents/reload` trả 422; lần sửa đưa
+    vào một lịch mà `prompt` hay `command` không phải chuỗi là 422, còn dòng tệp đã giữ sẵn như
+    vậy không chặn lần lưu khoá khác). Kiểm chứng đột biến: ba mươi mốt sửa đổi ở phép xét danh
+    sách, ở chỗ bộ đọc gọi nó, ở phép lần theo đường dẫn và ở phép xét việc của một lịch đều bị
+    test bắt.
 - **Danh sách công cụ của agent mở từ những gì tệp viết, không từ những gì agent đang giữ**
   - pytest: `tests/test_api_agents_declared.py::test_the_tools_an_agent_holds_are_not_what_its_file_lists`,
     `tests/test_api_agents_declared.py::test_a_save_answers_with_the_tools_the_file_now_lists`,
@@ -5755,7 +5772,9 @@ khi chạy; phần đó có mục riêng ở dưới.
     dấu `+`, chữ có dấu, hay dài hết mức, được gọi đúng như script đã viết, khi đọc cũng như khi
     xoá; giá trị không có ở đó là 404, kể cả tên chỗ hay khoá chỉ giống phần đầu, chứa ký tự đại
     diện của `LIKE`, khoá rỗng, hay giá trị agent khác giữ ở chỗ cùng tên; agent không có thì 404
-    dù bảng có dòng mang id ấy; thiếu `namespace` hay `key` khi đọc là 422; xoá một khoá thì chỉ
+    dù bảng có dòng mang id ấy; thiếu `namespace` hay `key` khi đọc là 422; `namespace` hay `key`
+    nêu hai lần, khi đọc cũng như khi xoá, là 422 nêu tên tham số ấy, không gì được đọc và không
+    gì bị xoá, dù hai lần nêu cùng một giá trị hay lần xoá không nêu khoá; xoá một khoá thì chỉ
     khoá ấy mất, ở danh sách, ở lần đọc và với script đọc kế tiếp; không nêu khoá thì xoá cả chỗ,
     và chỗ chỉ giống phần đầu tên là chỗ khác; xoá cái không có trả `deleted: 0` và không phải
     lỗi, khoá rỗng không bao giờ là cả chỗ; agent chỉ xoá được cái script của chính nó giữ; agent
@@ -5796,6 +5815,19 @@ khi chạy; phần đó có mục riêng ở dưới.
     và hai agent nay xoá ở một bên rồi đếm lại bên kia), và job script chỉ báo các lời gọi của
     nó khi script đã xong, hoặc báo lời gọi nào cũng là lời gọi đầu
     (`tests/test_script_job.py::test_the_calls_of_a_jobs_script_are_listed_and_charged_as_each_ends`).
+- **Tóm tắt của run do lịch chạy: chỗ cắt có dấu, script hỏng tóm bằng thứ đã làm nó dừng**:
+  - pytest: `tests/test_job_run_summary.py` (chữ không quá 160 ký tự thì tóm tắt là cả chữ ấy,
+    không dấu gì; dài hơn thì là 160 ký tự cuối đứng sau dấu `…`, 161 ký tự; job `command` nói
+    nhiều, xong hay hỏng, được tóm như vậy; script chạy xong mà in nhiều cũng vậy; script hỏng
+    được tóm bằng dòng đã làm nó dừng, cắt từ đầu như mọi phần xem trước, gộp về một dòng, và
+    không mang chữ nào nó đã in; script bị cổng dừng được tóm từ đầu lời từ chối; chỉ khi không
+    ai nói script dừng vì đâu thì tóm tắt mới là phần cuối của cái nó nói; lần viết lại bộ nhớ
+    và lần dựng wiki hỏng được tóm bằng phần đầu câu lỗi, một dòng, có dấu `…` khi bị cắt).
+    Kiểm chứng đột biến: mười một sửa đổi (cắt mà không đánh dấu, coi chữ dài đúng 160 ký tự là
+    bị cắt, lấy phần đầu thay phần cuối, không bỏ khoảng trắng ở đầu, script hỏng tóm bằng cái
+    đã in, không còn gì để tóm khi không ai nói script dừng vì đâu, tóm cái đã in từ đầu, dòng
+    làm script dừng không được gộp và cắt, script chạy xong tóm từ đầu, lỗi của lần viết lại bộ
+    nhớ và của lần dựng wiki cắt thẳng 160 ký tự) đều bị test bắt.
 - **Lịch chạy script (`script`, `then_prompt`)**:
   - pytest: `tests/test_schedule_script_rows.py` (dòng có `script` là job script, không mang
     `prompt` hay `command`, và ô trống mà form gửi kèm không được giữ; `then_prompt` vắng hay
@@ -5866,8 +5898,8 @@ khi chạy; phần đó có mục riêng ở dưới.
     thì không đóng được gì, nó vẫn nằm trong hàng rào; `then_prompt` viết thành khối trong tệp
     vẫn cách câu ấy đúng một dòng trống; lượt nhận skill của lịch và skill mà prompt nêu; lượt
     chỉ trả lời OK thì không gửi; cái in ra dài hơn mức của một kết quả tool thì bị cắt trước
-    khi model đọc; script hỏng là run `error`, tóm tắt là phần cuối của lỗi, không mở lượt; lỗi
-    dài cũng tóm bằng phần cuối; script không chạy nổi thì job hỏng, run chỉ nêu loại lỗi, và
+    khi model đọc; script hỏng là run `error`, tóm tắt là đúng dòng đã làm nó dừng, không mở lượt;
+    tóm tắt ấy không kèm chữ nào script đã in; script không chạy nổi thì job hỏng, run chỉ nêu loại lỗi, và
     job sau vẫn chạy; job bị dừng giữa lúc script chạy không để lại run đang chạy và lần sau
     lại chạy được; script của job giữ dưới lịch từ sáng này sang sáng sau; script hỏng không
     giữ gì; cái script giữ có sẵn cho lượt nó mở, và cái lượt ấy giữ có sẵn cho lần chạy sau;
@@ -5880,7 +5912,8 @@ khi chạy; phần đó có mục riêng ở dưới.
   - pytest: `tests/test_script_job_gate.py` (lệnh mà không ai phải được hỏi thì chạy trong job,
     có trong danh sách cho phép hay không; lệnh khớp danh sách hỏi, kể cả khi cũng khớp danh
     sách cho phép, hay lệnh bị cấm thì script của job dừng ngay ở đó, không chạy, script không
-    bắt được, không gì chờ ai và lời từ chối không lặp lại lệnh; lý do hỏi của riêng một tool
+    bắt được, không gì chờ ai và lời từ chối không lặp lại lệnh; tóm tắt của run là phần đầu của
+    lời từ chối ấy, mở bằng `Dừng ở dòng 3: `; lý do hỏi của riêng một tool
     cũng làm script dừng và không được lặp lại; tool phải hỏi trước mà không có lý do riêng thì
     chạy, như trong lượt do job mở; job của agent mà script chỉ được đọc bị từ chối đúng cái
     lượt của nó bị từ chối; job script không đọc được gì của lượt mà job trước nó để lại: không
@@ -5890,12 +5923,14 @@ khi chạy; phần đó có mục riêng ở dưới.
   - pytest: `tests/test_script_job_failure_notice.py` (job script hỏng thì agent của lịch ấy được
     báo đúng một tin: tên lịch trong ngoặc kép, lý do là đúng dòng lỗi đã làm script dừng, và chỗ
     xem run; chữ script in trước khi hỏng, kể cả thứ một tool vừa đưa cho nó, không có trong tin,
-    trong khi step và tóm tắt của run vẫn giữ đủ như trước; tool hỏng được kể bằng lời của chính nó,
+    trong khi step của run vẫn giữ đủ như trước và tóm tắt của run là đúng dòng lỗi ấy; tool hỏng
+    được kể bằng lời của chính nó,
     tham số mà nó nhắc lại vì thế có trong tin; câu của lỗi do script tự `raise` có trong tin;
     script chạy xong mà không giữ được gì bằng `store` thì lý do là đúng dòng nói vậy; script không
     chạy nổi thì lý do là loại lỗi, như run ghi; câu từ chối của cổng duyệt tới nơi nguyên vẹn, dài
     hơn 160 ký tự và kết bằng phần dặn gọi trực tiếp, không kèm chữ đã in; lỗi dài thì tin mang 200
-    ký tự đầu và 400 ký tự cuối của dòng lỗi, 601 ký tự, trong khi tóm tắt của run vẫn 160 và step
+    ký tự đầu và 400 ký tự cuối của dòng lỗi, 601 ký tự, trong khi tóm tắt của run là 160 ký tự đầu
+    của dòng ấy kèm dấu `…` và step
     cắt theo cách của nó; tin không mang chữ nào của script, tên tool hay tham số của một lời gọi
     chạy tốt, dù cả hai có trên run; tên lịch nhiều dòng hay rất dài được kể thành một dòng, cắt
     bằng `…`, và tin vẫn đúng ba dòng; không ai nói script dừng vì đâu thì lý do là trạng thái của

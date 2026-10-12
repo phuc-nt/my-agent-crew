@@ -928,8 +928,10 @@ job prompt gọi một script shell trong workspace.)
   `then_prompt`.
 - **Run.** Mỗi lần chạy là một run nguồn `job:<agent id>/<schedule id>`, không gắn cuộc trò
   chuyện nào, có đúng một bước `tool_script` với các lời gọi của script liệt kê bên dưới như ở
-  một lượt. Script chạy xong thì run `done`, tóm tắt là phần cuối của cái nó in; hỏng, bị cổng
-  hay một giới hạn dừng thì run `error`, tóm tắt là phần cuối của câu lỗi; server tắt giữa lúc
+  một lượt. Script chạy xong thì run `done`, tóm tắt là 160 ký tự cuối của cái nó in, đứng sau
+  dấu `…` khi phía trước còn chữ bị cắt; hỏng, bị cổng hay một giới hạn dừng thì run `error`, tóm
+  tắt là dòng đã làm script dừng, gộp về một dòng, 160 ký tự đầu của nó và dấu `…` khi còn nữa,
+  không kèm chữ nào script đã in trước đó; server tắt giữa lúc
   script chạy thì run đóng lại là `error` với tóm tắt `interrupted`, như run của một lượt bị
   cắt. Lời gọi có trả tiền cho model (`image_read`, `pdf_read` trên trang scan, một lần script
   hỏi model bằng `llm.`) được tính vào run; sổ cái sử dụng ghi lần hỏi model đó dưới mục đích
