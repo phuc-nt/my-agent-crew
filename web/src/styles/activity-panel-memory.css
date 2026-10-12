@@ -1,0 +1,114 @@
+/*
+ * The memory panels: the editor for a memory file, the form that adds a fact, the lists of
+ * facts, notes, search hits and proposals, and the diff a proposal shows.
+ */
+
+/* ── Memory ─────────────────────────────────────────────────────────────── */
+.memory-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.memory-editor label,
+.memory-fact-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* The file is prose the agents read, so it is set like prose rather than like a form. */
+.memory-editor textarea {
+  padding: var(--space-3) var(--space-4);
+  /* Keeps the 16px floor every field has, below which a phone zooms into the page. */
+  font-size: max(16px, var(--text-md));
+  line-height: 1.6;
+  color: var(--text);
+  font-weight: 400;
+}
+
+[data-testid="memory-user"] > p.muted {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+}
+
+.memory-editor textarea,
+.memory-fact-form textarea,
+.memory-fact-form input,
+.memory-fact-form select {
+  width: 100%;
+}
+
+.memory-editor-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.memory-fact-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
+}
+
+.fact-list,
+.note-list,
+.hit-list,
+.proposal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fact-list li,
+.hit-list li,
+.proposal-list li {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
+}
+
+.fact-head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.fact-body {
+  margin: var(--space-1) 0 0;
+  white-space: pre-wrap;
+}
+
+.note-list li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.diff {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  font-size: var(--text-sm);
+}
+
+.diff .added {
+  color: var(--ok-text);
+  font-weight: 600;
+}

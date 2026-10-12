@@ -1,0 +1,86 @@
+/*
+ * Around a run card: one run opened on its own, with the files it can be saved as, and a
+ * run grouped with the work it handed out.
+ */
+
+/* One run opened on its own. The back link sits above the card, in the place the
+   list it replaced would have started. */
+.run-replay {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.run-replay .run-card {
+  align-self: stretch;
+}
+
+/* The run as files to save. Boxed like an attachment rather than left as blue words: each
+   is a thing handed over, and the note under them is read before anything is pasted out. */
+.run-export {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 100%;
+}
+
+.run-export-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.run-export a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.run-export a .icon {
+  color: var(--accent);
+}
+
+.run-export a:hover {
+  border-color: var(--accent);
+  background: var(--accent-softer);
+}
+
+.run-export-note {
+  margin: 0;
+  max-width: 64ch;
+  font-size: var(--text-sm);
+}
+
+/* A run and the work it handed out. The children indent under a rule, so the
+   parent stays scannable even when it opened several jobs. */
+.run-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.run-group + .run-group {
+  margin-top: var(--space-2);
+}
+
+.run-children {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-left: var(--space-5);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border);
+}

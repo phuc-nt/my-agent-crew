@@ -1,0 +1,101 @@
+/*
+ * One canvas open in the dock: the panel, its header with the title and what is known of
+ * the save, and the toolbar with its held-off, copy and download buttons.
+ */
+
+/* ── One canvas ─────────────────────────────────────────────────────────── */
+.canvas-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.canvas-header {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.canvas-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.canvas-title-row > .title-heading {
+  flex: 1 1 auto;
+}
+
+.canvas-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.canvas-save-state {
+  margin-left: auto;
+}
+
+.canvas-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.canvas-toolbar > .segmented {
+  align-self: center;
+}
+
+/* Held off while words are unsaved, yet still focusable, so the reason on it can be read. It looks
+   as a disabled button does, and gives nothing under the pointer. */
+.canvas-toolbar button.ghost[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.canvas-toolbar button.ghost[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.canvas-toolbar button.ghost[aria-disabled="true"]:active {
+  transform: none;
+}
+
+/* Copy and download sit among the ghost buttons, so they take the ghost buttons' size. */
+.canvas-toolbar button.copy-button {
+  min-height: 36px;
+  padding: 0.45rem 0.85rem;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: inherit;
+}
+
+.canvas-download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.canvas-download:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}

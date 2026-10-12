@@ -1,0 +1,24 @@
+/*
+ * Memory review on a phone: the buttons of a proposal, of the wiki's header and page, and
+ * the compile card's summary all take the touch target.
+ */
+
+@media (max-width: 720px) {
+  .proposal-card .memory-editor-actions button,
+  .proposal-history-toggle,
+  .proposal-list.history button,
+  .wiki-header-actions button,
+  .wiki-page-actions button,
+  .wiki-page-meta button,
+  .wiki-open-questions .link-button,
+  .wiki-related button.chip {
+    min-height: var(--touch-target);
+  }
+
+  /* Height from padding rather than flex: a summary that stops being a list item loses
+     the disclosure triangle, the only sign that it opens. */
+  .compile-page summary {
+    min-height: var(--touch-target);
+    padding-block: calc((var(--touch-target) - 1lh) / 2);
+  }
+}

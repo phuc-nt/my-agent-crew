@@ -1,0 +1,25 @@
+/*
+ * These actions on a phone: copy, export and the slash button take the touch target, and a
+ * one-line code block grows to hold its copy button.
+ */
+
+/* ── Phone ──────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  button.copy-button,
+  .copy-fallback button.link-button {
+    min-height: var(--touch-target);
+    min-width: var(--touch-target);
+  }
+  .export-row button {
+    min-height: var(--touch-target);
+  }
+  /* A one-line block is shorter than the thumb-sized button; it grows to hold it. */
+  .md-code pre.md-pre {
+    min-height: calc(var(--touch-target) + 2 * var(--space-1));
+  }
+  button.composer-action.slash {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    min-height: var(--touch-target);
+  }
+}

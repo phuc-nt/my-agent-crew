@@ -1,0 +1,93 @@
+/*
+ * The canvas outside its dock: the button that opens it, lit while the dock is open, and in
+ * the thread the note a message carried from a canvas and the card for a canvas write.
+ *
+ * One rule here is the dock's own and only has to come after canvas.css: a pane behind the
+ * other tab stays hidden, whatever the column's rules there give it to display.
+ */
+
+/* ── The way in ─────────────────────────────────────────────────────────── */
+button.canvas-button[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--accent-softer);
+  color: var(--text);
+}
+
+/* A pane behind the other tab keeps its place in the tree; the rules above must not show it. */
+.canvas-dock.column > .dock-activity[hidden],
+.canvas-dock > .dock-canvas[hidden] {
+  display: none;
+}
+
+/* ── The note under a message ───────────────────────────────────────────── */
+/* Closed, a chip tucked under the bubble it belongs to: the thread's own gap would set it
+   adrift as a message of its own. Open, the note's text and its copy button follow. */
+.canvas-note {
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: min(85%, 620px);
+  margin-top: calc(-1 * var(--space-3));
+}
+
+button.canvas-note-toggle {
+  min-height: 28px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.canvas-note-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.canvas-note-text {
+  margin: 0;
+  max-width: 100%;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  /* A line of a quoted document can be longer than the screen: it wraps rather than scrolls. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── The card for a canvas write in the thread ──────────────────────────── */
+/* The tool card's frame with the canvas where the tool's name was, and the way in at its end:
+   the thread says what was made or changed, and the panel is one press away. */
+.canvas-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.canvas-card-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* A title is one line of any length: it wraps rather than pushing the button off the card. */
+.canvas-card-title {
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+button.canvas-card-open {
+  flex: none;
+}

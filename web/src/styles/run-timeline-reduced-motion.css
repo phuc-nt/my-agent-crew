@@ -1,0 +1,25 @@
+/*
+ * The timeline with motion reduced. Two things on it move: the running node's halo
+ * (run-timeline.css) and the live label's sweep (run-timeline-progress.css). This file
+ * comes after both and gives each a still stand-in.
+ */
+
+/* Reduced motion: the state must survive without any of the above moving.
+   The running node keeps a static ring, and the live label keeps its accent
+   colour instead of the sweep. */
+@media (prefers-reduced-motion: reduce) {
+  .step.running::before {
+    animation: none;
+    box-shadow:
+      0 0 0 3px var(--surface),
+      0 0 0 3px color-mix(in srgb, currentcolor 45%, transparent);
+  }
+
+  .run-progress.live .run-progress-label {
+    animation: none;
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: var(--accent);
+  }
+}

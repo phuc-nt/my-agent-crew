@@ -1,6 +1,6 @@
 /* What a script job's script printed, under the message that handed it to the agent. It
    hangs on the bubble's side of the thread and close under it, as the note a message
-   carried from a canvas does (canvas.css), and for the same reason: the bubble is the
+   carried from a canvas does (canvas-in-chat.css), and for the same reason: the bubble is the
    person's own words, and this is not. */
 .script-printed {
   align-self: flex-end;

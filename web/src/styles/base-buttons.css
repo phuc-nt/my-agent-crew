@@ -1,0 +1,159 @@
+/*
+ * The shared button in every variant — primary, danger, ghost, link, icon, chip — and the
+ * block a section shows while it has nothing in it yet.
+ */
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+button {
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.45rem 0.85rem;
+  line-height: 1.2;
+  box-shadow: var(--shadow-1);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+button:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  border-color: var(--border-strong);
+}
+/* A press you can feel: the control gives a little under the finger. */
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+button.primary {
+  background: var(--accent-fill);
+  color: var(--accent-text);
+  border-color: transparent;
+  box-shadow:
+    var(--shadow-1),
+    inset 0 1px 0 var(--sheen);
+}
+button.primary:hover:not(:disabled) {
+  background: var(--accent-fill-strong);
+  border-color: transparent;
+}
+
+button.danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: var(--surface);
+}
+button.danger:hover:not(:disabled) {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+button.ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: transparent;
+  color: var(--text);
+}
+
+button.link-button {
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--accent);
+  min-height: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+button.link-button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
+button.icon-button {
+  border: none;
+  background: none;
+  box-shadow: none;
+  font-size: var(--text-lg);
+  min-height: 32px;
+  min-width: 32px;
+  padding: var(--space-1);
+  color: var(--muted);
+  line-height: 1;
+  border-radius: var(--radius-sm);
+}
+button.icon-button:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+button.chip {
+  border-radius: var(--radius-full);
+  padding: 0.35rem 0.9rem;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* A section with nothing in it yet. The sentence and the way out stack and sit
+   left, so the eye reaches the action right after reading why it is there. */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+}
+
+.empty p {
+  margin: 0;
+  max-width: 44ch;
+}
+
+/* With an icon the block is a single row, icon beside the sentence, since most of these
+   are ordinary states (nothing running right now) and should not weigh like a warning. */
+.empty:has(> .empty-icon) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  padding: var(--space-4) var(--space-5);
+}
+
+.empty:has(> .empty-icon) > :not(.empty-icon) {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.empty-icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
+  font-size: 1.05rem;
+}

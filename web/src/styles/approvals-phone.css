@@ -1,0 +1,25 @@
+/*
+ * Approvals on a phone: every control of a request takes the touch target, and a waiting
+ * row's actions drop under its heading.
+ */
+
+@media (max-width: 720px) {
+  .args-detail .args-detail-toggle,
+  .approval-more,
+  .attention-actions button,
+  .attention-elsewhere,
+  .attention-inline button,
+  .attention-inline input {
+    min-height: var(--touch-target);
+  }
+
+  /* Beside a two-line heading the buttons leave the text a sliver; under it they
+     sit where a thumb reaches. */
+  .attention-list li {
+    flex-wrap: wrap;
+  }
+
+  .attention-actions {
+    flex-basis: 100%;
+  }
+}

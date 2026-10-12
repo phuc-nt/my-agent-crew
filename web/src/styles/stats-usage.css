@@ -1,7 +1,7 @@
 /*
  * The costs page's usage figures: the window each card is counted over, the detail under
  * the today and week tiles, and the cache columns. The cards and tables themselves are
- * manage-cards' own rules; these only add to them.
+ * manage-cards-costs' own rules; these only add to them.
  */
 
 /* The window beside a card title is a qualifier, not a second title: it drops the title's

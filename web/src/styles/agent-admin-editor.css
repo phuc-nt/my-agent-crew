@@ -1,0 +1,185 @@
+/*
+ * The agent editor: the form's measure, the sticky bar that keeps Save in reach, the
+ * sections, the persona and assembled-prompt views, and the route and schedule editors with
+ * the escalation route under them.
+ */
+
+/* ── The editor ─────────────────────────────────────────────────────────── */
+/* A measure, not the full width: a name field 1000px wide reads as a banner rather
+   than as something to type a name into. */
+.agent-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 56rem;
+}
+
+/* Sticky so the unsaved-changes count and the Save button stay reachable while the
+   person is still scrolling through nine sections of form. A sticky box stops at its
+   scroller's padding, so the bar rises over the page's top padding to meet its edge:
+   stopped short, it left a strip where the form scrolled past above it. */
+.editor-bar {
+  position: sticky;
+  top: calc(var(--manage-pad-top, 0px) * -1);
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-bar > .ghost:first-child {
+  margin-left: calc(var(--space-2) * -1);
+}
+
+.editor-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.editor-title strong {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-title code {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  background: none;
+  padding: 0;
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.editor-dirty {
+  font-size: var(--text-sm);
+  margin-right: var(--space-1);
+}
+
+.editor-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
+}
+
+.editor-section > h3:first-child {
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+}
+
+/* A section's own explanation sits under its heading at hint size, not body size,
+   so it reads as a caption and the fields stay the first thing the eye lands on. */
+.editor-section > h3 + p.muted {
+  margin: calc(var(--space-2) * -1) 0 var(--space-4);
+  font-size: var(--text-sm);
+  max-width: 64ch;
+}
+
+.editor-section.danger {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+
+.restart-banner {
+  border-radius: var(--radius-sm);
+}
+
+.persona-tabs button.active {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.persona-body {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+  margin-bottom: var(--space-3);
+}
+
+/* The assembled prompt: long, wrapped, and capped so it scrolls inside the section
+   rather than pushing every other control off the screen. */
+.prompt-preview {
+  max-height: 28rem;
+  overflow: auto;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+
+/* What a turn reads beside its first message, set apart from the prompt above it. */
+.prompt-opening {
+  margin-top: var(--space-4);
+}
+
+.prompt-opening h4 {
+  margin: 0 0 var(--space-1);
+}
+
+.prompt-opening p {
+  margin: 0 0 var(--space-1);
+}
+
+.route-editor,
+.schedule-editor {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The model id takes what the row has left, so a narrow card shrinks the field instead
+   of pushing the remove button past its edge. */
+.route-editor .row input[type="text"] {
+  flex: 1 1 6rem;
+  min-width: 0;
+}
+
+/* The route a stuck turn moves to sits under the list it is the way out of, set apart
+   from it: it is not one more route tried in order. */
+.escalation-route {
+  margin-top: var(--space-4);
+}
+
+.escalation-route h4 {
+  margin: 0 0 var(--space-1);
+}
+
+.escalation-route p {
+  margin: 0 0 var(--space-2);
+}
+
+.escalation-route .route-editor {
+  margin-bottom: var(--space-2);
+}

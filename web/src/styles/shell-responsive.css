@@ -1,0 +1,102 @@
+/*
+ * The shell's breakpoints, in the order the frame gives its columns up: at 1100px and under
+ * the activity rail floats over the thread, and at 720px and under the sidebar becomes a
+ * drawer and the header folds for a phone.
+ */
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+/* The rail floats over the thread before anything else gives way: it is a
+   side-channel, and losing the thread underneath it costs more than overlap. */
+@media (max-width: 1100px) {
+  .layout.with-activity {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  }
+
+  .activity-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(400px, 100vw);
+    z-index: 9;
+    box-shadow: var(--shadow-3);
+  }
+}
+
+/* On a phone the chat takes the whole screen and the list slides over it from the left,
+   the way every messaging app on the device already works. */
+@media (max-width: 720px) {
+  .layout,
+  .layout.with-activity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar.drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 30;
+    width: min(86vw, 320px);
+    padding-top: max(var(--space-3), env(safe-area-inset-top));
+    padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+    border-right: none;
+    box-shadow: var(--shadow-3);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform var(--duration-slow) var(--ease-out),
+      visibility 0s linear var(--duration-slow);
+  }
+
+  .sidebar.drawer.open {
+    transform: none;
+    visibility: visible;
+    transition: transform var(--duration-slow) var(--ease-out);
+  }
+
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    background: var(--scrim);
+    animation: fade-in var(--duration-base) var(--ease-out);
+  }
+
+  .conversation-header {
+    padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) var(--space-2);
+  }
+
+  /* The title takes the first line to itself; the pills wrap onto the next. */
+  .header-title {
+    flex: 1 1 100%;
+  }
+
+  .title-heading {
+    flex: 1;
+  }
+
+  /* The pills stay on one line and scroll sideways rather than stacking two rows deep
+     over the thread. Their cards are pinned to the viewport on a phone
+     (metric-card-pill.css), so the scrolling row does not clip them. */
+  .header-controls {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 calc(var(--space-3) * -1);
+    padding: 2px var(--space-3);
+  }
+  .header-controls::-webkit-scrollbar {
+    display: none;
+  }
+  .header-controls > * {
+    flex: none;
+  }
+
+  .editable-title,
+  .title-input {
+    max-width: 100%;
+    width: auto;
+  }
+
+  .status-line {
+    padding: 0 var(--space-4) max(var(--space-2), env(safe-area-inset-bottom));
+  }
+}

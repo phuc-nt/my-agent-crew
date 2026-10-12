@@ -1,0 +1,81 @@
+/*
+ * The shared form controls — text fields, selects, the toggle row, checkboxes and radios —
+ * and, last, the scrollbar every scrolling box gets.
+ */
+
+/* ── Form controls ──────────────────────────────────────────────────────── */
+input[type="text"],
+input[type="search"],
+input[type="number"],
+input[type="password"],
+input[type="url"],
+select,
+textarea {
+  font: inherit;
+  /* 16px floor stops iOS zooming the viewport when a field takes focus. */
+  font-size: max(16px, var(--text-md));
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.7rem;
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+/* The halo stands in for the focus outline on text fields only, where the border it
+   colours is drawn. A checkbox, radio or switch has no such border, so it keeps the
+   outline every other control gets. The outline turns transparent rather than off, so
+   forced-colours mode, which drops shadows, still paints it. */
+input[type="text"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus,
+input[type="url"]:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid transparent;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-ring);
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────────────────── */
+/* Thin and self-coloured, so a scrolling panel does not gain a bright band
+   from the OS default in dark mode. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-full);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}

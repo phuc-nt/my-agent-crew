@@ -1,0 +1,134 @@
+/*
+ * The foot of the column: the chips for messages sent while a turn is running, and the
+ * composer — the raised box, its textarea and the send and stop buttons.
+ */
+
+/* ── Queued chips ───────────────────────────────────────────────────────── */
+/* Sits between the thread and the composer: confirmation for text already sent, not
+   something the composer still holds. Wraps freely — several messages queued in a row is
+   the point where this matters, not the common case. */
+.queued-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 var(--gutter);
+  padding: 0;
+  list-style: none;
+}
+
+.queued-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 4px var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+}
+
+/* Will run once the current turn is done: quiet, the same neutral as a stopped notice. */
+.queued-chip.follow_up {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+
+/* Will cut into the turn already running: the accent marks it as the more active of the two. */
+.queued-chip.steer {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.queued-chip svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+/* The row itself stays one line; the full text is still in the DOM for anyone who expands
+   it or reads with a screen reader, which does not truncate. */
+.queued-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Composer ───────────────────────────────────────────────────────────── */
+.composer {
+  padding: var(--space-1) var(--gutter) var(--space-2);
+  background: var(--surface);
+}
+
+/* One raised field with its send button inside it, the way a message box looks on every
+   device the person owns. The ring on focus belongs to the box, not the bare textarea. */
+.composer-box {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: 6px 6px 6px var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-2);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.composer-box:focus-within {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 4px var(--accent-ring),
+    var(--shadow-2);
+}
+
+.composer-box.disabled {
+  background: var(--surface-sunken);
+  box-shadow: none;
+}
+
+/* Why the box is waiting: the open canvas's last save is still going out. */
+.composer-note {
+  margin: var(--space-1) var(--space-4) 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.composer-box textarea,
+.composer-box textarea:focus {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  max-height: 240px;
+  padding: 7px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 1.45;
+  resize: none;
+  outline: none;
+}
+
+button.composer-action {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  font-size: 1.1rem;
+}
+
+button.composer-action.primary:disabled {
+  opacity: 1;
+  background: var(--surface-hover);
+  color: var(--muted);
+}
+
+button.composer-action.stop,
+button.composer-action.stop:hover:not(:disabled) {
+  background: var(--text);
+  color: var(--surface);
+}

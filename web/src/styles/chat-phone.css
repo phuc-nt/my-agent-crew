@@ -1,0 +1,44 @@
+/*
+ * The conversation column on a phone: narrower gutters, and the thread, the welcome, the
+ * callouts, the queued chips and the composer fitted to them. Last of the chat's files, so
+ * it outweighs the rules it adjusts.
+ */
+
+/* ── Phone ──────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .main {
+    --gutter: var(--space-4);
+    --reply-indent: 0px;
+  }
+
+  .thread {
+    padding-top: var(--space-4);
+  }
+
+  .welcome h2 {
+    font-size: var(--text-xl);
+  }
+
+  .suggestions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .callout,
+  .main > .notice {
+    width: calc(100% - 2 * var(--space-3));
+  }
+
+  .queued-chips {
+    margin: 0 var(--space-3);
+  }
+
+  /* A chip this narrow truncates sooner than the ellipsis rule alone would force, so one
+     long queued message cannot push the row wide enough to scroll the page sideways. */
+  .queued-chip {
+    max-width: calc(100% - 2 * var(--space-3));
+  }
+
+  .composer {
+    padding: var(--space-1) var(--space-3) var(--space-2);
+  }
+}

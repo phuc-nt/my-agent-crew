@@ -1,6 +1,9 @@
 /*
  * Schedules: the rows that edit them in the agent editor and the jobs list that shows
  * them running. Every colour is a token, so the dark theme needs no block of its own.
+ *
+ * This file is the editor's rows. The jobs list follows in schedules-jobs.css, and what
+ * both give up on the narrowest screens in schedules-narrow.css.
  */
 
 /* ── Editing a schedule ─────────────────────────────────────────────────── */
@@ -146,105 +149,4 @@ input.mono {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent-strong);
-}
-
-/* ── The jobs list ──────────────────────────────────────────────────────── */
-/* Three controls beside a name: each keeps its label on one line and the group wraps
-   as a whole, rather than every label breaking word by word on a phone. */
-.job-actions {
-  flex-wrap: wrap;
-}
-
-.job-actions button,
-.job-actions .toggle {
-  white-space: nowrap;
-  min-height: var(--touch-target);
-}
-
-/* The words lead and the cron trails them in the muted mono it already had. */
-.job-when {
-  color: var(--text);
-  font-weight: 500;
-}
-
-/* The start of a script job's source, as written: its lines kept and long ones wrapped,
-   so the row never grows wider than the page. Six lines at most, and two of the prompt
-   its output goes on with: either at full length would turn one row of the list into a
-   page, and the whole of both is in the editor. */
-.job-script-source {
-  margin: 0;
-  font-size: var(--text-xs);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 6;
-  line-clamp: 6;
-  overflow: hidden;
-}
-
-/* A `code` inside a `pre` would take the smaller size a second time. */
-.job-script-source code {
-  font-size: inherit;
-}
-
-.job-then-prompt {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-}
-
-.job-then-prompt span {
-  color: var(--text-secondary);
-}
-
-/* How the last run ended, when, and what it said, on the row. The badge, time and link
-   share a line that wraps as a whole; the summary takes a line of its own below. */
-.job-last {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-  min-width: 0;
-}
-
-/* Two lines at most: a brief that ran long would otherwise turn one row of the list
-   into a page. The full text is one tap away, in the run itself. */
-.job-last-summary {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--text-secondary);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-}
-
-.job-meta time[title] {
-  cursor: help;
-}
-
-@media (max-width: 480px) {
-  .schedule-row-head {
-    flex-wrap: wrap;
-  }
-
-  .schedule-row-head .field {
-    flex-basis: 100%;
-  }
-
-  .job-actions {
-    justify-content: flex-start;
-    gap: var(--space-2);
-  }
-
-  /* The history toggle and the open-run link are the row's only other targets. */
-  .job-meta .link-button {
-    min-height: var(--touch-target);
-  }
 }

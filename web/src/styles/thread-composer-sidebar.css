@@ -1,0 +1,57 @@
+/*
+ * What the sidebar's rows gain around the title: the day each group falls under, when the
+ * conversation last moved beside its recap, and the dot on one not yet read.
+ */
+
+/* ── Sidebar rows: day groups, when, unread ─────────────────────────────── */
+/* The list stays the one scroll box; each day is a quiet header over its own rows. The
+   header is an h2 for the outline, under the page's h1, dressed as the house label. */
+.conversation-group h2 {
+  margin: var(--space-3) var(--space-3) var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+.conversation-group:first-child h2 {
+  margin-top: var(--space-1);
+}
+.conversation-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* When and the recap share the line under the title, indented to it past the dot. */
+.conversation-meta {
+  flex-basis: 100%;
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-left: calc(8px + var(--space-2));
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.conversation-time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.conversation-meta .conversation-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: 0;
+}
+
+.unread-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.conversation-list li.unread .conversation-title {
+  font-weight: 600;
+}

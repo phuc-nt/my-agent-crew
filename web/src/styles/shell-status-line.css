@@ -1,0 +1,42 @@
+/*
+ * The status line at the foot of the conversation: a caption under the composer, and the
+ * dot that says whether the live stream is up.
+ */
+
+/* ── Status line ────────────────────────────────────────────────────────── */
+/* A caption under the composer, set to the same column as the thread above it. */
+.status-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--gutter) var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.status-line > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stream-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.stream-state::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.stream-state.off::before {
+  background: var(--danger);
+}

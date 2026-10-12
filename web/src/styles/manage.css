@@ -4,6 +4,10 @@
  * It takes the whole window rather than sitting beside the chat. Everything here is
  * about the crew, not about the conversation, so overlapping the two would only invite
  * reading one as context for the other.
+ *
+ * This file is the frame: the nav, and the body the sections sit in. The button that
+ * leads here from the chat's sidebar follows in manage-button.css, the phone's layout
+ * in manage-phone.css.
  */
 
 .manage-layout {
@@ -177,109 +181,4 @@
   background: none;
   padding: 0;
   overflow: visible;
-}
-
-/* The way out of the chat sits at the foot of the sidebar, below the list, so it stays
-   put while conversations come and go above it. */
-.sidebar-foot {
-  margin-top: auto;
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--border);
-}
-
-/* Styled as the first row of the manage nav it opens, so the two read as one place. */
-.manage-button {
-  width: 100%;
-  min-height: var(--touch-target);
-  justify-content: flex-start;
-  border-color: transparent;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-}
-.manage-button .icon {
-  color: var(--muted);
-}
-.manage-button:hover:not(:disabled) {
-  border-color: transparent;
-  color: var(--text);
-}
-.manage-button .badge {
-  margin-left: auto;
-}
-.manage-button .badge + .badge {
-  margin-left: 0;
-}
-
-/* On a phone the nav becomes a row above the body: the sections scroll sideways as pills,
-   in far less space than the same list stacked would take from the content. */
-@media (max-width: 720px) {
-  .manage-layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
-
-  .manage-nav {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: var(--space-2) var(--space-3);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    row-gap: var(--space-2);
-    overflow: visible;
-  }
-
-  .back-to-chat {
-    width: auto;
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  /* One sideways-scrolling row: the group names give way, the order keeps the grouping. */
-  .manage-nav-groups {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    gap: var(--space-1);
-    margin: 0 calc(var(--space-3) * -1);
-    padding: 0 var(--space-3) var(--space-1);
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .manage-nav-label {
-    display: none;
-  }
-
-  /* The groups and their lists step aside so the buttons sit directly in the scrolling
-     row: a group box would itself be wider than the screen. */
-  .manage-nav-group,
-  .manage-nav ul {
-    display: contents;
-  }
-
-  .manage-nav li button {
-    white-space: nowrap;
-    width: auto;
-    min-height: var(--touch-target);
-    gap: var(--space-2);
-    border-radius: var(--radius-full);
-    padding: 0 var(--space-3);
-  }
-
-  .manage-nav li button.active,
-  .manage-nav li button.active:hover {
-    background: var(--accent-soft);
-    color: var(--accent-strong);
-    box-shadow: none;
-  }
-
-  .manage-body {
-    --manage-pad-top: var(--space-4);
-    padding: var(--manage-pad-top) var(--space-4) var(--space-6);
-  }
-
-  .manage-body > .manage-title {
-    font-size: var(--text-xl);
-    margin-bottom: var(--space-3);
-  }
 }

@@ -1,0 +1,88 @@
+/*
+ * What the chat says outside the conversation itself: the notice rows — an error, a stopped
+ * turn, a fallback, an escalation — and the card a crashed screen leaves.
+ */
+
+/* ── Notices ────────────────────────────────────────────────────────────── */
+/* Everywhere a notice is a block that stacks what it holds; the chat's own notices lead
+   with an icon, so there it is one row on the reading column. */
+.notice {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  animation: fade-in var(--duration-base) var(--ease-out);
+}
+
+.main > .notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.notice.error {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.notice.halted,
+.notice.fallback,
+.notice.escalated {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+/* A calm card rather than a red wall: what broke, in the words the error used, and the
+   one action that fixes most of it. */
+.crash {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3) var(--space-4);
+  max-width: 40rem;
+  margin: var(--space-5) auto;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-2);
+}
+
+.crash-icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.crash-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.crash-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.crash-detail {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.crash > button {
+  grid-column: 2;
+  justify-self: start;
+}

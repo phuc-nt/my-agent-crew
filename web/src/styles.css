@@ -4,58 +4,130 @@
  *
  *   fonts   → the bundled Inter faces the tokens name.
  *   tokens  → the values every other file reads. No raw colour lives elsewhere.
+ *             Continues in -preferences.
  *   base    → the reset, typography and the primitives (button, badge, dot).
+ *             Continues in -buttons, -badges, -avatar, -forms.
  *   metric-card → the shared summary look: metric cards, bars, switches, pills, popovers.
+ *             Continues in -lists, -bar-switch, -pill.
  *   shell   → the frame: layout grid, sidebar, header, drawer, status line.
+ *             Continues in -conversation-list, -content-hits, -header, -settings,
+ *             -status-line, -responsive.
  *   chat    → the conversation column: thread, bubbles, approvals, composer.
+ *             Continues in -messages, -tool-cards, -callouts, -notices, -composer, -phone.
  *   markdown → formatted prose inside an assistant bubble.
  *   activity-panel → the panels the manage sections are built from, up to the run card border.
+ *             Continues in -attention, -run-card, -run-replay, -jobs, -memory, -wiki.
  *   manage  → the manage screen's own frame: its nav, its body, the way back to chat.
+ *             Continues in -button, -phone.
  *   manage-cards → the manage sections' lists drawn as the metric-card surface.
+ *             Continues in -costs, -phone.
  *   agent-admin → editing the crew: the agent editor's form, the tools matrix, connections.
+ *             Continues in -editor, -tools, -connections, -phone.
  *   script-settings → what the crew's screens say of scripts: the grid's mark for a script
  *             tool switched off, and the field a schedule's script is typed in.
  *   conversation-activity → the activity strip belonging to the open chat.
  *   run-timeline   → the process visualisation inside an open run card.
+ *             Continues in -row, -script-calls, -progress, -reduced-motion.
  *   script-handoff → what a script job's script printed, under the message that handed it on.
  *   script-store → what an agent's scripts keep between runs, on the memory screen.
  *   script-store-entry → one key of that store, and its whole value.
  *   canvas  → the canvas dock beside the chat: its column, overlay, panel and history, and the
  *             note a message carries from it, under the message in the thread.
- *   canvas-library → the library of every canvas on the manage screen.
+ *             Continues in -panel, -text, -picker, -history, -in-chat.
+ *   canvas-library → the library of every canvas on the manage screen, and the chip that names
+ *             a canvas in the thread. Continues in -chip.
  *   canvas-writing → a canvas the agent is still writing: its frame in the dock and its card
  *             in the thread.
+ *
+ * A region too long for one file is a run of files. The file that carries the region's
+ * name keeps its core, and each part after it is `<region>-<part>.css`. The parts are
+ * imported straight after it, in the order their rules were written, so where a rule falls
+ * in the cascade does not depend on which part holds it.
  *
  * A rule belongs to exactly one of these. If a new rule fits none of them, that
  * is the signal to add a region rather than to append it here.
  */
 @import "./styles/fonts.css";
 @import "./styles/tokens.css";
+@import "./styles/tokens-preferences.css";
 @import "./styles/base.css";
+@import "./styles/base-buttons.css";
+@import "./styles/base-badges.css";
+@import "./styles/base-avatar.css";
+@import "./styles/base-forms.css";
 @import "./styles/metric-card.css";
+@import "./styles/metric-card-lists.css";
+@import "./styles/metric-card-bar-switch.css";
+@import "./styles/metric-card-pill.css";
 @import "./styles/shell.css";
+@import "./styles/shell-conversation-list.css";
+@import "./styles/shell-content-hits.css";
+@import "./styles/shell-header.css";
+@import "./styles/shell-settings.css";
+@import "./styles/shell-status-line.css";
+@import "./styles/shell-responsive.css";
 @import "./styles/chat.css";
+@import "./styles/chat-messages.css";
+@import "./styles/chat-tool-cards.css";
+@import "./styles/chat-callouts.css";
+@import "./styles/chat-notices.css";
+@import "./styles/chat-composer.css";
+@import "./styles/chat-phone.css";
 @import "./styles/markdown.css";
 @import "./styles/activity-panel.css";
+@import "./styles/activity-panel-attention.css";
+@import "./styles/activity-panel-run-card.css";
+@import "./styles/activity-panel-run-replay.css";
+@import "./styles/activity-panel-jobs.css";
+@import "./styles/activity-panel-memory.css";
+@import "./styles/activity-panel-wiki.css";
 @import "./styles/manage.css";
+@import "./styles/manage-button.css";
+@import "./styles/manage-phone.css";
 @import "./styles/manage-cards.css";
+@import "./styles/manage-cards-costs.css";
+@import "./styles/manage-cards-phone.css";
 @import "./styles/agent-admin.css";
+@import "./styles/agent-admin-editor.css";
+@import "./styles/agent-admin-tools.css";
+@import "./styles/agent-admin-connections.css";
+@import "./styles/agent-admin-phone.css";
 @import "./styles/schedules.css";
+@import "./styles/schedules-jobs.css";
+@import "./styles/schedules-narrow.css";
 @import "./styles/script-settings.css";
 @import "./styles/conversation-activity.css";
 @import "./styles/run-timeline.css";
+@import "./styles/run-timeline-row.css";
+@import "./styles/run-timeline-script-calls.css";
+@import "./styles/run-timeline-progress.css";
+@import "./styles/run-timeline-reduced-motion.css";
 @import "./styles/memory-review.css";
+@import "./styles/memory-review-wiki.css";
+@import "./styles/memory-review-chip.css";
+@import "./styles/memory-review-phone.css";
 @import "./styles/run-log.css";
 @import "./styles/stats-usage.css";
 @import "./styles/approvals.css";
+@import "./styles/approvals-attention.css";
+@import "./styles/approvals-phone.css";
 @import "./styles/thread-composer.css";
+@import "./styles/thread-composer-sidebar.css";
+@import "./styles/thread-composer-slash.css";
+@import "./styles/thread-composer-phone.css";
 @import "./styles/chat-state.css";
 @import "./styles/script-handoff.css";
 @import "./styles/script-store.css";
 @import "./styles/script-store-entry.css";
 @import "./styles/canvas.css";
+@import "./styles/canvas-panel.css";
+@import "./styles/canvas-text.css";
+@import "./styles/canvas-picker.css";
+@import "./styles/canvas-history.css";
+@import "./styles/canvas-in-chat.css";
 @import "./styles/canvas-page.css";
 @import "./styles/canvas-source.css";
 @import "./styles/canvas-library.css";
+@import "./styles/canvas-library-chip.css";
 @import "./styles/canvas-writing.css";
 @import "./styles/touch-targets.css";
