@@ -583,6 +583,14 @@ export const vi = {
     // What the tool picker says of `delegate` while no agent holds it: the registry then
     // has no row for it, and so no description of its own to show.
     toolDelegate: "Giao một việc trọn vẹn cho agent khác và chờ kết quả.",
+    // Under a name the list holds that the server says it has no say over for this agent
+    // today: a tool of a mode it is not in, one the machine cannot run now, one handed
+    // whatever the list says. The row stays ticked until the person unticks it.
+    toolNotGiven: "Hiện giờ danh sách không đem lại công cụ này cho agent. Bỏ chọn thì tên này rời khỏi danh sách.",
+    // Under the picker while the form holds an unsaved change to the mode or to whom the
+    // agent hands work: both move which tools a list has a say over, once they are saved.
+    toolsFollowSaved:
+      "Các công cụ ở trên theo agent như đã lưu. Lưu thay đổi ở “Chế độ” hoặc “Có thể giao việc cho” trước, rồi mới chọn công cụ.",
   },
   welcomeTitleFor: (name: string) => `Xin chào! Tôi là ${name} — trợ lý đa năng của bạn.`,
   welcomeBody:

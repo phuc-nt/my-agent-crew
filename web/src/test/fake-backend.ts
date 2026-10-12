@@ -61,6 +61,8 @@ export const fakeAgent: AgentInfo = {
   // What the file reads as when it says neither: scripts read only, and may ask a model.
   script_calls: "read_only",
   script_llm: true,
+  // The names a list of its own would have a say over: here, the one tool it holds.
+  listable_tools: ["write_file"],
 };
 
 export const coderTemplate: TemplateInfo = {

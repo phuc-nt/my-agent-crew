@@ -1,200 +1,168 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import type { AgentInfo, RegistryTool } from "../../api/types";
+import { describe, expect, it } from "vitest";
 import { vi } from "../../i18n/vi";
-import { FakeBackend, fakeAgent } from "../../test/fake-backend";
-import { AgentEditor } from "./agent-editor";
+import { agent, box, CHATS, CREW, HANDED, LEADS, open, radio, rows, saved, type Shown, tick, ticked } from "../../test/tool-picker-screen";
 
 const t = vi.editor;
-let backend: FakeBackend;
 
-beforeEach(() => {
-  backend = new FakeBackend();
-  vitest.stubGlobal("fetch", backend.fetch);
+describe("the rows the picker offers", () => {
+  it("are the names the server lists for this agent, not what the rest of the crew holds", () => {
+    open(agent());
+    expect(rows()).toEqual(CHATS);
+    // Described by the catalogue where it has a row for the name, and bare where it has none.
+    expect(box("web_search").closest("li")).toHaveTextContent("Công cụ web_search");
+    expect(box("memory_save").closest("li")).toHaveTextContent(/^memory_save$/);
+  });
+
+  // Who hands work out is the server's to say: nothing else in the profile is read for it.
+  it.each([
+    ["is offered to a plain agent the server lists it for", agent({ listable_tools: LEADS }), LEADS],
+    ["is not offered to a master the server does not list it for", agent({ id: "default", is_master: true, mode: "work", delegates: ["dev"] }), CHATS],
+  ])("`delegate` %s", (_what, shown, offered) => {
+    open(shown);
+    expect(rows()).toEqual(offered);
+  });
+
+  // The catalogue lists what some agent holds: with this list saved, nobody holds the tool.
+  it("keep `delegate` when no agent holds it any more, in words of its own, to be ticked back", async () => {
+    open(agent({ listable_tools: LEADS, listed: ["write_file"], tools: ["write_file"] }), CREW.filter((row) => row.name !== "delegate"));
+    expect(rows()).toEqual(LEADS);
+    expect(box("delegate").closest("li")).toHaveTextContent(t.toolDelegate);
+    await tick("delegate");
+    expect(await saved()).toEqual([{ tools: ["write_file", "delegate"] }]);
+  });
 });
 
-const tool = (name: string, agents: string[], marks: Partial<RegistryTool> = {}): RegistryTool => ({ name, description: `Công cụ ${name}`, requires_approval: false, optional: false, agents, ...marks });
-/** The crew's registry as the server lists it: every tool some agent holds, by name. */
-const CREW = [
-  tool("ask_user", ["dev"]),
-  tool("delegate", ["default", "dev"]),
-  tool("mcp__notion__search", ["coach"], { server: "notion", exposure: "direct" }),
-  tool("tool_script", ["coach"], { with_reads: true }),
-  tool("tool_search", ["coach"], { with_mcp: true }),
-  tool("web_search", ["default", "coach"]),
-  tool("write_file", ["default", "coach", "dev"]),
-];
-/** The registry once the last agent that handed work out has a list without the tool. */
-const NOBODY_DELEGATES = CREW.filter((row) => row.name !== "delegate");
-/** What an agent is handed whatever its list says. */
-const HANDED = ["tool_script", "tool_search", "mcp__notion__search"];
-
-type Shown = Partial<AgentInfo> & { listed?: string[]; names?: string[] };
-/** An agent whose file lists `listed` and names the delegates `names`. Not the master, and
- * in the mode that only chats: unless it is said otherwise, it hands no work out. */
-const agent = ({ listed = [], names = [], ...rest }: Shown = {}): AgentInfo =>
-  ({ ...fakeAgent, id: "coach", is_master: false, tools: ["web_search", "write_file", ...HANDED], delegates: names, declared: { ...fakeAgent.declared, tools: listed, delegates: names }, ...rest });
-const dev: AgentInfo = { ...agent(), id: "dev", name: "Dev" };
-/** The three kinds of agent that hand work out, each holding the tool while no list stops it. */
-const LEADS: [string, Shown][] = [
-  ["the master", { id: "default", is_master: true }],
-  ["a work agent", { mode: "work" }],
-  ["an agent that names a delegate", { names: ["dev"] }],
-];
-
-function open(shown: AgentInfo, tools: RegistryTool[] = CREW) {
-  backend.agents = [shown, dev];
-  render(<AgentEditor agent={shown} agents={[shown, dev]} tools={tools} mcpServers={[]} providers={["fake"]} onBack={() => {}} onChanged={() => {}} />);
-}
-
-const section = () => within(screen.getByTestId("section-tools"));
-const picker = () => within(section().getByTestId("tool-picker"));
-const radio = (name: string) => section().getByRole("radio", { name });
-const named = (boxes: HTMLElement[]) => boxes.map((box) => box.closest("li")?.querySelector("code")?.textContent);
-const rows = () => named(picker().getAllByRole("checkbox"));
-const ticked = () => named(picker().queryAllByRole("checkbox", { checked: true }));
-const tick = (name: string) => userEvent.click(picker().getByRole("checkbox", { name: new RegExp(`^${name}`) }));
-/** Saves, and returns the profile of every save sent, once the server has answered. */
-async function saved() {
-  await userEvent.click(screen.getByRole("button", { name: t.save }));
-  await waitFor(() => expect(screen.getByText(t.clean)).toBeInTheDocument());
-  return backend.requests.filter((r) => r.method === "PATCH").map((r) => (r.body as { profile: Record<string, unknown> }).profile);
-}
-
 describe("the chosen list, when it is switched on", () => {
-  // A list gives no tool the agent's mode does not build: a name only the rest of the crew
-  // holds would be one the server warns about at every start.
-  it("starts from what this agent holds, not from what the rest of the crew holds", async () => {
+  it("starts from what this agent holds among those names, in the rows' order", async () => {
     open(agent());
     await userEvent.click(radio(t.toolsPick));
-
-    expect(rows()).toEqual(["ask_user", "web_search", "write_file"]);
     expect(ticked()).toEqual(["web_search", "write_file"]);
     expect(await saved()).toEqual([{ tools: ["web_search", "write_file"] }]);
   });
 
-  // Left out, the list would take from the agent the one thing that makes it a lead. The
-  // last holds the tool by no rule this page knows: the server is believed over the copy.
-  it.each([...LEADS, ["an agent only the server knows to hand work out", {}]])("starts with `delegate` for %s, which holds it", async (_who, lead) => {
-    open(agent({ ...lead, tools: ["delegate", "write_file", ...HANDED] }));
+  // Left out, the list would take from the agent the one thing that makes it a lead.
+  it("starts with `delegate` for an agent that holds it, under the catalogue's words for it", async () => {
+    open(agent({ listable_tools: LEADS, tools: ["write_file", "delegate", ...HANDED] }));
     await userEvent.click(radio(t.toolsPick));
-
+    expect(box("delegate").closest("li")).toHaveTextContent("Công cụ delegate");
     expect(ticked()).toEqual(["delegate", "write_file"]);
     expect(await saved()).toEqual([{ tools: ["delegate", "write_file"] }]);
   });
 
-  it("starts from every tool a list can give when nothing is known of what the agent holds", async () => {
-    open(agent({ tools: [] }));
+  it("starts from every row when the agent holds none of them", async () => {
+    open(agent({ tools: HANDED }));
     await userEvent.click(radio(t.toolsPick));
-
-    expect(ticked()).toEqual(["ask_user", "web_search", "write_file"]);
+    expect(ticked()).toEqual(CHATS);
   });
 
   it("goes back to the list the file has, as it is written, after a detour through every tool", async () => {
-    open(agent({ listed: ["write_file", "tool_script", "ask_user"], tools: ["write_file"] }));
+    open(agent({ listed: ["write_file", "tool_script", "memory_save"], tools: ["write_file"] }));
     await userEvent.click(radio(t.toolsAll));
     expect(screen.getByText(t.dirty(1))).toBeInTheDocument();
+    expect(rows()).toEqual(CHATS);
     await userEvent.click(radio(t.toolsPick));
-
-    expect(ticked()).toEqual(["ask_user", "write_file"]);
+    expect(ticked()).toEqual(["memory_save", "write_file", "tool_script"]);
     expect(screen.getByText(t.clean)).toBeInTheDocument();
   });
 });
 
-describe("`delegate` in the picker", () => {
-  it.each(LEADS)("is offered to %s whose list leaves it out, and is written once ticked", async (_who, lead) => {
-    open(agent({ ...lead, listed: ["write_file"], tools: ["write_file"] }));
-    expect(rows()).toEqual(["ask_user", "delegate", "web_search", "write_file"]);
-    expect(ticked()).toEqual(["write_file"]);
+describe("a name the list holds that the server does not list for this agent", () => {
+  // `delegate` on an agent that hands no work out, a handed tool, a tool of a server the
+  // crew no longer has, and a tool the machine cannot run today.
+  const NOTHING_FROM = ["delegate", "tool_script", "mcp__gone__fetch", "image_read"];
+  const old = (rest: Shown = {}) => agent({ listed: ["web_search", ...NOTHING_FROM], ...rest });
 
-    await tick("delegate");
-    expect(await saved()).toEqual([{ tools: ["write_file", "delegate"] }]);
-  });
-
-  // The registry lists what some agent holds: with this list saved, nobody holds the tool.
-  it("keeps its row when no agent holds it any more, so it can be ticked back", async () => {
-    open(agent({ id: "default", is_master: true, listed: ["write_file"], tools: ["write_file"] }), NOBODY_DELEGATES);
-    expect(rows()).toEqual(["ask_user", "delegate", "web_search", "write_file"]);
-    expect(picker().getByText(t.toolDelegate)).toBeInTheDocument();
-    await tick("delegate");
-    expect(await saved()).toEqual([{ tools: ["write_file", "delegate"] }]);
-  });
-
-  it("has no row on an agent that hands no work out, whatever the rest of the crew holds", () => {
-    open(agent({ listed: ["write_file"] }));
-    expect(rows()).toEqual(["ask_user", "web_search", "write_file"]);
-  });
-
-  it("gets its row as the form makes the agent one that hands work out, and loses it again", async () => {
-    open(agent({ listed: ["write_file"] }));
-    const hands = within(screen.getByTestId("delegate-picker")).getByRole("checkbox", { name: /Dev/ });
-
-    await userEvent.click(hands);
-    expect(rows()).toContain("delegate");
-    expect(ticked()).toEqual(["write_file"]);
-    await userEvent.click(hands);
-    expect(rows()).not.toContain("delegate");
-
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: t.mode }), "work");
-    expect(rows()).toContain("delegate");
-  });
-});
-
-describe("a file whose list names what no list gives", () => {
-  // Handed tools that go by a name this page does not know: only the registry's mark tells.
-  const MARKED: [string, Partial<RegistryTool>][] = [["tool_program", { with_reads: true }], ["tool_lookup", { with_mcp: true }], ["notion_fetch", { server: "notion" }]];
-  // A crew where no agent holds the search for a server's tools: the registry has no row to mark.
-  const REGISTRY = [...CREW.filter((row) => row.name !== "tool_search"), ...MARKED.map(([name, marks]) => tool(name, ["coach"], marks))];
-  // `delegate` on an agent that hands no work out, the handed tools by name and by mark,
-  // and a tool of a server the crew no longer has.
-  const NOTHING_FROM = ["delegate", "tool_script", "tool_search", "mcp__gone__fetch", ...MARKED.map(([name]) => name)];
-  // A tool this crew does not hold: it may need a key the machine does not have yet.
-  const old = () => agent({ listed: ["web_search", ...NOTHING_FROM, "image_read"] });
-
-  it("opens on the list, with the person's choices ticked and nothing to save", () => {
-    open(old(), REGISTRY);
+  it("opens ticked in a row of its own after the others, said to bring nothing, with nothing to save", () => {
+    open(old());
     expect(radio(t.toolsPick)).toBeChecked();
-    expect(rows()).toEqual(["ask_user", "web_search", "write_file"]);
-    expect(ticked()).toEqual(["web_search"]);
+    expect(rows()).toEqual([...CHATS, ...NOTHING_FROM]);
+    expect(ticked()).toEqual(["web_search", ...NOTHING_FROM]);
+    for (const name of NOTHING_FROM) expect(box(name)).toHaveAccessibleDescription(t.toolNotGiven);
+    expect(box("web_search")).not.toHaveAccessibleDescription();
     expect(screen.getByRole("button", { name: t.save })).toBeDisabled();
   });
 
-  it("leaves those names out once the list is changed, and keeps every other choice", async () => {
-    open(old(), REGISTRY);
+  it("stays in the list when another row is ticked: only the person takes a name off", async () => {
+    open(old());
     await tick("write_file");
+    expect(await saved()).toEqual([{ tools: ["web_search", ...NOTHING_FROM, "write_file"] }]);
+    expect(ticked()).toEqual(["web_search", "write_file", ...NOTHING_FROM]);
+  });
 
-    expect(await saved()).toEqual([{ tools: ["web_search", "image_read", "write_file"] }]);
-    expect(ticked()).toEqual(["web_search", "write_file"]);
+  it("leaves the list once it is unticked, and its row goes with it", async () => {
+    open(old());
+    await tick("tool_script");
+    expect(rows()).toEqual([...CHATS, "delegate", "mcp__gone__fetch", "image_read"]);
+    expect(await saved()).toEqual([{ tools: ["web_search", "delegate", "mcp__gone__fetch", "image_read"] }]);
+  });
+
+  // The row is gone under the keyboard that unticked it, which is then on no row at all.
+  it.each([
+    ["the row that took its place", "tool_script", "mcp__gone__fetch"],
+    ["the last row, when it stood last itself", "image_read", "mcp__gone__fetch"],
+  ])("hands the keyboard to %s once it is unticked", async (_what, name, next) => {
+    open(old());
+    await tick(name);
+    await waitFor(() => expect(box(next)).toHaveFocus());
+  });
+
+  it("hands the keyboard to “every tool” when it was the last name, which is what the form then says", async () => {
+    open(agent({ listed: ["tool_script"] }));
+    await tick("tool_script");
+    await waitFor(() => expect(radio(t.toolsAll)).toHaveFocus());
+    expect(radio(t.toolsAll)).toBeChecked();
+  });
+
+  // A tap unticks without taking the keyboard: it stays in the field the person is typing in.
+  it("leaves the keyboard where it is when it was not on the row", () => {
+    open(old());
+    screen.getByLabelText(t.name).focus();
+    fireEvent.click(box("tool_script"));
+    expect(rows()).not.toContain("tool_script");
+    expect(screen.getByLabelText(t.name)).toHaveFocus();
+  });
+
+  it("has one row when the list holds it twice, and both go with it", async () => {
+    open(agent({ listed: ["tool_script", "web_search", "tool_script"] }));
+    expect(rows()).toEqual([...CHATS, "tool_script"]);
+    await tick("tool_script");
+    expect(await saved()).toEqual([{ tools: ["web_search"] }]);
+  });
+
+  it("cannot be unticked on an agent that is not edited here", () => {
+    open(old({ editable: false }));
+    expect(box("tool_script")).toBeChecked();
+    expect(box("tool_script")).toBeDisabled();
   });
 
   // The list is rewritten only by a change to the list: a hand-written file keeps its own.
   it("sends no list at all when another field is what was changed", async () => {
-    open(old(), REGISTRY);
+    const backend = open(old());
     await userEvent.type(screen.getByLabelText(t.name), " mới");
     await userEvent.selectOptions(screen.getByRole("combobox", { name: t.scriptCalls }), "gated");
 
     const [sent] = await saved();
     expect(sent).toEqual({ name: "Agent mới", script_calls: "gated" });
     expect(sent).not.toHaveProperty("tools");
-    expect(backend.agents[0].declared.tools).toEqual(["web_search", ...NOTHING_FROM, "image_read"]);
+    expect(backend.agents[0].declared.tools).toEqual(["web_search", ...NOTHING_FROM]);
   });
 
-  it("keeps `delegate` beside the other choices for an agent that hands work out", async () => {
-    open(agent({ id: "default", is_master: true, listed: ["web_search", "delegate", "tool_script"], tools: ["delegate", "web_search", ...HANDED] }));
-    expect(ticked()).toEqual(["delegate", "web_search"]);
-
+  it("is not `delegate` on an agent the server lists it for: a row like any other", async () => {
+    open(agent({ listable_tools: LEADS, listed: ["web_search", "delegate", "tool_script"] }));
+    expect(rows()).toEqual([...LEADS, "tool_script"]);
+    expect(box("delegate")).not.toHaveAccessibleDescription();
     await tick("write_file");
-    expect(await saved()).toEqual([{ tools: ["web_search", "delegate", "write_file"] }]);
+    expect(await saved()).toEqual([{ tools: ["web_search", "delegate", "tool_script", "write_file"] }]);
   });
 
-  // The server reads any list as a cap, so the form does too: nothing ticked, not "all".
-  it("reads a list of nothing but such names as a list still, and writes the first tick alone", async () => {
+  // The server reads any list as a cap, so the form does too: a list still, not "all".
+  it("makes a list by itself, and the next tick is written after it", async () => {
     open(agent({ listed: ["delegate", "tool_script"] }));
     expect(radio(t.toolsPick)).toBeChecked();
-    expect(ticked()).toEqual([]);
-
+    expect(ticked()).toEqual(["delegate", "tool_script"]);
     await tick("web_search");
-    expect(await saved()).toEqual([{ tools: ["web_search"] }]);
+    expect(await saved()).toEqual([{ tools: ["delegate", "tool_script", "web_search"] }]);
   });
 });
