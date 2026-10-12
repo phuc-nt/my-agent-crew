@@ -844,7 +844,8 @@ job prompt gọi một script shell trong workspace.)
   `POST /api/jobs/{agent}/{id}/run` cũng báo như vậy. Chỉ run của chính script được báo ở đây:
   lượt mà `then_prompt` mở ra hỏng thì được giao như lượt của job prompt, job `command` hỏng thì
   không có tin nào, và run đóng lại là `interrupted` vì server tắt giữa chừng cũng không. Không
-  có kênh thì không gì được gửi; gửi không được thì ghi log và thôi, run vẫn như nó đã kết thúc.
+  có kênh thì không gì được gửi; gửi không được, hoặc chưa gửi xong sau 60 giây, thì ghi log và
+  thôi, run vẫn như nó đã kết thúc và các job tới hạn sau vẫn chạy.
 - **`then_prompt`.** Script chạy xong **và** in ra thứ gì đó không trống thì crew mở một lượt như
   job prompt mở: cuộc trò chuyện autonomous mới, `skills` và `approval_ttl_seconds` của lịch áp
   cho nó. Tin mở lượt là `then_prompt`, rồi một câu nói rằng phần bên dưới là những gì script

@@ -1230,6 +1230,19 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_telegram_drain_wiring.py` (runtime giao drain cho bot dựng lúc khởi động và cho
     bot dựng lại khi đổi kết nối, nên tin chờ trong chat được bot đang chạy trả lời); các test
     Telegram cũ gửi từng tin một bằng `poll_each` (`tests/telegram_fake.py`)
+- **Lời gọi nào tới Telegram cũng có hạn, nên một lần gửi không bao giờ trả lời không giữ chân
+  lịch**
+  - pytest: `tests/test_telegram_call_limits.py` (lời gọi không tự nêu hạn mang hạn của chính
+    client, không phần nào trong bốn phần của hạn bị bỏ trống: `sendMessage`, `sendChatAction`,
+    `setMyCommands`, `getFile`, ảnh và tệp gửi từ đĩa; tin dài gửi thành nhiều khúc thì khúc nào
+    cũng theo hạn ấy; long poll giữ hạn nó tự nêu, dài hơn thời gian chờ tin; tệp gửi từ bộ nhớ giữ
+    hạn 60 giây của nó);
+    `tests/test_app_wiring.py::test_default_http_client_waits_as_long_as_the_provider_would` (hạn
+    của client mà server dựng lúc khởi động);
+    `tests/test_script_job_failure_notice.py::test_a_notice_that_never_returns_is_given_up_on_and_the_next_job_runs`
+    (tin báo job script hỏng không gửi xong trong hạn thì bị bỏ và job kế tiếp vẫn chạy). Kiểm chứng
+    đột biến: hai sửa đổi (đưa thẳng `None` cho client như trước; bỏ hạn chờ của tin báo) đều bị
+    test bắt.
 - **Lời gọi tool bị bỏ dở được đóng trước tin mới, không bao giờ chạy lại mà không ai hỏi**
   - pytest: `tests/test_interrupted_calls.py` (call không có kết quả nhận kết quả thay thế nằm
     trước tin mới và không chạy; call đã duyệt mà chưa báo lại không chạy lần nữa; call bị từ chối

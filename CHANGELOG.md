@@ -52,8 +52,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the same way. Nothing is sent for a script that ran well (whether it printed or not), for the
   turn a `then_prompt` opened (that is a conversation, delivered as a prompt job's is, failed or
   not), for a failed `command` job, for a run a server stop cut, or when there is no channel. A
-  message that could not be sent is logged (`job <id>: failure notice not sent`) and not tried
-  again; the run stands as it ended and the jobs due after it still run.
+  message that could not be sent, or was not sent within a minute, is logged
+  (`job <id>: failure notice not sent`) and not tried again; the run stands as it ended and the
+  jobs due after it still run.
 - What scripts keep can be read whole and cleared out. `GET /api/agents/{id}/script-store` now
   says `limit_chars` at its root (262,144, the most each place may hold, which each place's
   `chars` is measured against), and each place says whose it is: `kind` (`job`, `conv`, or
@@ -146,6 +147,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   rewritten on the person's behalf. Taking a key out is judged the same way, by the name the start
   then reads in its place. A hand-written file that spells its path through a link is still saved,
   and a path inside the home is judged as before, however it is spelled.
+- A message to Telegram on a line gone quiet no longer waits for ever, and no longer stops the
+  schedules. A call that named no limit of its own (`sendMessage`, `sendChatAction`,
+  `setMyCommands`, `getFile`, a photo or a document sent from a file) handed the HTTP client `None`,
+  which it reads as no limit at all and not as its own 120 seconds. Such a send held whoever waited
+  for it. The clock of the schedules runs its jobs one after another and waits for a job's message
+  before the next, so one send that never came back kept every later job of every agent from running
+  until the server was started again. A call that names no limit is now held to the client's own,
+  and one that runs out ends as any call that failed does: a job's message is logged
+  (`job <id>: delivery failed`) and not tried again. The long poll (35 seconds) and an upload from
+  memory (60 seconds) keep the limits they name.
 - A start no longer warns `tools lists unknown tool delegate` about an agent that lists `delegate`
   as the docs tell it to. Naming it is how an agent with a `tools:` list keeps handing work out,
   and the tool is handed once every agent exists, after the list was matched, so every such agent
