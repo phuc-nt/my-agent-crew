@@ -351,6 +351,7 @@ python -m my_agent_crew agent add researcher                                  # 
 ```
 
 Edit an agent's profile (name, description, routes, tools, budget, schedules) from the **Đội** tab.
+A saved schedule is on the clock at once: no save asks for a restart.
 Tools across the whole crew, and who uses which, are in **Công cụ** (tools). Connections are in **Kết nối** (connections):
 set, check or remove API keys, host addresses and the Telegram bot token there — they are
 written to `~/.my-agent-crew/env` and take effect without a restart. A change the crew
@@ -446,7 +447,10 @@ they appear on screen:
   row; how the last run ended (a status badge, its summary and a link to that run); run-now and
   pause/resume buttons; and **Sửa lịch** (edit schedule), which opens the agent's editor at its
   schedules, where jobs are added, changed or turned on. The nav entry shows a red count of the
-  jobs whose latest run failed. An agent can propose its own repeating job with
+  jobs whose latest run failed. A command, script or memory job that keeps failing says so under
+  its last run: since when, whether you were told on Telegram and when you are told again (the
+  first failure at once, then at most one message every six hours, and one line when the job
+  runs again). An agent can propose its own repeating job with
   `schedule_create`; it always waits in **Duyệt** with the verbatim prompt, the timing in words
   and the next runs — even in an `autonomous` conversation, and no setting turns that off. An
   approved job is stored in the database, runs without a restart and is listed here.
