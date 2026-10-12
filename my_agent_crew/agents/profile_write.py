@@ -19,6 +19,8 @@ from typing import Any
 
 import yaml as boot_reader
 from ruamel.yaml import YAML
+from ruamel.yaml.representer import RoundTripRepresenter
+from ruamel.yaml.scalarfloat import ScalarFloat
 from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarString
 
 from my_agent_crew import texts
@@ -29,10 +31,45 @@ MANIFEST = "agent.yaml"
 # line would end, was read back with a space it never had. A script's indented line
 # became another line, and the next start refused the file for it.
 NEVER_FOLDED = 2**20
+# Two numbers laid out alike are one text once every digit is the same digit.
+_ANY_DIGIT = str.maketrans("123456789", "000000000")
+
+
+class _Written(RoundTripRepresenter):
+    """How a number is put into the file: as one the next start reads, and the same one."""
+
+    def represent_float(self, data: float) -> Any:
+        """A number an edit brings. The library shows it as Python does: `1e-05`, `1e+16`.
+        To the reader the server starts with, a float has a dot in it, and these are texts.
+        With `.0` before the exponent both read the float that was saved."""
+        node = super().represent_float(data)
+        if "e" in node.value and "." not in node.value:
+            node.value = node.value.replace("e", ".0e", 1)
+        return node
+
+    def represent_scalar_float(self, data: ScalarFloat) -> Any:
+        """A number the file already holds, which the library writes back in the form it
+        found it in, so that what a person typed stays typed. It cuts a long mantissa
+        where it should round, and what it writes is then another number
+        (`1.989032661366619e+244` came back ending in 8), or the same number in other
+        digits. Its text is kept when it reads as the number and is not such a cut of
+        the text an edit's number is given; otherwise that text is written."""
+        node = super().represent_scalar_float(data)
+        plain = self.represent_float(float(data)).value
+        # `.inf` is no number to read, and is laid out as itself: it is asked nothing.
+        cut = node.value.translate(_ANY_DIGIT) == plain.translate(_ANY_DIGIT)
+        if cut or float(node.value) != data:
+            node.value = plain
+        return node
+
+
+_Written.add_representer(float, _Written.represent_float)
+_Written.add_representer(ScalarFloat, _Written.represent_scalar_float)
 
 
 def _yaml() -> YAML:
     yaml = YAML()
+    yaml.Representer = _Written
     yaml.preserve_quotes = True
     # Lists indent under their key rather than hanging at the parent's column, which is
     # how the bundled profiles are written and how people write them by hand.
