@@ -1,7 +1,7 @@
 """Turns a chat-approved row into the same `Job` shape a profile schedule already is, so
 the scheduler never needs to know which source a job came from once it has one.
 
-A row is read fresh on every scheduler tick (`Scheduler._table`, not here) rather than
+A row is read fresh on every scheduler tick (`JobTable.rows`, not here) rather than
 cached in memory: the approval that creates it, and the DELETE route that removes it, both
 run on a FastAPI thread-pool thread while `tick()` runs on the event loop, and the store
 is the only thing both sides agree on without a lock shared across them."""

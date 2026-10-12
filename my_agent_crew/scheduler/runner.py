@@ -15,13 +15,12 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.approval_expiry import expire_overdue
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents.schedule import DELIVERED
-from my_agent_crew.scheduler import agent_jobs
-from my_agent_crew.scheduler.created import chat_jobs
 from my_agent_crew.scheduler.cron import due_between
 from my_agent_crew.scheduler.describe import describe_job
 from my_agent_crew.scheduler.execute import dispatch
 from my_agent_crew.scheduler.failure_notice import Notify, notify_failure
 from my_agent_crew.scheduler.jobs import JOB_SOURCE, Job, nothing_to_report
+from my_agent_crew.scheduler.table import JobTable
 from my_agent_crew.store.db import now_iso
 from my_agent_crew.store.runs import RunRecord
 
@@ -43,51 +42,28 @@ class Scheduler:
         self._clock = clock
         self._deliver, self._notify = deliver, notify
         self._store = next(iter(agents.values())).store if agents else None
-        # Profile schedules only, as the files stated them at the start: an edit of them
-        # asks for a restart, so these are never rebuilt, only dropped with their agent.
-        # Chat-created jobs are never kept here — `_table` reads them fresh from the store
-        # on every call instead, since a person approving or deleting one runs on a FastAPI
-        # thread-pool thread while `tick()` runs on the event loop, and an in-memory dict
-        # updated from both would race.
-        self._profile_jobs = agent_jobs.profile_jobs(agents)
-        self._last = dict.fromkeys(self._profile_jobs, clock())
+        self._jobs = JobTable(agents, self._store, clock)
         self._task: asyncio.Task[None] | None = None
         self._running: set[str] = set()
         self._background: set[asyncio.Task[Any]] = set()
 
     # --- inspection ----------------------------------------------------------------------
 
-    def _table(self) -> dict[str, Job]:
-        """The full job table for this instant: profile schedules plus every chat-created
-        row whose agent still exists. Rebuilt on every call rather than cached, so an
-        approval or a deletion takes effect the moment it lands in the store, with no
-        restart and no separate signal to tell this scheduler to look again.
-
-        A job seen here for the first time is given a `_last` of "now" via `setdefault`:
-        `_last` only ever grows, never shrinks, so two threads racing on the same new key
-        settle on the same value either way, and an existing key is never overwritten by a
-        second, later `setdefault` call that would otherwise reset its due time."""
-        table = {**self._profile_jobs, **chat_jobs(self._store, self._agents)}
-        now = self._clock()
-        for job_id in table:
-            self._last.setdefault(job_id, now)
-        return table
-
     def jobs(self) -> list[Job]:
-        return list(self._table().values())
+        return list(self._jobs.rows().values())
 
     def forget_agent(self, agent_id: str) -> None:
         """An agent that leaves the crew takes its jobs off the clock with it. Called on the
         event loop, as `tick()` is."""
-        agent_jobs.forget_agent(self._profile_jobs, self._store, agent_id)
+        self._jobs.forget_agent(agent_id)
 
     def describe(self) -> list[dict[str, Any]]:
         now = self._clock()
         out = []
-        for job in self._table().values():
+        for job in self._jobs.rows().values():
             # Asked per job: a weekly job's last run sits far behind a busy crew's week.
             last_run = next(iter(self._hub.recent(1, source=JOB_SOURCE + job.id)), None)
-            last, running = self._last[job.id], job.id in self._running
+            last, running = self._jobs.last[job.id], job.id in self._running
             out.append(describe_job(job, last, now, self._override(job), last_run, running))
         return out
 
@@ -112,10 +88,10 @@ class Scheduler:
         now = now or self._clock()
         return [
             job
-            for job in self._table().values()
+            for job in self._jobs.rows().values()
             if self.enabled(job)
             and job.id not in self._running
-            and due_between(job.schedule.cron, job.schedule.every, self._last[job.id], now)
+            and due_between(job.schedule.cron, job.schedule.every, self._jobs.last[job.id], now)
         ]
 
     async def tick(self, now: datetime | None = None) -> list[RunRecord]:
@@ -123,14 +99,14 @@ class Scheduler:
         await expire_overdue(self._agents, self._hub, self._deliver)
         results = []
         for job in self.due(now):
-            self._last[job.id] = now
+            self._jobs.last[job.id] = now
             if job.agent_id in self._agents:
                 results.append(await self.run_job(job.id))
                 continue
             # Its agent left while an earlier job of this tick ran, or by a way that took no
             # job along. Told of once: the job goes with the line, and the tick goes on.
             logger.warning("job %s: agent %s is not in the crew, job dropped", job.id, job.agent_id)
-            self._profile_jobs.pop(job.id, None)
+            self._jobs.drop(job.id)
         return results
 
     def start(self) -> None:
@@ -161,7 +137,7 @@ class Scheduler:
 
     def get(self, job_id: str) -> Job:
         try:
-            return self._table()[job_id]
+            return self._jobs.rows()[job_id]
         except KeyError as exc:
             raise KeyError(texts.JOB_UNKNOWN.format(job_id=job_id)) from exc
 
