@@ -11,7 +11,6 @@ more of the schedules an edit brings than boot asks of a file: see `check_schedu
 
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -110,15 +109,13 @@ def validated(
 
 
 def check_schedules(agent_id: str, schedules: Sequence[Schedule], kept: Sequence[Schedule]) -> None:
-    """Each schedule the edit adds or changes has a timing the clock can read, an id of
-    its own and a text to run.
+    """Each schedule the edit adds or changes has a timing the clock can read and a text
+    to run.
 
     Boot checks neither. The parser leaves timing to the scheduler, which first reads it
     when the jobs list is asked for or the clock ticks: a hand-written file with a typo in
     a cron starts fine, then answers the jobs list with a 500 and, while that job is on,
-    fails every tick for every job beside it. And the scheduler keys its jobs by id, so a
-    second job on the same id — a blank row numbered by its place onto a kept row's
-    `job-1`, or a row named like the consolidation job — replaces the first without a word.
+    fails every tick for every job beside it.
     Nor does it read what a job does, beyond a script: a prompt or a command goes to the
     model or to a shell as it stands, and one that is no text fails when its time comes,
     with no run to show for it and the jobs due beside it held up.
@@ -127,15 +124,15 @@ def check_schedules(agent_id: str, schedules: Sequence[Schedule], kept: Sequence
     file edited by hand may already hold one this check would refuse, and holding an
     unrelated save hostage to it helps nobody. They are matched one for one, and by
     equality rather than in a set, because a hand-written cron can be any YAML value.
+
+    That each job goes by an id of its own is no part of this: the reading of the file
+    refuses two on one id, at the start and here alike (`schedule.each_on_its_own_id`).
     """
     unchanged = list(kept)
-    taken = Counter(schedule.id for schedule in schedules)
     for schedule in schedules:
         if schedule in unchanged:
             unchanged.remove(schedule)
             continue
-        if taken[schedule.id] > 1:
-            raise ValueError(texts.SCHEDULE_ID_TAKEN.format(id=schedule.id))
         try:
             if schedule.cron:
                 CronSpec.parse(str(schedule.cron))

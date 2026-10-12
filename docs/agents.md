@@ -271,12 +271,20 @@ lời từ chối là toàn bộ câu chuyện. Lần ghi hỏng sau khi nối t
 đi trước tệp trong chốc lát; tệp là thứ boot đọc, nên hướng đó tự sửa lấy.
 
 **Với lịch, đường sửa đòi hỏi nhiều hơn lúc boot.** Mỗi lịch mà lần sửa thêm vào hay thay
-đổi phải có `cron`/`every` mà đồng hồ đọc được và một mã riêng — không trùng lịch nào khác,
-kể cả `memory-consolidate` khi bật `memory_consolidate` — nếu không là 422. Boot không kiểm
-tra hai điều này: tệp viết tay có `cron` gõ sai vẫn khởi động bình thường, rồi danh sách job
-trả 500 và, chừng nào lịch đó còn bật, tick nào của đồng hồ cũng hỏng, kéo theo mọi job khác;
-hai lịch trùng mã thì lịch sau âm thầm thay lịch trước. Lịch mà lần sửa không đụng tới thì
+đổi phải có `cron`/`every` mà đồng hồ đọc được, nếu không là 422. Boot không kiểm
+tra điều này: tệp viết tay có `cron` gõ sai vẫn khởi động bình thường, rồi danh sách job
+trả 500 và, chừng nào lịch đó còn bật, tick nào của đồng hồ cũng hỏng, kéo theo mọi job khác.
+Lịch mà lần sửa không đụng tới thì
 không bị kiểm tra lại, nên một tệp viết tay như thế không chặn việc đổi tên, tuyến hay tool.
+
+**Mỗi lịch của một agent đi bằng một mã riêng, lúc boot cũng như lúc sửa.** Hai lịch cùng mã
+— viết hai lần, một dòng không ghi `id` (đi bằng chỗ của nó, `job-1`) bên một dòng ghi đúng
+mã ấy, hay một dòng lấy tên `memory-consolidate` khi `memory_consolidate` đang bật — thì tệp
+bị từ chối bằng một câu nêu tên agent và mã bị trùng: server không khởi động, còn lần lưu từ
+web và `POST /api/agents/reload` là 422 với đúng câu đó, kể cả khi lần lưu không đụng tới
+lịch. Tệp như thế từng khởi động được, lịch sau âm thầm thay lịch trước; nay phải sửa tệp cho
+mỗi lịch một mã rồi mới khởi động. Mã được so như chữ (`7` và `"7"` là một, `Sang` và `sang`
+là hai). Hai agent khác nhau cùng một mã lịch thì không sao: đồng hồ gọi job là `<agent>/<mã>`.
 
 **Đường dẫn một lần sửa đưa vào phải nằm dưới home của đội.** `workspace`, `skills_dirs` và
 `persona_files` được kiểm tra sau khi phân giải, nên `~`, đường dẫn tuyệt đối hoặc đủ `..` để

@@ -412,6 +412,18 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   mended by hand. It is now written back as the number it is. A number a person typed stays as
   typed, `1e-5` among them. `config.yaml` goes through the same writer when the model routes
   are saved, and there such a number was changed with nothing to stop it.
+- Each schedule of an agent goes by an id of its own, at the start as over the API. An
+  `agent.yaml` written by hand whose `schedules` put two rows on one id used to start with one
+  of the two dropped: the later row ran, the earlier never did, and nothing said so. The pair
+  may be an id written twice, a row with no `id` (which goes by its place, `job-1`) beside a
+  row that writes that id, or a row named `memory-consolidate` while `memory_consolidate` is
+  on. Such a file now stops the start, with a message naming the agent and the id
+  (`Agent coder: hai lịch cùng mã job-1; mỗi lịch cần một mã riêng.`): give each row an id of
+  its own before upgrading. A save from the web and `POST /api/agents/reload` over such a file
+  are a 422 in the same words, whatever the save changes, and the refusal an edit already got
+  for bringing such a pair now names the agent too. Ids are compared as the texts they are,
+  capitals apart. Two agents may each have a schedule of one id, as before: the clock knows a
+  job by its agent and its id together.
 
 ## [0.15.0] — 2026-10-12
 

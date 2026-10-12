@@ -4,8 +4,11 @@ round: a prompt for the model, a slash command, or a script that runs with no mo
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
+
+from my_agent_crew import texts
 
 SCHEDULE_KEYS = {
     "id",
@@ -72,3 +75,20 @@ class Schedule:
             "approval_ttl_seconds": self.approval_ttl_seconds,
             "kind": self.kind,
         }
+
+
+def each_on_its_own_id(agent_id: str, schedules: Sequence[Schedule]) -> tuple[Schedule, ...]:
+    """An agent's jobs as it will hold them, or a ValueError naming the id two of them go by.
+
+    A job is known by its id: on the clock (`<agent>/<id>`), in the switch a person flips on
+    it, in what a script job keeps (`job:<id>`). Two rows on one id were one job to each of
+    those. The later row ran, the earlier never did, and nothing said so. A row that writes
+    no id goes by its place (`job-1`), which another row may have written, and the
+    consolidation job has an id as well, so the ids are compared once every job has its
+    own, as the texts they are."""
+    seen: set[str] = set()
+    for schedule in schedules:
+        if schedule.id in seen:
+            raise ValueError(texts.SCHEDULE_ID_TAKEN.format(agent_id=agent_id, id=schedule.id))
+        seen.add(schedule.id)
+    return tuple(schedules)
