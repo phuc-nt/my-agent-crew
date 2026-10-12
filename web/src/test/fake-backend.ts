@@ -24,6 +24,7 @@ import type { ArtifactEvent } from "../api/artifact-types";
 import { fold } from "../components/conversation-search";
 import { FakeCanvas, type FakeReply } from "./fake-canvas";
 import { FakeMcp } from "./fake-mcp";
+import { FakeScriptStore } from "./fake-script-store";
 import { FakeWiki } from "./fake-wiki";
 import { applyAgentPatch, restartRequired } from "./schedule-contract";
 
@@ -204,6 +205,13 @@ export class FakeBackend {
       for (const source of FakeEventSource.instances) if (!source.closed) source.emit(event);
     },
   });
+  /** What each agent's scripts keep between runs: nothing until a test keeps something. */
+  scriptStore: FakeScriptStore = Object.assign(new FakeScriptStore(), {
+    knownAgent: (id: string) => this.agents.some((a) => a.id === id),
+    schedule: (agentId: string, scheduleId: string) =>
+      this.agents.find((a) => a.id === agentId)?.schedules.find((s) => s.id === scheduleId),
+    conversation: (id: string) => this.conversations.get(id),
+  });
   /** Keepalive body bytes still in flight, which the browser caps. */
   private keepaliveBytes = 0;
   /** Set to a message to make the next PATCH refuse, the way a bad field would. */
@@ -260,6 +268,8 @@ export class FakeBackend {
     if (path === "/tools") return json(this.tools());
     const mcp = this.mcp.route(path, method);
     if (mcp) return json(mcp.body, mcp.status);
+    const kept = this.scriptStore.route(path, method, url.searchParams);
+    if (kept) return json(kept.body, kept.status);
     if (path === "/connections") return json(this.connections);
     if (path === "/connections/routes" && method === "PUT") {
       this.connections = { ...this.connections, routes: body.routes, routes_source: "config" };
