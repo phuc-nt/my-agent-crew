@@ -7,6 +7,7 @@ what YAML made of it; only a block it refuses is read again, each such line as t
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 
 import pytest
@@ -117,6 +118,23 @@ def test_blanks_after_the_text_are_not_part_of_it():
     assert stated("description: Use when:  \t") == {"description": "Use when:"}
 
 
+def test_a_file_with_windows_line_ends_is_read_as_the_same_text():
+    assert stated(f"name: fixer\r\ndescription: {WHOLE}\r") == {
+        "name": "fixer",
+        "description": WHOLE,
+    }
+
+
+def test_a_long_run_of_blanks_inside_such_a_line_takes_the_time_its_length_takes():
+    """Cutting the blanks off the end of a line must not start over at every blank inside
+    it. At this length that is a moment against most of a minute."""
+    text = "Use when: asked" + " " * 200_000 + "twice"
+    began = time.perf_counter()
+
+    assert stated(f"description: {text}") == {"description": text}
+    assert time.perf_counter() - began < 10
+
+
 def test_the_rest_of_such_a_line_is_its_text_a_remark_included():
     """Whoever left the second colon unquoted was not writing YAML: `#12` is a part of
     the sentence."""
@@ -197,6 +215,50 @@ def test_beside_a_line_read_as_text_every_other_line_keeps_what_yaml_makes_of_it
 def test_a_block_the_second_reading_does_not_know_is_still_refused(front):
     with pytest.raises(ValueError, match="front matter is not YAML"):
         stated(front)
+
+
+@pytest.mark.parametrize(
+    "front",
+    [
+        f"note: 'one\ntwo: three: four\nfive'\ndescription: {WHOLE}",  # in a quoted value
+        "tools: {\nRead: when: asked\n}",  # in a flow mapping that runs over lines
+        "tools: [\nRead: when: asked\n]",
+        "tools: {\nRead: when: asked\n}\nnote: when: asked",  # its text an entry elsewhere
+        "tools: {\nRead: when: asked\n}\nRead: when: asked",  # and stated again as an entry
+        f"description: {WHOLE}\ndescription: Use when: told",  # a key stated twice
+        f"description: {WHOLE}\ndescription: fixes tests",
+        "[\nRead: when: asked\n]",  # the block itself a list
+        f"tools: [\nRead #1: when: asked\n]\ndescription: {WHOLE}",  # a line that states nothing
+    ],
+)
+def test_a_line_of_that_shape_that_is_no_entry_of_its_own_leaves_the_block_refused(front):
+    """The second reading goes by lines, so it takes a line inside a value that runs over
+    lines too. What that line states is then not in what the block states."""
+    with pytest.raises(ValueError, match="front matter is not YAML"):
+        stated(front)
+
+
+def test_such_a_block_is_refused_by_what_yaml_said_of_it():
+    """The second reading found nothing wrong, so the first one's error is the one."""
+    with pytest.raises(ValueError, match="mapping values are not allowed here(.|\n)*line 4"):
+        stated(f"note: 'one\ntwo: three: four\nfive'\ndescription: {WHOLE}")
+
+
+@pytest.mark.parametrize("mark", ["\x85", "\u2028", "\u2029", "\r", "\x07", "\x0c", "\x1b"])
+def test_a_line_holding_what_ends_a_line_for_yaml_or_no_text_may_hold_is_left_as_written(mark):
+    """Quoting it would hide the mark: a text with a bell in it, two lines read as one."""
+    with pytest.raises(ValueError, match="front matter is not YAML"):
+        stated(f"name: fixer\ndescription: Use when: asked{mark}then: told")
+
+
+def test_a_key_yaml_reads_as_a_number_a_date_or_a_truth_is_an_entry_all_the_same():
+    front = "2: Use when: asked\ntrue: Use when: told\nMax Steps : Use when: both"
+
+    assert stated(front) == {
+        2: "Use when: asked",
+        True: "Use when: told",
+        "Max Steps": "Use when: both",
+    }
 
 
 def test_the_refusal_names_what_is_still_in_the_way():

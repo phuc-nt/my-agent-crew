@@ -732,9 +732,14 @@ phải ghi chú; dòng mà dấu hai chấm chỉ nằm sau dấu `#` thì để
 dòng ấy. Lần đọc thứ hai không đụng đến giá trị mở đầu bằng dấu nháy hay một ký hiệu của
 YAML (`[`, `{`, `|`, `>`, `&`, `*`, `!`, `%`, `@`, dấu huyền, hoặc `-` và `?` đứng trước
 dấu cách), khoá lồng dưới một khoá khác, giá trị trải nhiều dòng và mục của danh sách.
-Khối hỏng ở những chỗ đó vẫn bị từ chối, và lỗi trong log nêu chỗ còn vướng. Lần đọc thứ
-hai xét từng dòng và không theo dấu nháy của YAML: trong một khối đã bị từ chối, dòng có
-dạng trên nằm giữa một giá trị trong nháy trải nhiều dòng cũng bị lấy làm chữ. Cách đọc này
+Khối hỏng ở những chỗ đó vẫn bị từ chối, và lỗi trong log nêu chỗ còn vướng. Dòng mang một
+ký tự mà YAML coi là hết dòng (dấu về đầu dòng đứng giữa dòng, U+0085, U+2028, U+2029) hay
+một ký tự điều khiển cũng để nguyên, nên khối ấy bị từ chối như trước; dấu về đầu dòng ở cuối
+dòng của tệp Windows thì chỉ bị cắt đi. Lần đọc thứ hai xét từng dòng và không theo dấu nháy
+hay dấu ngoặc của YAML, nên nó lấy cả dòng có dạng trên nằm giữa một giá trị trải nhiều dòng
+(trong nháy, trong `{…}` hay `[…]`). Vì vậy mỗi dòng đã lấy làm chữ phải là một cặp khoá riêng
+ở tầng ngoài cùng của kết quả, mang đúng chữ ấy; có dòng không phải thế, hay hai dòng cùng
+một khoá, thì cả khối bị từ chối bằng chính lỗi mà YAML đã nêu ở lần đọc đầu. Cách đọc này
 dùng chung cho tệp agent, lệnh, skill và persona.
 
 **Hook** chạy lệnh với cùng JSON trên stdin mà các harness gửi:
