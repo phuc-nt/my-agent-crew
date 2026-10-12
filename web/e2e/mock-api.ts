@@ -3,6 +3,7 @@ import type { AgentEvent, AgentInfo, ContentHit, QueuedMessage, WikiPage, WikiPa
 import { fold } from "../src/components/conversation-search";
 import { FakeCanvas, type FakeReply } from "../src/test/fake-canvas";
 import { FakeMcp, type CrewMember } from "../src/test/fake-mcp";
+import { FakeScriptStore } from "../src/test/fake-script-store";
 import { applyAgentPatch, restartRequired } from "../src/test/schedule-contract";
 import { renderRoute } from "./mock-render";
 
@@ -185,6 +186,9 @@ export interface MockOptions {
   contentHits?: ContentHit[];
   /** The canvases the canvas routes answer from; a fresh, empty one when omitted. */
   canvas?: FakeCanvas;
+  /** What each agent's scripts keep between runs; nothing when omitted. A spec keeps the
+   *  object to see what a delete left. */
+  scriptStore?: FakeScriptStore;
   /** How many messages, from the first, the server takes and then fails to answer: the turn
    *  runs and is stored, and the connection drops before a byte of it reaches the page. */
   lostAnswers?: number;
@@ -225,6 +229,14 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   const wiki = new Map(Object.entries(options.wiki ?? {}).map(([id, pages]) => [id, pages.map((p) => ({ ...p }))]));
   const canvas = options.canvas ?? new FakeCanvas();
   canvas.conversationExists = (id) => conversations.some((c) => c.id === id);
+  const scriptStore = options.scriptStore ?? new FakeScriptStore();
+  scriptStore.knownAgent = (id) => (agents as AgentInfo[]).some((a) => a.id === id);
+  scriptStore.schedule = (agentId, scheduleId) =>
+    (agents as AgentInfo[]).find((a) => a.id === agentId)?.schedules.find((s) => s.id === scheduleId);
+  scriptStore.conversation = (id) => {
+    const found = conversations.find((c) => c.id === id);
+    return found && { title: String(found.title ?? "") };
+  };
   await page.route(/^https?:\/\/[^/]+\/api\//, async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/api/, "");
@@ -351,6 +363,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
         .map((p) => ({ slug: p.slug, kind: p.kind, title: p.title, status: p.status, updated: p.updated, sources: p.sources, question_count: p.questions.length }));
       return json({ pages: summaries, kinds: [...new Set(summaries.map((p) => p.kind))], count: summaries.length });
     }
+    const kept = scriptStore.route(path, method, url.searchParams);
+    if (kept) return json(kept.body, kept.status);
     const single = path.match(/^\/agents\/([^/]+)$/);
     if (single && (method === "PATCH" || method === "DELETE")) {
       const at = agents.findIndex((a) => (a as { id: string }).id === single[1]);
