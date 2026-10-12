@@ -394,6 +394,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   The web's box for removing an agent said only that the folder goes to `.trash` and is not
   deleted. It now also says, before the id is typed, what the folder does not bring back: what
   the agent's scripts kept, the jobs it was given in chat and the switch on each of its jobs.
+- A whole number without end is refused as a bad profile. `max_steps`, `tool_output_chars` and
+  the `chat_id` of a `telegram` block take a whole number, and `.inf` there (`Infinity` or
+  `1e400` in a request) raised an error nobody reads as a bad profile: `PATCH /api/agents/{id}`,
+  `POST /api/agents` and `POST /api/agents/reload` answered 500. Each is now a 422 that names
+  the agent (`agent coder: cannot convert float infinity to integer`,
+  `agent coder: telegram chat_id must be an integer`), with nothing written and the running
+  agent as it was, and a file written by hand that way stops the start with the same line.
 
 ## [0.15.0] — 2026-10-12
 

@@ -108,9 +108,9 @@ def parse_profile(
     defaults = WORK_DEFAULTS if mode == WORK else {}
     try:
         settings = settings_from(raw, agent_id, base, defaults)
-    except TypeError as exc:
-        # float({}) and int([]) raise TypeError: a number written as something else. The
-        # caller reports a bad profile by catching ValueError.
+    except (TypeError, OverflowError) as exc:
+        # float({}) and int([]) raise TypeError, int(.inf) OverflowError: no number of the
+        # kind asked. The caller reports a bad profile by catching ValueError.
         raise ValueError(f"agent {agent_id}: {exc}") from exc
     if settings.tool_output_chars < 1:
         raise ValueError(f"agent {agent_id}: tool_output_chars must be >= 1")

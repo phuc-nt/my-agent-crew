@@ -496,7 +496,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     agent, không hỏi tới thư mục của người dùng; home đặt qua một liên kết: chuỗi tuyệt đối đi
     qua liên kết ấy là 422 nêu đường dẫn thật, chuỗi tương đối và đường dẫn thật là 200);
     `tests/test_profile_wrong_shapes.py` (tệp bị sửa tay dưới đội đang chạy: mỗi hồ sơ một giá
-    trị sai hình dạng ở một chỗ, 1176 tệp, mỗi tệp gặp một lần sửa bỏ khoá ấy và một lần sửa khoá
+    trị sai hình dạng ở một chỗ, 1365 tệp, mỗi tệp gặp một lần sửa bỏ khoá ấy và một lần sửa khoá
     khác: 200 hoặc 422, không bao giờ 5xx, sau 422 tệp và đội đang chạy không đổi). Kiểm chứng
     đột biến: mười sửa đổi (bỏ nửa "chuỗi nằm trong home", bỏ nửa "chỗ dẫn tới nằm trong
     home", không đọc `~`, đọc `~` cả ở tên persona, không gộp `..`, không nhận đường dẫn thật,
@@ -520,19 +520,23 @@ tên một test thì sửa dòng của nó trong cùng commit.
 - **Hồ sơ agent sai hình dạng bị từ chối bằng 422 nêu tên khoá, không bao giờ là 500**
   - pytest: `tests/test_profile_wrong_shapes.py` (đi hết mọi khoá của hồ sơ, mọi trường của một
     dòng lịch thuộc cả ba loại và mọi trường của `telegram`, lấy từ chính bảng khoá của mã, nhân
-    với mười tám hình dạng sai: số, công tắc, `null`, chuỗi, chuỗi rỗng, danh sách, mapping, danh
-    sách chứa số, `null`, mapping, danh sách hay chuỗi rỗng; thêm bảy chuỗi đường dẫn lạ cho từng
+    với 21 hình dạng sai: số, công tắc, `null`, chuỗi, chuỗi rỗng, danh sách, mapping, danh
+    sách chứa số, `null`, mapping, danh sách hay chuỗi rỗng, phân số, số vô cùng và NaN (hai thứ
+    cuối gửi bằng chữ `Infinity`, `NaN` mà bộ đọc của route nhận); thêm bảy chuỗi lạ cho từng
     khoá đường dẫn, viết trơ trọi và viết trong danh sách: `~` của người không có, `~` trơ trọi,
     toàn dấu cách, có ký tự NUL, 5000 ký tự gồm nhiều thư mục, một tên 5000 ký tự và một tên 300
-    ký tự; 1176 hồ sơ ở bộ đọc, 2442 lời gọi ở `PATCH
+    ký tự; 1365 hồ sơ ở bộ đọc, 2825 lời gọi ở `PATCH
     /api/agents/{id}` và `POST /api/agents`, kể cả thân yêu cầu và `agent_id` sai hình dạng: mỗi
     lời gọi là 200/201 hoặc 422, không bao giờ 5xx; sau 422 từng byte của mọi `agent.yaml` và đội
     đang chạy không đổi; sau lần lưu được thì cả đội vẫn liệt kê được và mọi job giữ một việc là
     chuỗi; các ca từng làm 500 nay bị từ chối bằng tên khoá, ở lần sửa, lần tạo và lần sửa
     master; tệp viết tay mang hình dạng ấy thì `POST /api/agents/reload` trả 422; lần sửa đưa
     vào một lịch mà `prompt` hay `command` không phải chuỗi là 422, còn dòng tệp đã giữ sẵn như
-    vậy không chặn lần lưu khoá khác). Kiểm chứng đột biến: ba mươi mốt sửa đổi ở phép xét danh
-    sách, ở chỗ bộ đọc gọi nó, ở phép lần theo đường dẫn và ở phép xét việc của một lịch đều bị
+    vậy không chặn lần lưu khoá khác; số vô cùng, dương hay âm, ở chỗ cần một số nguyên
+    (`max_steps`, `tool_output_chars`, `chat_id` của `telegram`) từng là 500, nay là 422 nêu tên
+    agent ở lần sửa, lần tạo, lần sửa master và ở `reload`, không tệp nào đổi). Kiểm chứng đột
+    biến: ba mươi ba sửa đổi ở phép xét danh sách, ở chỗ bộ đọc gọi nó, ở phép lần theo đường
+    dẫn, ở phép xét việc của một lịch và ở hai chỗ bắt lỗi của số nguyên vô cùng đều bị
     test bắt.
 - **Danh sách công cụ của agent mở từ những gì tệp viết, không từ những gì agent đang giữ**
   - pytest: `tests/test_api_agents_declared.py::test_the_tools_an_agent_holds_are_not_what_its_file_lists`,
