@@ -3,7 +3,7 @@ import { Icon } from "./ui/icon";
 
 /**
  * "Sửa và gửi lại từ đây": rewinds and forks the conversation at the user message this
- * button sits under. Only ever rendered on a user bubble — see `message-thread.tsx`'s
+ * button sits under. Only ever rendered on a user bubble — see `message-item.tsx`'s
  * `Item`, which never passes it an assistant or tool item.
  *
  * Styled apart from `.copy-button` (see `thread-composer.css`): that button uses

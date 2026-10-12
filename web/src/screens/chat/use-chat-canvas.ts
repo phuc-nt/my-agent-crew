@@ -9,7 +9,7 @@ import { useSavingNote } from "../../hooks/use-saving-note";
 import type { ChatProps } from "./chat-props";
 
 // Wide enough to keep the conversation's activity open beside the chat. Matches the
-// breakpoint in shell.css where the three-column layout folds back to two.
+// breakpoint in shell-responsive.css where the three-column layout folds back to two.
 const DOCKED_ACTIVITY_QUERY = "(min-width: 1101px)";
 
 interface CanvasParts extends Pick<ChatProps, "thread" | "activity"> {

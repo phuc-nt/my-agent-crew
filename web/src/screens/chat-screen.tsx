@@ -27,7 +27,7 @@ import { useRestoreText } from "./chat/use-restore-text";
 
 /** The whole conversation: who you are talking to, what was said, what the agent is doing. */
 // A phone: the conversation list stops being a column and slides over the chat instead.
-// Matches the breakpoint in shell.css.
+// Matches the breakpoint in shell-responsive.css.
 const PHONE_QUERY = "(max-width: 720px)";
 
 export function ChatScreen({
