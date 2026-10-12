@@ -419,7 +419,11 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     if (/^\/jobs\/.+\/state$/.test(path) && method === "PATCH") {
       const { enabled } = route.request().postDataJSON() as { enabled: boolean };
       const job = jobs.find((j) => (j as { id: string }).id === path.slice(6, -6));
-      return job ? json({ ...job, enabled, paused: !enabled }) : json({ detail: "job not found" }, 404);
+      if (!job) return json({ detail: "job not found" }, 404);
+      // Kept on the row, as the server keeps it: the page reads the list again after the
+      // switch, and that read has to say what this answer said.
+      Object.assign(job, { enabled, paused: !enabled });
+      return json({ failing: null, ...job });
     }
     if (/^\/jobs\/.+\/runs$/.test(path)) return json([]);
     // Matched after the three suffixed routes above so a bare job id is not read as one of
