@@ -19,6 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from my_agent_crew import texts_script as t
+from my_agent_crew import texts_script_llm as asking
 from my_agent_crew.activity.step_previews import preview
 from my_agent_crew.agents import default_profile
 from my_agent_crew.agents.profile_edit import RESTART_KEYS
@@ -26,6 +27,7 @@ from my_agent_crew.agents.profile_yaml import load_yaml_profiles, parse_profile
 from my_agent_crew.config import Settings, load_settings
 from my_agent_crew.llm.fake import EchoProvider, ScriptedProvider, completion
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL
+from my_agent_crew.script import limits
 from my_agent_crew.script.scope import SCRIPT_TOOL, callable_tools
 from my_agent_crew.script.tool import hand_script
 from my_agent_crew.server.agent_assembly import build_agent_deps
@@ -239,6 +241,34 @@ async def test_a_script_that_asks_all_the_same_is_refused_and_no_model_is_asked(
     assert (caught.ok, caught.output) == (True, f"bắt được: {NOT_HERE}\nchạy tiếp")
     assert (uncaught.ok, uncaught.output) == (False, unfinished(erred(2, NOT_HERE)))
     assert caught.calls == uncaught.calls == () and model.requests == []
+
+
+ASKS_ON = """
+    for n in range(12):
+        try:
+            llm.classify("mua ngay kẻo hết", ["rác", "thường"])
+        except Exception:
+            print("lần", n)
+    """
+
+
+async def test_an_asking_refused_for_want_of_a_model_is_still_one_the_script_counts(deps_factory):
+    model = ScriptedProvider([completion("Rác.", cost_usd=0.004)])
+    frugal = deps_factory(
+        providers={"scripted": model}, extra_tools=[Reads("row_read").tool], script_llm=False
+    )
+    hand_script(frugal)
+
+    result = await play(frugal.tools, ASKS_ON)
+
+    # A script counts what it asked however it was answered, so one that catches each
+    # refusal and asks on is ended by the asking past the most it may make.
+    most = limits.MAX_LLM_CALLS
+    refused = [f"lần {n}" for n in range(most)]
+    ended = halted(4, asking.LLM_TOO_MANY_CALLS.format(most=most))
+    assert (result.ok, result.output) == (False, unfinished(*refused, ended))
+    # None of them was a call anyone made: nothing is on the run card and no model heard.
+    assert result.calls == () and model.requests == []
 
 
 async def test_a_schedules_script_of_such_an_agent_asks_no_model_either(deps_factory):
