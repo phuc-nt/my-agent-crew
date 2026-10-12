@@ -472,6 +472,20 @@ tên một test thì sửa dòng của nó trong cùng commit.
     agent khác); `tests/test_agent_profiles.py`
     ("test_a_tool_that_needs_a_key_is_not_reported_as_an_unknown_name",
     "test_an_allow_list_that_omits_delegate_keeps_a_work_agent_from_delegating")
+- **Server kể những tên mà danh sách `tools:` đem lại được cho từng agent (`listable_tools`)**
+  - pytest: `tests/test_listable_tools.py`, mọi ca dựng cả đội qua `build_runtime` và hỏi qua
+    HTTP như trình sửa (đội bốn agent: master, assistant, agent work, agent khai `delegates`;
+    đi qua mọi tên tool mà một agent của đội giữ, thêm `delegate`, `tool_script`,
+    `tool_search`, một `mcp__x__y`, một tên bịa, ba tool chỉ agent work có và `image_read`, rồi
+    dựng lại đội với danh sách nêu hết các tên ấy: tên được kể thì lần khởi động không cảnh báo,
+    tên không được kể thì có cảnh báo, chạy hai lần là máy có và không có tuyến đọc ảnh; ngoại
+    lệ duy nhất là `image_read` trên máy không có tuyến đọc ảnh, không được kể mà cũng không bị
+    cảnh báo; tên được kể là tên agent thật sự giữ khi danh sách nêu nó; `tool_script`,
+    `tool_search`, `mcp__…` không bao giờ được kể; danh sách đã xếp theo tên và không co lại
+    theo danh sách agent đang khai; `GET /api/agents` kể đúng như `GET /api/agents/{id}`; một
+    lần lưu đổi `mode`, rồi một lần đổi `delegates`, trả danh sách mới ngay trong câu trả lời và
+    ở lần đọc kế tiếp, không đụng tới agent khác, đổi lại thì danh sách về như cũ; tool được
+    trao sau chỉ được kể khi phép xét của cảnh báo nói danh sách được tôn trọng)
 - **Toàn bộ tham số của một tool call**
   - vitest: `components/tool-args-detail.test.tsx`; `components/components.test.tsx`
     "opens a tool row's full arguments from under its summary"

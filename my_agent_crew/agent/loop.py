@@ -67,6 +67,9 @@ class AgentDeps:
     # What every agent of the running crew holds right now, by id (`agents/abilities.py`).
     # The runtime sets it; without one the roster tells only what each owner wrote.
     crew: Callable[[], Mapping[str, Abilities]] | None = None
+    # The tool names a `tools:` list can bring this agent, for whoever edits the list
+    # (`server/tool_list_names.py`). An agent no assembly made is told none.
+    listable_tools: tuple[str, ...] = ()
 
     @property
     def agent(self) -> AgentProfile:
