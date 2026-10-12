@@ -104,6 +104,15 @@ class TelegramChannel(TelegramChat):
         """A message from the bot itself, not from an agent."""
         await self._api.send_message(self.chat_id, text)
 
+    async def notify(self, agent_id: str, text: str) -> bool:
+        """A sentence of the runtime's about an agent's work, under that agent's name when
+        it is not the master; False when this runtime lacks the agent."""
+        if agent_id not in self.agents:
+            logger.warning("telegram: nothing said about unknown agent %s", agent_id)
+            return False
+        await self.outbound(agent_id).notify(text)
+        return True
+
     def conversation(self) -> Conversation:
         """The conversation a message joins: the one a turn runs or messages wait in, else
         today's."""
