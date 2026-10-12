@@ -365,8 +365,9 @@ export interface AgentInfo {
   script_llm?: boolean;
   /** The names a `tools:` list takes effect for, for this agent as it is saved now, sorted:
    * the server's own judgement, which the tool picker follows. A tool the agent is handed
-   * whatever its list says is never among them. */
-  listable_tools: string[];
+   * whatever its list says is never among them. Absent from a server older than the key:
+   * the page it serves between an update and its restart is this one. */
+  listable_tools?: string[];
 }
 
 export interface InstallRequest {
