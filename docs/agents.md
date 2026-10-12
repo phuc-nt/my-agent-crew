@@ -340,8 +340,10 @@ parse). Một patch chỉ nêu vài khoá; ghi nó đè lên tệp đã hỏng s
 khác mà người đó vẫn còn trong đó.
 
 **Xoá vẫn giữ tệp.** `DELETE` chuyển `agents/<id>` sang `agents/.trash/<id>-<stamp>`
-và báo nó đã đi đâu; không gì bị xoá. Các cuộc trò chuyện agent đó từng giữ vẫn ở nguyên và
-rơi về master. Nó từ chối (409) với master, và với agent mà một agent khác
+và báo nó đã đi đâu; không tệp nào của agent bị xoá. Thứ nằm trong database thì khác: những gì
+script của nó giữ lại, lịch nó được tạo từ chat và công tắc bật/tắt của từng job bị xoá hẳn
+(hai đoạn dưới và [tools.md](tools.md)), và hộp xoá trên web nói điều đó trước khi người dùng
+gõ id. Các cuộc trò chuyện agent đó từng giữ vẫn ở nguyên và rơi về master. Nó từ chối (409) với master, và với agent mà một agent khác
 vẫn nêu tên trong `delegates` — xoá nó sẽ để profile kia không hợp lệ và server
 không khởi động được lần sau.
 

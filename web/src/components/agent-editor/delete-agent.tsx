@@ -13,8 +13,9 @@ interface Props {
  *
  * Typing the id is the confirmation rather than a yes/no dialog, because the two clicks a
  * dialog costs are exactly the two clicks muscle memory spends without reading. The
- * server moves the folder to `.trash` instead of deleting it, so a mistake here is
- * recoverable — the notice says where it went.
+ * server moves the folder to `.trash` instead of deleting it, so the agent's own files
+ * can be put back, and the notice says where they went. What it kept in the database does
+ * not come back with them, so that is named before the id is typed.
  */
 export function DeleteAgent({ agentId, onDeleted }: Props) {
   const [typed, setTyped] = useState("");
@@ -40,6 +41,9 @@ export function DeleteAgent({ agentId, onDeleted }: Props) {
     <section className="editor-section danger" data-testid="delete-agent">
       <h3>{vi.editor.deleteTitle}</h3>
       <p className="muted">{vi.editor.deleteHint(agentId)}</p>
+      <p className="muted" data-testid="delete-agent-lost">
+        {vi.editor.deleteLost}
+      </p>
       {error && (
         <div className="notice error" role="status">
           {error}

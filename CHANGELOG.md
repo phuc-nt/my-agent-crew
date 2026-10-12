@@ -391,6 +391,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   them. A removal now takes the three with it at once (the run history stays), an agent made
   under the id starts with none of them, and a job that comes due with no agent in the crew is
   left out with one log line while the rest of the tick runs.
+  The web's box for removing an agent said only that the folder goes to `.trash` and is not
+  deleted. It now also says, before the id is typed, what the folder does not bring back: what
+  the agent's scripts kept, the jobs it was given in chat and the switch on each of its jobs.
 
 ## [0.15.0] — 2026-10-12
 
