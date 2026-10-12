@@ -550,11 +550,11 @@ export const vi = {
     deleteConfirm: "Xoá agent",
     deleted: (id: string, kept: string) => `Đã gỡ ${id}. Thư mục còn ở ${kept}.`,
     deleteFailed: (message: string) => `Không xoá được: ${message}`,
-    // What the agent's scripts may reach, and whether they may ask a model. Both take
-    // effect as they are saved.
+    // What the agent's scripts may reach, and whether they may ask a model. Both hold from
+    // the turn after a save: a turn under way ends with what it began with.
     sectionScript: "Script",
     scriptHint:
-      "Script là đoạn mã agent tự viết để gọi nhiều công cụ trong một lần chạy (công cụ tool_script). Hai mục này có hiệu lực ngay khi lưu, không cần khởi động lại.",
+      "Script là đoạn mã agent tự viết để gọi nhiều công cụ trong một lần chạy (công cụ tool_script). Hai mục này có hiệu lực từ lượt kế tiếp sau khi lưu, không cần khởi động lại; lượt đang chạy giữ nguyên như lúc bắt đầu.",
     scriptCalls: "Script gọi được gì",
     scriptCallsOption: {
       none: "Không dùng script",
