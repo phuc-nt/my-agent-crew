@@ -31,7 +31,8 @@ function bare(name: string): RegistryTool {
  * A server older than that report sends none, and it is the one serving this page from an
  * update until its restart. Its agents are offered what the page offered before the report:
  * every tool of the catalogue that the catalogue itself does not mark as handed outside any
- * list. The form's type also allows no agent at all, which reads the same way.
+ * list. The form's type also allows no agent at all, which no screen opens the editor on;
+ * it reads the same way.
  */
 export function allowList(tools: RegistryTool[], agent: AgentInfo | null, draft: AgentPatch): AllowList {
   const unmarked = () => tools.filter((tool) => !tool.server && !tool.with_mcp && !tool.with_reads);

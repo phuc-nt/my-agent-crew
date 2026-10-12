@@ -1,12 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi as vitest } from "vitest";
 import type { AgentInfo } from "../../api/types";
-import { useAgentDraft } from "../../hooks/use-agent-draft";
 import { parseRoute } from "../../hooks/use-route";
 import { vi } from "../../i18n/vi";
 import { FakeBackend, fakeAgent } from "../../test/fake-backend";
 import { AgentEditor } from "./agent-editor";
-import { ScriptControls } from "./script-controls";
 
 const t = vi.editor;
 
@@ -37,15 +35,5 @@ describe("the way from an agent's script settings to what its scripts keep", () 
 
     expect(llm()).toBeDisabled();
     expect(link()).toHaveAttribute("href", "#/manage/memory/scripts/coach");
-  });
-
-  it("is not there for an agent that is not saved yet: it has kept nothing", () => {
-    function Blank() {
-      return <ScriptControls form={useAgentDraft(null)} readOnly={false} />;
-    }
-    render(<Blank />);
-
-    expect(llm()).toBeInTheDocument();
-    expect(link()).not.toBeInTheDocument();
   });
 });
