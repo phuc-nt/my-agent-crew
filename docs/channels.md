@@ -258,30 +258,43 @@ bỏ qua dấu chấm/than cuối) thì không được đẩy lên chat, log gh
 `job <id>: nothing to report, not delivered`. Run vẫn nằm trong trang Jobs và rail hoạt động,
 nên vẫn thấy job đã chạy. Câu trả lời dài hơn, kể cả bắt đầu bằng "OK, nhưng…", vẫn được gửi.
 
-**Job script hỏng thì có một tin báo.** Lịch chạy thẳng một script (khoá `script`,
-[agents.md](agents.md#job-chạy-script)) không mở lượt nào khi script hỏng, nên không có cuộc
-trò chuyện nào để giao: nhìn từ chat, job hỏng và job chạy tốt mà không in gì trông như nhau.
-Vì vậy khi run của chính script kết thúc `error`, kênh nhận một tin của runtime gồm ba dòng:
+**Job hỏng mà không có cuộc trò chuyện thì có một tin báo, và tin ấy không lặp lại ở mỗi lần
+hỏng.** Ba loại job có thể hỏng mà không mở lượt nào: lịch chạy thẳng một script (khoá `script`,
+[agents.md](agents.md#job-chạy-script)), lịch chạy một lệnh (khoá `command`) và lần cô đọng bộ
+nhớ theo lịch (`memory_consolidate`). Không có cuộc trò chuyện nào để giao, nên nhìn từ chat, job
+hỏng và job chạy tốt mà không in gì trông như nhau. Vì vậy khi run của một job kết thúc `error` mà
+không có cuộc trò chuyện, kênh nhận một tin của runtime gồm bốn dòng:
 
 ```
-Lịch "<tên lịch>" gặp lỗi khi chạy script:
+Lịch "<tên lịch>" gặp lỗi khi chạy:
 <lý do>
 Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.
+Nếu lịch còn hỏng, tin nhắc kế tiếp sẽ đến sau 6 giờ.
 ```
 
-- Lý do là thứ đã làm script dừng: dòng lỗi (`Lỗi ở dòng N: …`, `Dừng ở dòng N: …`), hoặc dòng nói
-  rằng script chạy xong mà không giữ được gì bằng `store`. Nó được gộp thành một dòng, nguyên vẹn
-  khi không quá 600 ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký tự cuối, để câu dặn ở cuối
-  một lời từ chối không bị cắt mất.
-- Lý do **không** mang chữ nào script đã in trước khi hỏng. Thứ script in là thứ các tool đưa cho nó
-  (một lá thư, một trang web, ghi chú của người khác); nó vẫn nằm nguyên ở step `tool_script` của
-  run, cho người mở run xem. Tin cũng **không bao giờ** mang mã của script. Lời của một tool hỏng
-  thì được giữ nguyên, câu của một lỗi mà script tự `raise` cũng vậy. Vì thế tham số của một lời gọi
-  chỉ có trong tin khi chính tool hỏng nhắc lại nó (`Công cụ lỗi: không có ghi chú tên X`), và dữ
-  liệu chỉ có khi script tự viết nó vào câu lỗi. Còn một đường thứ ba: lỗi mà trình thông dịch
-  ném ra khi script đang xử lý một giá trị thì trích chính giá trị ấy (`int(...)` của một chuỗi
-  không phải số, một khoá mà mapping không có), nên lý do có thể mang một phần thứ tool vừa trả
-  về, trong giới hạn 600 ký tự nói trên.
+Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạy script:`; ba dòng còn lại như trên.
+
+- Lý do của job script là thứ đã làm script dừng: dòng lỗi (`Lỗi ở dòng N: …`, `Dừng ở dòng N: …`),
+  hoặc dòng nói rằng script chạy xong mà không giữ được gì bằng `store`. Lý do nào cũng được gộp
+  thành một dòng, nguyên vẹn khi không quá 600 ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký
+  tự cuối, để câu dặn ở cuối một lời từ chối không bị cắt mất.
+- Lý do của job script **không** mang chữ nào script đã in trước khi hỏng. Thứ script in là thứ các
+  tool đưa cho nó (một lá thư, một trang web, ghi chú của người khác); nó vẫn nằm nguyên ở step
+  `tool_script` của run, cho người mở run xem. Tin cũng **không bao giờ** mang mã của script. Lời
+  của một tool hỏng thì được giữ nguyên, câu của một lỗi mà script tự `raise` cũng vậy. Vì thế tham
+  số của một lời gọi chỉ có trong tin khi chính tool hỏng nhắc lại nó (`Công cụ lỗi: không có ghi
+  chú tên X`), và dữ liệu chỉ có khi script tự viết nó vào câu lỗi. Còn một đường thứ ba: lỗi mà
+  trình thông dịch ném ra khi script đang xử lý một giá trị thì trích chính giá trị ấy (`int(...)`
+  của một chuỗi không phải số, một khoá mà mapping không có), nên lý do có thể mang một phần thứ
+  tool vừa trả về, trong giới hạn 600 ký tự nói trên.
+- Lý do của job lệnh là mã thoát của lệnh và dòng cuối cùng có chữ trong những gì lệnh in ra, stdout
+  và stderr gộp chung: `Lệnh thoát với mã 3. Dòng cuối lệnh in ra: <dòng ấy>`. Dòng cuối là nơi một
+  lệnh thường nói nó hỏng vì đâu. Lệnh không in gì thì lý do chỉ có câu về mã thoát. Những dòng lệnh
+  in trước đó không có trong tin; run giữ chúng ở step `shell_run`. Lệnh chạy quá 900 giây, hạn của
+  một job lệnh, thì bị dừng, và lý do là `Lệnh vượt quá 900 giây và đã bị dừng.`.
+- Lý do của lần cô đọng bộ nhớ là tóm tắt của run: câu báo lỗi của lần gọi model, hoặc dòng nói
+  model không trả về gì. Lần cô đọng không có ghi chú mới nào để gộp kết thúc `done`; đó không phải
+  một lần hỏng và không có tin.
 - Tin của thành viên đội mang dòng `[Name]` ở đầu như bản tin theo lịch; tin của master thì không.
   Tin đi qua bước bỏ dấu markdown như mọi tin của bot (mục [Cuộc trò chuyện](#cuộc-trò-chuyện) ở
   trên): `**đậm**` và `*nghiêng*` trong tên lịch hay trong lý do mất dấu sao, nên lịch tên
@@ -289,16 +302,39 @@ Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.
   Tiêu đề `#`, đường kẻ và bảng chỉ được xét ở đầu dòng, mà mỗi dòng của tin đều mở bằng chữ của
   runtime, nên không đổi. Một dòng trong lý do có hình dạng dòng đính kèm (`FILE:`, `MEDIA:`)
   không gửi tệp nào.
-- Mỗi run hỏng một tin, không gộp và không giãn: lịch hỏng mãi thì mỗi lần tới hạn một tin, cho
-  tới khi script được sửa hoặc lịch bị tạm dừng. Chạy tay (`POST /api/jobs/{agent}/{id}/run`)
-  cũng báo như vậy.
-- Không có tin trong các trường hợp sau: script chạy tốt, dù có in gì hay không; lượt mà
-  `then_prompt` mở ra (lượt đó là một cuộc trò chuyện và được giao như prompt job ở trên, kể cả
-  khi hỏng); job `command` hỏng; run bị cắt vì server dừng (`interrupted`); không có kênh nào.
+- **Lịch hỏng mãi thì không nhắn mãi.** Scheduler đếm cho từng job số lần hỏng liên tiếp. Lần hỏng
+  đầu được báo ngay bằng tin ở trên. Sau đó, chừng nào job còn hỏng, kênh nhận nhiều nhất một tin
+  mỗi 6 giờ, tính từ tin gần nhất gửi được; lần hỏng rơi vào trong 6 giờ ấy chỉ được đếm. Tin nhắc
+  mang lý do của lần chạy gần nhất, và dòng cuối của nó nói job đã hỏng bao lâu:
+  `Đây là lần hỏng thứ 73 liên tiếp, tính từ 07:05 ngày 19/09. Nếu lịch còn hỏng, tin nhắc kế tiếp
+  sẽ đến sau 6 giờ.` Một job hỏng mỗi năm phút suốt một ngày vì thế nhắn bốn tin chứ không phải 288
+  tin, và cũng không im sau tin đầu. Chạy tay (`POST /api/jobs/{agent}/{id}/run`) được đếm và báo
+  như lần chạy của đồng hồ.
+- **Chỉ tin kênh nhận mới được tính là đã báo.** Gửi hỏng, gửi quá 60 giây, hay không có kênh nào
+  thì chuỗi vẫn là chuỗi chưa báo: lần hỏng kế tiếp thử gửi lại, không chờ 6 giờ, và tin lúc đó
+  mang số lần đã đếm được. Khoảng 6 giờ chỉ bắt đầu từ lúc một tin tới nơi.
+- **Job chạy lại được thì có một dòng.** Lần chạy kết thúc `done` đóng chuỗi. Nếu chủ đã từng được
+  báo về chuỗi ấy, kênh nhận `Lịch "<tên lịch>" đã chạy lại được sau N lần hỏng liên tiếp.`; nếu
+  chưa tin nào tới nơi thì không có dòng này. Dòng ấy gửi một lần: kênh không nhận thì thôi, không
+  gửi lại. Lần hỏng sau đó mở một chuỗi mới và được báo ngay. Mọi kết cục khác (run bị dừng
+  `halted`, lượt mà script mở ra bị hỏng) cũng đóng chuỗi, nhưng không có dòng nào.
+- Chuỗi nằm trong bộ nhớ của server, không ghi vào database. Server khởi động lại thì đếm lại từ
+  đầu, và job còn hỏng sau đó được báo ngay ở lần hỏng đầu. Job rời đồng hồ (agent bị xoá, dòng
+  lịch bị xoá) thì chuỗi của nó cũng mất; job tạo lại dưới cùng id bắt đầu từ không.
+- `GET /api/jobs` cho thấy chuỗi ấy ở khoá `failing` của từng dòng: `null` khi job không ở trong
+  chuỗi hỏng nào, còn không thì `{"count": 3, "since": "…", "told_at": "…", "next_notice_at": "…"}`.
+  `since` là lúc chuỗi bắt đầu, `told_at` là lúc kênh nhận tin gần nhất, `next_notice_at` là
+  `told_at` cộng 6 giờ; hai khoá sau là `null` khi chưa tin nào tới nơi. Ba mốc viết theo giờ của
+  chủ, tới phút, cùng dạng với `next_run`.
+- Không có tin trong các trường hợp sau: job chạy tốt, dù có in gì hay không; lượt của một prompt
+  job và lượt mà `then_prompt` mở ra (lượt là một cuộc trò chuyện và được giao như prompt job ở
+  trên, kể cả khi hỏng, nên không được đếm ở đây); run bị cắt vì server dừng (`interrupted`); job
+  rời đồng hồ trong lúc đang chạy.
 - Log ghi `job <id>: failure notice sent=<bool>`. Gửi hỏng thì log ghi
-  `job <id>: failure notice not sent` kèm lỗi, không thử lại; run vẫn giữ nguyên kết cục của nó
-  và các job tới hạn sau vẫn chạy. Tin chưa gửi xong sau 60 giây cũng bị bỏ như vậy: lời gửi bị
-  huỷ, log ghi cùng dòng ấy kèm `TimeoutError`, và đồng hồ sang job kế tiếp.
+  `job <id>: failure notice not sent` kèm lỗi; run vẫn giữ nguyên kết cục của nó và các job tới hạn
+  sau vẫn chạy. Tin chưa gửi xong sau 60 giây cũng bị bỏ như vậy: lời gửi bị huỷ, log ghi cùng dòng
+  ấy kèm `TimeoutError`, và đồng hồ sang job kế tiếp. Dòng báo job chạy lại được đi cùng đường và
+  ghi log như vậy.
 
 ## Offset và restart
 

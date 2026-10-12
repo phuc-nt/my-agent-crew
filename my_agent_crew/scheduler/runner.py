@@ -18,7 +18,8 @@ from my_agent_crew.agents.schedule import DELIVERED
 from my_agent_crew.scheduler.cron import due_between
 from my_agent_crew.scheduler.describe import describe_job
 from my_agent_crew.scheduler.execute import dispatch
-from my_agent_crew.scheduler.failure_notice import Notify, notify_failure
+from my_agent_crew.scheduler.failure_notice import Notify
+from my_agent_crew.scheduler.failure_streaks import Streaks
 from my_agent_crew.scheduler.jobs import JOB_SOURCE, Job, nothing_to_report
 from my_agent_crew.scheduler.table import JobTable
 from my_agent_crew.store.db import now_iso
@@ -40,9 +41,10 @@ class Scheduler:
         self._agents = agents
         self._hub = hub
         self._clock = clock
-        self._deliver, self._notify = deliver, notify
+        self._deliver = deliver
         self._store = next(iter(agents.values())).store if agents else None
         self._jobs = JobTable(agents, self._store, clock)
+        self._streaks = Streaks(notify, clock)
         self._task: asyncio.Task[None] | None = None
         self._running: set[str] = set()
         self._background: set[asyncio.Task[Any]] = set()
@@ -53,9 +55,10 @@ class Scheduler:
         return list(self._jobs.rows().values())
 
     def forget_agent(self, agent_id: str) -> None:
-        """An agent that leaves the crew takes its jobs off the clock with it. Called on the
-        event loop, as `tick()` is."""
+        """An agent that leaves the crew takes its jobs off the clock with it, and what was
+        counted of their failures. Called on the event loop, as `tick()` is."""
         self._jobs.forget_agent(agent_id)
+        self._streaks.forget_agent(agent_id)
 
     def describe(self) -> list[dict[str, Any]]:
         now = self._clock()
@@ -64,7 +67,9 @@ class Scheduler:
             # Asked per job: a weekly job's last run sits far behind a busy crew's week.
             last_run = next(iter(self._hub.recent(1, source=JOB_SOURCE + job.id)), None)
             last, running = self._jobs.last[job.id], job.id in self._running
-            out.append(describe_job(job, last, now, self._override(job), last_run, running))
+            failing = self._streaks.of(job.id)
+            row = describe_job(job, last, now, self._override(job), last_run, running, failing)
+            out.append(row)
         return out
 
     # --- switching -----------------------------------------------------------------------
@@ -107,6 +112,7 @@ class Scheduler:
             # job along. Told of once: the job goes with the line, and the tick goes on.
             logger.warning("job %s: agent %s is not in the crew, job dropped", job.id, job.agent_id)
             self._jobs.drop(job.id)
+            self._streaks.forget(job.id)
         return results
 
     def start(self) -> None:
@@ -149,7 +155,10 @@ class Scheduler:
             run, ended_by = await dispatch(job, deps, self._hub, self._clock)
             if job.schedule.kind in DELIVERED:
                 await self.deliver_run(job, run)
-            await notify_failure(job, run, ended_by, self._notify)
+            # A job that left the clock while it ran is counted no more: what it came to
+            # would be held against whichever job is later made under its id.
+            if job.id in self._jobs.rows():
+                await self._streaks.settle(job, run, ended_by)
             return run
         finally:
             self._running.discard(job.id)
