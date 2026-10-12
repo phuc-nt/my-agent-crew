@@ -33,7 +33,7 @@ export function App() {
   const thread = useThread(list.activeId);
   const crew = useCrew();
   const activity = useActivity(true, list.applyUpdate);
-  const externalRun = useExternalRunRefresh(list.activeId, thread, activity);
+  const externalRun = useExternalRunRefresh(list.activeId, thread, activity, !list.conversations.some((c) => c.id === list.activeId));
   useTurnWatch(list.activeId, thread, activity, externalRun);
   const version = useVersionCheck(activity.state.connected);
   useReloadOnReconnect(activity.state.connected, () => {
