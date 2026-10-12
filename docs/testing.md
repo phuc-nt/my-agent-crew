@@ -5738,22 +5738,31 @@ khi chạy; phần đó có mục riêng ở dưới.
     một job script là của riêng nó, trần lời gọi lồng còn nguyên; job script kết thúc thế nào
     thì cũng trả lại nguyên những gì tác vụ đang chạy theo).
   - pytest: `tests/test_script_job_failure_notice.py` (job script hỏng thì agent của lịch ấy được
-    báo đúng một tin: tên lịch trong ngoặc kép, lý do là đúng cái step của run giữ, và chỗ xem
-    run; câu từ chối của cổng duyệt tới nơi nguyên vẹn, dài hơn 160 ký tự và kết bằng phần dặn
-    gọi trực tiếp; lỗi dài thì tin mang phần đầu và phần cuối như step giữ, 601 ký tự, trong khi
-    tóm tắt của run vẫn 160; tin không mang chữ nào của script, tên tool hay tham số của một lời
-    gọi, dù cả hai có trên run; tên lịch nhiều dòng hay rất dài được kể thành một dòng, cắt bằng
-    `…`, và tin vẫn đúng ba dòng; run không giữ gì thì lý do là tóm tắt của nó, không có nữa thì
-    là trạng thái; script chạy tốt, in hay không in, không có tin; lượt mà script mở thì do việc
-    gửi câu trả lời lo, dù lượt xong hay hỏng; job lệnh hỏng và job prompt hỏng không có tin này;
-    gửi hỏng, vì Telegram từ chối hay vì một lỗi khác, thì ghi một dòng log mức lỗi kèm ngoại lệ,
-    run vẫn là run hỏng vì lý do của script; đồng hồ không có ai để báo thì không nói và không
-    ghi log gì; gửi được hay không được ghi ở log mức thông tin, không kèm chữ nào của script;
-    không có kênh thì job kết thúc như cũ; master được báo bằng lời của bot, agent khác thì dưới
-    dòng `[Tên]`; tin được gửi nguyên văn, dòng trông như `FILE:` hay `MEDIA:` không đính kèm tệp
-    nào; agent mà bot không biết thì không được báo gì; chat từ chối tin thì run và đồng hồ giữ
-    nguyên, job không còn bị coi là đang chạy; job chạy từ `POST /api/jobs/{agent}/{id}/run` được
-    báo như job đồng hồ chạy, và không có thêm tin "lượt chưa xong" nào).
+    báo đúng một tin: tên lịch trong ngoặc kép, lý do là đúng dòng lỗi đã làm script dừng, và chỗ
+    xem run; chữ script in trước khi hỏng, kể cả thứ một tool vừa đưa cho nó, không có trong tin,
+    trong khi step và tóm tắt của run vẫn giữ đủ như trước; tool hỏng được kể bằng lời của chính nó,
+    tham số mà nó nhắc lại vì thế có trong tin; câu của lỗi do script tự `raise` có trong tin;
+    script chạy xong mà không giữ được gì bằng `store` thì lý do là đúng dòng nói vậy; script không
+    chạy nổi thì lý do là loại lỗi, như run ghi; câu từ chối của cổng duyệt tới nơi nguyên vẹn, dài
+    hơn 160 ký tự và kết bằng phần dặn gọi trực tiếp, không kèm chữ đã in; lỗi dài thì tin mang 200
+    ký tự đầu và 400 ký tự cuối của dòng lỗi, 601 ký tự, trong khi tóm tắt của run vẫn 160 và step
+    cắt theo cách của nó; tin không mang chữ nào của script, tên tool hay tham số của một lời gọi
+    chạy tốt, dù cả hai có trên run; tên lịch nhiều dòng hay rất dài được kể thành một dòng, cắt
+    bằng `…`, và tin vẫn đúng ba dòng; không ai nói script dừng vì đâu thì lý do là trạng thái của
+    run, không bao giờ là thứ run đã giữ; lý do nhiều dòng được gộp thành một dòng; script chạy tốt,
+    in hay không in, không có tin; lượt mà script mở thì do việc gửi câu trả lời lo, dù lượt xong
+    hay hỏng; job lệnh hỏng và job prompt hỏng không có tin này; gửi hỏng, vì Telegram từ chối hay
+    vì một lỗi khác, thì ghi một dòng log mức lỗi kèm ngoại lệ, run vẫn là run hỏng vì lý do của
+    script; tin không gửi xong trong hạn thì bị bỏ, lời gửi bị huỷ chứ không treo lại, log ghi như
+    một tin gửi hỏng kèm `TimeoutError`, và job tới hạn sau nó vẫn chạy trong cùng nhịp đồng hồ;
+    đồng hồ không có ai để báo thì không nói và không ghi log gì; gửi được hay không được ghi ở log
+    mức thông tin, không kèm chữ nào của script; không có kênh thì job kết thúc như cũ; master được
+    báo bằng lời của bot, agent khác thì dưới dòng `[Tên]`; tin đi như mọi tin của bot, `**đậm**` và
+    `*nghiêng*` trong tên lịch hay trong lý do mất dấu sao còn `2*3` giữ nguyên; dòng trông như
+    `FILE:` hay `MEDIA:` không đính kèm tệp nào; agent mà bot không biết thì không được báo gì; chat
+    từ chối tin thì run và đồng hồ giữ nguyên, job không còn bị coi là đang chạy; job chạy từ `POST
+    /api/jobs/{agent}/{id}/run` được báo như job đồng hồ chạy, và không có thêm tin "lượt chưa xong"
+    nào).
   - pytest: `tests/test_approval_ttl.py::test_the_web_editor_and_the_server_agree_on_what_a_schedule_row_holds`
     (danh sách khoá của một dòng lịch mà trình sửa trên web giữ trùng với danh sách của server,
     nay gồm cả `script` và `then_prompt`, dù trình sửa viết danh sách ấy trên mấy dòng),

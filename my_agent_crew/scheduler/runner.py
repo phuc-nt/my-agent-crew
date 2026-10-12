@@ -171,10 +171,10 @@ class Scheduler:
         deps = self._agents[job.agent_id]
         self._running.add(job.id)
         try:
-            run = await dispatch(job, deps, self._hub, self._clock)
+            run, ended_by = await dispatch(job, deps, self._hub, self._clock)
             if job.schedule.kind in DELIVERED:
                 await self.deliver_run(job, run)
-            await notify_failure(job, run, self._notify)
+            await notify_failure(job, run, ended_by, self._notify)
             return run
         finally:
             self._running.discard(job.id)

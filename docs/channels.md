@@ -261,11 +261,23 @@ Lịch "<tên lịch>" gặp lỗi khi chạy script:
 Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.
 ```
 
-- Lý do là phần step `tool_script` của run đã giữ: gộp thành một dòng, nguyên vẹn khi không quá
-  600 ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký tự cuối, để câu dặn ở cuối một lời từ
-  chối không bị cắt mất. Tin **không bao giờ** mang mã của script hay tham số của một lời gọi.
-- Tin của thành viên đội mang dòng `[Name]` ở đầu như bản tin theo lịch; tin của master thì
-  không. Tin đi nguyên văn: một dòng trong lý do có hình dạng dòng đính kèm không gửi tệp nào.
+- Lý do là thứ đã làm script dừng: dòng lỗi (`Lỗi ở dòng N: …`, `Dừng ở dòng N: …`), hoặc dòng nói
+  rằng script chạy xong mà không giữ được gì bằng `store`. Nó được gộp thành một dòng, nguyên vẹn
+  khi không quá 600 ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký tự cuối, để câu dặn ở cuối
+  một lời từ chối không bị cắt mất.
+- Lý do **không** mang chữ nào script đã in trước khi hỏng. Thứ script in là thứ các tool đưa cho nó
+  (một lá thư, một trang web, ghi chú của người khác); nó vẫn nằm nguyên ở step `tool_script` của
+  run, cho người mở run xem. Tin cũng **không bao giờ** mang mã của script. Lời của một tool hỏng
+  thì được giữ nguyên, câu của một lỗi mà script tự `raise` cũng vậy. Vì thế tham số của một lời gọi
+  chỉ có trong tin khi chính tool hỏng nhắc lại nó (`Công cụ lỗi: không có ghi chú tên X`), và dữ
+  liệu chỉ có khi script tự viết nó vào câu lỗi.
+- Tin của thành viên đội mang dòng `[Name]` ở đầu như bản tin theo lịch; tin của master thì không.
+  Tin đi qua bước bỏ dấu markdown như mọi tin của bot (mục [Cuộc trò chuyện](#cuộc-trò-chuyện) ở
+  trên): `**đậm**` và `*nghiêng*` trong tên lịch hay trong lý do mất dấu sao, nên lịch tên
+  `**Nhắc hạn**` được kể là `Nhắc hạn`; dấu `*` đứng giữa hai chữ hay hai số (`2*3`) giữ nguyên.
+  Tiêu đề `#`, đường kẻ và bảng chỉ được xét ở đầu dòng, mà mỗi dòng của tin đều mở bằng chữ của
+  runtime, nên không đổi. Một dòng trong lý do có hình dạng dòng đính kèm (`FILE:`, `MEDIA:`)
+  không gửi tệp nào.
 - Mỗi run hỏng một tin, không gộp và không giãn: lịch hỏng mãi thì mỗi lần tới hạn một tin, cho
   tới khi script được sửa hoặc lịch bị tạm dừng. Chạy tay (`POST /api/jobs/{agent}/{id}/run`)
   cũng báo như vậy.
