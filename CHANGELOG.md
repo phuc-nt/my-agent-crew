@@ -86,7 +86,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   that as its first 200, an ellipsis and its last 400. `output` of such a step, and of a failed
   entry of a script's `calls`, is therefore up to 601 characters where it was up to 161. A call
   that went well stays at 160, as do a route that was passed over, what the model said, a
-  question and the arguments of a call.
+  question and the arguments of a call. A text kept that way has a cut in its middle, and the
+  exported trajectory covers what the cut left of a secret on either side of it: its first
+  characters before the ellipsis, as it did, and its last ones after it, where the cover looked
+  only at the start of a text.
 
 ### Fixed
 

@@ -636,11 +636,15 @@ Bản xuất khác thứ người đã thấy trên màn hình: nó có mọi th
 trang web, tệp trong workspace, dữ liệu một agent con mang về). Server che khoá theo cách tốt
 nhất có thể, không bảo đảm: giá trị của mọi biến môi trường trong tiến trình server có tên
 chứa `KEY`, `TOKEN`, `SECRET`, `PASSWORD` hay `CREDENTIAL` và dài từ 8 ký tự, cùng những
-chuỗi có dạng khoá quen thuộc (`sk-…`, `Bearer …`, JWT), đều thành `[đã che]`. Một bí mật đến
-từ chỗ khác (người dùng gõ vào, một tệp hay trang web tool đọc được) thì không bị che. Vì vậy
-đầu bản xuất và dưới hai link tải đều nhắc đọc lại trước khi dán ra ngoài. Kết quả tool dài quá
-2 000 ký tự bị cắt và ghi rõ dài bao nhiêu, trừ khi gọi với `full=1`. Tệp đến dưới dạng
-`attachment` với `Cache-Control: no-store`, qua cùng hàng rào Host/Origin như mọi đường khác.
+chuỗi có dạng khoá quen thuộc (`sk-…`, `Bearer …`, JWT), đều thành `[đã che]`. Bản ghi của run
+giữ bản rút gọn chứ không giữ nguyên văn, nên một bí mật có thể bị cắt ngang; phần còn lại của
+nó, từ 8 ký tự, cũng được che: phần đầu ở cuối chữ hay ngay trước dấu `…`, phần đuôi ở đầu chữ
+hay ngay sau dấu `…`, kể cả dấu `…` nằm giữa lời của một bước hỏng (200 ký tự đầu, `…`, 400 ký
+tự cuối). Một bí mật đến từ chỗ khác (người dùng gõ vào, một tệp hay trang web tool đọc được)
+thì không bị che. Vì vậy đầu bản xuất và dưới hai link tải đều nhắc đọc lại trước khi dán ra
+ngoài. Kết quả tool dài quá 2 000 ký tự bị cắt và ghi rõ dài bao nhiêu, trừ khi gọi với
+`full=1`. Tệp đến dưới dạng `attachment` với `Cache-Control: no-store`, qua cùng hàng rào
+Host/Origin như mọi đường khác.
 
 Dưới mỗi tin người dùng đã lưu có một nút "Sửa và gửi lại từ đây": bấm thì rẽ nhánh ngay tại đó
 (ẩn khi thread đang bận, khi bubble còn xếp hàng hay khi hội thoại đang mở là con của delegate).
