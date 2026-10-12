@@ -574,6 +574,8 @@ export const vi = {
     scriptLlm: "Cho script hỏi mô hình",
     scriptLlmHint:
       "Đây là phần duy nhất của script tốn tiền: mỗi script hỏi mô hình tối đa 10 lần. Tắt thì script trong lượt và script của lịch chạy đều không hỏi được.",
+    // The way from here to the screen that shows what this agent's scripts keep.
+    scriptStoreLink: "Xem những gì script của agent này giữ lại",
     // A schedule that runs a script, written in the form. Under the box of the prompt its
     // output goes on with: when a turn is opened, and that otherwise nobody hears of the run.
     scheduleThenPromptHint:

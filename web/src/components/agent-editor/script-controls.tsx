@@ -1,6 +1,7 @@
 import { useId } from "react";
 import type { ScriptCalls } from "../../api/types";
 import type { AgentDraft } from "../../hooks/use-agent-draft";
+import { routeHash } from "../../hooks/use-route";
 import { vi } from "../../i18n/vi";
 
 interface Props {
@@ -20,6 +21,9 @@ const CALLS: ScriptCalls[] = ["none", "read_only", "gated"];
  * Under the select is the line for the option chosen, tied to it as its description, so
  * the consequence is read where the choice is made. With `gated` chosen on an agent the
  * form has running by itself, that line says what the two mean together: nobody is asked.
+ *
+ * Last comes the way to what those scripts keep from one run to the next, on the screen
+ * that shows it with this agent chosen. An agent that is not saved yet has kept nothing.
  */
 export function ScriptControls({ form, readOnly }: Props) {
   const callsHint = useId();
@@ -27,6 +31,7 @@ export function ScriptControls({ form, readOnly }: Props) {
   const t = vi.editor;
   const calls = form.draft.script_calls ?? "read_only";
   const unasked = calls === "gated" && form.draft.autonomous === true;
+  const kept = form.original && routeHash({ kind: "manage", section: "memory", param: "scripts", focus: form.original.id });
 
   return (
     <>
@@ -66,6 +71,11 @@ export function ScriptControls({ form, readOnly }: Props) {
           {t.scriptLlmHint}
         </span>
       </div>
+      {kept && (
+        <a className="editor-link" href={kept}>
+          {t.scriptStoreLink}
+        </a>
+      )}
     </>
   );
 }

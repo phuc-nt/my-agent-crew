@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
+import { FakeScriptStore } from "../src/test/fake-script-store";
 import { coachAgent, defaultAgent, mockApi } from "./mock-api";
 import { spills } from "./spills";
 
@@ -47,6 +48,41 @@ async function setsBoth(page: Page) {
   return { tools, calls, llm };
 }
 
+/** Follow the link under the script settings to what this agent's scripts keep, and come back. */
+async function followsToStore(page: Page, press: "click" | "tap") {
+  // Each agent keeps a key of its own, to tell whose store is on screen.
+  const scriptStore = new FakeScriptStore().keep("default", "job:lead", "seen", 1).keep("coach", "job:brief", "seen", 2);
+  await mockApi(page, { agents: [master, coach], scriptStore });
+  await page.goto("/#/manage/crew/coach");
+  const editor = page.getByTestId("agent-editor");
+  const link = editor.getByTestId("section-tools").getByRole("link", { name: t.scriptStoreLink });
+  await link.scrollIntoViewIfNeeded();
+  const box = (await link.boundingBox())!;
+  expect(await pageWidth(page)).toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(await spills(page, '[data-testid="section-tools"]')).toEqual([]);
+
+  await link[press]();
+  await expect(page).toHaveURL(/#\/manage\/memory\/scripts\/coach$/);
+  const store = page.getByTestId("script-store");
+  await expect(store.getByRole("combobox", { name: vi.agents })).toHaveValue("coach");
+  await expect(store.locator('[data-namespace="job:brief"]')).toBeVisible();
+  await expect(store.locator('[data-namespace="job:lead"]')).toHaveCount(0);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/manage\/crew\/coach$/);
+  await expect(editor.getByLabel(t.name, { exact: true })).toHaveValue(coach.name);
+  await expect(link).toBeVisible();
+  return box;
+}
+
+test.describe("on a wide screen", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("the link under the script settings opens what this agent's scripts keep, and Back returns to the editor", async ({ page }) => {
+    await followsToStore(page, "click");
+  });
+});
+
 test("what an agent's scripts may call and whether they ask a model are set, saved and still there after a reload", async ({ page }) => {
   const { calls } = await setsBoth(page);
 
@@ -72,5 +108,10 @@ test.describe("on a phone", () => {
     await expect(page.getByText(t.scriptCallsGatedAutonomous)).toBeVisible();
     expect(await pageWidth(page)).toBeLessThanOrEqual(390);
     expect(await spills(page, '[data-testid="section-tools"]')).toEqual([]);
+  });
+
+  test("the link under the script settings is tall enough to tap, opens this agent's store, and Back returns", async ({ page }) => {
+    const box = await followsToStore(page, "tap");
+    expect(box.height).toBeGreaterThanOrEqual(40);
   });
 });

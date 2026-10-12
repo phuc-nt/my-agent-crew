@@ -64,6 +64,20 @@
   font-size: var(--text-xs);
 }
 
+/* The way from a section of the editor to another screen: a line of its own under the
+   fields. A link is not among the controls touch-targets.css widens. */
+.editor-link {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .editor-link {
+    min-height: var(--touch-target);
+  }
+}
+
 /* The controls themselves come from base.css; a field only keeps them from pushing
    its row wider than the section. */
 .field input[type="text"],
