@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { vi } from "../i18n/vi";
 import {
   delegateAgent,
@@ -13,6 +12,7 @@ import { DelegateCanvases } from "./canvas/delegate-canvases";
 import { ScriptCanvases } from "./canvas/script-canvases";
 import { ScriptReport } from "./script-calls";
 import { summarizeArguments, ToolArgsDetail } from "./tool-args-detail";
+import { ToolOutput } from "./tool-output";
 import { AgentAvatar } from "./ui/agent-avatar";
 import { Icon, type IconName } from "./ui/icon";
 
@@ -40,6 +40,9 @@ const STATUS_ICON: Record<ToolStatus, IconName> = {
   stopped: "stop",
 };
 
+/** Refused or failed, what the call handed back is the reason either way. */
+const didFail = (status: ToolStatus) => status === "failed" || status === "denied";
+
 function Status({ status, label }: { status: ToolStatus; label: string }) {
   return (
     <span className={`tool-status ${status}`}>
@@ -60,19 +63,8 @@ interface Props {
 }
 
 export function ToolCallCard({ item, agentName, onOpenConversation, canvas }: Props) {
-  const [open, setOpen] = useState(false);
-  const hasOutput = item.output !== null && item.output !== "";
   if (item.name === DELEGATE) {
-    return (
-      <DelegateCard
-        item={item}
-        agentName={agentName}
-        onOpenConversation={onOpenConversation}
-        canvas={canvas}
-        open={open}
-        setOpen={setOpen}
-      />
-    );
+    return <DelegateCard item={item} agentName={agentName} onOpenConversation={onOpenConversation} canvas={canvas} />;
   }
   if (canvas && isCanvasWrite(item)) return <CanvasCard item={item} canvas={canvas} />;
   return (
@@ -95,14 +87,7 @@ export function ToolCallCard({ item, agentName, onOpenConversation, canvas }: Pr
           settled={item.status === "done" || item.status === "failed"}
           onOpenConversation={onOpenConversation}
         />
-        {hasOutput && (
-          <>
-            <button type="button" className="link-button" onClick={() => setOpen((o) => !o)}>
-              {open ? vi.hideOutput : vi.showOutput}
-            </button>
-            {open && <pre className="tool-output">{item.output}</pre>}
-          </>
-        )}
+        {item.output && <ToolOutput text={item.output} failed={didFail(item.status)} />}
       </div>
       {/* A canvas a script wrote has its card under the script's, as one the agent wrote itself has. */}
       {canvas && <ScriptCanvases item={item} canvas={canvas} />}
@@ -116,14 +101,7 @@ export function ToolCallCard({ item, agentName, onOpenConversation, canvas }: Pr
  * wrote. The child runs as its own conversation, so the card offers a way in rather than
  * inlining the whole thing.
  */
-function DelegateCard({
-  item,
-  agentName,
-  onOpenConversation,
-  canvas,
-  open,
-  setOpen,
-}: Props & { open: boolean; setOpen: (fn: (o: boolean) => boolean) => void }) {
+function DelegateCard({ item, agentName, onOpenConversation, canvas }: Props) {
   const target = delegateAgent(item.arguments);
   const task = delegateTask(item.arguments);
   const result = item.output ? parseDelegateResult(item.output) : null;
@@ -178,14 +156,7 @@ function DelegateCard({
         </div>
       )}
       {canvas && result && <DelegateCanvases canvases={result.canvases} canvas={canvas} />}
-      {item.output && (
-        <>
-          <button type="button" className="link-button" onClick={() => setOpen((o) => !o)}>
-            {open ? vi.hideOutput : vi.showOutput}
-          </button>
-          {open && <pre className="tool-output">{result ? result.reply : item.output}</pre>}
-        </>
-      )}
+      {item.output && <ToolOutput text={result ? result.reply : item.output} failed={didFail(item.status)} />}
     </div>
   );
 }

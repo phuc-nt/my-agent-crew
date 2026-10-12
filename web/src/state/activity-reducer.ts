@@ -2,6 +2,7 @@ import { notYetListed, withNested, workOf } from "../lib/nested-calls";
 import { newestFirst } from "../lib/run-order";
 import { isAnswered } from "../lib/run-progress";
 import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
+import { preview, toolOutputPreview } from "../lib/step-preview";
 import type { AgentEvent, NestedToolCall, RunInfo, RunPayload, RunStep } from "../api/types";
 
 /** Runs by id, live ones updated step by step from the activity stream. */
@@ -20,12 +21,7 @@ export type ActivityAction =
 
 export const emptyActivity: ActivityState = { runs: {}, connected: false, synced: false };
 
-const PREVIEW_CHARS = 160;
 const ACTIVE: RunInfo["status"][] = ["running", "awaiting_approval"];
-
-function preview(text: string): string {
-  return text.length > PREVIEW_CHARS ? `${text.slice(0, PREVIEW_CHARS)}…` : text;
-}
 
 type ToolStep = Extract<RunStep, { kind: "tool" }>;
 
@@ -124,7 +120,7 @@ export function applyRunEvent(run: RunInfo, e: AgentEvent): RunInfo {
       // which is every one of them for a script that ran beside other calls.
       const work = workOf(e);
       if (work.calls) billNested(notYetListed(step.calls ?? [], work.calls));
-      steps[at] = { ...step, ok: e.ok, output: preview(e.output), ...work };
+      steps[at] = { ...step, ok: e.ok, output: toolOutputPreview(e.output, e.ok), ...work };
       break;
     }
     case "nested_call": {

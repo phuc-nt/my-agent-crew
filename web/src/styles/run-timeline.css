@@ -290,6 +290,13 @@
   overflow-wrap: anywhere;
 }
 
+/* The reason a call failed, at the length a step keeps of one: read whole, wrapped over as
+   many lines as it takes, with nothing to scroll inside. On the rail and on the chat card. */
+.tool-output.whole {
+  max-height: none;
+  overflow: visible;
+}
+
 /* ── What a script called on its own ────────────────────────────────────── */
 /* Lines up under the head like every other part of the row. Quieter than a step: these
    calls sit inside one, and the rail above already counts the script as a single stop. */
