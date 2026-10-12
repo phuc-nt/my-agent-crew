@@ -462,6 +462,45 @@ tên một test thì sửa dòng của nó trong cùng commit.
     422 với câu đó, không ghi gì). Kiểm chứng đột biến: tám sửa đổi (bỏ phép so khi đọc tệp,
     không bao giờ báo trùng, không ghi lại mã đã gặp, bỏ qua job consolidate, so không phân
     biệt hoa thường, bỏ mã khỏi câu, bỏ tên agent khỏi câu, bỏ qua dòng đầu) đều bị test bắt.
+- **Lần cài mẫu bị từ chối để home y như cũ; `reload` nhận hết hoặc không nhận ai**
+  - pytest: `tests/test_api_agents_install_refused.py` (home có một `agent.yaml` hỏng cú
+    pháp, sai kiểu một khoá hay hai lịch trùng mã: cài là 422 nêu tệp, không tệp nào và
+    không thư mục nào đổi, kể cả workspace nêu trong lời gọi chưa được tạo, và sửa tệp xong
+    thì cài được; tám mã không phải mã agent, có và không `force`, là 422 và không ghi gì,
+    kể cả ra ngoài home; năm tên mẫu có đường dẫn là 404; mã của master và mã của agent do
+    kit đem tới là 409 dù có `force`; workspace là một tệp, hay nằm dưới một tệp, là 422
+    trước khi ghi, cả khi `force` lên agent đang chạy; workspace chưa có thì được tạo; mẫu
+    ghi xong mà không vào đội được thì thư mục vừa tạo bị gỡ, tệp bị ghi đè trở lại nội
+    dung cũ, home khởi động được như trước);
+    `tests/test_agent_template_names.py` (mọi mẫu đi kèm đều mang tên là một mã agent;
+    `add_template` từ chối mã không hợp lệ, mã của master và tên mẫu có đường dẫn mà không
+    ghi gì; `landing` liệt kê đúng mọi tệp một lần cài ghi ngoài các đồng đội nó kéo theo;
+    dòng lệnh `agent add … --id ../x` trả 1 và in lý do; ba thư mục chép tay, cái ở giữa có
+    workspace là một tệp: `reload` là 422 nêu đường dẫn, không ai vào đội, sửa xong thì cả
+    ba vào). Kiểm chứng đột biến: mười bảy sửa đổi (không trả lại gì, để lại thư mục vừa
+    tạo, để lại tệp đã ghi đè, để lại tệp mới, để lại thư mục `agents` vừa tạo, không đọc
+    home trước khi ghi, coi mã chạy không có tệp riêng là còn trống theo hai cách, không
+    thử tạo workspace trước, lỗi workspace không thành 422, lỗi thư mục lúc vào đội không
+    thành 422, không kiểm mã, không kiểm tên mẫu, không chặn mã của master, `landing` bỏ
+    sót kỹ năng dùng chung, dòng lệnh không in lý do, cho từng agent vào đội ngay khi dựng
+    xong) đều bị test bắt.
+- **`agent.yaml` hỏng cú pháp bị từ chối kèm tên tệp; front matter không phải YAML chỉ làm mất
+  đúng tệp đó**
+  - pytest: `tests/test_manifest_that_does_not_parse.py` (tệp của master và tệp của một
+    agent: `load_profiles` ném `ValueError` mở đầu bằng câu của tệp hỏng, có đường dẫn tệp
+    và dòng, cột của trình đọc; `reload` là 422 nêu tệp, không ai vào đội, sửa xong thì
+    vào; lưu tuyến model bên cạnh tệp như thế là 409 nêu tệp, `config.yaml` và tuyến đang
+    chạy giữ nguyên); `tests/test_front_matter_that_does_not_parse.py` (trình đọc front
+    matter ném `ValueError`; agent của kit, lệnh của kit, skill dạng tệp và skill dạng thư
+    mục: tệp hỏng bị bỏ ra, log nêu đường dẫn, tệp lành bên cạnh vẫn được nạp; front matter
+    của skill là một dòng chữ, một danh sách hay một số thì skill không có mô tả, mang tên
+    tệp; với mỗi loại trong ba loại, đội đang chạy `reload` được, cài mẫu được và khởi động
+    lại được; persona mở đầu bằng một khối không phải YAML được đọc nguyên văn, persona có
+    front matter thì chỉ giữ phần thân). Kiểm chứng đột biến: mười sửa đổi (đọc tệp không
+    bắt lỗi, bỏ tên tệp khỏi câu, để lỗi của trình đọc front matter đi qua, không bỏ lệnh,
+    không ghi log lệnh, persona không được đọc nguyên văn, không bỏ skill, không ghi log
+    skill, hỏi khoá của một front matter không có khoá, không bỏ agent của kit) đều bị test
+    bắt.
 - **Đường dẫn một lần sửa đưa vào phải nằm dưới home; đường dẫn agent đang chạy với thì để nguyên**
   - pytest: `tests/test_api_agents_edit.py`
     ("test_a_persona_file_outside_the_home_is_refused",

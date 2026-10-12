@@ -113,7 +113,7 @@ Ba tầng (pytest, vitest, Playwright) và cách chạy ở [testing.md](testing
 - `agents/templates/`: `fullstack-developer`, `kongming`, `researcher`, và `_shared_skills/` dùng chung.
 - `skills/builtin/`: `cite-sources`.
 
-Cài bằng `python -m my_agent_crew agent add <template> [--id <id>] [--force] [--workspace <dir>]` hoặc `POST /api/agents/install`.
+Cài bằng `python -m my_agent_crew agent add <template> [--id <id>] [--force] [--workspace <dir>]` hoặc `POST /api/agents/install`. Cả hai đi qua `agents/templates_cli.py`; phần kiểm trước khi ghi và trả lại home khi lần cài bị từ chối ở `server/agent_install.py`.
 
 ## 7. Bộ tài liệu
 

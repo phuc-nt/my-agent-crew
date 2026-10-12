@@ -55,7 +55,7 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `escalation_route` | một `provider:model` | trống: tắt | tuyến mà một lượt **bị kẹt** chuyển sang: khi lượt sắp bị dừng vì gọi y hệt một lệnh nhiều lần liên tiếp, hoặc khi mọi tuyến trong `routes` đều hỏng trước khi hiện chữ nào. Phần còn lại của lượt đó chạy trên tuyến này (cùng `reasoning` của agent), lượt sau quay về `routes`. Chỉ đặt cho từng agent: không có khoá toàn cục, không có biến môi trường và không agent nào thừa hưởng của agent khác. Tuyến trùng một tuyến trong `routes`, hay của provider chưa có khoá, không dùng được: lúc khởi động nó bị bỏ qua kèm một dòng cảnh báo trong log, còn lưu từ màn sửa agent thì bị từ chối (422). Sửa có hiệu lực từ lượt kế tiếp, không cần khởi động lại. Xem [Vòng lặp agent](system-architecture.md#23-vòng-lặp-agent) |
 | `reasoning` | `minimal`, `low`, `medium` hoặc `high` | trống | model nghĩ kỹ đến đâu, gửi lên OpenRouter thành `reasoning.effort` cho mọi tuyến của agent (kể cả tuyến dự phòng); trống thì để provider tự quyết. Model đang nghĩ thì web hiện "Agent đang suy nghĩ…", số token dùng để nghĩ lưu ở cột `reasoning_tokens` của `messages`, còn nội dung suy nghĩ không lưu. Ollama bỏ qua khoá này |
 | `workspace` | đường dẫn | `workspace` | sandbox cho `workspace_*` và `shell_run`; đường dẫn tương đối tính từ thư mục agent, `~` được mở rộng |
-| `persona_files` | danh sách tên tệp | `AGENTS.md, SOUL.md, IDENTITY.md, USER.md` | đọc từ thư mục agent vào system prompt mỗi lượt; tệp thiếu thì bỏ qua |
+| `persona_files` | danh sách tên tệp | `AGENTS.md, SOUL.md, IDENTITY.md, USER.md` | đọc từ thư mục agent vào system prompt mỗi lượt; tệp thiếu thì bỏ qua. Tệp mở đầu bằng front matter thì chỉ phần thân vào prompt; khối mở đầu không phải YAML thì cả tệp được đọc nguyên văn |
 | `persona_names` | chỉ đọc | — | danh sách tên tệp persona thực sự có mặt (trả về bởi `GET /api/agents/{id}` và `GET /api/agents/{id}/prompt`) |
 | `skills_dirs` | danh sách đường dẫn | `[]` | thư mục skill bổ sung; `<agent dir>/skills` luôn đứng đầu |
 | `cost_cap_usd` | số ≥ 0 | toàn cục | ngân sách mỗi cuộc trò chuyện, `0` = không giới hạn |
@@ -164,6 +164,24 @@ có thể giao việc cho nó ngay), và `needs_restart` là true khi một agen
 `schedules`: job chỉ khởi động lúc boot. 404 cho template
 lạ, 409 khi id đã có người dùng (`force` ghi đè).
 
+**Lần cài bị từ chối để home y như cũ.** Mọi thứ lời gọi nêu đều được kiểm, và home được
+đọc như lúc boot, trước khi ghi một tệp nào:
+
+- `template` phải là tên trần của một mẫu đi kèm, còn `agent_id` phải là một mã agent (chữ
+  thường, số, gạch ngang). Tên có đường dẫn (`../x`, `a/b`) là 404 với mẫu và 422 với mã;
+  `agent add` trên dòng lệnh từ chối y như thế và in lý do.
+- Mã của master (`default`) và mã của một agent chạy mà không có `agent.yaml` riêng (agent
+  do kit đem tới) là 409 dù có `force`: `force` chỉ ghi đè tệp của chính agent đó.
+- Home không đọc được thành một đội (một `agent.yaml` hỏng cú pháp, sai kiểu, hai lịch
+  trùng mã, giao việc cho người không có) là 422 nêu đúng tệp.
+- `workspace` không thể là một thư mục (trùng một tệp, nằm dưới một tệp) là 422. Workspace
+  chưa có thì được tạo; đường dẫn tương đối được tính từ thư mục server đang chạy, nên hãy
+  viết tuyệt đối.
+
+Nếu ghi xong mà agent vẫn không vào đội được, thư mục lần cài vừa tạo bị gỡ và mỗi tệp nó
+ghi đè trở lại nội dung cũ. Còn lại hai thứ: thư mục `workspace` vừa được tạo cho lời gọi,
+và thư mục con rỗng nếu có.
+
 | id | mode | Dùng để làm gì |
 |---|---|---|
 | `fullstack-developer` | work | nhận một việc phần mềm từ đầu đến cuối — scout, lập kế hoạch, code, test, tự review, commit — theo các skill dùng chung; không có danh sách tool cho phép, chỉ giao việc cho hai agent còn lại, để xin tư vấn hoặc nghiên cứu, không bao giờ để đẩy code sang |
@@ -199,6 +217,10 @@ PUT    /api/agents/{id}/files/{name}  {"content": "…"}
 GET    /api/agents/{id}/prompt                  → system prompt assembled this turn, and `opening`: the notes read beside a first message
 POST   /api/agents/reload                       → {"added": ["…"]}
 ```
+
+`reload` nhận mọi thư mục vừa chép vào hoặc không nhận ai: một `agent.yaml` hỏng cú pháp hay
+sai kiểu, hoặc một workspace không thể là thư mục, là 422 nêu đúng tệp hay đường dẫn, và đội
+đang chạy giữ nguyên.
 
 **Một patch chỉ nêu những gì nó thay đổi.** Khoá bỏ ngoài giữ nguyên giá trị; muốn xoá một khoá thì
 phải nói rõ bằng `null`. Điều này quan trọng vì web gửi từng mục một —
@@ -687,6 +709,7 @@ Mỗi phần ánh xạ sang gì:
 | `tools:` trong front matter đó | ánh xạ theo tên: `Bash`→`shell_run`, `Read`→`workspace_read`, `Write`, `Edit`/`MultiEdit`→`workspace_edit`, `Glob`, `Grep`, `LS`→`workspace_list`, `WebFetch`→`fetch_url`, `WebSearch`→`web_search`, `Task`/`Agent`→`delegate`; tên riêng của chúng tôi đi thẳng qua, tên chỉ có ở harness (`TaskCreate`, `NotebookEdit`) bị bỏ. Memory, `skill_read` và `image_read` luôn được giữ. Agent được phép sửa là `mode: work` trừ khi front matter nói khác |
 | `commands/**/*.md` (front matter `description`, thân là prompt) | một slash command `/name`, lồng thư mục thành `/dir:name`. `$ARGUMENTS` và `$1`…`$9` được điền từ tin nhắn, nếu không thì đối số được nối vào cuối. Chạy trong web chat và trên Telegram, nơi các lệnh có sẵn (`/new`, `/status`, …) giữ nguyên tên; prompt của master liệt kê chúng |
 | `skills/` (hoặc `skill/` của opencode) | thêm một thư mục skill sau thư mục riêng của agent |
+| front matter không phải YAML (hay gặp: `description: Use when: …`, dấu hai chấm thứ hai) | chỉ mất đúng tệp đó: agent, lệnh hay skill trong tệp bị bỏ ra và log nêu đường dẫn, các tệp khác vẫn nạp. Bọc mô tả trong dấu nháy là đọc được |
 | `settings.json` → `hooks.PreToolUse` / `hooks.PostToolUse`, các mục `type: command` | hook tool, xem bên dưới. Các loại hook và sự kiện khác bị bỏ qua |
 
 **Hook** chạy lệnh với cùng JSON trên stdin mà các harness gửi:
@@ -742,6 +765,11 @@ requires:
 cliHelp: gws --help
 ---
 ```
+
+Front matter không phải YAML thì skill đó bị bỏ ra và log nêu đường dẫn tệp, các skill
+khác vẫn nạp. Lỗi hay gặp nhất là một mô tả có dấu hai chấm thứ hai
+(`description: Use when: …`): bọc mô tả trong dấu nháy là đọc được. Front matter đọc được
+mà không phải các cặp khoá (một dòng chữ, một danh sách) thì coi như không khai gì.
 
 Skill đến được prompt theo một trong ba đường:
 
