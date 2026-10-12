@@ -175,6 +175,91 @@ def test_what_a_person_wrote_that_the_two_libraries_read_differently_holds_up_no
     assert after["description"] == "Viết mã"
 
 
+# A switch a person wrote the way YAML 1.1 lets them: a boolean to the reader the server
+# starts with, a text to the library a save reads and writes with.
+SWITCHES = [
+    ("script_llm", "off", False),
+    ("script_llm", "no", False),
+    ("script_llm", "on", True),
+    ("script_llm", "yes", True),
+    ("shell_network", "no", False),
+    ("shell_network", "off", False),
+    ("shell_network", "yes", True),
+]
+
+
+@pytest.mark.parametrize(("key", "word", "read"), SWITCHES)
+def test_a_switch_written_by_hand_as_a_word_holds_up_no_save_and_stays_as_written(
+    crew, key, word, read
+):
+    """`script_llm: off` starts the agent with the switch off. Read by the save's library it
+    is the text `off`, which no switch may be: every later save of the agent, about
+    anything, was refused for a line it never touched."""
+    serve, manifest = crew
+    with serve(f"name: Thợ mã\n{key}: {word}\n") as client:
+        assert client.get("/api/agents/coder").json()[key] is read
+
+        reply = client.patch("/api/agents/coder", json={"profile": {"description": "Viết mã"}})
+
+        assert reply.status_code == 200, reply.json()
+        assert reply.json()["profile"][key] is read
+        running = client.get("/api/agents/coder").json()
+        assert (running[key], running["description"]) == (read, "Viết mã")
+    assert f"\n{key}: {word}\n" in manifest.read_text("utf-8")
+    assert booted(manifest) == {"name": "Thợ mã", key: read, "description": "Viết mã"}
+
+
+@pytest.mark.parametrize("key", ["script_llm", "shell_network"])
+@pytest.mark.parametrize("word", ["off", "no", "false", "on", "yes", "true"])
+def test_an_edit_that_sends_a_switch_as_a_word_is_still_refused(crew, key, word):
+    """What a person may write by hand, a save may not send. It would be written in quotes,
+    the next start would read a text, and a text is no switch."""
+    serve, manifest = crew
+    written = f"name: Thợ mã\n{key}: off\n"
+    with serve(written) as client:
+        reply = client.patch("/api/agents/coder", json={"profile": {key: word}})
+
+        assert reply.status_code == 422
+        assert reply.json()["detail"] == f"agent coder: {key} must be true or false"
+        assert client.get("/api/agents/coder").json()[key] is False
+    assert manifest.read_text("utf-8") == written
+
+
+def test_an_edit_may_set_a_switch_a_person_wrote_as_a_word(crew):
+    """The edit's own key is written as the edit sent it, and the other word is left alone."""
+    serve, manifest = crew
+    with serve("name: Thợ mã\nscript_llm: off\nshell_network: no\n") as client:
+        reply = client.patch("/api/agents/coder", json={"profile": {"script_llm": True}})
+
+        assert reply.status_code == 200, reply.json()
+        running = client.get("/api/agents/coder").json()
+        assert (running["script_llm"], running["shell_network"]) == (True, False)
+    assert manifest.read_text("utf-8") == "name: Thợ mã\nscript_llm: true\nshell_network: no\n"
+
+
+def test_a_save_leaves_the_running_agent_as_the_next_start_will_read_its_file(crew):
+    """The save's library read `max_steps: 010` as ten, and a row's `enabled: no` as a text,
+    which is taken for a row switched on. A save of another key wired both into the running
+    agent and asked for a restart over schedules it never touched, while the next start
+    would read eight and a row switched off, as the start before it had."""
+    serve, manifest = crew
+
+    def read(client: TestClient) -> tuple[int, bool]:
+        agent = client.get("/api/agents/coder").json()
+        return agent["max_steps"], agent["declared"]["schedules"][0]["enabled"]
+
+    with serve(READ_TWO_WAYS) as client:
+        assert read(client) == (8, False)
+
+        reply = client.patch("/api/agents/coder", json={"profile": {"description": "Viết mã"}})
+
+        assert reply.status_code == 200, reply.json()
+        assert reply.json()["restart_required"] == []
+        assert read(client) == (8, False)
+    with serve(manifest.read_text("utf-8")) as client:
+        assert read(client) == (8, False)
+
+
 # --- the look itself ---
 
 
