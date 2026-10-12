@@ -44,7 +44,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.mcp.tools import McpTool
@@ -80,13 +80,24 @@ class ScriptTool(Tool):
         return {**super().to_dict(), "with_reads": True}
 
 
+class Ran(NamedTuple):
+    """A script that was run. The result holds all it said as one text, for the model and
+    the run's step. The two parts of that are here apart: what it printed, and what ended
+    it when it did not end well (the line of its error, or the line that says none of what
+    it stored could be kept), which holds nothing it printed."""
+
+    result: ToolResult
+    printed: str
+    ended_by: str
+
+
 async def run_source(
     source: str,
     held: ToolRegistry,
     gate: Gate | None = None,
     kept: Kept | None = None,
     model: Ask | None = None,
-) -> tuple[ToolResult, str]:
+) -> Ran:
     """Runs one script against the tools in `held`, and hands back how it ended beside what
     it printed, which the result holds only mixed with the rest. The one way a script is
     run: a turn's `tool_script` comes here, and so does the script of a schedule
@@ -104,11 +115,11 @@ async def run_source(
         source, made.answer, lookup=asked.lookup, call_many=made.answer_many, **longer
     )
     printed = said = outcome.output.rstrip()
-    if outcome.error:
-        said = f"{said}\n{outcome.error}" if said else outcome.error
     lost = kept.commit() if kept is not None and outcome.ok else None
-    if lost:
-        said = f"{said}\n{lost}" if said else lost
+    # One or the other: a script that erred kept nothing, so none of it was lost.
+    ended_by = outcome.error or lost or ""
+    if ended_by:
+        said = f"{said}\n{ended_by}" if said else ended_by
     ok = outcome.ok and not lost
     if not ok:
         said = f"{t.SCRIPT_FAILED}\n{said}".rstrip()
@@ -120,7 +131,7 @@ async def run_source(
         printed_chars=len(printed),
         child_spent_usd=sum(call.child_spent_usd for call in made.calls),
     )
-    return result, printed
+    return Ran(result, printed, ended_by)
 
 
 def script_tool(
@@ -146,7 +157,7 @@ def script_tool(
         if len(source) > limits.MAX_SOURCE_CHARS:
             raise ToolError(t.SCRIPT_TOO_LONG.format(most=limits.MAX_SOURCE_CHARS))
         kept = keeper() if keeper is not None else None
-        return (await run_source(source, registry(), gate, kept, model))[0]
+        return (await run_source(source, registry(), gate, kept, model)).result
 
     held = registry()
     own = [tool for tool in callable_tools(held, gated) if not isinstance(tool, McpTool)]

@@ -3,10 +3,14 @@
 A script that ran well and printed nothing says nothing: that is what a script job is for.
 One that failed opened no turn either, and from the chat the two looked the same. So the run
 of a script that failed is told to the agent's channel in one message of the runtime's: which
-schedule, why, and where the run is. Why is what the run's step kept of what the script said,
-to its last sentence, which is often what to do about it. Neither the script's text nor what a
-call of it was given is part of it. A job of another kind, and a script whose output opened a
-turn, are told as they were. Every script here runs in a real child process.
+schedule, why, and where the run is. Why is what ended the script: the line of its error, or
+the line that says nothing of it could be kept, to its last sentence, which is often what to
+do about it. Nothing the script printed before it failed is part of it, and neither is the
+script's text. What a call was given is in it only where the tool that failed said it back,
+and what an error the script raised says is in it as the script wrote it. The run keeps what
+it kept before: its step and its summary are not made from the message, nor the message from
+them. A job of another kind, and a script whose output opened a turn, are told as they were.
+Every script here runs in a real child process.
 """
 
 from __future__ import annotations
@@ -26,28 +30,35 @@ from my_agent_crew import texts
 from my_agent_crew import texts_script as t
 from my_agent_crew import texts_script_job as words
 from my_agent_crew.activity import ActivityHub
+from my_agent_crew.activity.step_previews import CUT, FAILURE_HEAD, FAILURE_TAIL
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.channels.telegram_api import TelegramError
 from my_agent_crew.llm.fake import ScriptedProvider, completion
 from my_agent_crew.llm.provider import ProviderError
-from my_agent_crew.scheduler import Job, Scheduler
+from my_agent_crew.scheduler import Job, Scheduler, script_job
 from my_agent_crew.scheduler.failure_notice import failure_notice
+from my_agent_crew.script import limits
+from my_agent_crew.script.store_session import job_kept
 from my_agent_crew.server import create_app
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store.runs import DONE, FAILED, RunRecord
+from my_agent_crew.texts_script_store import STORE_NOT_KEPT
+from my_agent_crew.tools.registry import Tool, ToolError
 from my_agent_crew.tools.shell import SHELL_TOOL_NAME
 from tests.test_scheduler import with_schedules
 from tests.test_script_gate import ASK_LIST, SECRET, agent, shelled
 from tests.test_script_job_gate import MORNING
-from tests.test_script_tool import Reads, erred, halted, unfinished
+from tests.test_script_tool import SCHEMA, Reads, erred, halted, unfinished
 from tests.test_telegram_runtime_sentences import attachable
 
 NAME, DUE = "Nhắc hạn", "default/due"
 WHERE = "Quản lý → Hoạt động"
 BROKEN = 'print("đã đọc 3 thư")\nprint(nowhere_named)'
-# What the step of `BROKEN` keeps of what it said: one line, whole.
-WHY = unfinished("đã đọc 3 thư", erred(2, t.SCRIPT_NO_NAME.format(name="nowhere_named")))
+# What ended `BROKEN`, which is why it failed and all the person is told of it...
+WHY = erred(2, t.SCRIPT_NO_NAME.format(name="nowhere_named"))
+# ...and what its run's step keeps of what it said: one line, whole, with what it printed.
+STEP = unfinished("đã đọc 3 thư", WHY).replace("\n", " ")
 LOGGER = "my_agent_crew.scheduler.failure_notice"
 
 
@@ -102,12 +113,128 @@ async def test_a_script_job_that_failed_tells_which_schedule_why_and_where(deps_
     run = await rig.sched.run_job(DUE)
 
     assert (run.status, run.conversation_id) == (FAILED, None)
-    reason = WHY.replace("\n", " ")
     # Once, to the agent whose schedule it is.
-    assert rig.notices == [("default", notice(reason))] and rig.delivered == []
+    assert rig.notices == [("default", notice(WHY))] and rig.delivered == []
     [(_, text)] = rig.notices
-    assert f'"{NAME}"' in text and reason in text and WHERE in text
-    assert text.endswith(f"{WHERE}.") and reason == run.steps[0]["output"]
+    assert f'"{NAME}"' in text and WHY in text and WHERE in text
+    assert text.endswith(f"{WHERE}.") and text.split("\n")[1] == WHY
+
+
+async def test_what_a_script_printed_before_it_failed_is_not_told(deps_factory):
+    """What a script prints is whatever its tools gave it: a mail, a page, a note somebody
+    else wrote. It is on the run, for whoever opens that, and no part of the message."""
+    mail = Reads("mail_read", "Kính gửi anh Phúc, mã xác nhận của anh là 4471.")
+    source = """
+        print("đã đọc 3 thư")
+        print(tools.mail_read())
+        print(nowhere_named)
+        """
+    rig = told(deps_factory(extra_tools=[mail.tool]), due(source))
+
+    run = await rig.sched.run_job(DUE)
+
+    ended = erred(3, t.SCRIPT_NO_NAME.format(name="nowhere_named"))
+    [(_, text)] = rig.notices
+    assert text == notice(ended)
+    assert "đã đọc" not in text and "4471" not in text and "Kính gửi" not in text
+    # The run is as it was before a message was made of it: the step holds what was said,
+    # printed lines and all, and the summary its end.
+    said = unfinished("đã đọc 3 thư", mail.answer, ended)
+    [step] = run.steps
+    assert (step["ok"], step["output"]) == (False, said.replace("\n", " "))
+    assert (run.status, run.summary) == (FAILED, said[-160:])
+    assert rig.kept() == [run.to_dict()]
+
+
+async def test_a_tool_that_failed_is_told_in_its_own_words_and_so_is_what_it_said_back(
+    deps_factory,
+):
+    """Why a tool failed is the tool's to say, and is why the script ended. A tool that
+    names what it was asked for says it here too: the message holds it for that reason and
+    no other."""
+
+    async def no_such_note(arguments: dict[str, Any]) -> str:
+        raise ToolError(f"không có ghi chú tên {arguments['key']}")
+
+    named = {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}
+    notes = Tool("notes_read", "Đọc ghi chú.", named, no_such_note, replay_safe=True)
+    source = """
+        print("bắt đầu")
+        tools.notes_read(key="hop-dong-so-7")
+        """
+    rig = told(deps_factory(extra_tools=[notes]), due(source))
+
+    run = await rig.sched.run_job(DUE)
+
+    own = texts.TOOL_FAILED.format(error="không có ghi chú tên hop-dong-so-7")
+    [(_, text)] = rig.notices
+    assert run.status == FAILED and text == notice(erred(2, own))
+    assert "hop-dong-so-7" in text and "bắt đầu" not in text
+
+
+async def test_what_an_error_the_script_raised_says_is_told(deps_factory):
+    source = """
+        print("3 dòng sổ")
+        raise ValueError("thiếu cột ngày ở dòng 2 của sổ")
+        """
+    rig = told(deps_factory(), due(source))
+
+    run = await rig.sched.run_job(DUE)
+
+    [(_, text)] = rig.notices
+    assert run.status == FAILED
+    assert text == notice(erred(2, "ValueError: thiếu cột ngày ở dòng 2 của sổ"))
+    assert "3 dòng sổ" not in text
+
+
+async def test_a_script_that_ended_well_and_kept_nothing_is_told_by_the_line_that_says_so(
+    deps_factory, monkeypatch
+):
+    """Another run filled the schedule's store while this one ran, and what this one stored
+    no longer fits beside it: it ran to its end, and the run failed. What ended it is that
+    one line, and what it printed on the way is not told."""
+    most = 60
+    monkeypatch.setattr(limits, "MAX_STORE_TOTAL_CHARS", most)
+    theirs = {"theirs": '"' + "y" * 40 + '"'}
+
+    async def other_run_ends(arguments: dict[str, Any]) -> str:
+        store, namespace = deps.store.script_store, job_kept(deps, "due").namespace
+        assert store.apply(deps.agent.id, namespace, theirs, most)
+        return "xong"
+
+    other = Tool("other_run_ends", "Đọc.", SCHEMA, other_run_ends, replay_safe=True)
+    deps = deps_factory(extra_tools=[other])
+    source = """
+        store("mine", "x" * 30)
+        tools.other_run_ends()
+        print("đã xem 3 thư")
+        """
+    rig = told(deps, due(source))
+
+    run = await rig.sched.run_job(DUE)
+
+    lost = STORE_NOT_KEPT.format(most=most)
+    [(_, text)] = rig.notices
+    assert (run.status, run.conversation_id) == (FAILED, None)
+    assert text == notice(lost) and "đã xem" not in text
+    assert run.steps[0]["output"] == unfinished("đã xem 3 thư", lost).replace("\n", " ")
+
+
+async def test_a_job_whose_script_could_not_be_run_at_all_is_told_by_the_kind_of_error(
+    deps_factory, monkeypatch
+):
+    async def breaks(*args: Any, **kwargs: Any):
+        raise RuntimeError("đường dẫn riêng của máy")
+
+    monkeypatch.setattr(script_job, "run_source", breaks)
+    rig = told(deps_factory(), due(BROKEN))
+
+    run = await rig.sched.run_job(DUE)
+
+    # As the run names it: the kind of error, and no more of it.
+    said = texts.TOOL_FAILED.format(error="RuntimeError")
+    assert (run.status, run.steps[0]["output"]) == (FAILED, said)
+    assert rig.notices == [("default", notice(said))]
 
 
 async def test_what_a_refusal_says_to_do_about_it_reaches_the_person_whole(deps_factory):
@@ -117,27 +244,34 @@ async def test_what_a_refusal_says_to_do_about_it_reaches_the_person_whole(deps_
     run = await rig.sched.run_job(DUE)
 
     refusal = ASK_LIST.format(name=SHELL_TOOL_NAME, pattern="--force")
-    reason = unfinished("trước", halted(3, refusal)).replace("\n", " ")
+    reason = halted(3, refusal)
     [(_, text)] = rig.notices
     assert run.status == FAILED and shell.ran == []
     # Longer than a glance, and its last sentence is the one thing to do about it.
     assert len(reason) > 160 and text == notice(reason)
     assert "Gọi `shell_run` trực tiếp, ngoài script, để người dùng được hỏi.\n" in text
-    assert SECRET not in text
+    assert SECRET not in text and "trước" not in text
+    # The step keeps what the script had printed by then, ahead of the same refusal.
+    assert run.steps[0]["output"] == unfinished("trước", reason).replace("\n", " ")
 
 
 async def test_a_long_failure_is_told_by_its_head_and_its_tail(deps_factory):
-    source = 'for row in range(80):\n    print("dòng thư số", row)\nprint(nowhere_named)'
+    """The same cut a failed step is kept by, made of what ended the script alone."""
+    source = 'print("in trước")\nraise ValueError("mở đầu " + "x" * 700 + " việc cần làm")'
     rig = told(deps_factory(), due(source))
 
     run = await rig.sched.run_job(DUE)
 
     [(_, text)] = rig.notices
-    reason = run.steps[0]["output"]
-    # The step's own preview of a failure, which is longer than the run's summary.
+    whole = erred(2, "ValueError: mở đầu " + "x" * 700 + " việc cần làm")
+    reason = whole[:FAILURE_HEAD] + CUT + whole[-FAILURE_TAIL:]
+    # Longer than the run's summary, and to the last thing the error said.
     assert len(reason) == 601 and len(run.summary) == 160 and text == notice(reason)
-    assert reason.startswith(f"{t.SCRIPT_FAILED} dòng thư số 0 ")
-    assert reason.endswith(erred(3, t.SCRIPT_NO_NAME.format(name="nowhere_named")))
+    assert reason.startswith(erred(2, "ValueError: mở đầu xxx"))
+    assert reason.endswith("xxx việc cần làm")
+    # The step is cut the same way, of a text that begins with what was printed.
+    kept = run.steps[0]["output"]
+    assert len(kept) == 601 and kept.startswith(f"{t.SCRIPT_FAILED} in trước {whole[:20]}")
 
 
 async def test_the_notice_holds_neither_the_scripts_text_nor_what_a_call_was_given(deps_factory):
@@ -159,7 +293,7 @@ async def test_the_notice_holds_neither_the_scripts_text_nor_what_a_call_was_giv
     # ...and neither is in the message.
     [(_, text)] = rig.notices
     assert "GHI-CHÚ-CỦA-CHỦ" not in text and SECRET not in text and "notes_read" not in text
-    assert text == notice(step["output"])
+    assert text == notice(erred(3, t.SCRIPT_NO_NAME.format(name="nowhere_named")))
 
 
 async def test_a_schedules_name_is_told_as_one_line(deps_factory):
@@ -173,18 +307,26 @@ async def test_a_schedules_name_is_told_as_one_line(deps_factory):
     [(_, text)] = rig.notices
     first, *rest = text.split("\n")
     assert first.startswith('Lịch "Nhắc hạn FILE: brief.pdf xxx') and "…" in first
-    assert len(rest) == 2 and rest[0] == WHY.replace("\n", " ")
+    assert len(rest) == 2 and rest[0] == WHY
 
 
-@pytest.mark.parametrize(
-    ("summary", "why"), [("hết giờ giữa chừng", "hết giờ giữa chừng"), ("", FAILED)]
-)
-def test_a_run_that_kept_nothing_of_what_was_said_is_told_by_how_it_ended(summary, why):
+@pytest.mark.parametrize("ended_by", ["", " \n "])
+def test_a_run_nobody_said_what_ended_is_told_by_its_status_and_not_by_what_it_kept(ended_by):
+    """What the run kept is what the script said, printed lines and all: the message is
+    never made from it, not even for want of anything else."""
     job = Job(DUE, "default", due(BROKEN))
     run = RunRecord("r1", "default", None, f"job:{DUE}", NAME, FAILED, "2026-09-19T07:00:00")
-    run.summary = summary
+    run.summary = "đã đọc 3 thư"
+    run.steps = [{"kind": "tool", "name": "tool_script", "ok": False, "output": STEP}]
 
-    assert failure_notice(job, run) == notice(why)
+    assert failure_notice(job, run, ended_by) == notice(FAILED)
+
+
+def test_what_ended_a_script_is_told_on_one_line():
+    job = Job(DUE, "default", due(BROKEN))
+    run = RunRecord("r1", "default", None, f"job:{DUE}", NAME, FAILED, "2026-09-19T07:00:00")
+
+    assert failure_notice(job, run, "hai dòng\n  của một lỗi") == notice("hai dòng của một lỗi")
 
 
 # --- what is not ---
@@ -250,7 +392,7 @@ async def test_a_notice_that_could_not_be_sent_is_logged_and_the_run_stands(
     assert record.levelno == logging.ERROR and DUE in record.getMessage()
     assert record.exc_info is not None and record.exc_info[1] is broken
     # The run is what it was: failed for the script's reason, and kept so.
-    assert (run.status, run.steps[0]["output"]) == (FAILED, WHY.replace("\n", " "))
+    assert (run.status, run.steps[0]["output"]) == (FAILED, STEP)
     assert rig.kept() == [run.to_dict()]
 
 
@@ -289,7 +431,7 @@ async def test_a_notice_that_never_returns_is_given_up_on_and_the_next_job_runs(
     [record] = [r for r in caplog.records if r.name == LOGGER]
     assert record.levelno == logging.ERROR and DUE in record.getMessage()
     assert record.exc_info is not None and isinstance(record.exc_info[1], TimeoutError)
-    assert (failed.status, failed.steps[0]["output"]) == (FAILED, WHY.replace("\n", " "))
+    assert (failed.status, failed.steps[0]["output"]) == (FAILED, STEP)
     assert rig.kept() == [failed.to_dict()]
     assert [job["running"] for job in rig.sched.describe()] == [False, False]
 
@@ -354,7 +496,7 @@ async def test_the_masters_own_failed_script_is_told_by_the_bot_as_it_speaks(
     run = await runtime.scheduler.run_job(DUE)
 
     assert run.status == FAILED and fake.uploads == []
-    assert fake.sent == [notice(WHY.replace("\n", " "))]
+    assert fake.sent == [notice(WHY)]
 
 
 async def test_a_members_failed_script_is_told_under_the_members_name(crew, fake):
@@ -364,7 +506,7 @@ async def test_a_members_failed_script_is_told_under_the_members_name(crew, fake
     run = await runtime.scheduler.run_job("coach/due")
 
     assert (run.agent_id, run.status) == ("coach", FAILED)
-    assert fake.sent == ["[HLV]\n" + notice(WHY.replace("\n", " "))]
+    assert fake.sent == ["[HLV]\n" + notice(WHY)]
 
 
 @pytest.mark.parametrize(("agent_id", "opening"), [("default", ""), ("coach", "[HLV]\n")])
@@ -377,6 +519,26 @@ async def test_a_notice_is_said_as_it_stands_and_attaches_nothing(crew, fake, ag
 
     assert fake.sent == [opening + text] and fake.uploads == []
     assert "FILE: brief.pdf" in fake.sent[0] and "MEDIA: chart.png" in fake.sent[0]
+
+
+async def test_a_notice_is_sent_as_every_message_of_the_bots_is_its_emphasis_marks_taken_off(
+    make_channel, deps_factory, fake
+):
+    """The bot sends text with no parse mode, where the asterisks a name or an error was
+    written with would show as they are. The two kinds it takes off every message it takes
+    off this one, in the name and in the reason alike; an asterisk between two digits is
+    no such mark, and stays."""
+    source = 'raise ValueError("thiếu **cột ngày** ở sổ *chi* 2*3")'
+    named = Schedule("due", "**Nhắc hạn** *gấp* 2*3", every="1h", script=source)
+    deps = with_schedules(deps_factory(), named)
+    runtime = runtime_of(make_channel(deps))
+
+    run = await runtime.scheduler.run_job(DUE)
+
+    told_as = notice(erred(1, "ValueError: thiếu cột ngày ở sổ chi 2*3"), "Nhắc hạn gấp 2*3")
+    assert run.status == FAILED and fake.sent == [told_as]
+    # The run keeps what the script said as it said it.
+    assert "thiếu **cột ngày** ở sổ *chi* 2*3" in run.steps[0]["output"]
 
 
 async def test_an_agent_the_bot_does_not_know_is_told_nothing(crew, fake):
@@ -415,7 +577,7 @@ async def test_a_script_job_run_from_the_button_is_told_as_one_the_clock_ran(
             await asyncio.sleep(0.01)
 
     assert started.status_code == 202
-    assert fake.sent == [notice(WHY.replace("\n", " "))]
+    assert fake.sent == [notice(WHY)]
     [run] = runtime.hub.recent(5, source=f"job:{DUE}")
     assert isinstance(run, RunRecord) and (run.status, run.conversation_id) == (FAILED, None)
     assert texts.TELEGRAM_RUN_UNFINISHED.format(reason=run.summary) not in fake.sent

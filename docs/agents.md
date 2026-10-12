@@ -794,11 +794,15 @@ job prompt gọi một script shell trong workspace.)
   Script hỏng cũng không mở lượt nào, nên nếu im lặng thì từ chat hai chuyện ấy trông như nhau.
   Vì vậy run của script kết thúc `error` thì crew gửi một tin tới kênh của đội
   ([channels.md](channels.md#giao-theo-lịch)), ba dòng: `Lịch "<tên lịch>" gặp lỗi khi chạy
-  script:`, rồi lý do, rồi `Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.` Lý do là thứ bước
-  `tool_script` của run giữ lại từ câu script nói khi dừng, gộp về một dòng: nguyên văn khi
-  không quá 600 ký tự, dài hơn thì phần đầu và phần cuối, nên câu chỉ cách sửa ở cuối một lời
-  từ chối vẫn tới nơi. Tin không bao giờ chứa nguyên văn script hay tham số của một lời gọi. Mỗi
-  run hỏng một tin, không gộp và không giãn: lịch chạy mỗi 5 phút mà hỏng mãi thì 5 phút một
+  script:`, rồi lý do, rồi `Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.` Lý do là thứ đã làm
+  script dừng: dòng lỗi của nó (`Lỗi ở dòng N: …` hay `Dừng ở dòng N: …`), hoặc dòng nói rằng script
+  chạy xong mà không giữ được gì bằng `store`. Nó được gộp về một dòng: nguyên văn khi không quá 600
+  ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký tự cuối, nên câu chỉ cách sửa ở cuối một lời
+  từ chối vẫn tới nơi. Lý do không mang chữ nào script đã in trước khi hỏng (những chữ ấy vẫn nằm ở
+  bước `tool_script` của run), và tin không bao giờ chứa nguyên văn script. Lời của một tool hỏng
+  được giữ nguyên, câu của một lỗi mà script tự `raise` cũng vậy: tham số của một lời gọi chỉ có
+  trong tin khi chính tool hỏng nhắc lại nó, và dữ liệu chỉ có khi script tự viết nó vào câu lỗi.
+  Mỗi run hỏng một tin, không gộp và không giãn: lịch chạy mỗi 5 phút mà hỏng mãi thì 5 phút một
   tin, cho tới khi sửa script hoặc tạm dừng lịch từ thẻ job. Chạy tay bằng nút hay
   `POST /api/jobs/{agent}/{id}/run` cũng báo như vậy. Chỉ run của chính script được báo ở đây:
   lượt mà `then_prompt` mở ra hỏng thì được giao như lượt của job prompt, job `command` hỏng thì

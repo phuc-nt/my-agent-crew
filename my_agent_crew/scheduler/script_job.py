@@ -42,7 +42,7 @@ from my_agent_crew.script.gate import job_gate
 from my_agent_crew.script.model_calls import scripts_model
 from my_agent_crew.script.scope import SCRIPT_TOOL, writes_too
 from my_agent_crew.script.store_session import job_kept
-from my_agent_crew.script.tool import run_source
+from my_agent_crew.script.tool import Ran, run_source
 from my_agent_crew.store.runs import DONE, FAILED, RUNNING, RunRecord
 from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.tools.output_shaping import whole_characters
@@ -64,11 +64,10 @@ def handed_on(then_prompt: str, printed: str) -> str:
     return f"{then_prompt.rstrip()}\n\n{fence}\n{opening}\n{printed}\n{closing}"
 
 
-async def _carry_out(
-    job: Job, deps: AgentDeps, hub: ActivityHub, run: RunRecord
-) -> tuple[ToolResult, str]:
-    """The script as the one step of `run`: how it ended, and what it printed. Each call
-    it makes is listed, and charged where it paid a model, the moment it ends."""
+async def _carry_out(job: Job, deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> Ran:
+    """The script as the one step of `run`: how it ended, what it printed, and what ended
+    it when it did not end well. Each call it makes is listed, and charged where it paid a
+    model, the moment it ends."""
     call_id, source = f"job-{run.id}", job.schedule.script or ""
     hub.record(run, ToolCallEvent(call_id, SCRIPT_TOOL, {"script": source}), time.monotonic())
     told = 0
@@ -82,13 +81,14 @@ async def _carry_out(
     kept = job_kept(deps, job.schedule.id)
     try:
         with job_context(call_id), outside_a_turn(tell):
-            result, printed = await run_source(source, deps.tools, gate, kept, scripts_model(deps))
+            ran = await run_source(source, deps.tools, gate, kept, scripts_model(deps))
     except Exception as exc:  # a bug here fails this job, and the jobs due beside it still run
         logger.exception("script job %s crashed", job.id)
         failed = TOOL_FAILED.format(error=type(exc).__name__)
-        result, printed = ToolResult(ok=False, output=failed), ""
+        ran = Ran(ToolResult(ok=False, output=failed), "", failed)
     # Whole characters, as a tool's answer is made before it is stored or sent on.
-    said, printed = whole_characters(result.output), whole_characters(printed)
+    result, said = ran.result, whole_characters(ran.result.output)
+    printed, ended_by = whole_characters(ran.printed), whole_characters(ran.ended_by)
     closing = ToolResultEvent(
         tool_call_id=call_id,
         name=SCRIPT_TOOL,
@@ -102,20 +102,24 @@ async def _carry_out(
     hub.finish(
         run, status=DONE if result.ok else FAILED, summary=ending(printed if result.ok else said)
     )
-    return result, printed
+    return Ran(result, printed, ended_by)
 
 
-async def run_script_job(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) -> RunRecord:
+async def run_script_job(
+    job: Job, deps: AgentDeps, hub: ActivityHub, title: str
+) -> tuple[RunRecord, str]:
     """The run the job comes to: the script's own, or that of the turn opened for what it
-    printed. A script that failed, or printed nothing, opens no turn."""
+    printed. A script that failed, or printed nothing, opens no turn. Beside the script's
+    own run stands what ended it when it failed, which the person is told
+    (`failure_notice.py`); beside a turn's, nothing."""
     run = hub.start(job.agent_id, JOB_SOURCE + job.id, title, None)
     try:
-        result, printed = await _carry_out(job, deps, hub, run)
+        result, printed, ended_by = await _carry_out(job, deps, hub, run)
     finally:
         if run.status == RUNNING:  # stopped short: closed as a turn's run is (`tracked.py`)
             hub.interrupt(run)
     then_prompt = job.schedule.then_prompt
     if not (result.ok and printed.strip() and then_prompt):
-        return run
+        return run, ended_by
     handed = truncate(printed, deps.settings.tool_output_chars)
-    return await open_turn(job, deps, hub, title, handed_on(then_prompt, handed))
+    return await open_turn(job, deps, hub, title, handed_on(then_prompt, handed)), ""

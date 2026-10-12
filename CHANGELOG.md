@@ -37,10 +37,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   fails, so nothing was sent on, and from the chat a failed job looked like one that ran well
   and printed nothing. When the run of the script itself ends `error`, the agent's channel now
   gets one message of the runtime's, three lines: which schedule it was (its name, as one line),
-  why it ended, and where the run is on the web UI. Why is what the run's step kept of what the
-  script said, whole up to 600 characters and by its head and its tail past that. The message
-  never holds the script's text or what a call was given. A member's notice goes under its
-  `[Name]` line, the master's as the bot speaks. One message is sent for each failed run, with
+  why it ended, and where the run is on the web UI. Why is what ended the script: the line of its
+  error, or the line that says none of what it stored could be kept. It is told on one line, whole
+  up to 600 characters and by its first 200 and its last 400 past that. It holds nothing the
+  script printed before it failed, which stays on the run's step, and never the script's text. A
+  tool that failed is told in its own words, and an error the script raised says what the script
+  wrote it to say, so what a call was given is in the message only where the failing tool says it
+  back. A member's notice goes under its `[Name]` line, the master's as the bot speaks, and both
+  are sent as every message to the chat is: `**bold**` and `*italic*` in the name or in the reason
+  lose their asterisks. One message is sent for each failed run, with
   no grouping and no spacing, and a run started with `POST /api/jobs/{agent}/{id}/run` is told
   the same way. Nothing is sent for a script that ran well (whether it printed or not), for the
   turn a `then_prompt` opened (that is a conversation, delivered as a prompt job's is, failed or

@@ -252,7 +252,7 @@ async def test_two_agents_keeping_under_one_name_do_not_read_each_other(deps_fac
     assert one.store is other.store
 
     await run_source('store("n", 1)', one.tools, None, job_kept(one, "due"))
-    result, printed = await run_source(
+    result, printed, _ = await run_source(
         'print(load("n"))\nstore("n", 2)', other.tools, None, job_kept(other, "due")
     )
 

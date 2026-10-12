@@ -21,12 +21,13 @@ def job_title(job: Job, clock: Callable[[], datetime]) -> str:
 
 async def dispatch(
     job: Job, deps: AgentDeps, hub: ActivityHub, clock: Callable[[], datetime]
-) -> RunRecord:
+) -> tuple[RunRecord, str]:
     """Runs the job by its kind; does not deliver the result — the caller decides that,
     since only an answer of the model's is worth pushing to a channel: a prompt job's, or
-    the one a script job asked for."""
+    the one a script job asked for. Beside the run stands what ended the job's script when
+    that failed, for the caller to tell the person; for any other run, nothing."""
     if job.schedule.consolidate:
-        return await run_consolidate(job, deps, hub)
+        return await run_consolidate(job, deps, hub), ""
     if job.schedule.script:
         # Imported here, not above: what a script may call names the tool that proposes a
         # schedule, and that tool reads this package's cron. Loaded with the package, the
@@ -35,5 +36,5 @@ async def dispatch(
 
         return await run_script_job(job, deps, hub, job_title(job, clock))
     if job.schedule.command:
-        return await run_command(job, deps, hub, job_title(job, clock))
-    return await run_prompt(job, deps, hub, job_title(job, clock))
+        return await run_command(job, deps, hub, job_title(job, clock)), ""
+    return await run_prompt(job, deps, hub, job_title(job, clock)), ""
