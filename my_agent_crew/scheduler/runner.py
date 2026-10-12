@@ -169,7 +169,11 @@ class Scheduler:
             # A job that left the clock while it ran is counted no more: what it came to
             # would be held against whichever job is later made under its id.
             if job.id in self._jobs.rows():
+                before = self._streaks.of(job.id)
                 await self._streaks.settle(job, run, ended_by)
+                # The page read the job's row when the run ended, which is before this.
+                if self._streaks.of(job.id) != before:
+                    self._hub.publish_jobs()
             return run
         finally:
             self._running.discard(job.id)
