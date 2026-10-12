@@ -244,6 +244,14 @@ của run `error` đã là câu báo lỗi. Dù thế nào scheduler cũng ghi m
 `job <id>: delivered=<bool> conv=<id> status=<status>` — để log phân biệt job đã
 trả lời với job im lặng. Giao thất bại được ghi log, không thử lại.
 
+**Lời gọi nào tới Telegram cũng có hạn.** Lời gọi không tự nêu hạn (`sendMessage`, `sendChatAction`,
+`setMyCommands`, `getFile`, ảnh hay tệp gửi từ đĩa) theo hạn của client HTTP mà cả server dùng
+chung, 120 giây. Long poll tự nêu hạn 35 giây (25 giây chờ tin cộng 10), tệp gửi từ bộ nhớ 60 giây.
+Lời gọi hết hạn kết thúc như mọi lời gọi hỏng khác; với tin của một job, đó là một lần giao thất bại
+như trên. Hạn ấy là thứ giữ cho lịch chạy tiếp: đồng hồ của scheduler chạy các job lần lượt và chờ
+tin của job này gửi xong rồi mới sang job sau, nên một lần gửi không có hạn, trên đường truyền đã
+im, sẽ giữ mọi job tới hạn sau nó, của mọi agent, cho tới khi server khởi động lại.
+
 **Job không có gì để báo thì không gửi.** Một job kiểm tra (nhắc hạn, soát lỗi) có thể dặn
 model trả lời đúng `OK` khi mọi thứ ổn; câu trả lời chỉ gồm `OK` (không phân biệt hoa thường,
 bỏ qua dấu chấm/than cuối) thì không được đẩy lên chat, log ghi
@@ -286,7 +294,8 @@ Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.
   khi hỏng); job `command` hỏng; run bị cắt vì server dừng (`interrupted`); không có kênh nào.
 - Log ghi `job <id>: failure notice sent=<bool>`. Gửi hỏng thì log ghi
   `job <id>: failure notice not sent` kèm lỗi, không thử lại; run vẫn giữ nguyên kết cục của nó
-  và các job tới hạn sau vẫn chạy.
+  và các job tới hạn sau vẫn chạy. Tin chưa gửi xong sau 60 giây cũng bị bỏ như vậy: lời gửi bị
+  huỷ, log ghi cùng dòng ấy kèm `TimeoutError`, và đồng hồ sang job kế tiếp.
 
 ## Offset và restart
 
