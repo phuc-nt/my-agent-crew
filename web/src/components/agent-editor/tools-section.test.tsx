@@ -14,6 +14,8 @@ const OWN: RegistryTool[] = [
   { name: "write_file", description: "Ghi tệp", requires_approval: true, optional: false, agents: ["default"] },
   { name: "web_search", description: "Tìm trên web", requires_approval: false, optional: true, agents: [] },
 ];
+/** The names a list has a say over for the agent, as the server reports them: sorted. */
+const LISTABLE = ["web_search", "write_file"];
 
 function open(shown: AgentInfo, servers: McpServerInfo[] = [], declared = servers) {
   backend = new FakeBackend();
@@ -144,7 +146,7 @@ describe("the allow-list an agent's file writes", () => {
   const tick = (name: string) => within(section().getByTestId("tool-picker")).getByRole("checkbox", { name: new RegExp(`^${name}`) });
   // What the crew reports for every agent: the names it holds, those no list gives among them.
   const held = ["write_file", "delegate", "tool_search", "tool_script", "mcp__notion__search"];
-  const listing = (...tools: string[]): AgentInfo => ({ ...fakeAgent, tools: held, declared: { ...fakeAgent.declared, tools } });
+  const listing = (...tools: string[]): AgentInfo => ({ ...fakeAgent, tools: held, listable_tools: LISTABLE, declared: { ...fakeAgent.declared, tools } });
 
   it("opens on every tool for an agent that lists none, whatever it holds", () => {
     open(listing());
@@ -190,7 +192,7 @@ describe("the allow-list an agent's file writes", () => {
 });
 
 describe("the allow-list beside a server's tools", () => {
-  const handed = { ...fakeAgent, tools: [], mcp: ["notion"] };
+  const handed = { ...fakeAgent, tools: [], listable_tools: LISTABLE, mcp: ["notion"] };
   const names = () =>
     within(section().getByTestId("tool-picker"))
       .getAllByRole("listitem")
@@ -202,7 +204,7 @@ describe("the allow-list beside a server's tools", () => {
     // The agent holds the server's tools and the search that finds them; neither is the
     // allow-list's to give.
     expect(backend.mcp.registryTools().map((tool) => tool.name)).toEqual(["tool_search", "mcp__notion__search", "mcp__notion__fetch"]);
-    expect(names()).toEqual(["write_file", "web_search"]);
+    expect(names()).toEqual(LISTABLE);
   });
 
   it("starts from the crew's own tools when it is switched on, never a server's", async () => {
@@ -213,7 +215,7 @@ describe("the allow-list beside a server's tools", () => {
     await userEvent.click(saveButton());
 
     await waitFor(() => expect(screen.getByText(t.clean)).toBeInTheDocument());
-    expect(patches()).toEqual([{ profile: { tools: ["write_file", "web_search"] } }]);
+    expect(patches()).toEqual([{ profile: { tools: LISTABLE } }]);
   });
 });
 
@@ -226,21 +228,21 @@ describe("the allow-list beside the script tool", () => {
       .map((row) => row.querySelector("code")?.textContent);
 
   it("leaves it out for an agent that reads with a tool of its own: no list gives it", () => {
-    open({ ...fakeAgent, tools: ["write_file", "workspace_read"] });
+    open({ ...fakeAgent, tools: ["write_file", "workspace_read"], listable_tools: LISTABLE });
 
     expect(backend.mcp.registryTools()).toEqual([scriptTool(["default"])]);
-    expect(names()).toEqual(["write_file", "web_search"]);
+    expect(names()).toEqual(LISTABLE);
   });
 
   it("starts without it when it is switched on, for an agent that reads through a server", async () => {
-    open({ ...fakeAgent, tools: [], mcp: ["notion"] }, [reads]);
+    open({ ...fakeAgent, tools: [], listable_tools: LISTABLE, mcp: ["notion"] }, [reads]);
     expect(backend.mcp.registryTools().map((tool) => tool.name)).toEqual(["tool_script", "mcp__notion__search"]);
 
     await userEvent.click(section().getByRole("radio", { name: t.toolsPick }));
-    expect(names()).toEqual(["write_file", "web_search"]);
+    expect(names()).toEqual(LISTABLE);
     await userEvent.click(saveButton());
 
     await waitFor(() => expect(screen.getByText(t.clean)).toBeInTheDocument());
-    expect(patches()).toEqual([{ profile: { tools: ["write_file", "web_search"] } }]);
+    expect(patches()).toEqual([{ profile: { tools: LISTABLE } }]);
   });
 });
