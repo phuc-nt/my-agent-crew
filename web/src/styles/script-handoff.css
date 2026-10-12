@@ -1,0 +1,50 @@
+/* What a script job's script printed, under the message that handed it to the agent. It
+   hangs on the bubble's side of the thread and close under it, as the note a message
+   carried from a canvas does (canvas.css), and for the same reason: the bubble is the
+   person's own words, and this is not. */
+.script-printed {
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: min(85%, 620px);
+  margin-top: calc(-1 * var(--space-3));
+}
+
+button.script-printed-toggle {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* Small beside a cursor. Where a finger does the pressing it keeps the whole touch target
+   (touch-targets.css), which this rule would otherwise undercut. */
+@media (min-width: 721px) and (pointer: fine) {
+  button.script-printed-toggle {
+    min-height: 28px;
+  }
+}
+
+.script-printed-text {
+  margin: 0;
+  max-width: 100%;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  /* A printed line can be longer than the screen: it wraps rather than scrolls sideways. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.script-printed-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  text-align: right;
+}

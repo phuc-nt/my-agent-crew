@@ -961,6 +961,14 @@ export const vi = {
     original: "cuộc trò chuyện gốc",
     failed: "Không rẽ nhánh được: không tìm thấy đúng tin nhắn.",
   },
+  // Under the message a script job opened a turn with: what its script printed, set apart
+  // from the schedule's prompt in the bubble above. The label says how long it is, since a
+  // long one stays folded; the line under it says how the model was given it.
+  scriptHandoff: {
+    printed: "Script in ra",
+    toggle: (lines: number) => `Script in ra · ${lines} dòng`,
+    asData: "Đã đưa cho model làm dữ liệu, không phải lời dặn.",
+  },
   crashed: "Giao diện gặp lỗi không mong đợi.",
   reload: "Tải lại",
   // The server runs a newer build than this page: loading again picks it up.
