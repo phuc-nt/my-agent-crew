@@ -12,9 +12,12 @@ head and its tail when it is not, so the sentence a refusal ends on is there. No
 is read off the run. Its step holds what the script printed before it failed, which is
 whatever its tools gave it, and so does its summary where nothing said what ended the
 script; the step holds the script's text, which is the owner's file, and what each call was
-given. None of those is told. What is told may still repeat them in part: a tool that
-failed says why in its own words, and may name what it was asked for, and an error the
-script raised says what the script wrote it to say.
+given. None of those is told. What is told may still repeat them in part, in three ways. A
+tool that failed says why in its own words, and may name what it was asked for. An error
+the script raised says what the script wrote it to say. And an error the interpreter raised
+over a value the script was working on quotes that value (`int()` of a text that is no
+number, a key no mapping holds), which may be what a tool gave back. Each is why the script
+ended, and is cut as every reason is.
 
 Only the run of the script itself is told. A turn it opened is a conversation's, and is sent
 on, failed or not, as a prompt job's is (`runner.py`). A job that runs a command is not told.

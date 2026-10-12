@@ -368,6 +368,8 @@ lúc lưu thì kết thúc như lúc nó bắt đầu: nó vẫn giữ `tool_scr
 của nó vẫn hỏi được model mà lần lưu vừa tắt. Cổng duyệt không vì thế mà hở: mỗi lời gọi ghi của
 lượt ấy vẫn được xét như trước lần lưu. Lượt đang dừng chờ duyệt hay chờ trả lời thì khác: nó nhận
 lại agent lúc được tiếp tục, nên đi tiếp với agent như đã lưu.
+Model nó hỏi tiếp và workspace nó ghi vào là của lần lưu, và một lời gọi đã xin duyệt mà lần lưu
+vừa lấy lại tool của nó thì không chạy dù được đồng ý.
 
 **Agent từ kit là chỉ đọc ở đây** (409, nêu tên tệp markdown chúng đến từ):
 profile của chúng sống trong một dự án do người khác bảo trì, và ghi một `agent.yaml` bên cạnh
@@ -967,6 +969,9 @@ job prompt gọi một script shell trong workspace.)
   bước `tool_script` của run), và tin không bao giờ chứa nguyên văn script. Lời của một tool hỏng
   được giữ nguyên, câu của một lỗi mà script tự `raise` cũng vậy: tham số của một lời gọi chỉ có
   trong tin khi chính tool hỏng nhắc lại nó, và dữ liệu chỉ có khi script tự viết nó vào câu lỗi.
+  Còn một đường thứ ba: lỗi mà trình thông dịch ném ra khi script đang xử lý một giá trị thì
+  trích chính giá trị ấy (`int(...)` của một chuỗi không phải số, một khoá mà mapping không có),
+  nên lý do có thể mang một phần thứ tool vừa trả về, trong giới hạn 600 ký tự nói trên.
   Mỗi run hỏng một tin, không gộp và không giãn: lịch chạy mỗi 5 phút mà hỏng mãi thì 5 phút một
   tin, cho tới khi sửa script hoặc tạm dừng lịch từ thẻ job. Chạy tay bằng nút hay
   `POST /api/jobs/{agent}/{id}/run` cũng báo như vậy. Chỉ run của chính script được báo ở đây:
