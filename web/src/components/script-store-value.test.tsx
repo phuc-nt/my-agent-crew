@@ -124,7 +124,7 @@ describe("a key's whole value", () => {
 
     await userEvent.click(press);
 
-    expect(await screen.findByText(words.gone("b"))).toHaveAttribute("role", "status");
+    expect(await screen.findByText(words.gone('"b"'))).toHaveAttribute("role", "status");
     expect(screen.queryByRole("button", { name: words.viewLabel("b") })).toBeNull();
     expect(await view("d")).toBeInTheDocument();
     expect(storeRequests(backend).filter((asked) => asked === "GET /agents/coach/script-store")).toHaveLength(2);

@@ -33,11 +33,11 @@ describe("deleting one key", () => {
 
     await userEvent.click(await deleteKey("b"));
 
-    expect(confirm).toHaveBeenCalledWith(words.deleteKeyConfirm("b", BRIEF));
+    expect(confirm).toHaveBeenCalledWith(words.deleteKeyConfirm('"b"', BRIEF));
     await waitFor(() => expect(keys()).toEqual(["a", "c"]));
     expect(deletes()).toEqual(["DELETE /agents/coach/script-store?namespace=job%3Abrief&key=b"]);
     expect(backend.scriptStore.keys("coach", "job:brief")).toEqual(["a", "c"]);
-    expect(said()).toHaveTextContent(words.deletedKey("b"));
+    expect(said()).toHaveTextContent(words.deletedKey('"b"'));
     // a + 1 and c + 3: the size follows the keys that are left.
     expect(within(card("job:brief")).getByText(`${words.keyCount(2)} · ${words.size(4, 262_144)}`)).toBeInTheDocument();
     await waitFor(() => expect(lists()).toHaveLength(2));
@@ -119,7 +119,7 @@ describe("deleting one key", () => {
     await waitFor(() => expect(keys()).toEqual(["a", "c"]));
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(deletes()).toEqual(["DELETE /agents/coach/script-store?namespace=job%3Abrief&key=b"]);
-    expect(said()).toHaveTextContent(words.deletedKey("b"));
+    expect(said()).toHaveTextContent(words.deletedKey('"b"'));
   });
 
   it("lets another key go while the first delete is unanswered", async () => {
@@ -144,7 +144,7 @@ describe("deleting one key", () => {
 
     release();
 
-    await waitFor(() => expect(said()).toHaveTextContent(words.deletedKey("b")));
+    await waitFor(() => expect(said()).toHaveTextContent(words.deletedKey('"b"')));
     await waitFor(() => expect(lists()).toHaveLength(2));
     expect(elsewhere).toHaveFocus();
   });
@@ -158,6 +158,6 @@ describe("deleting one key", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(vi.requestErrors.server(500));
     expect(keys()).toEqual(["a", "c"]);
-    expect(said()).toHaveTextContent(words.deletedKey("b"));
+    expect(said()).toHaveTextContent(words.deletedKey('"b"'));
   });
 });

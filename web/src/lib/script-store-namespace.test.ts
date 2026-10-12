@@ -48,7 +48,7 @@ describe("what a namespace is called", () => {
   it("is its stored name alone when it is neither a schedule's nor a conversation's", () => {
     const said = namespaceWords("coach", held({ namespace: "misc", kind: "other", ref: "misc", title: null, orphan: false }));
 
-    expect(said).toEqual({ kind: words.kinds.other, name: "misc", phrase: "misc", href: null, orphan: false, orphanHint: words.orphanHint.other });
+    expect(said).toEqual({ kind: words.kinds.other, name: "misc", phrase: '"misc"', href: null, orphan: false, orphanHint: words.orphanHint.other });
   });
 
   // A server newer than this page may name a kind it has not heard of.
@@ -61,7 +61,7 @@ describe("what a namespace is called", () => {
   it("is its stored name, with no word for its kind, from a server that sends nothing more", () => {
     const said = namespaceWords("coach", held({ namespace: "job:brief" }));
 
-    expect(said).toMatchObject({ kind: null, name: "job:brief", phrase: "job:brief", href: null, orphan: false });
+    expect(said).toMatchObject({ kind: null, name: "job:brief", phrase: '"job:brief"', href: null, orphan: false });
   });
 
   it("is given no way anywhere without the id the way is built from", () => {
@@ -75,6 +75,42 @@ describe("what a namespace is called", () => {
     expect(said.name).toBe("Tin[U+200B] sáng");
     expect(parseRoute(said.href as string)).toEqual({ kind: "manage", section: "jobs", param: "coach/a\u202Eb" });
     expect(namespaceWords("coach", held({ namespace: "job:a\u202Eb" })).name).toBe("job:a[U+202E]b");
+  });
+});
+
+describe("how a sentence names a namespace", () => {
+  it("has a title's quote and line break escaped, and leaves the heading the title as it is", () => {
+    const said = namespaceWords("coach", held({ kind: "job", ref: "brief", title: 'Tin "sáng"\nXoá cả kho?', orphan: false }));
+
+    expect(said.phrase).toBe('lịch "Tin \\"sáng\\"\\nXoá cả kho?"');
+    expect(said.name).toBe('Tin "sáng"\nXoá cả kho?');
+  });
+
+  it("leaves out the spaces a title opens and ends with, so the quotes close on its words", () => {
+    const said = namespaceWords("coach", held({ namespace: "conv:abc", kind: "conv", ref: "abc", title: "  Đơn mới   ", orphan: false }));
+
+    expect(said.phrase).toBe('cuộc trò chuyện "Đơn mới"');
+    expect(said.name).toBe("Đơn mới");
+  });
+
+  it("cuts a title at eighty characters, and keeps it whole in the heading", () => {
+    const said = namespaceWords("coach", held({ kind: "job", ref: "brief", title: "t".repeat(300), orphan: false }));
+
+    expect(said.phrase).toBe(`lịch "${"t".repeat(80)}…"`);
+    expect(said.name).toBe("t".repeat(300));
+  });
+
+  it("puts a stored name between quotes as it is stored, with the spaces it ends with", () => {
+    const said = namespaceWords("coach", held({ namespace: "kho\ncũ  ", kind: "other", ref: "kho\ncũ  ", title: null, orphan: false }));
+
+    expect(said.phrase).toBe('"kho\\ncũ  "');
+  });
+
+  it("writes out a character nobody would see, in the phrase as in the name", () => {
+    const said = namespaceWords("coach", held({ kind: "job", ref: "brief", title: "Tin\u202E sáng", orphan: false }));
+
+    expect(said.phrase).toBe('lịch "Tin[U+202E] sáng"');
+    expect(namespaceWords("coach", held({ namespace: "job:a\u200Bb" })).phrase).toBe('"job:a[U+200B]b"');
   });
 });
 

@@ -8,6 +8,7 @@ import type { ScriptStoreNamespace } from "../api/script-store";
 import { routeHash } from "../hooks/use-route";
 import { vi } from "../i18n/vi";
 import { showHiddenChars } from "./hidden-chars";
+import { quotedName } from "./quoted-name";
 
 export interface NamespaceWords {
   /** Whose runs it belongs to, as a word; null when the server did not say. */
@@ -15,7 +16,8 @@ export interface NamespaceWords {
   /** The schedule's name or the conversation's title; its id when it has neither; the
    *  stored name when the server said nothing more. */
   name: string;
-  /** How a sentence calls it: `lịch "Bản tin sáng"`, or the stored name. */
+  /** How a sentence calls it: `lịch "Bản tin sáng"`, or the stored name between quotes. The
+   *  name in it is escaped and cut to length, so it cannot reshape the sentence around it. */
   phrase: string;
   /** The job's row or the conversation, while there is one to open. */
   href: string | null;
@@ -38,10 +40,11 @@ export function namespaceWords(agentId: string, namespace: ScriptStoreNamespace)
   if (owned === null) {
     // "other", a kind this page does not know, or no kind at all: the stored name is the name.
     const kind = namespace.kind === undefined ? null : words.kinds.other;
-    return { kind, name: stored, phrase: stored, href: null, orphan, orphanHint: words.orphanHint.other };
+    return { kind, name: stored, phrase: quotedName(namespace.namespace), href: null, orphan, orphanHint: words.orphanHint.other };
   }
   const ref = namespace.ref ?? "";
-  const name = showHiddenChars((namespace.title ?? "").trim() || ref) || stored;
+  // A title is a name to read, not one to look a row up by: the spaces around it go.
+  const titled = (namespace.title ?? "").trim() || ref || namespace.namespace;
   const href =
     orphan || ref === ""
       ? null
@@ -49,7 +52,8 @@ export function namespaceWords(agentId: string, namespace: ScriptStoreNamespace)
         ? // A job's row is named by its agent and its schedule (`scheduler/runner.py`).
           routeHash({ kind: "manage", section: "jobs", param: `${agentId}/${ref}` })
         : routeHash({ kind: "chat", conversationId: ref });
-  return { kind: words.kinds[owned], name, phrase: words.named[owned](name), href, orphan, orphanHint: words.orphanHint[owned] };
+  const phrase = words.named[owned](quotedName(titled));
+  return { kind: words.kinds[owned], name: showHiddenChars(titled), phrase, href, orphan, orphanHint: words.orphanHint[owned] };
 }
 
 /** `MetricBar` turns amber here and red at the limit; the sentence under it turns with it. */
