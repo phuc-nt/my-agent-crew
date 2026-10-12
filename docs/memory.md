@@ -304,6 +304,14 @@ phạm vi, và duyệt hoặc từ chối điều một job đã đề xuất �
 dòng nó sẽ thêm, và một bản viết lại được hiện đối chiếu với văn bản nó thay thế kèm nút
 hoàn tác trong lịch sử. Có thể kích hoạt cô đọng ngay không cần chờ cron.
 
+Cùng màn hình ấy có thêm tab **Script giữ lại**, đứng sau tab Wiki
+(`#/manage/memory/scripts/<agent id>`). Tab này không dùng các endpoint ở bảng trên mà dùng
+các route `script-store`: những gì script của một agent giữ bằng `store(khoá, giá_trị)` để
+lần chạy sau đọc bằng `load(khoá)`, xếp theo từng lịch và từng cuộc trò chuyện, xem được và
+xoá được ([tools.md](tools.md#gọi-tool-từ-script), bullet "Trên web"). Đây là tab duy nhất mà
+địa chỉ gọi tên, nên một liên kết mở được nó ở đúng agent; rời nó sang tab khác thì tab ấy
+hiện agent vừa xem ở đây.
+
 ## So với openclaw
 
 Tên tệp và vai trò khớp với workspace memory của openclaw (`MEMORY.md`,

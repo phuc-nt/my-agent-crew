@@ -357,6 +357,113 @@ sẽ che kit chứ không sửa nó.
 `PUT …/files/{name}` ghi tệp persona theo tên, và tên được đối chiếu với
 `AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md` — đường dẫn không bao giờ đến từ request.
 
+### Trình sửa trên web
+
+Trình sửa agent trong màn quản lý (`#/manage/crew/<agent id>`) là một form trên các endpoint ở trên:
+nó mở từ `declared`, gửi những khoá đã đổi, và hiện lời từ chối của server nguyên văn ở đầu form
+("Không lưu được: …") mà không làm mất gì người sửa đã gõ. Dưới đây là những gì form tự làm thêm.
+
+**Mục "Script"** nằm cuối phần Công cụ, sau các máy chủ MCP, và ghi hai khoá của `agent.yaml`:
+
+- "Script gọi được gì" là `script_calls`, một trong ba: "Không dùng script" (`none`), "Chỉ công cụ
+  đọc" (`read_only`), "Cả công cụ thay đổi dữ liệu" (`gated`). Dưới ô chọn là một dòng nói lựa chọn
+  đang chọn dẫn tới gì.
+- "Cho script hỏi mô hình" là `script_llm`. Ô này vẫn bật tắt được ở agent đặt "Không dùng script":
+  script của một lịch vẫn chạy ở agent ấy.
+
+Agent mà tệp không ghi hai khoá này mở ra ở giá trị nó đang chạy, "Chỉ công cụ đọc" và có đánh dấu.
+Lưu một trong hai chỉ gửi đúng khoá đã đổi và không đòi khởi động lại; như mọi lần lưu, nó có hiệu
+lực từ lượt kế tiếp (đoạn "Lần lưu có hiệu lực từ lượt kế tiếp" ở trên), và mục này nói điều đó ngay
+dưới tiêu đề. Chọn rồi chọn lại như cũ thì không còn gì để lưu.
+
+Khi form đang có cả "Cả công cụ thay đổi dữ liệu" lẫn ô "Tự chủ" được đánh dấu, dòng dưới ô chọn
+được thay bằng lời cảnh báo "Agent này đang tự chủ nên script của nó thay đổi dữ liệu mà không ai
+được hỏi. Chỉ lệnh khớp mục “Lệnh vẫn phải hỏi” mới làm script dừng lại.", và đúng câu ấy hiện thêm
+ngay dưới ô "Tự chủ" ở phần Nhận dạng, đầu form: bật ô nào sau thì người sửa cũng đọc được nó ở chỗ
+vừa bấm. Lời cảnh báo xét theo form đang hiện, chưa cần lưu, và hiện cả ở agent mà form không sửa
+được (agent từ kit).
+
+Cuối mục là liên kết "Xem những gì script của agent này giữ lại", mở màn "Script giữ lại" với đúng
+agent đó ([tools.md](tools.md#gọi-tool-từ-script), bullet "Trên web").
+
+**Danh sách công cụ đọc `listable_tools`.** Dưới "Chỉ dùng các công cụ được chọn", mỗi tên trong
+`listable_tools` của agent là một dòng, kèm mô tả của tool khi bảng công cụ có nó; form không giữ
+luật riêng nào về việc một danh sách `tools:` có tác dụng với tên nào. Vì vậy không có dòng cho tool
+MCP, `tool_search` hay `tool_script`, còn `delegate` có dòng ở agent có giao việc, kể cả lúc không
+agent nào còn giữ nó, để đánh dấu lại được.
+
+- Agent không viết danh sách mở ở "Dùng tất cả công cụ hợp lệ". Bật danh sách lên thì nó bắt đầu từ
+  những tool agent đang giữ trong số các dòng ấy, theo thứ tự các dòng; agent không giữ dòng nào thì
+  bắt đầu từ mọi dòng. Ở agent đã viết danh sách, sang "Dùng tất cả công cụ hợp lệ" rồi quay lại thì
+  danh sách trở về đúng như tệp viết.
+- Tên mà danh sách của tệp có nhưng `listable_tools` không kể (tool của chế độ khác, tool máy không
+  chạy được lúc này, tool được trao bất kể danh sách) có một dòng riêng đã đánh dấu, đứng sau các
+  dòng kia, kèm câu "Hiện giờ danh sách không đem lại công cụ này cho agent. Bỏ chọn thì tên này rời
+  khỏi danh sách." Tên ấy được ghi lại cùng danh sách cho tới khi người sửa bỏ chọn nó; đánh dấu một
+  dòng khác không làm nó rơi. Tệp viết một tên hai lần thì có một dòng, bỏ chọn là cả hai cùng đi.
+- Bỏ chọn một tool rồi đánh dấu lại thì tên về đúng chỗ danh sách của tệp đang viết nó, nên không
+  còn gì để lưu. Tên mà danh sách của tệp chưa từng có được ghi sau các tên của tệp, theo thứ tự các
+  dòng, bất kể dòng nào được đánh dấu trước.
+- Các dòng theo agent như đã lưu. Khi form còn một thay đổi chưa lưu ở "Chế độ" hay "Có thể giao
+  việc cho", dưới danh sách có dòng nhắc lưu thay đổi đó trước: câu trả lời của lần lưu ấy mang
+  `listable_tools` mới.
+- Lần lưu không đổi gì ở danh sách thì không gửi `tools`.
+- Bỏ chọn một dòng mà dòng ấy đi luôn (một tên như ở gạch đầu dòng thứ hai, hay một máy chủ MCP mà
+  `config.yaml` không còn khai) trong lúc bàn phím đang ở đó thì bàn phím sang dòng thế chỗ nó,
+  không có thì sang dòng cuối còn lại, không còn dòng nào thì sang ô đang bật trong hai ô "Dùng tất
+  cả công cụ hợp lệ" / "Chỉ dùng các công cụ được chọn".
+- Server chưa trả `listable_tools` (bản trước, xem đoạn cuối phần này) thì các dòng là những tool mà
+  bảng công cụ không đánh dấu là của một máy chủ MCP, là `tool_search` hay là `tool_script`. Danh
+  sách bật lên vẫn bắt đầu từ danh sách của tệp, tệp không viết thì từ những tool agent đang giữ
+  trong số các dòng ấy, không giữ dòng nào thì từ mọi dòng.
+
+**Lịch: một dòng làm một trong ba việc.** Ở mỗi dòng lịch, "Làm gì" chọn một trong "Nhắc agent"
+(`prompt`), "Lệnh shell" (`command`) và "Script" (`script`); dòng do "+ Thêm lịch" tạo bắt đầu là
+một lời nhắc. Dòng script có thêm ô "Nhắc agent khi script in ra kết quả" (`then_prompt`), không bắt
+buộc: để trống thì khoá không nằm trong tệp, và xoá trắng một ô đã có chữ thì khoá được lấy ra khỏi
+tệp. Ô chọn kỹ năng hiện ở dòng mở ra một lượt: dòng nhắc agent, và dòng script đã có `then_prompt`
+hoặc đã có `skills`.
+
+Đổi "Làm gì" không mang chữ của việc này sang ô của việc kia. Chừng nào dòng còn trên trang, mỗi
+việc giữ phần của nó (chữ đã gõ, `then_prompt`, `skills`) và nhận lại khi được chọn lại, nên bấm
+nhầm thì bấm lại là xong; lúc lưu chỉ việc đang chọn được ghi. Dòng lệnh shell mà tệp có ghi
+`skills` giữ đúng danh sách ấy qua các lần sửa, kể cả sau một vòng sang lời nhắc rồi quay lại.
+
+Script được gõ trong một ô nhiều dòng, và form gửi nó đúng từng ký tự, không thêm dấu xuống dòng
+cuối. Phím Tab chuyển sang ô kế tiếp nên thụt lề bằng dấu cách; dấu tab dán vào thì được giữ nguyên.
+Form tự chặn hai điều trước khi gửi: script trống ("Nhập script cần chạy.", nêu ra khi đã thử lưu)
+và script dài quá 20.000 ký tự (nêu ngay khi vượt, đếm theo ký tự như server đếm). Form **không** tự
+xét cú pháp Python: server xét khi lưu, và lời từ chối 422 của nó hiện nguyên văn ở đầu form, những
+gì đã gõ vẫn còn đó để sửa.
+
+**Dòng script phải có mã.** Những gì script giữ bằng `store` nằm dưới `job:<schedule id>`, và dòng
+không có `id` trong tệp được đánh số theo vị trí ở mỗi lần khởi động (`job-<index>`): thêm hay bớt
+một lịch phía trên là job đọc sang chỗ của dòng khác. Vì vậy form không lưu một dòng script mà ô
+"Mã" còn trống (chỉ có dấu cách cũng là trống), dù dòng ấy mới thêm hay vừa được đổi từ lời nhắc hay
+lệnh sang. Lần lưu bị giữ lại, và khi đã thử lưu thì ô "Mã" nêu lý do: "Nhập mã cho lịch này: những
+gì script giữ lại được lưu theo mã, còn mã bỏ trống thì đổi theo vị trí của lịch trong danh sách."
+Dòng gợi ý dưới ô "Mã" của một dòng script cũng nói mã dùng để làm gì, thay cho "Bỏ trống để tự
+đặt". Form không tự đặt mã hộ, và dòng của hai loại kia vẫn để trống mã được như trước.
+
+Dòng script mà server đã đánh số (`job-2`) mở ra với mã ấy trong ô, nên mở agent không tính là có
+thay đổi và không ai phải gõ gì. Lần lưu kế tiếp có gửi `schedules` gửi lại mã ấy, từ đó tệp ghi nó,
+và dòng giữ mã dù các dòng phía trên bị xoá.
+
+**Từ danh sách lịch tới đúng dòng.** Nút "Sửa lịch" của một job trong màn Lịch chạy mở trình sửa của
+agent đó ở dòng của chính lịch ấy (ví dụ `#/manage/crew/coach/schedules?job=coach%2Fmorning-brief`):
+dòng được cuộn vào tầm nhìn, ngay dưới thanh dính của trình sửa, và nhận bàn phím. Job không có dòng
+nào trong form (job gom ghi nhớ `memory-consolidate`, sinh từ `memory_consolidate`) thì dừng ở tiêu
+đề phần Lịch chạy. Liên kết quay lại khi đó ghi "← Lịch chạy" và trở về đúng dòng của job trong danh
+sách.
+
+**Giữa bundle mới và lần khởi động lại.** Server đọc bundle của web từ đĩa ở mỗi lần tải trang, nên
+sau khi cập nhật mã mà chưa khởi động lại, trang mới nói chuyện với server của bản trước. Server
+0.15.0 trả `script_calls` nhưng chưa trả `script_llm` và `listable_tools`. Trình sửa vẫn mở được
+trên một server như thế: khoá nào vắng trong câu trả lời thì form đọc như mặc định (`script_calls`
+là "Chỉ công cụ đọc", `script_llm` là có đánh dấu), và danh sách công cụ rơi về bảng công cụ như nêu
+ở trên. Màn "Script giữ lại" trong khoảng ấy thì có giới hạn riêng
+([tools.md](tools.md#gọi-tool-từ-script), bullet "Trên web").
+
 ## Agent master
 
 Agent `default` luôn tồn tại và là cài đặt cấp cao nhất: dir = `MY_AGENT_HOME`,
@@ -893,10 +1000,14 @@ Sáng không có việc nào mới tới hạn thì script không in gì: run gh
 nhắc lại. Tệp không đọc được thì script hỏng, run là `error`, và `told` giữ nguyên như trước lần
 chạy.
 
-Trình sửa agent trên web giữ `script` và `then_prompt` của một dòng qua các lần sửa và gửi lại
-đúng giá trị đã đọc. Một lần lưu có gửi `schedules` viết lại cả danh sách trong `agent.yaml`,
-và script vẫn là một khối (`script: |`) như người viết tay, mỗi dòng của nó một dòng trong tệp;
-chú thích nằm giữa các dòng lịch thì mất theo danh sách cũ.
+Trình sửa agent trên web sửa được cả `script` lẫn `then_prompt` của một dòng lịch
+([Trình sửa trên web](#trình-sửa-trên-web)), và không lưu một dòng script chưa có `id`. Một lần
+lưu có gửi `schedules` viết lại cả danh sách trong `agent.yaml`, mỗi dòng của script một dòng
+trong tệp. Script nhiều dòng gõ trong form không có dấu xuống dòng sau dòng cuối, nên được viết
+thành khối `script: |-`; script kết thúc bằng đúng một dấu xuống dòng, như khối `script: |` của
+người viết tay, vẫn được viết là `script: |`. Script một dòng nằm ngay trên dòng của khoá, và
+script có dấu tab được viết trong ngoặc kép trên một dòng. Chú thích nằm giữa các dòng lịch thì
+mất theo danh sách cũ.
 
 ### Một script mỗi job
 

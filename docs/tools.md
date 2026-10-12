@@ -1241,6 +1241,14 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   còn nữa thì thêm một mục `…` ghi "còn N tham số nữa". Tool vẫn nhận đủ mọi tham số, người
   được hỏi duyệt cũng đọc đủ; chỉ phần lưu lại cho thẻ run là có trần, vì nó được lưu và phát
   lại cùng mỗi bước sau của run.
+  Trên web, bước lỗi cho thấy lý do của nó ngay, không cần bấm: ở bước của run, ở thẻ tool trong
+  khung chat (lời gọi hỏng lẫn lời gọi bị từ chối), ở lời gọi của script khi danh sách lời gọi đã
+  mở, và ở thẻ của một việc giao đi bị hỏng. Câu lỗi nằm trong mức một bước giữ thì hiện trọn, xuống
+  dòng theo bề rộng thẻ chứ không nằm trong ô cuộn; "Ẩn kết quả" gấp nó lại. Thẻ tool trong khung
+  chat giữ toàn bộ câu trả lời của tool, nên một câu lỗi dài hơn mức đó vẫn mở sẵn và còn đủ, trong
+  ô cuộn. Bước chạy xong thì vẫn gấp cho tới khi bấm "Xem kết quả". Bước lỗi nghe được khi run còn
+  chạy được giữ theo đúng luật trên, đếm theo ký tự và gộp đúng những khoảng trắng server gộp, nên
+  nó giống bản server lưu, là bản thay chỗ nó khi run kết thúc.
 - **Thấy ngay khi script còn chạy.** Một script có thể chạy vài phút, nên mỗi lời gọi được báo
   ngay khi nó xong chứ không đợi script kết thúc: thẻ run và thẻ tool trong khung chat thêm một
   dòng vào danh sách, và thẻ run lẫn cuộc trò chuyện cộng luôn giá của lời gọi có tính tiền (lượt
@@ -1315,6 +1323,15 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   dòng đánh dấu, là dữ liệu chứ không phải chỉ dẫn). Script của job không thuộc cuộc
   trò chuyện nào, không bao giờ chờ người và không giao việc cho agent khác. Xem
   [agents.md](agents.md#job-chạy-script).
+  Trên web, tin mở lượt của `then_prompt` không hiện nguyên như được lưu. Bong bóng chỉ mang
+  `then_prompt`; ngay dưới nó là một khối "Script in ra" với những gì script đã in, đúng từng dòng,
+  kèm số dòng và câu "Đã đưa cho model làm dữ liệu, không phải lời dặn.". Hai dòng đánh dấu và câu
+  dành cho model không hiện ra. Khối mở sẵn khi ngắn, gấp lại khi quá 12 dòng hoặc 800 ký tự; mở ra
+  thì cuộn trong ô của riêng nó và tới được bằng bàn phím, và ký tự ẩn trong đó được viết thành mã
+  (`[U+200B]`). Web chỉ đọc như vậy một tin có đúng hình server viết: dòng đóng ở cuối, dòng mở cùng
+  số, và ngay trên dòng mở là đúng câu của server, từng chữ một; tin chỉ nhắc tới hai dòng đánh dấu
+  vẫn là tin thường. Chữ được lưu không đổi: "Sửa và gửi lại từ đây" và bản xuất Markdown dùng tin
+  như được lưu.
 - **Giữ lại giữa các lần chạy (`store` / `load`).** Script chạy xong là quên hết: lần sau nó không
   biết lần trước đã thấy gì, đã báo việc nào. Hai tên dùng thẳng như `print`, không qua `tools.`:
   `store(khoá, giá_trị)` giữ một giá trị dưới một khoá, `store(khoá, None)` bỏ khoá đó, và
@@ -1452,6 +1469,51 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     đời, tăng mỗi lần agent mang id ấy bị gỡ; agent nhận số ấy lúc được dựng và lần ghi của script
     được so với số hiện tại ngay trong lần ghi (`store/script_store.py`). Số đời nằm trong bộ nhớ
     của server, vì không script nào sống qua một lần khởi động lại.
+  - **Trên web.** Quản lý → Ghi nhớ có tab "Script giữ lại" (`#/manage/memory/scripts/<agent id>`);
+    liên kết "Xem những gì script của agent này giữ lại" trong trình sửa agent dẫn tới đúng chỗ đó.
+    Màn này là ba route trên cho một agent mỗi lần, chọn ở ô agent đầu màn:
+    - **Kho.** Mỗi kho một khối. Tiêu đề gồm loại ("Lịch", "Cuộc trò chuyện", "Nơi khác") và tên:
+      `title`, không có thì `ref`, còn kho `other` thì chính tên kho. Khi tên ấy khác tên kho như
+      bảng lưu (`job:due-reminders`), tên kho nằm ngay dưới tiêu đề. Kho của một lịch dẫn tới dòng
+      của job đó trong Lịch chạy, kho của một cuộc trò chuyện dẫn tới cuộc ấy. Kho `orphan` mang
+      nhãn "Không còn nơi dùng" và một câu nói vì sao xoá được, và tên nó không còn là liên kết.
+    - **Độ đầy.** Dưới tiêu đề là số khoá, độ dài của kho trên mức tối đa (`chars` trên
+      `limit_chars`) và một thanh. Từ 80% mức tối đa, thanh đổi màu và có dòng "Sắp đầy: khi hết
+      chỗ, store của script sẽ bị từ chối cho tới khi xoá bớt."; chạm mức tối đa thì thanh đổi màu
+      lần nữa và dòng ấy thành "Đã đầy: store của script bị từ chối cho tới khi xoá bớt.".
+    - **Giá trị.** Mỗi khoá một dòng: tên, độ dài, giờ ghi và `preview`. "Xem giá trị" đọc cả giá
+      trị vào một ô cuộn riêng, tới được bằng bàn phím: bày thành JSON thụt lề khi đọc được như
+      JSON, không thì nguyên văn kèm một dòng nói vậy. Giá trị đã được ghi lại từ lúc danh sách được
+      đọc thì danh sách được đọc lại, để độ dài và giờ ghi bên cạnh là của đúng lần ghi ấy. Khoá
+      không còn (404) thì màn nói "Khoá … không còn nữa; đã tải lại danh sách.", bỏ dòng ấy và đọc
+      lại danh sách.
+    - **Xoá.** "Xoá" ở một khoá và "Xoá tất cả" ở một kho đều hỏi lại trước, nêu tên khoá và tên
+      kho. Trước khi hỏi "Xoá cả N khoá của …?", màn đọc lại danh sách: số khoá và tên trong câu hỏi
+      là của server ngay lúc đó, không phải của danh sách đang hiện, vì một script có thể vừa ghi
+      thêm. Kho không còn nữa thì không ai bị hỏi, và màn nói "Không còn gì để xoá: phần này đã
+      không còn trên máy chủ.". Xoá xong, một dòng nói cái gì đã mất ("Đã xoá khoá …", "Đã xoá N
+      khoá của …"), và bàn phím sang khoá thế chỗ, không có thì khoá cuối; kho đã hết khoá thì sang
+      tiêu đề của kho thế chỗ hay kho cuối, không còn kho nào thì về ô agent. Lời từ chối của server
+      hiện ngay tại dòng khoá hoặc dưới tiêu đề kho, và không gì bị dời.
+    - **Tên được viết ra.** Khoá là chữ script lấy từ bất cứ đâu tool của nó đọc, nên ở mọi chỗ màn
+      này vẽ hay đọc lên một khoá, một tên kho hay một tiêu đề (dòng của khoá, nhãn của hai nút,
+      nhãn của ô giá trị, tiêu đề kho, hai câu hỏi xoá và dòng báo sau đó), những ký tự không ai
+      thấy được viết ra theo một cách. Dấu ngoặc kép, dấu `\` và ký tự điều khiển được viết thành
+      chuỗi thoát của JSON (`\"`, `\n`, `\t`); những ký tự điều khiển JSON để nguyên và hai dấu ngắt
+      dòng U+2028, U+2029 được viết theo cùng kiểu (`\u0085`, `\u2028`); ký tự vẽ ra không thấy gì
+      hay vẽ như một dấu cách khác thường thành mã của nó (`[U+200B]`); dấu cách đứng đầu, đứng cuối
+      hay đứng liền nhau thành `[U+0020]`, vì trang web gộp chúng lại. Hai khoá chỉ khác nhau ở một
+      ký tự như thế vì vậy đọc khác nhau ở mọi chỗ. Trong câu hỏi và dòng báo, tên nằm trong ngoặc
+      kép và cắt ở 80 ký tự.
+    - **Hai giới hạn.** Màn không tự đọc lại trong lúc đang mở: danh sách được đọc khi màn mở ra cho
+      một agent, rồi chỉ đọc lại ở những lúc nêu trên (sau một lần xoá, trước câu hỏi "Xoá tất cả",
+      khi một giá trị cho thấy đã có lần ghi mới). Thứ một script ghi trong lúc ấy hiện ra sau khi
+      chọn lại agent hoặc tải lại trang. Và trong khoảng giữa lúc bundle mới nằm trên đĩa và lúc
+      server khởi động lại ([agents.md](agents.md#trình-sửa-trên-web), đoạn cuối), server của bản
+      0.15.0 chỉ có route đọc danh sách: kho hiện bằng tên như bảng lưu, có độ dài mà không có mức
+      tối đa, nhãn hay thanh; "Xem giá trị" nhận 404 nên màn nói khoá không còn rồi đọc lại danh
+      sách, và dòng ấy hiện lại; "Xoá" và "Xoá tất cả" nhận 405, hiện như một lời từ chối, không gì
+      bị xoá.
 
 Giới hạn nằm trong code, không cấu hình nào nới được:
 
@@ -1629,12 +1691,30 @@ số quá lớn); tên quá dài được cắt bớt khi hiện.
   tool agent đang giữ: agent nào cũng giữ vài tool, nên xét theo đó thì mọi ô trống đều thành
   "bị loại". Agent không viết danh sách thì không bao giờ mang dấu này; tool nó thiếu là do chế
   độ (`▫`) hoặc do thiếu khoá (`○`).
-- **Trình sửa agent.** Mục Công cụ có ô chọn máy chủ; danh sách cho phép ở trên nó không liệt kê
-  tool MCP và cũng không liệt kê `tool_search` hay `tool_script`. Danh sách ấy mở ra từ `tools:`
-  của tệp: agent không viết danh sách thì mở ở "Dùng tất cả công cụ hợp lệ", và một lần lưu chỉ
-  ghi những tên người sửa đã chọn, không ghi những tool agent đang giữ. Ghi cả những tool đang
-  giữ sẽ biến "không liệt kê gì, nên có mọi thứ" thành một danh sách chốt ở bộ tool của hôm nay,
-  kèm những tên không danh sách nào trao (`delegate`, `tool_search`, `tool_script`, tool MCP).
+  Agent mà tệp ghi `script_calls: none` không mang dấu `∅` ở ô `tool_script` mà mang dấu `⊘` ("agent
+  được đặt “Không dùng script”"): nó thiếu tool này vì được đặt như vậy, không vì thiếu công cụ đọc.
+  Dòng chú giải của dấu `⊘` chỉ hiện khi đội có một agent như thế.
+- **Trình sửa agent.** Mục Công cụ có ô chọn máy chủ; danh sách cho phép ở trên nó có một dòng cho
+  mỗi tên trong `listable_tools` của agent (`GET /api/agents`), nên không liệt kê tool MCP và cũng
+  không liệt kê `tool_search` hay `tool_script`. Danh sách ấy mở ra từ `tools:` của tệp: agent không
+  viết danh sách thì mở ở "Dùng tất cả công cụ hợp lệ", và lần lưu không đổi gì ở danh sách thì
+  không ghi danh sách nào. Tự ghi những tool agent đang giữ sẽ biến "không liệt kê gì, nên có mọi
+  thứ" thành một danh sách chốt ở bộ tool của hôm nay. Chỉ khi người sửa bật "Chỉ dùng các công cụ
+  được chọn" thì danh sách mới bắt đầu từ những tool agent đang giữ trong số các dòng ấy, không phải
+  từ mọi tool của đội: ghi mọi tool của đội là ghi cả những tên không trao gì cho agent này
+  (`delegate` ở agent không giao việc cho ai), mỗi tên một cảnh báo lúc server khởi động. Tên mà tệp
+  có nhưng `listable_tools` không kể vẫn có dòng riêng và ở lại danh sách cho tới khi người sửa bỏ
+  chọn. Cuối mục là phần "Script", đặt `script_calls` và `script_llm`. Chi tiết của cả mục ở
+  [agents.md](agents.md#trình-sửa-trên-web).
+- **Khung chat.** Sidebar chỉ liệt kê cuộc trò chuyện của master. Cuộc của một agent khác, như cuộc
+  của agent được giao việc, mở từ thẻ run hay mục **Cần bạn xử lý**, và không dòng nào của danh sách
+  được đọc lại cho nó khi một run kết thúc. Ở một cuộc như thế, số đã tiêu trên pill chi tiêu của
+  header và trên thẻ tóm tắt của cột hoạt động là một con số: số lớn hơn giữa lần tải cuộc trò
+  chuyện gần nhất và số mà lượt vừa xong báo về (server chỉ cộng thêm vào số đã tiêu, nên số lớn hơn
+  là số mới hơn). Chỉ sự kiện kết thúc `done` và `halted` mang số đã tiêu; sau một lượt của chính
+  tab này kết thúc bằng lỗi, dừng để hỏi người hay bị người dừng, cuộc trò chuyện được tải lại một
+  lần để lấy số mới cho cả hai chỗ. Số ấy chạm trần thì ô soạn khoá và thông báo hết ngân sách có
+  chỗ nâng trần, như ở một cuộc trong danh sách.
 
 ## Provider không cần khoá
 
