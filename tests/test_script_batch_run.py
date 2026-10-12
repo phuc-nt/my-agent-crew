@@ -11,7 +11,10 @@ import json
 from functools import partial
 from typing import Any
 
+import pytest
+
 from my_agent_crew import texts_script as t
+from my_agent_crew.agent.nested_calls import NestedBudget, start_nested_budget
 from my_agent_crew.script import tool as script_module
 from my_agent_crew.script.limits import MAX_BATCH, MAX_PARALLEL, RAW_LIMIT
 from my_agent_crew.script.nested import ScriptRun
@@ -207,6 +210,49 @@ async def test_a_script_its_clock_ends_mid_batch_keeps_the_calls_it_made(monkeyp
     assert not result.ok and t.SCRIPT_TIMED_OUT.format(seconds=1.5) in result.output
     assert [(call.name, call.cost_usd) for call in result.calls] == [("priced_read", 0.004)] * 3
     assert result.received_chars == len("một") * 3
+
+
+@pytest.mark.parametrize(
+    ("reads", "begun"),
+    [
+        pytest.param(True, MAX_PARALLEL, id="side by side, as many as there is room for"),
+        pytest.param(False, 1, id="one at a time, the first"),
+    ],
+)
+async def test_a_batch_cut_short_takes_from_the_turns_count_the_calls_that_began(reads, begun):
+    """A batch is counted whole before its first call begins. Ended while its calls hang, the
+    ones that had not begun were never made, and the scripts of the turn still have them."""
+    hung, began = asyncio.Event(), []
+
+    async def wait(arguments: dict[str, Any]) -> str:
+        began.append(arguments["n"])
+        await hung.wait()
+        return "muộn"
+
+    waiting = Tool("row_wait", "Chờ.", SCHEMA, wait, replay_safe=reads)
+    calls = [("row_wait", {"n": n}) for n in range(MAX_PARALLEL + 2)]
+
+    async def turn() -> tuple[asyncio.Task, int, NestedBudget]:
+        budget = start_nested_budget(1)
+        made = ScriptRun(toolbox(waiting), gate=None if reads else lambda name, arguments: None)
+        batch_of_six = asyncio.create_task(made.answer_many(calls))
+        await asyncio.wait_for(_until(lambda: len(began) == begun), 5)
+        for _ in range(5):  # nothing more begins while these hang
+            await asyncio.sleep(0)
+        while_hung = budget.used
+        batch_of_six.cancel()
+        await asyncio.wait([batch_of_six], timeout=5)
+        return batch_of_six, while_hung, budget
+
+    try:
+        batch_of_six, while_hung, budget = await asyncio.create_task(turn())
+    finally:
+        hung.set()
+
+    assert batch_of_six.cancelled() and began == list(range(begun))
+    # Held for all of them while the batch ran, so no other script of the turn took them.
+    assert while_hung == len(calls)
+    assert (budget.used, budget.spent) == (begun, False)
 
 
 # --- each call as a call made alone ---

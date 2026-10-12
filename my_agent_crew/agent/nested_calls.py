@@ -44,6 +44,11 @@ class NestedBudget:
         self.used += count
         return True
 
+    def give_back(self, count: int) -> None:
+        """What was taken for calls that were then never made. A count that was passed
+        stays passed."""
+        self.used = max(0, self.used - count)
+
 
 _sink: ContextVar[Sink | None] = ContextVar("nested_call_sink", default=None)
 _budget: ContextVar[NestedBudget | None] = ContextVar("nested_call_budget", default=None)

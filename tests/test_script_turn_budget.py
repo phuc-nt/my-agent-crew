@@ -78,6 +78,23 @@ def test_a_count_gives_all_that_was_asked_or_none_of_it_and_stays_spent():
     assert not partly.take(3) and partly.used == 3  # none of a batch that does not fit whole
 
 
+def test_what_was_taken_for_calls_never_made_is_given_back_to_the_count():
+    budget = NestedBudget(limit=5)
+    assert budget.take(5)
+
+    budget.give_back(2)
+    assert (budget.used, budget.spent) == (3, False) and budget.take(2)
+    budget.give_back(0)
+    assert budget.used == 5 and not budget.take(1)
+
+    # Giving back is not what un-ends a turn: a count that was passed stays so.
+    budget.give_back(4)
+    assert (budget.used, budget.spent) == (1, True)
+    # Nothing is owed: a count never goes below none taken.
+    budget.give_back(9)
+    assert budget.used == 0
+
+
 def test_a_turn_counts_ten_calls_for_each_call_of_the_model_from_nothing():
     def one_turn_then_the_next() -> None:
         first = start_nested_budget(12)
