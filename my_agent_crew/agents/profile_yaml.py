@@ -27,7 +27,8 @@ from my_agent_crew.agents.profile import (
     consolidate_schedule,
     default_profile,
 )
-from my_agent_crew.agents.profile_settings import names, settings_from
+from my_agent_crew.agents.profile_places import followed, persona_names
+from my_agent_crew.agents.profile_settings import listed, names, settings_from
 from my_agent_crew.agents.schedule import ACTIONS, SCHEDULE_KEYS, Schedule
 from my_agent_crew.config import Settings
 from my_agent_crew.script.check import parse
@@ -82,15 +83,11 @@ def _schedule(raw: dict[str, Any], agent_id: str, index: int) -> Schedule:
         prompt=raw.get("prompt") if script is None else None,
         command=raw.get("command") if script is None else None,
         enabled=bool(raw.get("enabled", True)),
-        skills=tuple(str(s) for s in raw.get("skills") or []),
+        skills=tuple(str(s) for s in listed(raw, "skills", where)),
         approval_ttl_seconds=parse_approval_ttl(raw.get("approval_ttl_seconds"), where),
         script=script,
         then_prompt=then_prompt,
     )
-
-
-def _resolve(base: Path, value: str) -> Path:
-    return (base / Path(value).expanduser()).resolve()
 
 
 def _mode(raw: dict[str, Any], agent_id: str) -> str:
@@ -117,16 +114,20 @@ def parse_profile(
         raise ValueError(f"agent {agent_id}: {exc}") from exc
     if settings.tool_output_chars < 1:
         raise ValueError(f"agent {agent_id}: tool_output_chars must be >= 1")
-    workspace = _resolve(agent_dir, str(raw.get("workspace") or "workspace"))
+    who = f"agent {agent_id}"
+    workspace = followed(agent_dir, str(raw.get("workspace") or "workspace"), who, "workspace")
     # A writable path outside the workspace could be ~/.zshrc or a LaunchAgent plist.
     for key in ("shell_write_paths", "write_paths"):
         for path in getattr(settings, key):
             if not (workspace / path).resolve().is_relative_to(workspace.resolve()):
                 raise ValueError(f"agent {agent_id}: {key} {path!r} leaves the workspace")
     skills_dirs = [agent_dir / "skills"] + [
-        _resolve(agent_dir, str(d)) for d in raw.get("skills_dirs") or []
+        followed(agent_dir, str(d), who, "skills_dirs")
+        for d in listed(raw, "skills_dirs", who, "folders")
     ]
-    schedules = [_schedule(s, agent_id, i) for i, s in enumerate(raw.get("schedules") or [])]
+    # A row that is no mapping has no field to read.
+    rows = listed(raw, "schedules", who, "mappings", dict)
+    schedules = [_schedule(row, agent_id, i) for i, row in enumerate(rows)]
     consolidate_cron = str(raw.get("memory_consolidate") or "")
     if consolidate_cron:
         schedules.append(consolidate_schedule(consolidate_cron))
@@ -138,7 +139,11 @@ def parse_profile(
         workspace=workspace,
         settings=settings,
         description=str(raw.get("description") or ""),
-        persona_files=tuple(raw.get("persona_files") or PERSONA_FILES),
+        # A name that is no text names no file: kept, it fails the next listing of the agents
+        # and every turn of this one. So does one the folder cannot be asked for.
+        persona_files=persona_names(
+            listed(raw, "persona_files", who, each=str) or PERSONA_FILES, agent_dir, who
+        ),
         skills_dirs=tuple(skills_dirs),
         schedules=tuple(schedules),
         telegram=telegram,
