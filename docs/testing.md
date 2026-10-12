@@ -1061,14 +1061,15 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_trajectory_redact.py` (chỉ gom giá trị dài của biến có tên như
     bí mật, gom cả dạng gộp khoảng trắng, dạng JSON đã thoát và dạng có cả hai, bí mật chứa bí
     mật khác được che trọn, phần đầu bị cắt ở cuối chữ hay trước dấu `…` và phần đuôi ở đầu chữ
-    đều được che, chữ chỉ trùng đầu hay đuôi bí mật mà không phải chỗ cắt thì để nguyên, dạng
-    khoá quen thuộc được che dù không biết giá trị, chữ chỉ hơi giống khoá thì để nguyên; run
+    đều được che, chữ có nhiều chỗ cắt thì sau mỗi dấu `…` một phần đuôi và trước mỗi dấu `…` một
+    phần đầu đều được che, chữ chỉ trùng đầu hay đuôi bí mật mà không phải chỗ cắt thì để nguyên,
+    dạng khoá quen thuộc được che dù không biết giá trị, chữ chỉ hơi giống khoá thì để nguyên; run
     không có là 404, hai dạng đến như tệp để lưu với `no-store`, bí mật trong môi trường và chuỗi
     dạng khoá được che ở cả hai dạng, bí mật nằm ở chỗ bị cắt vẫn được che trước khi cắt, bí mật
     bị bản ghi cắt ngắn ở tiêu đề, tóm tắt, output và tham số của bước, ở tên và giá trị tham số
     lời gọi hay trong tin của agent con đều được che ở cả hai dạng, bí mật có ngoặc kép hay gạch
-    chéo ngược được che cả khi JSON đã thoát nó, không gì từ môi trường đi theo nếu tin không
-    chứa nó, bản đầy đủ giữ nguyên kết quả dài)
+    chéo ngược được che cả khi JSON đã thoát nó, không gì từ môi trường đi theo nếu tin không chứa
+    nó, bản đầy đủ giữ nguyên kết quả dài)
   - vitest: `components/run-replay.test.tsx` ("offers the run as a JSON and a Markdown file to
     save, with a word to check before sharing", "offers no download while there is no run to
     download")
@@ -5479,7 +5480,13 @@ khi chạy; phần đó có mục riêng ở dưới.
     lần hỏi model hỏng của script giữ lý do dài hơn 160; tuyến bị bỏ qua và điều model nói vẫn
     giữ 160; hai câu từ chối của cổng duyệt đều kết bằng phần chỉ cách làm, tức là phần mà phép
     cắt này giữ lại), `tests/test_script_job_gate.py` (bước đóng của một job script hỏng giữ câu
-    từ chối theo cùng phép cắt ấy).
+    từ chối theo cùng phép cắt ấy),
+    `tests/test_trajectory_redact.py::test_a_secret_across_either_cut_of_a_failure_is_covered_in_both`
+    (bí mật nằm vắt qua một trong hai chỗ cắt của lời một bước hỏng, còn lại 8 ký tự, 19 ký tự hay
+    thiếu đúng một ký tự, được che trong bản xuất ở cả hai dạng, trên `output` của bước lẫn trên
+    lời gọi hỏng của một script: phần đầu trước dấu `…`, phần đuôi sau dấu `…`, và chữ quanh nó
+    giữ nguyên). Kiểm chứng đột biến: hai sửa đổi (chỉ tìm phần đuôi ở đầu cả đoạn chữ như trước;
+    không che phần đầu) đều bị test bắt.
 - **Ai được giao `tool_script`**:
   - pytest: `tests/test_script_handout.py` (agent không nêu máy chủ nào được dựng với
     `tool_script` đứng cuối, và script của nó gọi các tool có sẵn chỉ đọc; tool không theo danh
