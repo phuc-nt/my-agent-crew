@@ -19,6 +19,7 @@ with 422, the files and the running crew as they were.
 from __future__ import annotations
 
 import errno
+import json
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -67,7 +68,17 @@ SHAPES: dict[str, Any] = {
     "a list of an empty mapping": [{}],
     "a list of a list": [["chữ"]],
     "a list of an empty list": [[]],
+    # What stands where a number is asked and is no whole one, or none at all. A file
+    # writes the last two `.inf` and `.nan`, and a body `Infinity` and `NaN`.
+    "a fraction": 0.5,
+    "a number without end": float("inf"),
+    "what is no number": float("nan"),
 }
+# The two JSON has no word for. Under a key of a profile they reach the parser, and are
+# walked. Where the body itself is one, the route's model refuses it before any of this
+# code reads it, and the framework's answer, which quotes what it was sent, cannot be
+# written: a 500 on every route that takes a body, and none of it this parser's.
+NO_WORD_IN_JSON = ("a number without end", "what is no number")
 # A schedule of each kind. Between them they hold every field a row is told apart by, so a
 # field is walked as a row's own and beside what another row already does.
 ROWS: dict[str, dict[str, Any]] = {
@@ -122,6 +133,8 @@ def requests() -> Iterator[Any]:
         created = {"agent_id": NEW, "profile": profile}
         yield pytest.param("POST", CREATE, created, id=f"create: {where}")
     for shape, value in SHAPES.items():
+        if shape in NO_WORD_IN_JSON:
+            continue
         yield pytest.param("PATCH", EDIT, {"profile": value}, id=f"edit: profile as {shape}")
         yield pytest.param("PATCH", EDIT, value, id=f"edit: the body as {shape}")
         created = {"agent_id": NEW, "profile": value}
@@ -156,6 +169,13 @@ def test_the_parser_reads_a_profile_that_can_be_listed_or_says_what_is_wrong(age
 
 
 # --- the routes, which hand an edit to the same parser ---
+
+
+def sent(client: TestClient, verb: str, address: str, body: Any) -> Any:
+    """The request as a client that writes `Infinity` sends it. The routes' reader takes
+    the word; the test client's own writer refuses to write it."""
+    typed = {"content-type": "application/json"}
+    return client.request(verb, address, content=json.dumps(body), headers=typed)
 
 
 @pytest.fixture(scope="module")
@@ -199,7 +219,7 @@ def test_an_edit_is_taken_or_refused_with_422_and_a_refused_one_changes_nothing(
     files = manifests(home)
     running = {agent_id: deps.agent for agent_id, deps in runtime.agents.items()}
 
-    answer = client.request(verb, address, json=body)
+    answer = sent(client, verb, address, body)
 
     assert answer.status_code in (TAKEN[verb], 422), answer.text
     if answer.status_code == 422:
@@ -289,7 +309,42 @@ def test_an_edit_of_a_shape_that_crashed_is_refused_by_the_name_of_its_key(crew,
     assert manifests(home) == files
 
 
-@pytest.mark.parametrize(("raw", "told"), [*CRASHED, *CRASHED_IN_A_FILE])
+# A whole number is asked, and `int` of a number without end raises what is neither of the
+# two errors the parser turned into its own. The words are the library's where the key
+# has no check of its own.
+NO_WHOLE_NUMBER = "cannot convert float infinity to integer"
+WITHOUT_END = [
+    pytest.param({key: sign * float("inf")}, told, id=f"{key} {'above' if sign > 0 else 'below'}")
+    for sign in (1, -1)
+    for key, told in (("max_steps", NO_WHOLE_NUMBER), ("tool_output_chars", NO_WHOLE_NUMBER))
+] + [
+    pytest.param(
+        {"telegram": TELEGRAM | {"chat_id": sign * float("inf")}},
+        "telegram chat_id must be an integer",
+        id=f"chat_id {'above' if sign > 0 else 'below'}",
+    )
+    for sign in (1, -1)
+]
+
+
+@pytest.mark.parametrize(("profile", "told"), WITHOUT_END)
+def test_a_whole_number_without_end_is_refused_as_a_bad_profile(crew, profile, told):
+    client, _, home = crew
+    files = manifests(home)
+
+    edited = sent(client, "PATCH", EDIT, {"profile": profile})
+    created = sent(client, "POST", CREATE, {"agent_id": NEW, "profile": profile})
+    master = sent(client, "PATCH", f"/api/agents/{DEFAULT_AGENT_ID}", {"profile": profile})
+
+    assert [(answer.status_code, answer.json()["detail"]) for answer in (edited, created)] == [
+        (422, f"agent {EDITED}: {told}"),
+        (422, f"agent {NEW}: {told}"),
+    ]
+    assert (master.status_code, master.json()["detail"]) == (422, f"agent default: {told}")
+    assert manifests(home) == files
+
+
+@pytest.mark.parametrize(("raw", "told"), [*CRASHED, *CRASHED_IN_A_FILE, *WITHOUT_END])
 def test_a_file_of_a_shape_that_crashed_is_refused_when_the_agents_are_read_again(
     tmp_path, raw, told
 ):
@@ -384,7 +439,7 @@ def test_an_edit_over_a_file_changed_by_hand_is_taken_or_refused_with_422(crew, 
     files = manifests(home)
     running = {agent_id: deps.agent for agent_id, deps in runtime.agents.items()}
 
-    answer = client.patch(EDIT, json={"profile": edit})
+    answer = sent(client, "PATCH", EDIT, {"profile": edit})
 
     assert answer.status_code in (200, 422), answer.text
     if answer.status_code == 422:

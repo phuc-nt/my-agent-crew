@@ -38,7 +38,8 @@ def parse_telegram(raw: Any, agent_id: str) -> TelegramConfig:
         raise ValueError(f"agent {agent_id}: telegram needs {sorted(missing)}")
     try:
         chat_id = int(raw["chat_id"])
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
+        # int(.inf) is an OverflowError, which is no ValueError.
         raise ValueError(f"agent {agent_id}: telegram chat_id must be an integer") from exc
     # A blank env name or an unset chat is a bot that can never start, and nothing
     # downstream reports it: the channel simply stays silent. Refusing here is the only
