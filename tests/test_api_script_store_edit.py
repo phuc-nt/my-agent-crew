@@ -246,6 +246,37 @@ def test_forgetting_names_a_place_or_forgets_nothing(crew, named):
     assert rows(table) == [("conv:c1", "n", "2"), ("job:due", "n", "1")]
 
 
+# One place and one key, then one of the two named again: with another name, with the same
+# name, and with no key at all, where a forgetting would take a whole place.
+TWICE = [
+    pytest.param("namespace", [("namespace", "job:due"), ("key", "n"), ("namespace", "conv:c1")]),
+    pytest.param("namespace", [("namespace", "job:due"), ("key", "n"), ("namespace", "job:due")]),
+    pytest.param("namespace", [("namespace", "job:due"), ("namespace", "conv:c1")]),
+    pytest.param("key", [("namespace", "job:due"), ("key", "n"), ("key", "m")]),
+    pytest.param("key", [("namespace", "job:due"), ("key", "n"), ("key", "n")]),
+    pytest.param("key", [("namespace", "job:due"), ("key", ""), ("key", "n")]),
+]
+
+
+@pytest.mark.parametrize(("twice", "named"), TWICE)
+def test_a_place_or_a_key_named_twice_is_refused_and_nothing_is_read_or_forgotten(
+    crew, twice, named
+):
+    """Only one of the two would be gone by, and which is the library's to say. A forgetting
+    that goes by a guess forgets what the person did not mean, and it cannot be taken back."""
+    client, table = crew
+    assert table.apply("default", "job:due", {"n": "1", "m": "2"}, ROOM)
+    assert table.apply("default", "conv:c1", {"n": "3"}, ROOM)
+    kept = rows(table)
+
+    wanted = answered(client.get(ONE.format(agent="default"), params=named))
+    forgotten = answered(client.delete(ADDRESS.format(agent="default"), params=named))
+
+    refused = (422, {"detail": f"{twice} is named more than once"})
+    assert (wanted, forgotten) == (refused, refused)
+    assert rows(table) == kept
+
+
 def test_what_was_forgotten_stays_so_when_the_next_script_is_refused_what_it_wrote(crew):
     client, table = crew
     assert table.apply("default", "job:due", {"seen": "[1]", "kept": "2"}, ROOM)

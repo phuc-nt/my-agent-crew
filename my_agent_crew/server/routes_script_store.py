@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from itertools import groupby
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.script.limits import MAX_STORE_TOTAL_CHARS
@@ -102,7 +102,16 @@ def get_script_store(agent_id: str, rt: Rt) -> dict[str, Any]:
     return {"limit_chars": MAX_STORE_TOTAL_CHARS, "namespaces": namespaces}
 
 
-@router.get("/agents/{agent_id}/script-store/value")
+def _named_once(request: Request) -> None:
+    """A namespace and a key are each named once. Of one named twice only the last would
+    be gone by and the other dropped without a word: a forgetting would go by a guess,
+    and what it forgets cannot be brought back."""
+    for name in ("namespace", "key"):
+        if len(request.query_params.getlist(name)) > 1:
+            raise HTTPException(422, f"{name} is named more than once")
+
+
+@router.get("/agents/{agent_id}/script-store/value", dependencies=[Depends(_named_once)])
 def get_kept_value(agent_id: str, rt: Rt, namespace: str, key: str) -> dict[str, Any]:
     """One value whole, as the JSON text that is kept."""
     deps = _agent(rt, agent_id)
@@ -118,7 +127,7 @@ def get_kept_value(agent_id: str, rt: Rt, namespace: str, key: str) -> dict[str,
     }
 
 
-@router.delete("/agents/{agent_id}/script-store")
+@router.delete("/agents/{agent_id}/script-store", dependencies=[Depends(_named_once)])
 def forget_kept(agent_id: str, rt: Rt, namespace: str, key: str | None = None) -> dict[str, int]:
     """Forgets one key, or all a namespace holds when no key is named, and says how many
     values went: none is no mistake, since what was to be gone is. A namespace must be
