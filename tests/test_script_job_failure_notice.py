@@ -3,15 +3,18 @@
 A script that ran well and printed nothing says nothing: that is what a script job is for.
 One that failed opened no turn either, and from the chat the two looked the same. So the run
 of a script that failed is told to the agent's channel in one message of the runtime's: which
-schedule, why, and where the run is. Why is what ended the script: the line of its error, or
-the line that says nothing of it could be kept, to its last sentence, which is often what to
-do about it. Nothing the script printed before it failed is part of it, and neither is the
+schedule, why, and where the run is, and under those when the next message comes if the
+schedule goes on failing (`test_job_failure_streaks.py`). Why is what ended the script: the
+line of its error, or the line that says nothing of it could be kept, to its last sentence,
+which is often what to do about it. Nothing the script printed before it failed is part of
+it, and neither is the
 script's text. What a call was given is in it only where the tool that failed said it back,
 and what an error the script raised says is in it as the script wrote it. A value the script
 was working on is in it where the interpreter's own error quotes it. The run's step keeps
 all the script said, and is not made from the message, nor the message from it; its summary
-is what ended the script too, cut shorter (`test_job_run_summary.py`). A job of another kind,
-and a script whose output opened a turn, are told as they were.
+is what ended the script too, cut shorter (`test_job_run_summary.py`). A script whose output
+opened a turn is told as it was, and so is a prompt job. A command job that failed is told
+as a script is, in its own words (`test_job_failure_streaks.py`).
 Every script here runs in a real child process.
 """
 
@@ -28,7 +31,7 @@ from typing import Any
 import httpx
 import pytest
 
-from my_agent_crew import texts
+from my_agent_crew import texts, texts_job_failure
 from my_agent_crew import texts_script as t
 from my_agent_crew import texts_script_job as words
 from my_agent_crew.activity import ActivityHub
@@ -107,8 +110,18 @@ def told(deps: AgentDeps, *schedules: Schedule, notify=None) -> Told:
     return Told(sched, hub, notices, delivered)
 
 
-def notice(reason: str, name: str = NAME) -> str:
+# The line a first failure's message ends on: when the next one comes.
+AGAIN = texts_job_failure.JOB_FAILED_NEXT.format(hours=6)
+
+
+def head(reason: str, name: str = NAME) -> str:
+    """Which schedule, why, and where the run is: what `failure_notice` makes."""
     return words.JOB_SCRIPT_FAILED.format(name=name, reason=reason)
+
+
+def notice(reason: str, name: str = NAME) -> str:
+    """The whole message of a first failure, as the channel is given it."""
+    return f"{head(reason, name)}\n{AGAIN}"
 
 
 # --- what is told ---
@@ -124,7 +137,9 @@ async def test_a_script_job_that_failed_tells_which_schedule_why_and_where(deps_
     assert rig.notices == [("default", notice(WHY))] and rig.delivered == []
     [(_, text)] = rig.notices
     assert f'"{NAME}"' in text and WHY in text and WHERE in text
-    assert text.endswith(f"{WHERE}.") and text.split("\n")[1] == WHY
+    which, why, where, again = text.split("\n")
+    assert why == WHY and where.endswith(f"{WHERE}.")
+    assert again == AGAIN and "sau 6 giờ" in again
 
 
 async def test_what_a_script_printed_before_it_failed_is_not_told(deps_factory):
@@ -359,7 +374,7 @@ async def test_a_schedules_name_is_told_as_one_line(deps_factory):
     [(_, text)] = rig.notices
     first, *rest = text.split("\n")
     assert first.startswith('Lịch "Nhắc hạn FILE: brief.pdf xxx') and "…" in first
-    assert len(rest) == 2 and rest[0] == WHY
+    assert len(rest) == 3 and rest[0] == WHY
 
 
 @pytest.mark.parametrize("ended_by", ["", " \n "])
@@ -371,14 +386,14 @@ def test_a_run_nobody_said_what_ended_is_told_by_its_status_and_not_by_what_it_k
     run.summary = "đã đọc 3 thư"
     run.steps = [{"kind": "tool", "name": "tool_script", "ok": False, "output": STEP}]
 
-    assert failure_notice(job, run, ended_by) == notice(FAILED)
+    assert failure_notice(job, run, ended_by) == head(FAILED)
 
 
 def test_what_ended_a_script_is_told_on_one_line():
     job = Job(DUE, "default", due(BROKEN))
     run = RunRecord("r1", "default", None, f"job:{DUE}", NAME, FAILED, "2026-09-19T07:00:00")
 
-    assert failure_notice(job, run, "hai dòng\n  của một lỗi") == notice("hai dòng của một lỗi")
+    assert failure_notice(job, run, "hai dòng\n  của một lỗi") == head("hai dòng của một lỗi")
 
 
 # --- what is not ---
@@ -411,18 +426,18 @@ async def test_the_turn_a_script_opened_is_the_deliverys_to_tell(deps_factory, a
     assert rig.notices == [] and rig.delivered == [run.conversation_id]
 
 
-async def test_a_job_of_another_kind_that_failed_is_not_told_here(deps_factory):
+async def test_a_prompt_job_that_failed_is_the_deliverys_to_tell_too(deps_factory):
+    """Its turn is a conversation's, and says there why it failed. A command job has none,
+    and is told as a script is (`test_job_failure_streaks.py`)."""
     deps = deps_factory(providers={"scripted": ScriptedProvider([ProviderError("503")])})
-    sync = Schedule("sync", "Đồng bộ", every="1h", command="echo hỏng; exit 3")
     brief = Schedule("brief", "Bản tin", cron="0 7 * * *", prompt="soạn bản tin")
-    rig = told(deps, sync, brief)
+    rig = told(deps, brief)
 
-    by_command = await rig.sched.run_job("default/sync")
     by_prompt = await rig.sched.run_job("default/brief")
 
-    assert (by_command.status, by_command.conversation_id) == (FAILED, None)
     assert by_prompt.status == FAILED and by_prompt.conversation_id is not None
     assert rig.notices == [] and rig.delivered == [by_prompt.conversation_id]
+    assert rig.sched.describe()[0]["failing"] is None
 
 
 # --- a notice that cannot be sent ---

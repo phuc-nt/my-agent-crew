@@ -1014,8 +1014,9 @@ job prompt gọi một script shell trong workspace.)
 - **Hỏng thì có tin báo.** Script chạy xong mà không in gì thì không ai nghe gì, đó là chủ ý.
   Script hỏng cũng không mở lượt nào, nên nếu im lặng thì từ chat hai chuyện ấy trông như nhau.
   Vì vậy run của script kết thúc `error` thì crew gửi một tin tới kênh của đội
-  ([channels.md](channels.md#giao-theo-lịch)), ba dòng: `Lịch "<tên lịch>" gặp lỗi khi chạy
-  script:`, rồi lý do, rồi `Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.` Lý do là thứ đã làm
+  ([channels.md](channels.md#giao-theo-lịch)), bốn dòng: `Lịch "<tên lịch>" gặp lỗi khi chạy
+  script:`, rồi lý do, rồi `Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.`, rồi `Nếu lịch còn
+  hỏng, tin nhắc kế tiếp sẽ đến sau 6 giờ.` Lý do là thứ đã làm
   script dừng: dòng lỗi của nó (`Lỗi ở dòng N: …` hay `Dừng ở dòng N: …`), hoặc dòng nói rằng script
   chạy xong mà không giữ được gì bằng `store`. Nó được gộp về một dòng: nguyên văn khi không quá 600
   ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký tự cuối, nên câu chỉ cách sửa ở cuối một lời
@@ -1026,13 +1027,18 @@ job prompt gọi một script shell trong workspace.)
   Còn một đường thứ ba: lỗi mà trình thông dịch ném ra khi script đang xử lý một giá trị thì
   trích chính giá trị ấy (`int(...)` của một chuỗi không phải số, một khoá mà mapping không có),
   nên lý do có thể mang một phần thứ tool vừa trả về, trong giới hạn 600 ký tự nói trên.
-  Mỗi run hỏng một tin, không gộp và không giãn: lịch chạy mỗi 5 phút mà hỏng mãi thì 5 phút một
-  tin, cho tới khi sửa script hoặc tạm dừng lịch từ thẻ job. Chạy tay bằng nút hay
-  `POST /api/jobs/{agent}/{id}/run` cũng báo như vậy. Chỉ run của chính script được báo ở đây:
-  lượt mà `then_prompt` mở ra hỏng thì được giao như lượt của job prompt, job `command` hỏng thì
-  không có tin nào, và run đóng lại là `interrupted` vì server tắt giữa chừng cũng không. Không
-  có kênh thì không gì được gửi; gửi không được, hoặc chưa gửi xong sau 60 giây, thì ghi log và
-  thôi, run vẫn như nó đã kết thúc và các job tới hạn sau vẫn chạy.
+  Lịch hỏng mãi thì không nhắn mãi: lần hỏng đầu được báo ngay, sau đó chừng nào lịch còn hỏng
+  thì nhiều nhất 6 giờ một tin, và tin nhắc nói đó là lần hỏng thứ mấy liên tiếp, tính từ lúc nào.
+  Lịch chạy mỗi 5 phút mà hỏng suốt một ngày vì thế nhắn bốn tin chứ không phải 288 tin. Lịch chạy
+  lại được thì kênh nhận một dòng nói vậy, kèm số lần đã hỏng. Chạy tay bằng nút hay
+  `POST /api/jobs/{agent}/{id}/run` được đếm và báo như lần chạy của đồng hồ. Job `command` và lần
+  cô đọng bộ nhớ theo lịch hỏng cũng được báo và giãn theo cùng cách, bằng lý do của riêng chúng;
+  cách đếm, lúc nào thử gửi lại và khoá `failing` của `GET /api/jobs` nằm ở
+  [channels.md](channels.md#giao-theo-lịch). Lượt mà `then_prompt` mở ra hỏng thì được giao như
+  lượt của job prompt và không được đếm ở đây, và run đóng lại là `interrupted` vì server tắt giữa
+  chừng cũng không có tin. Không có kênh thì không gì được gửi; gửi không được, hoặc chưa gửi xong
+  sau 60 giây, thì ghi log, run vẫn như nó đã kết thúc, các job tới hạn sau vẫn chạy, và lần hỏng
+  kế tiếp thử gửi lại.
 - **`then_prompt`.** Script chạy xong **và** in ra thứ gì đó không trống thì crew mở một lượt như
   job prompt mở: cuộc trò chuyện autonomous mới, `skills` và `approval_ttl_seconds` của lịch áp
   cho nó. Tin mở lượt là `then_prompt`, rồi một câu nói rằng phần bên dưới là những gì script

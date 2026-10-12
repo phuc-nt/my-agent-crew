@@ -6027,6 +6027,50 @@ khi chạy; phần đó có mục riêng ở dưới.
   - Vitest: `components/agent-editor/delete-agent.test.tsx` (hộp xoá agent nói, trước ô gõ id,
     thứ thư mục trong `.trash` không mang về: những gì script của agent giữ lại, lịch nó được tạo
     từ chat và trạng thái bật/tắt của từng lịch; hội thoại và lịch sử run được nêu là giữ nguyên).
+- **Job hỏng mà không có cuộc trò chuyện được báo cho chủ: lần đầu báo ngay, sau đó nhiều nhất 6
+  giờ một tin, và một dòng khi job chạy lại được**:
+  - pytest: `tests/test_job_failure_streaks.py` (job lệnh hỏng lần đầu thì kênh nhận ngay một tin
+    bốn dòng: tên lịch, mã thoát kèm dòng cuối lệnh in ra, chỗ xem run, và câu nói tin nhắc kế tiếp
+    đến sau 6 giờ; job hỏng mỗi năm phút suốt một ngày, 288 lần chạy, nhắn một nhúm tin chứ không
+    phải mỗi lần một tin và cũng không im sau tin đầu, hai tin liền nhau không gần hơn 6 giờ và
+    không xa hơn 6 giờ cộng một lần chạy, tin cuối nói đó là lần hỏng thứ 217 liên tiếp; lần hỏng
+    trước khi hết 6 giờ chỉ được đếm; đúng 6 giờ thì tin kế nói số lần hỏng liên tiếp và từ lúc
+    nào, và khoảng chờ sau đó tính từ tin ấy; tin nhắc mang lý do của lần chạy gần nhất; mỗi job
+    được đếm riêng; tin mà kênh không nhận, vì không có chỗ nhận, vì bị từ chối hay vì không trả
+    lời trong hạn, được thử lại ở lần hỏng kế tiếp với số lần đã đếm, và khoảng 6 giờ chỉ bắt đầu
+    khi một tin tới nơi; đồng hồ không có ai để báo vẫn đếm; job chạy lại được thì có đúng một dòng
+    nêu số lần hỏng, và chỉ khi chủ đã từng được báo; lần hỏng sau khi job chạy lại là một chuỗi
+    mới, được báo ngay; dòng báo chạy lại mà kênh không nhận thì không gửi lại; job lệnh chạy tốt
+    không nhắn gì và không đưa ra lý do hỏng nào; run bị dừng, lượt hỏng trong một cuộc trò chuyện
+    và lượt đang chờ duyệt đóng chuỗi mà không có dòng nào, còn lượt chạy xong thì đóng chuỗi bằng
+    dòng chạy lại; khoảng chờ tính từ lúc kênh nhận tin chứ không từ lúc run kết thúc; lần hỏng
+    được đếm trong lúc một tin đang trên đường vẫn được giữ; job rời đồng hồ trong lúc tin đang
+    trên đường không để lại chuỗi nào; chuỗi mất theo job và theo agent, id được so trọn vẹn nên
+    agent có id chỉ giống phần đầu giữ chuỗi của nó; job rời đồng hồ trong lúc đang chạy không được
+    báo; với lệnh thật: mã thoát và dòng cuối, dòng in ra stderr, dòng trống ở cuối được bỏ qua,
+    lệnh không in gì thì chỉ có mã thoát; lệnh bị dừng vì quá hạn được kể là chạy quá hạn, với đúng
+    hạn 900 giây của job lệnh; dòng cuối dài bị cắt còn 200 ký tự đầu và 400 ký tự cuối, và dòng in
+    trước nó không có trong tin; job script hỏng liên tiếp giữ dòng đầu của riêng nó và dòng cuối
+    chung; job prompt hỏng liên tiếp không bao giờ được đếm; lần cô đọng bộ nhớ ném lỗi được báo
+    bằng tóm tắt của run, và job tới hạn sau nó trong cùng nhịp vẫn chạy; lần cô đọng mà model
+    không trả về gì được báo bằng đúng dòng nói vậy; lần cô đọng không có gì mới là `done` và không
+    được báo; lần cô đọng ném lỗi trước khi có run của riêng nó, hoặc khi run của nó còn mở, thì
+    lỗi được ném ra như cũ và không ai được báo bằng run của một đêm trước; `GET /api/jobs` cho
+    thấy `failing` qua từng chặng: `null`, đã đếm mà chưa báo được, đã báo kèm giờ báo và giờ nhắc
+    kế, đếm thêm trong khoảng chờ, rồi `null` lại sau khi job chạy được, các mốc mang múi giờ của
+    chủ). Kiểm chứng đột biến: hai mươi bảy sửa đổi (coi tin gửi hỏng là đã báo, bỏ phép kiểm khoảng
+    chờ, báo chạy lại cho chuỗi chưa từng báo, báo chạy lại ở mọi kết cục, đòi khoảng chờ dài hơn
+    hẳn 6 giờ, tính khoảng chờ từ lúc chuỗi bắt đầu, lấy giờ báo là lúc run kết thúc, ghi đè chuỗi
+    bằng bản đọc trước khi gửi, giữ chuỗi qua một run bị dừng, bỏ dấu `/` sau id agent, không quên
+    chuỗi của job, tính giờ nhắc kế từ lúc chuỗi bắt đầu, tin thứ hai kết như tin đầu, lần thử lại
+    của chuỗi chưa báo kết như tin đầu, vẫn đếm job đã rời đồng hồ khi đang chạy, dòng job không
+    mang chuỗi, lấy dòng đầu thay dòng cuối, lấy dòng cuối kể cả khi trống, kể lệnh quá hạn bằng mã
+    thoát, đưa lý do hỏng cho lệnh chạy tốt, không bắt lỗi của lần cô đọng, nuốt lỗi của lần cô
+    đọng khi run còn mở, báo bằng run của một lần cô đọng trước, không báo lần cô đọng mà model
+    không trả về gì, chỉ báo job script, bỏ hạn chờ của tin, coi mọi câu trả lời khác `None` của
+    kênh là đã nhận) đều bị test bắt.
+  - pytest: `tests/test_script_job_failure_notice.py` (lý do của job script và đường gửi tin, ở mục
+    "Lịch chạy script" bên dưới).
 - **Tóm tắt của run do lịch chạy: chỗ cắt có dấu, script hỏng tóm bằng thứ đã làm nó dừng**:
   - pytest: `tests/test_job_run_summary.py` (chữ không quá 160 ký tự thì tóm tắt là cả chữ ấy,
     không dấu gì; dài hơn thì là 160 ký tự cuối đứng sau dấu `…`, 161 ký tự; job `command` nói
@@ -6136,8 +6180,9 @@ khi chạy; phần đó có mục riêng ở dưới.
     một job script là của riêng nó, trần lời gọi lồng còn nguyên; job script kết thúc thế nào
     thì cũng trả lại nguyên những gì tác vụ đang chạy theo).
   - pytest: `tests/test_script_job_failure_notice.py` (job script hỏng thì agent của lịch ấy được
-    báo đúng một tin: tên lịch trong ngoặc kép, lý do là đúng dòng lỗi đã làm script dừng, và chỗ
-    xem run; chữ script in trước khi hỏng, kể cả thứ một tool vừa đưa cho nó, không có trong tin,
+    báo đúng một tin: tên lịch trong ngoặc kép, lý do là đúng dòng lỗi đã làm script dừng, chỗ
+    xem run, và dưới đó là câu nói tin nhắc kế tiếp đến sau 6 giờ nếu lịch còn hỏng; chữ script in
+    trước khi hỏng, kể cả thứ một tool vừa đưa cho nó, không có trong tin,
     trong khi step của run vẫn giữ đủ như trước và tóm tắt của run là đúng dòng lỗi ấy; tool hỏng
     được kể bằng lời của chính nó,
     tham số mà nó nhắc lại vì thế có trong tin; câu của lỗi do script tự `raise` có trong tin;
@@ -6151,10 +6196,10 @@ khi chạy; phần đó có mục riêng ở dưới.
     của dòng ấy kèm dấu `…` và step
     cắt theo cách của nó; tin không mang chữ nào của script, tên tool hay tham số của một lời gọi
     chạy tốt, dù cả hai có trên run; tên lịch nhiều dòng hay rất dài được kể thành một dòng, cắt
-    bằng `…`, và tin vẫn đúng ba dòng; không ai nói script dừng vì đâu thì lý do là trạng thái của
+    bằng `…`, và tin vẫn đúng bốn dòng; không ai nói script dừng vì đâu thì lý do là trạng thái của
     run, không bao giờ là thứ run đã giữ; lý do nhiều dòng được gộp thành một dòng; script chạy tốt,
     in hay không in, không có tin; lượt mà script mở thì do việc gửi câu trả lời lo, dù lượt xong
-    hay hỏng; job lệnh hỏng và job prompt hỏng không có tin này; gửi hỏng, vì Telegram từ chối hay
+    hay hỏng; job prompt hỏng không có tin này và dòng của nó không bao giờ mang `failing`; gửi hỏng, vì Telegram từ chối hay
     vì một lỗi khác, thì ghi một dòng log mức lỗi kèm ngoại lệ, run vẫn là run hỏng vì lý do của
     script; tin không gửi xong trong hạn thì bị bỏ, lời gửi bị huỷ chứ không treo lại, log ghi như
     một tin gửi hỏng kèm `TimeoutError`, và job tới hạn sau nó vẫn chạy trong cùng nhịp đồng hồ;

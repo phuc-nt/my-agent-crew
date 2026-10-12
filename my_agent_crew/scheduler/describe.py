@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from my_agent_crew.scheduler.cron import next_run
+from my_agent_crew.scheduler.failure_streaks import Streak
 from my_agent_crew.scheduler.jobs import Job
 from my_agent_crew.store.runs import RunRecord
 
@@ -20,6 +21,7 @@ def describe_job(
     override: bool | None,
     last_run: RunRecord | None,
     running: bool,
+    streak: Streak | None,
 ) -> dict[str, Any]:
     nxt = next_run(job.schedule.cron, job.schedule.every, last, now)
     return {
@@ -29,4 +31,7 @@ def describe_job(
         "next_run": nxt.isoformat(timespec="minutes") if nxt else None,
         "last_run": last_run.to_dict() if last_run else None,
         "running": running,
+        # The failures in a row the job is in and when the person was told of them
+        # (`failure_streaks.py`); None for a job whose last run did not count as one.
+        "failing": streak.to_dict() if streak else None,
     }

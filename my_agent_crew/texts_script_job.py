@@ -17,7 +17,8 @@ JOB_PRINTED_FENCE = (
 
 # Told to the agent's channel when the script of a schedule failed, and so opened no turn.
 # `reason` is what ended the script, on one line, and nothing it printed before that; the
-# last line says where the run is on the web UI.
+# last line says where the run is on the web UI. Under it the message ends on when the next
+# one comes (`texts_job_failure.py`).
 JOB_SCRIPT_FAILED = (
     'Lịch "{name}" gặp lỗi khi chạy script:\n'
     "{reason}\n"

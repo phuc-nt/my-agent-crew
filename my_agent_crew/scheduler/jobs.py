@@ -5,7 +5,8 @@ conversation and runs one turn; a command job runs a shell command with no model
 a script job runs a script as `tool_script` would, and opens such a turn only when the
 script printed something to hand on (`script_job.py`); a consolidate job rewrites the
 agent's `MEMORY.md`. Each ends as a run in the activity hub, which is how every one of
-them becomes visible in the UI.
+them becomes visible in the UI. The two that never open a conversation hand on, beside
+their run, why it failed, for the person to be told (`failure_notice.py`).
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from my_agent_crew import texts
+from my_agent_crew import texts_job_failure as words
 from my_agent_crew.activity import ActivityHub, tracked
 from my_agent_crew.activity.step_previews import CUT, PREVIEW_CHARS
 from my_agent_crew.agent.events import ToolCallEvent, ToolResultEvent
@@ -112,7 +115,21 @@ async def open_turn(
     return run
 
 
-async def run_command(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) -> RunRecord:
+def command_failure(code: int | None, output: str) -> str:
+    """Why a command job failed, as the person is told it: the code the command left with
+    and the last line it printed, which is where a command says what went wrong; or, with
+    no code, that it ran past its limit and was stopped, in the shell tool's own words."""
+    if code is None:
+        return texts.SHELL_TIMEOUT.format(seconds=COMMAND_TIMEOUT_SECONDS)
+    exited = words.COMMAND_EXITED.format(code=code)
+    last = next((line.strip() for line in reversed(output.splitlines()) if line.strip()), "")
+    return f"{exited} {words.COMMAND_LAST_LINE.format(line=last)}" if last else exited
+
+
+async def run_command(
+    job: Job, deps: AgentDeps, hub: ActivityHub, title: str
+) -> tuple[RunRecord, str]:
+    """The run of the command, and beside it why it failed when it did."""
     command = job.schedule.command or ""
     run = hub.start(job.agent_id, JOB_SOURCE + job.id, title, None)
     clock = time.monotonic()
@@ -123,10 +140,10 @@ async def run_command(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) -
         run, ToolResultEvent("cmd", "shell_run", ok, output or f"exit {code}"), time.monotonic()
     )
     hub.finish(run, status=DONE if ok else FAILED, summary=ending(output or ""))
-    return run
+    return run, "" if ok else command_failure(code, output)
 
 
-async def run_consolidate(job: Job, deps: AgentDeps, hub: ActivityHub) -> RunRecord:
+async def run_consolidate(job: Job, deps: AgentDeps, hub: ActivityHub) -> tuple[RunRecord, str]:
     """Rewriting MEMORY.md is its own kind of run: one model call and no conversation, so
     nothing is delivered to a channel and no session summary is written.
 
@@ -134,9 +151,23 @@ async def run_consolidate(job: Job, deps: AgentDeps, hub: ActivityHub) -> RunRec
     read the same notes and the vault should settle from the same night's reading. It gets
     its own run in the hub, and the consolidation's run is what this returns: the job the
     user asked for is the one whose outcome they are shown.
+
+    Beside the run stands why it failed when it did, which is what the run was summed up
+    by. A rewrite that raised has closed its run as failed before raising, and that run is
+    what comes back, with no compile after it: the person is told of it as of any failed
+    job, and the clock goes on to the jobs due after this one.
     """
     source = JOB_SOURCE + job.id
-    await consolidate_memory(deps, hub, source=source)
+    seen = {earlier.id for earlier in hub.recent(1, source=source)}
+    try:
+        await consolidate_memory(deps, hub, source=source)
+    except Exception:
+        # Only a run this rewrite opened and closed as failed is its own to be told by: one
+        # that raised before it had a run leaves the job's last run an earlier night's.
+        failed = next((r for r in hub.recent(1, source=source) if r.id not in seen), None)
+        if failed is None or failed.status != FAILED:
+            raise
+        return failed, failed.summary
     run = next(iter(hub.recent(1, source=source)), None)
     assert run is not None
     try:
@@ -146,4 +177,4 @@ async def run_consolidate(job: Job, deps: AgentDeps, hub: ActivityHub) -> RunRec
         # already been rewritten by this point, and reporting the whole job as failed
         # would send someone looking for damage that is not there.
         logger.exception("wiki compile failed for %s", job.id)
-    return run
+    return run, run.summary if run.status == FAILED else ""
