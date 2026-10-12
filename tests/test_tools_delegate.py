@@ -195,6 +195,33 @@ async def test_the_tasks_a_script_handed_on_count_toward_the_most_a_conversation
     assert store.for_parent_call("call-over") is None
 
 
+async def test_the_most_a_conversation_may_hand_on_is_not_given_back_by_its_next_turn(
+    runtime: Runtime,
+):
+    """The count is the conversation's and no turn's. Once the person has spoken again the
+    next task is refused as the last was, so the refusal names the conversation and sends
+    nobody to wait for a turn that would be refused too. A conversation begun anew hands on."""
+    store = runtime.store
+    parent = store.create(agent_id="boss", autonomous=True)
+    for number in range(MAX_DELEGATES):
+        store.append(parent.id, _assistant_call(f"call-{number}"))
+        await delegate(runtime, parent.id, f"call-{number}", task="việc", agent="worker")
+
+    store.append(parent.id, Message(role="assistant", content="đã giao hết"))
+    store.append(parent.id, _user("giao thêm một việc nữa đi"))
+    store.append(parent.id, _assistant_call("call-next-turn"))
+    refused = await delegate(runtime, parent.id, "call-next-turn", task="thêm", agent="worker")
+
+    assert store.for_parent_call("call-next-turn") is None
+    assert texts.DELEGATE_TOO_MANY.format(limit=MAX_DELEGATES) in refused
+    assert "cuộc trò chuyện" in refused and "lượt" not in refused
+
+    anew = store.create(agent_id="boss", autonomous=True)
+    store.append(anew.id, _assistant_call("call-anew"))
+    handed = await delegate(runtime, anew.id, "call-anew", task="việc mới", agent="worker")
+    assert "(echo) việc mới" in handed and store.for_parent_call("call-anew") is not None
+
+
 async def test_the_child_inherits_what_is_left_of_the_parent_budget(runtime: Runtime):
     parent = runtime.store.create(agent_id="boss", autonomous=True, cost_cap_usd=1.0)
     runtime.store.add_spend(parent.id, 0.75)

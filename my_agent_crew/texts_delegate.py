@@ -44,8 +44,12 @@ DELEGATE_NO_PEERS = "chỉ chính mình"
 DELEGATE_TOO_DEEP = (
     "Agent con không được giao việc tiếp. Tự làm phần việc này hoặc báo lại cho agent cha."
 )
+# The count is the conversation's, whoever handed the task on and in whichever of its turns:
+# nothing later in the same conversation is given room again.
 DELEGATE_TOO_MANY = (
-    "Một lượt chỉ giao được tối đa {limit} việc. Việc này bị bỏ qua; giao lại ở lượt sau."
+    "Cuộc trò chuyện này đã giao đủ {limit} việc, là mức tối đa của một cuộc trò chuyện (tính "
+    "cả việc do script giao). Việc này chưa được giao. Tự làm phần này, hoặc nói rõ với người "
+    "dùng là muốn giao tiếp thì cần một cuộc trò chuyện mới."
 )
 DELEGATE_CONVERSATION_TITLE = "{agent}: {task}"
 DELEGATE_RESULT_HEADER = "conversation={conv_id} status={status} spent=${spent:.4f} steps={steps}"
