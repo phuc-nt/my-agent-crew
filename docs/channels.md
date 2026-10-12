@@ -322,10 +322,27 @@ Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạ
   đầu, và job còn hỏng sau đó được báo ngay ở lần hỏng đầu. Job rời đồng hồ (agent bị xoá, dòng
   lịch bị xoá) thì chuỗi của nó cũng mất; job tạo lại dưới cùng id bắt đầu từ không.
 - `GET /api/jobs` cho thấy chuỗi ấy ở khoá `failing` của từng dòng: `null` khi job không ở trong
-  chuỗi hỏng nào, còn không thì `{"count": 3, "since": "…", "told_at": "…", "next_notice_at": "…"}`.
-  `since` là lúc chuỗi bắt đầu, `told_at` là lúc kênh nhận tin gần nhất, `next_notice_at` là
-  `told_at` cộng 6 giờ; hai khoá sau là `null` khi chưa tin nào tới nơi. Ba mốc viết theo giờ của
-  chủ, tới phút, cùng dạng với `next_run`.
+  chuỗi hỏng nào, còn không thì `{"count": 3, "since": "…", "told_at": "…", "next_notice_at": "…",
+  "telling": false}`. `since` là lúc chuỗi bắt đầu, `told_at` là lúc kênh nhận tin gần nhất,
+  `next_notice_at` là `told_at` cộng 6 giờ; hai khoá ấy là `null` khi chưa tin nào tới nơi. Ba mốc
+  viết theo giờ của chủ, tới phút, cùng dạng với `next_run`. `telling` là `true` trong lúc một tin
+  của chuỗi đang trên đường tới kênh và kênh chưa trả lời, tức nhiều nhất 60 giây; tin tới nơi hay
+  không thì nó cũng về `false`.
+- Chuỗi được đếm và được báo sau khi run đã kết thúc, nên dòng job mà một trang đọc đúng lúc run
+  kết thúc có thể chưa mang lần hỏng ấy, hoặc còn `telling`. Vì vậy, khi việc đếm một run xong mà
+  `failing` của job đã khác trước (thêm một lần hỏng, tin đã tới nơi hoặc không tới, chuỗi đã
+  đóng), luồng `GET /api/activity/stream` phát một sự kiện tên `jobs`, payload chỉ là
+  `{"type": "jobs"}`. Nó không mang dòng nào: ai nghe thì đọc lại `GET /api/jobs`. Run kết thúc
+  `done` của một job không ở trong chuỗi nào thì không có sự kiện này.
+- Trên web, Quản lý → Lịch chạy nói chuỗi ấy thành một câu dưới lần chạy gần nhất của job, chừng
+  nào job còn trong chuỗi: `Hỏng 3 lần liên tiếp từ Hôm qua 07:00. Đã báo Telegram lúc 07:01; còn
+  hỏng thì nhắc lại sau 13:01.` Khi chưa tin nào tới nơi, nửa sau là `Chưa báo được qua Telegram;
+  lần hỏng kế tiếp sẽ thử lại.` Một lần hỏng thì câu mở bằng `Hỏng từ 07:00.` Mỗi mốc là giờ nếu
+  trong hôm nay, `Hôm qua 07:00` nếu là hôm qua, còn không thì ngày kèm giờ (`09/10 22:05`). Trong
+  lúc tin đầu tiên của chuỗi còn trên đường, nửa sau là `Đang báo qua Telegram.`; tin nhắc lại đang
+  trên đường thì dòng vẫn nói lần báo gần nhất. Trang đọc lại danh sách job khi một run kết thúc,
+  khi luồng phát `jobs`, khi nối lại luồng và sau mỗi lần lưu hồ sơ agent, nên câu ấy đổi theo mà
+  không cần tải lại trang. Hai lần đọc đang chờ cùng lúc thì trang giữ câu trả lời của lần hỏi sau.
 - Không có tin trong các trường hợp sau: job chạy tốt, dù có in gì hay không; lượt của một prompt
   job và lượt mà `then_prompt` mở ra (lượt là một cuộc trò chuyện và được giao như prompt job ở
   trên, kể cả khi hỏng, nên không được đếm ở đây); run bị cắt vì server dừng (`interrupted`); job

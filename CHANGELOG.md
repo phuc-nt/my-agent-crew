@@ -11,6 +11,91 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- A tool of an MCP server whose parameters are too long is no longer left out when the length is
+  repetition. Parameters over 50,000 characters are folded first: each part that stands more than
+  once is said once under `$defs` at the top and pointed to with `$ref`, wherever that makes the
+  whole shorter, and the limit is asked of the folded form. Putting each part back where it is
+  pointed to gives the server's own text again, letter for letter; a fold that does not is not
+  used. The model is told the folded form. `tool_search`, the signatures the script tool shows
+  and the call sent to the server go by the parameters as the server wrote them. Parameters
+  within the limit are handed on untouched, however much they repeat. Left out as before, with
+  the same warning line and its name in `skipped`, is a tool still over the limit once folded,
+  one over 500,000 characters, and one whose parameters hold `$id`, `$anchor`, a dynamic or
+  recursive reference, or a `$ref` to anywhere but `#/$defs/<name>` or `#/definitions/<name>`.
+  Each tool row of `GET /api/mcp` gains `folded`: `null`, or `{"from": n, "to": m}`, the two
+  lengths in characters, and a fold is logged once per connection (`MCP server <name>: tool
+  '<tool>' parameters folded, <n> chars to <m>`). On the web, the server's card under Quản lý →
+  Kết nối says "đã gộp tham số" on the tool's row, with both lengths.
+- A front matter line with a second colon is read as the text it is. `description: Use when: the
+  build fails` is not YAML, and a kit agent or a skill written that way was left out of the crew.
+  A front matter YAML refuses is now read a second time: each `key: value` line that starts at the
+  first column and whose value holds a colon before a blank, or ends on one, has its value taken
+  as one text, the whole rest of the line, a trailing ` # remark` included. A value that opens
+  with a YAML sign (a quote, `[`, `{`, `|`, `>`, `&`, `*`, `!`, `- `), a nested key, a value that
+  runs over lines and an item of a list are left as written, so a front matter broken some other
+  way is still refused, by the error of the second reading. A front matter YAML takes is read as
+  before. This holds for a kit agent's file and for a skill's `SKILL.md`; the memory files keep
+  strict YAML.
+- A job that keeps failing shows it. Each row of `GET /api/jobs` gains `failing`: `null`, or
+  `{count, since, told_at, next_notice_at, telling}`, the failures in a row the job is in, when
+  the first was, when the channel last took a message about them, when the next message may come
+  and whether one is on its way now; the two times of the message are `null` while none got
+  through. On the web, the job's row under Quản lý → Lịch chạy says since when and how many
+  times in a row, and then when Telegram was told and when it will be told again, or "Đang báo
+  qua Telegram." while the first message is on its way, or that no message got through yet.
+- The activity stream (`GET /api/activity/stream`) carries a new event, `jobs`, whose payload is
+  `{"type": "jobs"}` and nothing more. It says the job list is no longer what a page read when a
+  run ended: a failed run is counted into its job's streak, and the owner told of it, after the
+  run is over, and a send can take most of a minute. It is sent once the count of a run is
+  settled, whenever that changed the job's `failing`. The web reads the job list again on it, so
+  a row moves from "Đang báo qua Telegram." to when the owner was told with no other run ending;
+  of two reads of the list that are out at once, the page now shows the one it asked for last. A
+  page on an older bundle does not listen for the event and is not disturbed by it.
+
+### Changed
+
+- A failed job that opened no conversation is told whatever its kind, and a job that keeps
+  failing is not told at every run. 0.16.0 told a failed script job only, once for each failed
+  run. A failed `command` job is now told too, by the code the command left with and the last
+  line it printed (or that it ran past its 900 seconds and was stopped), and so is a failed
+  rewrite of an agent's memory (`memory_consolidate`), by what its run was summed up by; that
+  rewrite no longer stops the jobs due after it in the same tick. The first failure of a job is
+  told at once. While the job keeps failing, a failure is told only when six hours have passed
+  since the last message the channel took, and one in between is counted and not told: a job
+  failing every five minutes for a day sends four messages, not 288. Every message of a failure
+  now ends on a fourth line, "Nếu lịch còn hỏng, tin nhắc kế tiếp sẽ đến sau 6 giờ.", and from
+  the second message that line first says how many failures in a row there have been and since
+  when. When the job runs well again the channel gets one line, `Lịch "<name>" đã chạy lại được
+  sau N lần hỏng liên tiếp.`, if it had been told of the failures and nothing if it had not. A
+  message the channel did not take (no chat, a failed send, a minute gone by) leaves the job
+  untold, so the next failure tries again without waiting, where 0.16.0 never tried again. The
+  counts are kept in memory: a restart begins every job's count again, and a job still failing
+  after it is told at once. A failed turn of a prompt job, or of the turn a `then_prompt` opened,
+  is a conversation and is delivered as before; it is not counted here.
+- A schedule saved in an agent's file is on the clock at once, with no restart. A save from the
+  agent editor (`PATCH /api/agents/{id}`), a new agent (`POST /api/agents`), an installed
+  template that joined the crew and an agent `POST /api/agents/reload` brought in all make the
+  scheduler read the running crew's schedules again, `memory_consolidate` among them. An agent
+  that already runs is still not read again by that reload. A new row runs from its first time
+  after the save; a row whose `cron` or `every` changed, or that its file switched back on, is
+  judged from the save by the timing it has now, and never for a time that passed under the row
+  before it; a row whose prompt, command, script or name changed keeps the time it was going to
+  run at, its pause switch and its count of failures; a row taken out never runs again, and its
+  pause switch goes with it. A save of a key or of the shared routes, which builds every agent
+  from its file again, also puts a schedule edited by hand on the clock. `restart_required` in
+  the answer of a save stays and is always an empty list. `needs_restart` in the answer of
+  `POST /api/agents/install` is true only when an agent that was written did not join the
+  running crew (a file forced over an agent that runs), no longer whenever the template states a
+  schedule. On the web, the "restart to apply" banner of the agent editor is gone: a save that
+  changed the schedules says "Đã lưu. Thay đổi lịch chạy có hiệu lực ngay, không cần khởi động lại.",
+  and Lịch chạy shows the new rows without a reload of the page.
+- Every source file of the web is within the 200 lines the package's are held to, and
+  `tests/test_file_size_budget.py` now holds `web/src` to it as well (`.ts`, `.tsx` and `.css`;
+  tests and their helpers are not counted). Stylesheets and modules were split by concern, with
+  no change to what a page shows.
+
 ## [0.16.0] — 2026-10-12
 
 ### Added

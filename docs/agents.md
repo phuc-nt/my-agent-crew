@@ -968,7 +968,11 @@ văn prompt trước khi chạy lần đầu, dù cuộc trò chuyện có auton
 Lưu một agent qua trình sửa trên web, `POST /api/agents` hay `PATCH /api/agents/{id}` thì đồng hồ
 đọc lại ngay các dòng lịch mà tệp của nó nêu, kể cả job gom ghi nhớ sinh từ `memory_consolidate`.
 Cài một template và `POST /api/agents/reload` cũng làm vậy với agent vừa vào đội. Không lần nào
-trong số đó cần khởi động lại. Đồng hồ so từng job theo id với dòng nó đang giữ:
+trong số đó cần khởi động lại. Trên web, sau một lần lưu có đổi lịch, trình sửa nói "Đã lưu. Thay
+đổi lịch chạy có hiệu lực ngay, không cần khởi động lại.", và màn Lịch chạy đọc lại danh sách job
+sau mỗi lần lưu, tạo, cài hay xoá agent, nên dòng mới có mặt và dòng bị bỏ biến mất mà không cần
+tải lại trang. `POST /api/agents/reload` chưa có nút nào trên web. Đồng hồ so từng job theo id
+với dòng nó đang giữ:
 
 - **Dòng mới, dòng đổi `cron` hay `every`, và dòng tệp vừa bật lại (`enabled` từ tắt sang bật)
   được tính từ lúc lưu.** Job cron chạy ở giờ khớp đầu tiên sau lúc lưu; job `every` chạy sau

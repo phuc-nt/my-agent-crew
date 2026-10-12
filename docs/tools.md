@@ -1715,7 +1715,9 @@ khi model được nói phần tham số đúng như máy chủ viết, và là 
 
 - **Kết nối.** Thẻ **Máy chủ MCP** có một dòng cho mỗi máy chủ: trạng thái, địa chỉ, lý do hỏng,
   agent nào đang bật nó, các tool (mức mở, có hỏi trước không, máy chủ có tự nhận chỉ đọc không)
-  và các nút Đăng nhập, Kết nối lại, Đăng xuất. Máy chủ đang được thử thì trang tự đọc lại mỗi 2
+  và các nút Đăng nhập, Kết nối lại, Đăng xuất. Tool mà phần tham số đã được gấp lại trước khi
+  trao cho model mang nhãn `đã gộp tham số` kèm hai con số, độ dài máy chủ viết rồi độ dài sau
+  khi gấp (`83.073 → 21.825 ký tự`), đúng hai số ở khoá `folded` của `GET /api/mcp`. Máy chủ đang được thử thì trang tự đọc lại mỗi 2
   giây cho tới khi có câu trả lời; sau khi lưu một khoá, những máy chủ đang hỏng cũng được theo
   dõi như vậy trong chốc lát.
 - **Công cụ.** Tool MCP nằm trong bảng cùng các tool khác, kèm nhãn `MCP <máy chủ>` và mức mở.

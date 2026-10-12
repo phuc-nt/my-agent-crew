@@ -373,7 +373,10 @@ Mọi lượt model — chat, tiếp tục sau duyệt, prompt theo lịch, comm
 Run ghi agent của nó, nguồn (`chat`, `job:<id>`),
 cuộc trò chuyện, trạng thái, các step (lần gọi model kèm chi phí, tool call kèm kết quả và thời lượng), chi tiêu
 và một tóm tắt. Run đang chạy được giữ trong bộ nhớ và phát dạng SSE trên `/api/activity/stream`
-(`snapshot` khi kết nối, rồi các frame `run` và `event`); run đã xong được đọc từ SQLite.
+(`snapshot` khi kết nối, rồi các frame `run` và `event`); run đã xong được đọc từ SQLite. Cùng luồng ấy
+còn mang `conversation` và `artifact`, mỗi frame kèm bản ghi vừa đổi, và `jobs`, không kèm gì:
+nó chỉ báo rằng danh sách job đã khác lúc run kết thúc ([channels.md](channels.md), bullet "Lịch
+hỏng mãi thì không nhắn mãi").
 Khi server khởi động, run còn đánh dấu đang chạy bị đóng là `error` với tóm tắt
 `interrupted`; run mới nhất chưa từng được nối của mỗi cuộc trò chuyện được trao lại để
 server nối tiếp đúng một lần (mục "Lượt bị restart cắt được nối lại một lần" ở trên), và

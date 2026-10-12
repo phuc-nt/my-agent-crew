@@ -5268,6 +5268,13 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     `tool_search`), `tests/test_api_mcp.py` (dòng của tool ở `GET /api/mcp` mang `folded` với hai con
     số, các tool khác mang `null`). Schema trong các test này được dựng riêng
     (`tests/mcp_schema_fakes.py`); không schema của máy chủ thật nào được chép vào repo.
+  - vitest: `components/mcp-servers-card.test.tsx` (dòng của tool có tham số đã gấp mang nhãn "đã
+    gộp tham số" và hai con số, số trước rồi số sau; tool có `folded` là `null` không mang nhãn;
+    server cũ không gửi khoá ấy cũng không).
+  - Playwright: `mcp-servers.spec.ts` ("a tool whose parameters were folded says so with both
+    sizes, within the screen").
+  - Kiểm chứng đột biến ở phía web: hai sửa đổi (hiện nhãn khi `folded` là `null`, đổi chỗ hai con
+    số) đều bị test bắt.
 - **Nửa ký tự trong câu trả lời của tool**:
   - pytest: `tests/test_tools_registry.py` (nửa ký tự trong câu trả lời, dạng chữ hay dạng kết
     quả, được thay bằng dấu U+FFFD và kết quả ghi được vào store; trong lời lỗi của chính tool
@@ -6058,6 +6065,28 @@ khi chạy; phần đó có mục riêng ở dưới.
     khởi động lại vì có lịch, lần cài không bao giờ đòi, lần lưu vẫn nêu một lý do khởi động lại)
     đều bị test bắt. Một sửa đổi không ép được bằng test: sửa bảng tại chỗ thay vì đặt bảng mới
     chỉ hỏng khi hai luồng chạm nhau.
+  - vitest: `hooks/use-agent-draft.test.ts` (lần lưu đổi lịch được nói là có hiệu lực ngay khi
+    server không nêu lý do khởi động lại nào; cron của `memory_consolidate` cũng là một lịch; lần
+    lưu không đổi lịch nào không nói gì và rút lại câu của lần trước; server nêu một lý do thì
+    không gọi lịch là đã có hiệu lực; lần lưu bị từ chối rút lại câu ấy; mở agent khác thì câu về
+    lịch của agent trước không còn), `components/agent-editor/schedules-section.test.tsx` (sau
+    khi lưu một dòng lịch, và sau khi bỏ một dòng, trình sửa nói đúng câu "Đã lưu. Thay đổi lịch
+    chạy có hiệu lực ngay, không cần khởi động lại." trong một vùng `role="status"`, không chữ
+    nào đòi khởi động lại), `components/crew-panel.test.tsx` (cài một template: câu về khởi
+    động lại chỉ hiện khi agent đã ghi mà không vào được đội đang chạy).
+  - vitest cấp App: `app-jobs-follow-crew.test.tsx` (màn Lịch chạy có dòng lịch vừa thêm mà không
+    tải lại trang; không còn dòng vừa bỏ; lần lưu không đổi lịch giữ nguyên các dòng; danh sách
+    job được đọc lại khi một agent được tạo, khi một template được cài và khi một agent bị xoá).
+  - Playwright: `manage-smoke.spec.ts` ("a schedule added from the jobs list through the agent's
+    editor is on the list at once": đúng câu ấy, không còn băng khởi động lại, hai dòng trên màn
+    Lịch chạy mà không tải lại trang); `schedule-script-editor.spec.ts` và
+    `script-jobs-phone.spec.ts` (câu ấy hiện mà trang không rộng hơn màn hình).
+  - Kiểm chứng đột biến ở phía web: mười hai sửa đổi (nói câu ấy sau mọi lần lưu, bỏ qua lý do
+    khởi động lại mà server nêu, không tính cron gom ghi nhớ, giữ câu khi mở agent khác, giữ câu
+    sau lần lưu bị từ chối, lần lưu không đọc lại job, App trao một hàm rỗng, lần cài không đọc
+    lại job, câu khởi động lại dưới mọi lần cài, dưới không lần cài nào, câu là `role="alert"`,
+    câu vẫn đòi khởi động lại) đều bị test bắt; sửa đổi "lần lưu không đọc lại job" còn bị
+    `manage-smoke.spec.ts` bắt trong trình duyệt thật.
 - **Job hỏng mà không có cuộc trò chuyện được báo cho chủ: lần đầu báo ngay, sau đó nhiều nhất 6
   giờ một tin, và một dòng khi job chạy lại được**:
   - pytest: `tests/test_job_failure_streaks.py` (job lệnh hỏng lần đầu thì kênh nhận ngay một tin
@@ -6102,6 +6131,54 @@ khi chạy; phần đó có mục riêng ở dưới.
     kênh là đã nhận) đều bị test bắt.
   - pytest: `tests/test_script_job_failure_notice.py` (lý do của job script và đường gửi tin, ở mục
     "Lịch chạy script" bên dưới).
+  - pytest: `tests/test_job_streak_reaches_the_page.py` (dòng job nói `telling` từ lúc tin lên
+    đường tới lúc kênh trả lời, rồi mang giờ báo; tin mà kênh không nhận, trả lời `False` hay ném
+    lỗi, không còn được nói là đang trên đường; lần gửi bị cắt giữa chừng cũng vậy; tin nhắc lại
+    đang trên đường giữ nguyên giờ báo của tin trước; lần hỏng được đếm trong lúc một tin đang chờ
+    vẫn còn sau khi tin ấy không tới nơi; lần hỏng trong khoảng chờ không gửi gì và không nói
+    `telling`; dòng mà một trang đọc đúng lúc run kết thúc được đọc lại khi chủ đã được báo: luồng
+    activity phát đúng một lần payload `{"type": "jobs"}`, không mang gì khác; lần hỏng không báo
+    được cho ai, lần hỏng chỉ được đếm trong khoảng chờ và job vừa chạy lại được cũng phát tín hiệu
+    ấy; job chưa từng hỏng thì không). Kiểm chứng đột biến: mười bốn sửa đổi (không bao giờ đặt
+    `telling`, không bao giờ xoá nó, ghi giờ báo dù tin không tới, không bao giờ ghi giờ báo, dòng
+    job không mang `telling`, dòng luôn nói `telling`, chỉ xoá `telling` khi lần gửi trả về, ghi
+    đè bằng chuỗi đọc trước lúc chờ, không bao giờ báo trang, báo trang sau mọi run, chỉ báo khi
+    không có gì đổi, báo trước khi đếm, phát một tên sự kiện khác, payload mang thêm khoá) đều bị
+    test bắt.
+  - vitest: `components/job-last-run.test.tsx` (dòng nói số lần hỏng liên tiếp, giờ chủ được báo
+    và giờ nhắc kế; tin chưa tới nơi thì nói lần hỏng kế tiếp sẽ thử lại; tin đang trên đường mà
+    Telegram chưa trả lời thì nói "Đang báo qua Telegram."; tin nhắc lại đang trên đường vẫn nói
+    lần báo trước; một lần hỏng không được gọi là chuỗi; server không nêu giờ nhắc kế thì câu dừng
+    ở giờ báo; job có lần chạy gần nhất hỏng mà không ở trong chuỗi nào thì không có câu; server
+    cũ không gửi khoá ấy cũng vậy; job chưa xong lần chạy nào vẫn có câu),
+    `lib/relative-time.test.ts` (`dayClock`: giờ trong hôm nay, `Hôm qua HH:MM`, còn lại là ngày
+    kèm giờ, tính theo lịch của người xem; chuỗi không phải thời điểm được để nguyên),
+    `hooks/use-activity.test.ts` (payload `jobs` gọi đúng một lần hàm đọc lại job, để nguyên
+    trạng thái các run và không đọc danh sách run; hàm được gọi là hàm của lần vẽ gần nhất, trên
+    luồng mở từ đầu; không có hàm nào thì trạng thái không đổi).
+  - vitest cấp App: `app-jobs-follow-stream.test.tsx` (dòng job được đọc lại khi luồng phát `jobs`
+    mà không run nào kết thúc, từ "Đang báo qua Telegram." sang giờ đã báo; sang câu tin không
+    tới nơi; hết câu hỏng khi job đã chạy lại được; câu trả lời của lần đọc hỏi trước mà về sau
+    không đè lên lần đọc hỏi sau; lần đọc mà luồng đòi bị hỏng thì màn nói không đọc được danh
+    sách, không vẽ một danh sách rỗng).
+  - Playwright: `jobs-list-smoke.spec.ts` ("a job that keeps failing says since when and what
+    the owner was told", ở ba bề rộng; "a notice on its way becomes one the owner was told of
+    when the stream says the list changed": luồng thật của trình duyệt được giữ lại, rồi phát
+    `jobs`, và dòng đổi câu mà không tải lại trang), `legibility-smoke.spec.ts` (câu ấy đạt 4.5:1
+    ở nền sáng và nền tối).
+  - Kiểm chứng đột biến ở phía web: mười tám sửa đổi. Năm ở câu trên dòng (nói đã báo khi
+    `told_at` là `null`, gọi một lần hỏng là chuỗi, không bao giờ nêu giờ nhắc kế, `dayClock` lệch
+    một ngày ở "Hôm qua", chỉ hiện câu khi đã báo) và mười ba ở đường đọc lại (không nghe sự kiện
+    `jobs`, nghe mà không gọi hàm, để tín hiệu đi tiếp vào trạng thái run, tín hiệu đọc thêm danh
+    sách run, giữ hàm của lần vẽ đầu, App không trao hàm nào, vẽ câu trả lời nào về sau cùng, chỉ
+    vẽ lần đọc đầu tiên, coi lần đọc hỏng là danh sách rỗng, không bao giờ nói tin đang trên
+    đường, nói vậy khi không có tin nào, để "đang báo" thắng "đã báo", đổi câu) đều bị test bắt;
+    sửa đổi "không nghe sự kiện `jobs`" còn làm spec Playwright nói trên hỏng trong trình duyệt
+    thật.
+  - Chưa kiểm được trên một server thật: hai trạng thái "đang báo" và "đã báo" cần một kênh
+    Telegram nhận tin, mà địa chỉ Telegram nằm cứng trong mã; trên home tạm không có kênh, dòng
+    chỉ tới được câu "Chưa báo được qua Telegram". Hai trạng thái ấy được kiểm ở pytest (kênh
+    giả) và ở Playwright (API giả).
 - **Tóm tắt của run do lịch chạy: chỗ cắt có dấu, script hỏng tóm bằng thứ đã làm nó dừng**:
   - pytest: `tests/test_job_run_summary.py` (chữ không quá 160 ký tự thì tóm tắt là cả chữ ấy,
     không dấu gì; dài hơn thì là 160 ký tự cuối đứng sau dấu `…`, 161 ký tự; job `command` nói
