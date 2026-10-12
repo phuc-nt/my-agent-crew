@@ -13,7 +13,7 @@ export const viCrew = {
     install: "Cài",
     installing: "Đang cài…",
     installed: (ids: string[]) => `Đã cài ${ids.join(", ")}.`,
-    needsRestart: "Lịch chạy của agent mới chỉ bật sau khi khởi động lại máy chủ.",
+    needsRestart: "Agent mới chưa vào được đội đang chạy; nó sẽ có mặt sau khi khởi động lại máy chủ.",
     installFailed: (message: string) => `Cài không thành công: ${message}`,
     alreadyInstalled: "đã có",
     edit: "Sửa",

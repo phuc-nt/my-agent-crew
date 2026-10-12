@@ -38,8 +38,9 @@ async function setsBoth(page: Page) {
   await save.click();
   expect((await patch).postDataJSON()).toEqual({ profile: { script_calls: "gated", script_llm: false } });
   await expect(editor.getByText(t.clean)).toBeVisible();
-  // Both are read as a turn or a job starts: nothing waits for a restart.
-  await expect(editor.getByTestId("restart-banner")).toHaveCount(0);
+  // Both are read as a turn or a job starts, and neither moves a schedule: the note that
+  // a saved schedule is live says nothing here.
+  await expect(editor.getByTestId("schedule-live")).toHaveCount(0);
 
   await page.reload();
   await expect(calls).toHaveValue("gated");

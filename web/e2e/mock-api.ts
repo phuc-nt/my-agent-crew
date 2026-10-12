@@ -4,7 +4,7 @@ import { fold } from "../src/components/conversation-search";
 import { FakeCanvas, type FakeReply } from "../src/test/fake-canvas";
 import { FakeMcp, type CrewMember } from "../src/test/fake-mcp";
 import { FakeScriptStore } from "../src/test/fake-script-store";
-import { applyAgentPatch, restartRequired } from "../src/test/schedule-contract";
+import { applyAgentPatch, jobsAfterSave } from "../src/test/schedule-contract";
 import { renderRoute } from "./mock-render";
 
 // Every /api call is answered in-browser so the smoke tests measure the real DOM without a backend.
@@ -214,6 +214,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     queued: c.queued ?? [],
   }));
   const agents = options.agents ?? [defaultAgent];
+  // The array the spec passed, so a spec holding it sees a job added or taken away.
+  const jobs = options.jobs ?? [];
   const mcp = options.mcp ?? new FakeMcp();
   mcp.crew = () => agents as CrewMember[];
   // Saved routes live per page, so one test's save never shows in the next.
@@ -382,7 +384,10 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       const patched = applyAgentPatch(agents[at], profile);
       if ("error" in patched) return json({ detail: patched.error }, 422);
       agents[at] = patched.ok;
-      return json({ profile: agents[at], restart_required: restartRequired(profile) });
+      // A saved schedule is live at once: the jobs list follows what the file now declares,
+      // and no key of a profile is left waiting for a restart.
+      if ("schedules" in profile) jobs.splice(0, jobs.length, ...jobsAfterSave(jobs, patched.ok as Parameters<typeof jobsAfterSave>[1]));
+      return json({ profile: agents[at], restart_required: [] });
     }
     if (single && method === "GET") {
       const found = agents.find((a) => (a as { id: string }).id === single[1]);
@@ -403,7 +408,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       return json(options.stats ?? { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, days: [], models: [], purposes: [] });
     // Like the server, every row says whether its job is in a streak of failures: null
     // unless the spec put one on the row.
-    if (path === "/jobs") return json((options.jobs ?? []).map((row) => ({ failing: null, ...row })));
+    if (path === "/jobs") return json(jobs.map((row) => ({ failing: null, ...row })));
     if (path === "/approvals") return json([]);
     if (path === "/messages/search") {
       const needle = fold((url.searchParams.get("q") ?? "").trim());
@@ -413,7 +418,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     if (/^\/jobs\/.+\/run$/.test(path) && method === "POST") return json({ job_id: path.slice(6, -4), status: "started" }, 202);
     if (/^\/jobs\/.+\/state$/.test(path) && method === "PATCH") {
       const { enabled } = route.request().postDataJSON() as { enabled: boolean };
-      const job = (options.jobs ?? []).find((j) => (j as { id: string }).id === path.slice(6, -6));
+      const job = jobs.find((j) => (j as { id: string }).id === path.slice(6, -6));
       return job ? json({ ...job, enabled, paused: !enabled }) : json({ detail: "job not found" }, 404);
     }
     if (/^\/jobs\/.+\/runs$/.test(path)) return json([]);
@@ -424,10 +429,9 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     // copy, so a spec holding the same `jobs` array it passed to `mockApi` sees the removal.
     if (/^\/jobs\/.+$/.test(path) && method === "DELETE") {
       const id = path.slice(6);
-      const list = options.jobs ?? [];
-      const index = list.findIndex((j) => (j as { id: string }).id === id);
+      const index = jobs.findIndex((j) => (j as { id: string }).id === id);
       if (index === -1) return json({ detail: "job not found" }, 404);
-      list.splice(index, 1);
+      jobs.splice(index, 1);
       return route.fulfill({ status: 204 });
     }
     if (path === "/conversations" && method === "GET") {

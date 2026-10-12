@@ -300,8 +300,9 @@ test("an agent is handed a server in its editor, and a server the file dropped h
   await editor.getByRole("button", SAVE).click();
   expect((await patch).postDataJSON()).toEqual({ profile: { mcp: ["notion"] } });
   await expect(editor.getByRole("button", SAVE)).toBeDisabled();
-  // A server is handed over on the spot: nothing asks for a restart.
-  await expect(editor.getByTestId("restart-banner")).toHaveCount(0);
+  // A server is handed over on the spot, and it is no schedule: the note that a saved
+  // schedule is live says nothing here.
+  await expect(editor.getByTestId("schedule-live")).toHaveCount(0);
 
   // The grid of every tool shows it without the page being loaded again: the server's
   // tools and the search for them, held by this agent and not by the other.

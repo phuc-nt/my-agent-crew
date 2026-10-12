@@ -248,8 +248,8 @@ describe("a job read at a glance", () => {
 });
 
 // A schedule the agent proposed and a person approved lives beside the ones written by hand
-// in agent.yaml, but only it can be deleted from here: a profile schedule needs the file
-// edited and a restart instead, so the delete button only ever appears on a chat-origin row.
+// in agent.yaml, but only it can be deleted from here: a profile schedule is taken out in
+// its agent's editor instead, so the delete button only ever appears on a chat-origin row.
 describe("a schedule created from chat", () => {
   afterEach(() => {
     vitest.restoreAllMocks();

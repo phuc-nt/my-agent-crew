@@ -115,10 +115,9 @@ export function AgentEditor({ agent, agents, tools, mcpServers, providers, onBac
           {vi.editor.saveFailed(form.error)}
         </div>
       )}
-      {form.restartRequired.length > 0 && (
-        <div className="notice warn restart-banner" role="status" data-testid="restart-banner">
-          <strong>{vi.editor.restartTitle}</strong>
-          <div>{vi.editor.restartBody(form.restartRequired)}</div>
+      {form.scheduleLive && (
+        <div className="notice" role="status" data-testid="schedule-live">
+          {vi.editor.scheduleLive}
         </div>
       )}
 

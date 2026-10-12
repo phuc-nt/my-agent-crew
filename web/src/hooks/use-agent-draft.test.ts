@@ -337,24 +337,159 @@ describe("useAgentDraft", () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
-  it("sets restartRequired after save when the server says so", async () => {
+  const nightly = [
+    { id: "test", name: "Test", kind: "prompt", cron: "0 0 * * *", every: null, prompt: "test", command: null, enabled: true, skills: [] },
+  ];
+
+  // The scheduler takes a saved schedule up at once. A schedule used to wait for a restart,
+  // which is what a person who saves one still expects, so the form says this one does not.
+  it("says a saved schedule is live when the server names no reason to restart", async () => {
     const backend = new FakeBackend();
     backend.agents = [fakeAgent];
     vitest.stubGlobal("fetch", backend.fetch);
 
     const { result } = renderHook(() => useAgentDraft(fakeAgent));
+    expect(result.current.scheduleLive).toBe(false);
 
     act(() => {
-      result.current.set("schedules", [
-        { id: "test", name: "Test", kind: "prompt", cron: "0 0 * * *", every: null, prompt: "test", command: null, enabled: true, skills: [] },
-      ]);
+      result.current.set("schedules", nightly);
     });
+    // Typed, not saved: nothing is live yet.
+    expect(result.current.scheduleLive).toBe(false);
 
     await act(async () => {
       await result.current.save();
     });
 
-    expect(result.current.restartRequired.length).toBeGreaterThan(0);
+    expect(result.current.scheduleLive).toBe(true);
+  });
+
+  it("says the same of a saved consolidation cron, which is a schedule too", async () => {
+    const backend = new FakeBackend();
+    backend.agents = [fakeAgent];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(fakeAgent));
+
+    act(() => {
+      result.current.set("memory_consolidate", "0 3 * * *");
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    expect(backend.requests.find((r) => r.method === "PATCH")?.body).toEqual({ profile: { memory_consolidate: "0 3 * * *" } });
+    expect(result.current.scheduleLive).toBe(true);
+  });
+
+  it("says nothing of schedules after a save that changed none, and takes an earlier note back", async () => {
+    const backend = new FakeBackend();
+    backend.agents = [fakeAgent];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(fakeAgent));
+
+    act(() => {
+      result.current.set("name", "Tên khác");
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(result.current.dirty).toEqual([]);
+    expect(result.current.scheduleLive).toBe(false);
+
+    act(() => {
+      result.current.set("schedules", nightly);
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(result.current.scheduleLive).toBe(true);
+
+    // The note is about the last save, and the last save is now one that moved no schedule.
+    act(() => {
+      result.current.set("name", "Tên thứ ba");
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(result.current.scheduleLive).toBe(false);
+  });
+
+  // A server from before schedules went live answers the same save with its reason for a
+  // restart. The save went through, but nothing is running the new schedule yet.
+  it("does not call a schedule live when the server answers with a reason to restart", async () => {
+    const backend = new FakeBackend();
+    backend.agents = [fakeAgent];
+    vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init: RequestInit = {}) => {
+      const answer = await backend.fetch(input, init);
+      if (init.method !== "PATCH") return answer;
+      const { profile } = await answer.json();
+      const reason = "Thay đổi lịch chạy chỉ có hiệu lực sau khi khởi động lại máy chủ.";
+      return new Response(JSON.stringify({ profile, restart_required: [reason] }), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const { result } = renderHook(() => useAgentDraft(fakeAgent));
+
+    act(() => {
+      result.current.set("schedules", nightly);
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    expect(result.current.dirty).toEqual([]);
+    expect(result.current.error).toBeNull();
+    expect(result.current.scheduleLive).toBe(false);
+  });
+
+  // The note opens with "Đã lưu." and would stand beside the reason the next save was
+  // refused, as if it spoke for that one.
+  it("takes the note back when the save after it is refused", async () => {
+    const backend = new FakeBackend();
+    backend.agents = [fakeAgent];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result } = renderHook(() => useAgentDraft(fakeAgent));
+
+    act(() => {
+      result.current.set("schedules", nightly);
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(result.current.scheduleLive).toBe(true);
+
+    backend.refuseEdit = "tên không hợp lệ";
+    act(() => {
+      result.current.set("name", "Tên khác");
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    expect(result.current.error).toBe("tên không hợp lệ");
+    expect(result.current.scheduleLive).toBe(false);
+  });
+
+  it("drops the note about one agent's schedules when another agent is opened", async () => {
+    const agent1 = { ...fakeAgent, id: "agent1", name: "Agent 1" };
+    const agent2 = { ...fakeAgent, id: "agent2", name: "Agent 2" };
+    const backend = new FakeBackend();
+    backend.agents = [agent1, agent2];
+    vitest.stubGlobal("fetch", backend.fetch);
+    const { result, rerender } = renderHook(({ agent }) => useAgentDraft(agent), { initialProps: { agent: agent1 } });
+
+    act(() => {
+      result.current.set("schedules", nightly);
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(result.current.scheduleLive).toBe(true);
+
+    rerender({ agent: agent2 });
+
+    expect(result.current.original?.id).toBe("agent2");
+    expect(result.current.scheduleLive).toBe(false);
   });
 
   // The server answers a save with the agent as the list shows it, `declared` included,
@@ -521,7 +656,7 @@ describe("useAgentDraft", () => {
     expect(sent()).toEqual([{ profile: { mcp: ["notion"] } }]);
     expect(result.current.original?.mcp).toEqual(["notion"]);
     expect(result.current.dirty).toEqual([]);
-    expect(result.current.restartRequired).toEqual([]);
+    expect(result.current.scheduleLive).toBe(false);
 
     act(() => result.current.set("mcp", []));
     await act(async () => {

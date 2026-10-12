@@ -26,7 +26,7 @@ import { FakeCanvas, type FakeReply } from "./fake-canvas";
 import { FakeMcp } from "./fake-mcp";
 import { FakeScriptStore } from "./fake-script-store";
 import { FakeWiki } from "./fake-wiki";
-import { applyAgentPatch, restartRequired } from "./schedule-contract";
+import { applyAgentPatch, jobsAfterSave } from "./schedule-contract";
 
 export const fakeAgent: AgentInfo = {
   id: "default",
@@ -503,7 +503,10 @@ export class FakeBackend {
     const patched = applyAgentPatch(found, profile);
     if ("error" in patched) return json({ detail: patched.error }, 422);
     this.agents = this.agents.map((a) => (a.id === agentId ? patched.ok : a));
-    return json({ profile: patched.ok, restart_required: restartRequired(profile) });
+    // A saved schedule is live at once: the jobs list follows what the file now declares,
+    // and no key of a profile is left waiting for a restart.
+    if ("schedules" in profile) this.jobs = jobsAfterSave(this.jobs, patched.ok);
+    return json({ profile: patched.ok, restart_required: [] });
   }
 
   private deleteAgent(agentId: string): Response {

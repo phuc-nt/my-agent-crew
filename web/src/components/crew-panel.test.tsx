@@ -49,8 +49,10 @@ describe("CrewPanel", () => {
     expect(screen.queryByTestId("template-list")).not.toBeInTheDocument();
   });
 
-  it("installs a bundled template with one click and says when a restart is still needed", async () => {
-    const onInstall = vitest.fn().mockResolvedValue({ installed: ["coder"], live: ["coder"], needs_restart: true });
+  // The server asks for a restart only when an agent it wrote could not join the crew that
+  // is running: `installed` then names one that `live` does not.
+  it("installs a bundled template with one click and says when the agent could not join the running crew", async () => {
+    const onInstall = vitest.fn().mockResolvedValue({ installed: ["coder"], live: [], needs_restart: true });
     render(
       <CrewPanel agents={[master]} master={master} templates={[coderTemplate]} liveByAgent={{}} onInstall={onInstall} {...hooks} />,
     );
@@ -61,7 +63,24 @@ describe("CrewPanel", () => {
     expect(onInstall).toHaveBeenCalledWith("coder");
     const notice = await screen.findByRole("status");
     expect(notice).toHaveTextContent(vi.crew.installed(["coder"]));
-    expect(notice).toHaveTextContent(vi.crew.needsRestart);
+    expect(
+      within(notice).getByText("Agent mới chưa vào được đội đang chạy; nó sẽ có mặt sau khi khởi động lại máy chủ."),
+    ).toBeInTheDocument();
+  });
+
+  // The usual install: the agent is in the crew by the time the answer comes back, and a
+  // sentence about a restart would send the person off to do one for nothing.
+  it("says nothing of a restart when the installed agent is already in the running crew", async () => {
+    const onInstall = vitest.fn().mockResolvedValue({ installed: ["coder"], live: ["coder"], needs_restart: false });
+    render(
+      <CrewPanel agents={[master]} master={master} templates={[coderTemplate]} liveByAgent={{}} onInstall={onInstall} {...hooks} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: vi.crew.install }));
+
+    const notice = await screen.findByRole("status");
+    expect(notice).toHaveTextContent(vi.crew.installed(["coder"]));
+    expect(notice).not.toHaveTextContent(vi.crew.needsRestart);
+    expect(screen.queryByText(/khởi động lại/)).not.toBeInTheDocument();
   });
 
   it("reports a failed install and marks templates already in the crew", async () => {

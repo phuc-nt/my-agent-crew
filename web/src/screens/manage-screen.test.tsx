@@ -42,6 +42,7 @@ function show(section: ManageSection, overrides: ScreenProps = {}) {
       onEditAgent={() => undefined}
       onReplayRun={() => undefined}
       onReloadCrew={() => undefined}
+      onReloadJobs={() => undefined}
       onNavigate={onNavigate}
       onBackToChat={onBackToChat}
       onOpenConversation={() => undefined}

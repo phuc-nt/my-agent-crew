@@ -18,8 +18,8 @@ interface Props {
   onRunNow: (jobId: string) => void;
   /** Pause or resume a schedule at runtime without editing its profile. */
   onToggle: (jobId: string, enabled: boolean) => void;
-  /** Only offered for a chat-origin job; a profile one needs its `agent.yaml` edited and a
-   *  restart instead, so there is nothing to delete here. */
+  /** Only offered for a chat-origin job; a profile one is changed or taken away in its
+   *  agent's editor instead, so there is nothing to delete here. */
   onDelete?: (jobId: string) => void;
   onOpenConversation?: (conversationId: string) => void;
   /** Opens one run on its own page, from the row's last run or its history. The job goes

@@ -19,8 +19,8 @@ interface Props {
 /**
  * The jobs that run the agent on their own: its schedules and the nightly memory pass.
  *
- * Both are read by the scheduler once, at boot, so changing either takes a restart — which
- * the save banner says. The consolidation cron lives here rather than among the limits
+ * The scheduler takes up a saved change to either at once, with no restart — which the
+ * note after the save says. The consolidation cron lives here rather than among the limits
  * because it is a schedule too, and it shows in the jobs list beside the others.
  */
 export function SchedulesSection({ form, readOnly, skills, focused, focusRow }: Props) {
