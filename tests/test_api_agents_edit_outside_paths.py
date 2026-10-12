@@ -26,7 +26,7 @@ def start(tmp_path: Path):
 
     def started(manifest: str):
         agent_dir = tmp_path / "home" / "agents" / "coder"
-        agent_dir.mkdir(parents=True)
+        agent_dir.mkdir(parents=True, exist_ok=True)
         (agent_dir / "agent.yaml").write_text(manifest, encoding="utf-8")
         env = {"MY_AGENT_HOME": str(tmp_path / "home"), "MY_AGENT_ROUTES": "fake:echo"}
         runtime = build_runtime(load_settings(env=env))
@@ -84,9 +84,10 @@ def test_another_key_saves_for_an_agent_that_works_outside_the_home(
 
 @pytest.mark.parametrize("spelled", ["{repo}", "{repo}/src/.."])
 def test_the_workspace_the_file_already_holds_may_be_sent_again(start, repo, spelled) -> None:
-    client, runtime, _ = start(f"workspace: {repo}\n")
+    held = spelled.format(repo=repo)
+    client, runtime, _ = start(f"workspace: {held}\n")
 
-    reply = patch(client, workspace=spelled.format(repo=repo), max_steps=41)
+    reply = patch(client, workspace=held, max_steps=41)
 
     assert reply.status_code == 200
     agent = runtime.deps_for("coder").agent
@@ -172,6 +173,26 @@ def test_an_outside_persona_the_file_holds_does_not_hold_up_a_save(start, tmp_pa
     told = prompt(client)
     assert "Bạn là thợ mã của đội." in told
     assert SECRET not in told
+
+
+def test_a_persona_in_the_agents_folder_that_is_a_link_outside_holds_up_no_save(
+    start, tmp_path: Path
+) -> None:
+    shared = tmp_path / "shared" / "AGENTS.md"
+    shared.parent.mkdir()
+    shared.write_text("Bạn là thợ mã của đội.", encoding="utf-8")
+    agent_dir = tmp_path / "home" / "agents" / "coder"
+    agent_dir.mkdir(parents=True)
+    # One persona kept in one place for several agents, linked into each one's folder. The
+    # file names nothing: the agent runs with what the link leads to, and that is outside.
+    (agent_dir / "AGENTS.md").symlink_to(shared)
+    client, runtime, _ = start("name: Thợ mã\n")
+
+    reply = patch(client, max_steps=41)
+
+    assert reply.status_code == 200
+    assert runtime.deps_for("coder").agent.settings.max_steps == 41
+    assert "Bạn là thợ mã của đội." in prompt(client)
 
 
 def test_an_outside_workspace_vouches_for_no_other_kind_of_path(start, repo) -> None:

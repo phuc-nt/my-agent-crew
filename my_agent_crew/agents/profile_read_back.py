@@ -24,18 +24,29 @@ from my_agent_crew.agents.profile_edit import apply_patch
 from my_agent_crew.agents.profile_write import as_text
 
 
-def check_read_back(manifest: Path, raw: Any, patch: Mapping[str, Any]) -> None:
-    """A ValueError saying what of the file would be read as something the edit did not
-    ask for. `raw` is the manifest with the edit applied, as it is about to be written."""
+def read_now(manifest: Path) -> dict[str, Any]:
+    """The file as the start reads it today. A new agent has none: nothing is held."""
     try:
         now = boot_reader.safe_load(manifest.read_text("utf-8")) if manifest.is_file() else None
     except boot_reader.YAMLError as exc:
         raise ValueError(texts.MANIFEST_BROKEN.format(error=str(exc))) from exc
-    asked = apply_patch(now if isinstance(now, dict) else {}, dict(patch))
+    return now if isinstance(now, dict) else {}
+
+
+def read_to_be(raw: Any) -> dict[str, Any]:
+    """The file a save is about to write, as the next start will read it. `raw` is the
+    manifest with the edit applied."""
     try:
-        written = boot_reader.safe_load(as_text(raw)) or {}
+        return boot_reader.safe_load(as_text(raw)) or {}
     except boot_reader.YAMLError as exc:
         raise ValueError(texts.SAVE_READS_BACK_CHANGED.format(what=str(exc))) from exc
+
+
+def check_read_back(manifest: Path, raw: Any, patch: Mapping[str, Any]) -> None:
+    """A ValueError saying what of the file would be read as something the edit did not
+    ask for. `raw` is the manifest with the edit applied, as it is about to be written."""
+    asked = apply_patch(read_now(manifest), dict(patch))
+    written = read_to_be(raw)
     changed = sorted(
         str(key) for key in asked.keys() | written.keys() if asked.get(key) != written.get(key)
     )
