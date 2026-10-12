@@ -77,6 +77,10 @@ function isEvery(text: string): boolean {
  * it also refuses one over its bound, counted as Python counts, in characters rather than
  * in UTF-16 units. Whether the script is one Python can read is the server's to say: it
  * is asked on save, and its refusal names the line.
+ *
+ * A script row is also held while its id is blank. What a script keeps is stored under its
+ * row's id, and a row sent without one is numbered by its place each time the server starts:
+ * moved up or down the list it would read what another row kept.
  */
 function rowProblems(row: ScheduleRow, reveal: boolean, unfilled: () => void): RowProblems {
   const found: RowProblems = {};
@@ -91,6 +95,10 @@ function rowProblems(row: ScheduleRow, reveal: boolean, unfilled: () => void): R
     else unfilled();
   } else if (kind === "script" && action.length > MAX_SCRIPT_CHARS && Array.from(action).length > MAX_SCRIPT_CHARS)
     found.action = vi.editor.scriptTooLong(MAX_SCRIPT_CHARS);
+  if (kind === "script" && !row.id.trim()) {
+    if (reveal) found.id = vi.editor.scheduleIdMissing;
+    else unfilled();
+  }
   return found;
 }
 

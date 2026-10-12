@@ -1,6 +1,6 @@
 import { type MouseEvent, useRef } from "react";
 import type { RowProblems } from "../../hooks/agent-draft-checks";
-import { type ScheduleRow, usesEvery } from "../../hooks/schedule-row-shape";
+import { type ScheduleRow, usesEvery, usesScript } from "../../hooks/schedule-row-shape";
 import { vi } from "../../i18n/vi";
 import { cronText, everyText } from "../../lib/cron-text";
 import { TextField } from "./fields";
@@ -39,6 +39,9 @@ const TIMINGS = [
  * What the switched-away box held is kept for the life of the row and comes back with it,
  * so a mis-tap is undone by tapping back rather than by retyping. What a row does, and the
  * same rule for it, is `ScheduleAction`.
+ *
+ * The id may be left empty for the server to number the row by its place, except on a row
+ * that runs a script: what the script keeps is stored under the id, and its hint says so.
  */
 export function ScheduleRowEditor(props: Props) {
   const { row, position, problems, skills, readOnly, landed, onChange, onRemove } = props;
@@ -101,7 +104,7 @@ export function ScheduleRowEditor(props: Props) {
       </div>
       <TextField
         label={vi.editor.scheduleId}
-        hint={vi.editor.scheduleIdHint}
+        hint={usesScript(row) ? vi.editor.scheduleIdHintScript : vi.editor.scheduleIdHint}
         value={row.id}
         error={problems?.id}
         mono

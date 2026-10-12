@@ -506,6 +506,10 @@ export const vi = {
     schedulesEmpty: "Agent này chưa có lịch nào.",
     scheduleId: "Mã",
     scheduleIdHint: "Bỏ trống để tự đặt. Giữ nguyên mã thì lịch sử chạy không bị tách.",
+    // For a row that runs a script, in place of the hint above: what the script keeps is
+    // stored under the row's id, so the row is not saved without one.
+    scheduleIdHintScript: "Những gì script giữ lại được lưu theo mã này. Giữ nguyên mã thì script đọc lại được và lịch sử chạy không bị tách.",
+    scheduleIdMissing: "Nhập mã cho lịch này: những gì script giữ lại được lưu theo mã, còn mã bỏ trống thì đổi theo vị trí của lịch trong danh sách.",
     scheduleIdTaken: "Mã này đã có ở lịch khác; mỗi lịch cần một mã riêng.",
     scheduleIdReserved: "Mã memory-consolidate dành cho lịch gom ghi nhớ; đặt mã khác.",
     scheduleName: "Tên",

@@ -14,10 +14,7 @@ const declaring = (...schedules: object[]) => ({ ...coachAgent, declared: { dele
 // Two levels of indentation, typed as spaces: the form does not indent for the person.
 const SCRIPT = ['orders = tools.workspace_read(path="orders.json")', "for order in orders:", '    if order["new"]:', '        print(order["id"])'].join("\n");
 const THEN = "Tóm tắt các đơn mới cho chủ";
-const VIEWPORTS = [
-  { width: 1280, height: 800 },
-  { width: 390, height: 844 },
-];
+const VIEWPORTS = [{ width: 1280, height: 800 }, { width: 390, height: 844 }];
 
 const pageWidth = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth);
 const rows = (page: Page) => page.getByTestId("agent-editor").getByTestId("schedule-row");
@@ -32,6 +29,7 @@ for (const viewport of VIEWPORTS) {
     await page.goto("/#/manage/crew/coach/schedules");
     await page.getByTestId("agent-editor").getByRole("button", { name: t.addSchedule }).click();
     const row = rows(page).nth(1);
+    await box(row, t.scheduleId).fill("orders");
     await box(row, t.scheduleName).fill("Đồng bộ đơn");
     await box(row, t.scheduleCron).fill("40 6 * * *");
 
@@ -71,15 +69,15 @@ for (const viewport of VIEWPORTS) {
     // The script alone, of the three: the prompt the row once held is not written.
     expect(sent.profile.schedules).toEqual([
       { id: "brief", name: "Bản tin sáng", cron: "0 7 * * *", prompt: "Tóm tắt", enabled: true, skills: ["goodreads"] },
-      { name: "Đồng bộ đơn", cron: "40 6 * * *", script: SCRIPT, then_prompt: THEN, enabled: true, skills: [] },
+      { id: "orders", name: "Đồng bộ đơn", cron: "40 6 * * *", script: SCRIPT, then_prompt: THEN, enabled: true, skills: [] },
     ]);
     await expect(page.getByTestId("restart-banner")).toBeVisible();
 
-    // Reloading shows what the server kept: the script as typed, under the id it was given.
+    // Reloading shows what the server kept: the script as typed, under the id typed for it.
     await page.reload();
     await expect(box(rows(page).nth(1), t.scheduleScript)).toHaveValue(SCRIPT);
     await expect(box(rows(page).nth(1), t.scheduleThenPrompt)).toHaveValue(THEN);
-    await expect(box(rows(page).nth(1), t.scheduleId)).toHaveValue("job-1");
+    await expect(box(rows(page).nth(1), t.scheduleId)).toHaveValue("orders");
     await expect(save(page)).toBeDisabled();
   });
 
@@ -152,4 +150,49 @@ test("a script left empty, or grown past the parser's bound, holds the save and 
   await expect(row.getByText(t.scriptMissing)).toBeVisible();
   await expect(script).toHaveAccessibleDescription(`${t.scheduleScriptHint} ${t.scriptMissing}`);
   expect(saves).toBe(0);
+});
+
+// What a script keeps is stored under its schedule's id, and a row left unnamed is numbered
+// by its place at every start. The reason is a long line: it has to fit a phone's width.
+test("a row that runs a script is not saved without an id, and its id box says why", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, { agents: [master, declaring(brief)] });
+  let saves = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PATCH") saves += 1;
+  });
+  await page.goto("/#/manage/crew/coach/schedules");
+  await page.getByTestId("agent-editor").getByRole("button", { name: t.addSchedule }).click();
+  const row = rows(page).nth(1);
+  const id = box(row, t.scheduleId);
+  await box(row, t.scheduleName).fill("Đồng bộ đơn");
+  await box(row, t.scheduleCron).fill("40 6 * * *");
+
+  // A prompt may go without an id and is told so; made a script, the row is told otherwise.
+  await expect(row.getByText(t.scheduleIdHint, { exact: true })).toBeVisible();
+  await pick(row, t.scheduleScript);
+  await box(row, t.scheduleScript).fill("print(1)");
+  await expect(row.getByText(t.scheduleIdHintScript, { exact: true })).toBeVisible();
+  await expect(row.getByText(t.scheduleIdHint, { exact: true })).toHaveCount(0);
+
+  // Empty is not said to be wrong until a save is tried.
+  await expect(row.getByText(t.scheduleIdMissing)).toHaveCount(0);
+  await save(page).click();
+  await expect(row.getByText(t.scheduleIdMissing)).toBeVisible();
+  await expect(id).toHaveAttribute("aria-invalid", "true");
+  await expect(id).toHaveAccessibleDescription(t.scheduleIdMissing);
+  await expect(save(page)).toBeDisabled();
+  expect(saves).toBe(0);
+  expect(await spills(page, '[data-testid="schedule-row"]')).toEqual([]);
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
+
+  await id.fill("orders");
+  await expect(row.getByText(t.scheduleIdMissing)).toHaveCount(0);
+  const patch = page.waitForRequest((r) => r.method() === "PATCH" && /\/api\/agents\/coach$/.test(r.url()));
+  await save(page).click();
+  const sent = (await patch).postDataJSON() as { profile: { schedules: Record<string, unknown>[] } };
+  expect(sent.profile.schedules[1]).toEqual({ id: "orders", name: "Đồng bộ đơn", cron: "40 6 * * *", script: "print(1)", enabled: true, skills: [] });
+  await page.reload();
+  await expect(box(rows(page).nth(1), t.scheduleId)).toHaveValue("orders");
+  await expect(save(page)).toBeDisabled();
 });
