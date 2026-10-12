@@ -1,0 +1,114 @@
+/*
+ * The attention card: what is blocked on a person, as a list to act on, and the quiet card
+ * shown when nothing is waiting.
+ */
+
+/* ── Attention: what is blocked on a human ──────────────────────────────── */
+/* The one warm surface on the page: everything else here is a record, this is a to-do. */
+.attention {
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--warn-bg);
+  border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent);
+  color: var(--warn-text);
+}
+
+.attention h3 {
+  margin: 0 0 var(--space-3);
+  color: inherit;
+}
+
+.attention > p {
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* Nothing waiting: a quiet card with a tick, in the page's own colours. */
+.attention.calm {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.attention.calm h3 {
+  color: var(--muted);
+}
+
+.attention-calm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.attention.calm > .attention-calm {
+  opacity: 1;
+}
+
+.attention-calm .icon {
+  color: var(--ok);
+}
+
+.attention-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.attention-list li {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.attention-list li + li {
+  padding-top: var(--space-3);
+  border-top: 1px solid color-mix(in srgb, var(--warn) 20%, transparent);
+}
+
+.attention-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+}
+
+.attention-list li.error .attention-icon,
+.attention-list li.halted .attention-icon {
+  color: var(--danger-text);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.attention-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.attention-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.attention-child {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.attention .run-preview {
+  color: var(--text-secondary);
+}
+
+.attention-open {
+  flex: none;
+  font-size: var(--text-sm);
+  border-color: color-mix(in srgb, var(--warn) 30%, var(--border));
+}

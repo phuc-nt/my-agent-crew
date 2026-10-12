@@ -1,0 +1,118 @@
+/*
+ * What a script called on its own, listed inside its step: the numbered calls, each with
+ * its name, time, state and output, a task handed to another agent, and the measures line.
+ */
+
+/* ── What a script called on its own ────────────────────────────────────── */
+/* Lines up under the head like every other part of the row. Quieter than a step: these
+   calls sit inside one, and the rail above already counts the script as a single stop. */
+.script-calls {
+  grid-column: 2;
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.script-calls summary {
+  cursor: pointer;
+  width: fit-content;
+  max-width: 100%;
+  color: var(--text-secondary);
+}
+
+/* A summary grows to the touch target there (touch-targets.css). Height from padding
+   rather than flex, which would cost it the triangle: the only sign that it opens. */
+@media (max-width: 720px), (pointer: coarse) {
+  .script-calls summary {
+    padding-block: calc((var(--touch-target) - 1lh) / 2);
+  }
+}
+
+/* Numbered, so a person can say "the third call" and mean one row. */
+.script-calls ol {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The same two columns as a step's head, for the same reason: the time stays pinned
+   right however long a server's tool name runs. */
+.script-call-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  column-gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The time keeps the last column whether or not a word for a failure stands before
+   it, so the times of a list line up down their right edge. */
+.script-call-head .step-time {
+  grid-column: 3;
+}
+
+/* A call let through the approval gate says so between the word for a failure and the
+   time, in a column of its own: both words can stand on one call, and the time still
+   keeps the last column. Only such a row has the fourth column, so every other row is
+   laid out as it was. */
+.script-call-head.gated {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
+.script-call-head.gated .step-time {
+  grid-column: 4;
+}
+
+.script-call-head.gated .step-state.gated {
+  grid-column: 3;
+  color: var(--text-secondary);
+}
+
+.script-call-name {
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.script-call-line {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* What came back, set off from what was asked. Left to wrap rather than kept as
+   written: it is the start of an answer, and its line breaks would spend a row each. */
+.script-call-output {
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--border);
+}
+
+/* What a task handed to another agent came to: what that agent spent, then the way into
+   its conversation. One line that wraps, so on a narrow card the button drops under the
+   figure rather than reaching past the edge. */
+.script-call-line.script-call-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-2);
+}
+
+/* The gap sets the button off from the figure, so it gives up the offset a card or a
+   row gives its own toggle to line the text up with the edge. */
+.script-calls .script-call-child .link-button {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+/* What the calls handed the script against what the script handed the model. A line of
+   its own wherever it stands: under the head on the rail, and in a chat card, where
+   nothing lays the parts out in a grid. */
+.script-measures {
+  display: block;
+  grid-column: 2;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}

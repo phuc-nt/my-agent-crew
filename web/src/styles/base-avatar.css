@@ -1,0 +1,54 @@
+/*
+ * The shared marks of identity: an agent's avatar tile, and the brand mark.
+ */
+
+/* ── Agent avatar ───────────────────────────────────────────────────────── */
+/* A rounded tile with the agent's initial, tinted from its identity hue. The hue is
+   passed in as --avatar so one rule serves every agent in both schemes. */
+.avatar {
+  --avatar: var(--hue-1);
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  color: var(--avatar);
+  background: color-mix(in srgb, var(--avatar) 14%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--avatar) 22%, transparent);
+  user-select: none;
+}
+.avatar::before {
+  content: attr(data-initial);
+}
+.avatar.lg {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 1rem;
+}
+.avatar.sm {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  font-size: 0.7rem;
+}
+
+/* ── Brand mark ─────────────────────────────────────────────────────────── */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 650;
+  letter-spacing: var(--tracking-tight);
+  color: var(--text);
+  min-width: 0;
+}
+.brand-mark {
+  flex: none;
+  display: block;
+  filter: drop-shadow(0 1px 2px var(--brand-glow));
+}

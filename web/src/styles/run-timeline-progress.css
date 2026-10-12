@@ -1,0 +1,85 @@
+/*
+ * The live header of a run: the label that shimmers while the run moves, the step count,
+ * the proportion bar, and the note on a run that a restart cut and carried on.
+ */
+
+/* ── The live header: one line answering "what is it doing right now" ───── */
+.run-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.run-progress-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Shimmer clipped to the text itself, instead of a spinner beside it. The one
+   moving thing on the row is the thing the row is about. */
+.run-progress.live .run-progress-label {
+  background: linear-gradient(
+    90deg,
+    var(--text-secondary) 0%,
+    var(--text-secondary) 35%,
+    var(--accent) 50%,
+    var(--text-secondary) 65%,
+    var(--text-secondary) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: label-shimmer 2.4s linear infinite;
+}
+
+/* Still the loudest line in the card, but by colour rather than by motion: it is a
+   thing to act on, not a thing to watch. */
+.run-progress.waiting .run-progress-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@keyframes label-shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+.run-progress-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* A proportion bar rather than a percentage: it says how far along the step
+   list is, and never pretends to know how many steps are still to come. */
+.run-progress-bar {
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.run-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+/* Why this run looks unlike the others: it was cut by a restart and carried on. Quiet,
+   and allowed to wrap, since the strip it sits in can be as narrow as a phone. */
+.run-progress-note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}

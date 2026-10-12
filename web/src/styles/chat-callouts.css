@@ -1,0 +1,183 @@
+/*
+ * Where a turn waits on the person: the approval bar and the question card that float
+ * between the thread and the composer, and the list of decided approvals on the manage
+ * screen.
+ */
+
+/* ── Callouts: approvals and questions ──────────────────────────────────── */
+/* Where the turn is actually blocked: between the thread and the composer, so you cannot
+   type past it without deciding. A floating card on the reading column rather than a
+   full-width band, because it is one decision, not a change of mode for the page. */
+.callout,
+.main > .notice {
+  width: min(var(--reading-width), 100% - 2 * var(--space-5));
+  margin: 0 auto var(--space-2);
+}
+
+.callout {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-2);
+  animation: rise-in var(--duration-base) var(--ease-out);
+}
+
+.callout-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  font-size: 1.05rem;
+}
+
+.approval-bar {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+  background: color-mix(in srgb, var(--warn-bg) 70%, var(--surface-raised));
+}
+
+.approval-bar .callout-icon {
+  background: color-mix(in srgb, var(--warn) 20%, transparent);
+  color: var(--warn-text);
+}
+
+.approval-text {
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.approval-text code {
+  overflow-wrap: anywhere;
+}
+
+.approval-reason,
+.approval-deadline {
+  font-size: var(--text-sm);
+  color: var(--warn-text);
+}
+
+/* `schedule_create`'s reason is several lines joined by `\n` — name, schedule, next
+   runs, skills, the verbatim prompt — and is the only place a person reads any of it
+   before approving, so it must wrap as written rather than collapse to one line. */
+.approval-reason {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.approval-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-self: center;
+}
+
+/* A question is not a warning. The tool bar is amber because something is about to run
+   that the person may not want; here the agent is only stuck on something it cannot know,
+   so it reads as a prompt in the accent colour and not as caution. */
+.question-card {
+  flex-direction: column;
+  align-items: stretch;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent-softer) 70%, var(--surface-raised));
+}
+
+.question-card .approval-deadline {
+  color: var(--muted);
+}
+
+.callout-inline-icon {
+  margin-right: 6px;
+  color: var(--accent);
+}
+
+.question-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.question-asked {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.question-options {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.question-form {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.question-form input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The decided approvals, listed on the manage screen. */
+.approval-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* A decided request is history, not an alarm: the badge says how it went, and the card
+   stays in the page's own colours. Only a request still waiting is outlined. */
+.approval-list li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
+}
+
+.approval-list li[data-status="pending"] {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+.approval-list .tool-arguments {
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.approval-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.approval-meta {
+  font-size: var(--text-xs);
+}
+
+.approval-list .link-button {
+  align-self: flex-start;
+  margin: var(--space-1) 0 0 calc(var(--space-2) * -1);
+  font-size: var(--text-sm);
+}

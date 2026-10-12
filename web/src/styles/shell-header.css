@@ -1,0 +1,174 @@
+/*
+ * The main column and the header above the thread: the title and the field that renames
+ * it, the agent's chip, the pills, the recap line, and the phone's button into the drawer.
+ */
+
+/* ── Main column and its header ─────────────────────────────────────────── */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--surface);
+}
+
+/* Two lines: the title with its pills, then the recap. */
+.conversation-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  flex-wrap: wrap;
+  min-width: 0;
+  min-height: var(--touch-target);
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.header-title h1 {
+  font-size: var(--text-lg);
+}
+
+/* The heading keeps its place while what sits inside it swaps between a button and
+   a field, so clicking to rename moves nothing on the page. */
+.title-heading {
+  display: flex;
+  min-width: 0;
+  font-size: var(--text-lg);
+  /* The padding below belongs to the control, not to the heading around it. */
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+}
+
+.editable-title,
+.title-input {
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  min-width: 0;
+  min-height: 0;
+  max-width: 42ch;
+  background: none;
+  box-shadow: none;
+}
+
+.editable-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  color: inherit;
+  cursor: text;
+}
+
+.editable-title:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: transparent;
+}
+
+.editable-title:active:not(:disabled) {
+  transform: none;
+}
+
+.title-input {
+  width: 42ch;
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-ring);
+  outline: none;
+}
+
+/* Who you are talking to: their tile and name as one quiet chip beside the title. */
+.agent-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 2px var(--space-2) 2px 2px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.agent-tag .avatar {
+  border-radius: var(--radius-full);
+}
+.agent-tag .agent-badge {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.header-summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.summary-text {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.header-summary .link-button {
+  flex: none;
+  font-size: var(--text-sm);
+}
+
+/* The budget pill's figure, and its warning colour once the cap is reached. */
+.budget.over {
+  font-weight: 600;
+}
+
+/* The phone's way into the drawer. The dot says something behind it is waiting on you. */
+.menu-button {
+  position: relative;
+  margin-left: calc(var(--space-2) * -1);
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  color: var(--text);
+}
+.menu-dot {
+  position: absolute;
+  top: 7px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 2px var(--surface);
+}

@@ -1,0 +1,132 @@
+/*
+ * The run card: the outline that carries its status, the summary row that opens it, the
+ * title, meta and preview lines, and the body and links under its steps. The steps
+ * themselves are run-timeline.css.
+ */
+
+/* ── Run cards ──────────────────────────────────────────────────────────── */
+/* Status is drawn on the card's outline, never on its fill: a list of finished
+   jobs should read as a list, not as a stack of coloured alerts. */
+.run-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+.run-card:hover {
+  border-color: var(--border-strong);
+}
+
+.run-card.running,
+.run-card.awaiting_approval {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--border));
+  box-shadow:
+    var(--shadow-1),
+    0 0 0 3px color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+.run-card.error,
+.run-card.halted {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.run-summary {
+  display: flex;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+  border: none;
+  border-radius: inherit;
+  box-shadow: none;
+  background: none;
+  padding: var(--space-3) var(--space-4);
+  align-items: flex-start;
+}
+
+.run-summary:hover:not(:disabled) {
+  background: none;
+}
+
+.run-summary:active:not(:disabled) {
+  transform: none;
+}
+
+/* The dot sits on the title's line, not at the top of the row's box. */
+.run-summary > .status-dot {
+  margin-top: 0.55em;
+}
+
+/* Takes the width the card gives it, so the title starts at the left edge whether the
+   card is in a narrow column or across the whole manage screen. Without this the row
+   shrinks to its content and the browser centres it, leaving a gutter that reads as a
+   mistake once the card is wide. */
+.run-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--text-md);
+}
+
+.run-title {
+  font-weight: 500;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.run-title strong {
+  font-weight: 650;
+}
+
+/* Wraps rather than truncates: every field on this line — status, time, step
+   count, spend — is one someone scans for, so none of them may be the one that
+   silently falls off the end. The live badge is taller than the text it sits
+   among, so the line box has to be able to grow around it. */
+.run-meta {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+}
+
+.run-meta .badge {
+  margin-left: var(--space-1);
+}
+
+.run-preview {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.run-body {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--border);
+  animation: fade-in var(--duration-base) var(--ease-out);
+}
+
+/* The actions under a run's steps sit on one line rather than stacking, so the
+   timeline above them stays the tallest thing in the card. */
+.run-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  /* The links carry their own hover padding; pulled back so their text starts on the
+     card's left edge like everything above it. */
+  margin: var(--space-3) 0 0 calc(var(--space-2) * -1);
+  font-size: var(--text-sm);
+}
+
+.run-links .link-button {
+  font-size: inherit;
+}

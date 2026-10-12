@@ -1,0 +1,155 @@
+/*
+ * The machinery between replies: a tool call's card with its state, arguments and output,
+ * and the card and result of a task handed to another agent.
+ */
+
+/* ── Tool cards in the thread ───────────────────────────────────────────── */
+/* Smaller and on the backdrop tone rather than the page: a tool call is machinery showing
+   through the conversation, not a message in it. */
+.tool-card {
+  margin-left: var(--reply-indent);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  font-size: var(--text-sm);
+  animation: fade-in var(--duration-base) var(--ease-out);
+}
+
+/* A run of calls reads as one block of work rather than as separate events. */
+.tool-card + .tool-card {
+  margin-top: calc(var(--space-2) - var(--space-4));
+}
+
+.tool-card.awaiting {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--border));
+}
+
+.tool-card.failed,
+.tool-card.denied {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.tool-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.tool-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 550;
+}
+
+.tool-icon {
+  color: var(--muted);
+}
+
+/* The icon is the fastest read of the state; the word beside it says the same for anyone
+   who needs it. The rail uses `.step-state` for the same words — see
+   run-timeline-row.css. */
+.tool-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.tool-status.done .icon {
+  color: var(--ok);
+}
+.tool-status.failed,
+.tool-status.denied {
+  color: var(--danger-text);
+}
+.tool-status.awaiting {
+  color: var(--warn-text);
+}
+.tool-status.running .icon {
+  color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+
+.tool-arguments {
+  margin-top: 2px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.tool-card .link-button {
+  margin: var(--space-1) 0 0 calc(var(--space-2) * -1);
+  font-size: var(--text-xs);
+}
+
+/* What a script called, inside its card: set off from the arguments above it, which the
+   rail does with the gap between the rows of a step. */
+.tool-card .script-calls,
+.tool-card .script-measures {
+  margin-top: var(--space-1);
+}
+
+.tool-output {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* ── Delegation in the thread ───────────────────────────────────────────── */
+/* A handed-off task wears the delegate hue, the one the rail gives a handoff step: it is
+   a job someone else ran, not a tool this agent called. */
+.delegate-card {
+  border-color: color-mix(in srgb, var(--step-delegate) 35%, var(--border));
+  background: color-mix(in srgb, var(--step-delegate) 5%, var(--surface));
+}
+
+.delegate-result {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.delegate-chip {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--ok-bg);
+  color: var(--ok-text);
+  font-weight: 500;
+}
+
+/* A task can end its run cleanly and still not be done; the chip says which. */
+.delegate-chip[data-tone="warn"] {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.delegate-chip[data-tone="danger"] {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.delegate-reason {
+  min-width: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.delegate-result .link-button {
+  margin: 0;
+}

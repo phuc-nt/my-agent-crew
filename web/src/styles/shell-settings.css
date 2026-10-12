@@ -1,0 +1,36 @@
+/*
+ * The settings drawer: a panel fixed over the page, with its header and the rows of its
+ * key list.
+ */
+
+/* ── Settings drawer ────────────────────────────────────────────────────── */
+.settings-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;
+  width: min(420px, 100vw);
+  background: var(--surface-raised);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-3);
+  overflow-y: auto;
+  padding: var(--space-4);
+  z-index: 10;
+  animation: rise-in var(--duration-base) var(--ease-out);
+}
+
+.settings-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.key-list li {
+  margin: var(--space-1) 0;
+}
+
+.key-list .badge {
+  margin-left: var(--space-2);
+}

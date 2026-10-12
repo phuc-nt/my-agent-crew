@@ -1,0 +1,42 @@
+/*
+ * The costs page on a phone: a bar row that fits the screen, and each day's detail dropped
+ * under its date so the bar keeps a readable length.
+ */
+
+@media (max-width: 720px) {
+  .stat-bars li {
+    grid-template-columns: minmax(0, 1fr) 5rem 4.5rem;
+  }
+
+  /* On a phone the detail drops under the date so the bar keeps a readable length. */
+  .stat-days {
+    grid-template-columns: minmax(0, 1fr) 4.5rem;
+  }
+
+  .stat-days li {
+    grid-template-columns: subgrid;
+    row-gap: var(--space-1);
+    padding: var(--space-2) 0;
+  }
+
+  .stat-days .stat-key {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .stat-days .stat-value {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .stat-days .stat-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .stat-days .stat-detail {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    text-align: left;
+  }
+}

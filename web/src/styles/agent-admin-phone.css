@@ -1,0 +1,26 @@
+/*
+ * The agent editor and the add-agent form on a phone: rows that wrap, tighter sections, and
+ * the save controls on a line of their own. Last of these files, so it outweighs the rules
+ * it adjusts.
+ */
+
+@media (max-width: 720px) {
+  .editor-section .row,
+  .add-agent .row {
+    flex-wrap: wrap;
+  }
+
+  .editor-section {
+    padding: var(--space-4);
+  }
+
+  /* The save controls take the second line whole: count on the left, buttons under
+     the thumb on the right. */
+  .editor-actions {
+    flex: 1 0 100%;
+  }
+
+  .editor-dirty {
+    flex: 1 1 auto;
+  }
+}

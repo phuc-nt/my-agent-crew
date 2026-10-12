@@ -1,0 +1,35 @@
+/*
+ * The way from the chat to the manage screen: a button at the foot of the chat's sidebar,
+ * drawn as a row of the nav it opens.
+ */
+
+/* The way out of the chat sits at the foot of the sidebar, below the list, so it stays
+   put while conversations come and go above it. */
+.sidebar-foot {
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+/* Styled as the first row of the manage nav it opens, so the two read as one place. */
+.manage-button {
+  width: 100%;
+  min-height: var(--touch-target);
+  justify-content: flex-start;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+}
+.manage-button .icon {
+  color: var(--muted);
+}
+.manage-button:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--text);
+}
+.manage-button .badge {
+  margin-left: auto;
+}
+.manage-button .badge + .badge {
+  margin-left: 0;
+}

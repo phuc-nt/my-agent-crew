@@ -1,8 +1,11 @@
 /*
- * The design tokens every other stylesheet builds on.
+ * The design tokens every other stylesheet builds on. Every token is set here,
+ * in its light-scheme value; what the reader's own preferences change — the dark
+ * scheme's colours and shadows, motion cut down — follows in
+ * tokens-preferences.css.
  *
- * Rules that keep this file honest:
- * - Raw colour values appear here and nowhere else; the rest of the CSS reads
+ * Rules that keep the two files honest:
+ * - Raw colour values appear in them and nowhere else; the rest of the CSS reads
  *   `var(--…)`. A one-off hex in a component is how a theme quietly breaks.
  * - Every semantic colour is defined for both schemes. Dark mode is an override
  *   block, not an inversion filter: the greys are picked, not computed.
@@ -158,79 +161,4 @@
   font-size: 16px;
   color: var(--text);
   background: var(--bg);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b0d12;
-    --surface: #12151c;
-    --surface-sunken: #0e1117;
-    --surface-raised: #181c25;
-    --surface-hover: #1c212b;
-    --border: #232834;
-    --border-strong: #343b4a;
-    --glass: rgb(18 21 28 / 76%);
-    --scrim: rgb(0 0 0 / 55%);
-
-    --text: #eceef2;
-    --text-secondary: #b4bccb;
-    --muted: #8a93a5;
-
-    --accent: #4b83f0;
-    --accent-strong: #6b9bf5;
-    --accent-soft: #172440;
-    --accent-softer: #121b2e;
-    --accent-text: #ffffff;
-    --accent-ring: rgb(75 131 240 / 35%);
-    --brand-from: #6b9bf5;
-    --brand-to: #2563eb;
-    --brand-glow: rgb(0 0 0 / 45%);
-
-    --ok: #32d583;
-    --ok-bg: #0b2a1d;
-    --ok-text: #75e0a7;
-    --warn: #fdb022;
-    --warn-bg: #33230c;
-    --warn-text: #fec84b;
-    --danger: #f97066;
-    --danger-bg: #3a1614;
-    --danger-text: #fda29b;
-    --info: #36bffa;
-
-    --step-delegate: #9b8afb;
-
-    --hue-1: #6b9bf5;
-    --hue-2: #9b8afb;
-    --hue-3: #f670c7;
-    --hue-4: #f38744;
-    --hue-5: #fac515;
-    --hue-6: #3ccb7f;
-    --hue-7: #2ed3b7;
-    --hue-8: #36bffa;
-
-    --user-bubble: #1a2a4a;
-    --user-bubble-text: #e3ecff;
-
-    /* Shadows read as haze rather than depth on a dark backdrop, so they lean
-       on black at higher opacity instead of the slate used in light mode. */
-    --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
-    --shadow-2: 0 1px 3px rgb(0 0 0 / 40%), 0 6px 16px rgb(0 0 0 / 35%);
-    --shadow-3: 0 4px 10px rgb(0 0 0 / 40%), 0 20px 48px rgb(0 0 0 / 55%);
-  }
-}
-
-/*
- * Motion is decoration on this surface — every state it conveys is also carried
- * by colour, icon or text — so honouring the preference costs no information.
- * The running spinner and pulse have static fallbacks in run-timeline.css.
- */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
 }

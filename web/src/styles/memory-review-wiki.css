@@ -1,0 +1,123 @@
+/*
+ * Reading a wiki page: the action rows in its header, the metadata line, links inside the
+ * prose, related pages and open questions, and the page dimmed while a followed link loads.
+ */
+
+/* ── Wiki read view ─────────────────────────────────────────────────────── */
+.wiki-page-actions,
+.wiki-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.wiki-header-actions {
+  margin: 0 0 var(--space-2);
+}
+
+/* The open panel's toggle stays lit, so it is clear which button closes what is below. */
+.wiki-header-actions button[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+/* The badge and its one-tap fix sit on the metadata line, wrapping under it on a phone
+   rather than pushing the line past the screen edge. */
+.wiki-page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.wiki-read {
+  margin-top: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+/* A link inside prose reads as a link, not as a button dropped into the sentence. */
+.wiki-read button.wiki-link {
+  display: inline;
+  padding: 0;
+  font: inherit;
+  line-height: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  vertical-align: baseline;
+}
+
+/* A page nobody has written: still legible, but plainly not a way anywhere. */
+.wiki-link.missing {
+  color: var(--muted);
+  text-decoration: underline dashed;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.wiki-related {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.wiki-open-questions {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+}
+
+.wiki-open-questions li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: baseline;
+  font-size: var(--text-sm);
+}
+
+.wiki-open-questions .link-button {
+  padding-inline: 0;
+  font-weight: 500;
+}
+
+/* A question can hold a link with nowhere to break; as a flex item it would keep its
+   full width and run off a phone's edge, so it may shrink and break anywhere. */
+.wiki-open-questions li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.wiki-today-note {
+  margin: 0 0 var(--space-3);
+}
+
+/* While a followed page loads, what is on screen is about to go; dimming it says the tap
+   took without hiding what the reader was on. */
+.wiki-opening {
+  cursor: progress;
+}
+
+.wiki-opening > :not(.wiki-open-state) {
+  opacity: 0.6;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+/* The link may sit far down a long page, so the word about it stays in view at the
+   bottom rather than landing below the fold. An error keeps its own colours. */
+.wiki-open-state {
+  position: sticky;
+  bottom: var(--space-3);
+  z-index: 1;
+  margin: var(--space-3) 0 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
