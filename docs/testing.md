@@ -538,6 +538,28 @@ tên một test thì sửa dòng của nó trong cùng commit.
     biến: ba mươi ba sửa đổi ở phép xét danh sách, ở chỗ bộ đọc gọi nó, ở phép lần theo đường
     dẫn, ở phép xét việc của một lịch và ở hai chỗ bắt lỗi của số nguyên vô cùng đều bị
     test bắt.
+- **Con số một lần lưu ghi ra là con số lần khởi động kế đọc lại**
+  - pytest: `tests/test_profile_write_floats.py` (mọi khoá của hồ sơ, của một dòng lịch, của
+    `telegram` và của một mục `mcp_servers`, lấy từ chính bảng khoá của mã, nhân với hai mươi
+    bảy số thực, trong đó có `0.00001`, `1e-7`, `1e16`, `1.5e300`, `0.1`, `3.0`, số âm của
+    chúng, hai đầu mút của số thực và sáu số mang đủ mọi chữ số: trình đọc lúc khởi động đọc
+    lại đúng số ấy, là số chứ không là chuỗi, `0.0` khác `-0.0`; đặt vào tệp người viết tay
+    thì các dòng khác và chú thích giữ nguyên; ghi lần hai y như lần một; `.inf`, `-.inf`,
+    `.nan` và số viết tay quá lớn như `1e400` được ghi như trước; mười bốn dạng người viết
+    tay, `1e-5`, `1E-5`, `1e16`, `.5`, `5.`, `12e03`, `100e+14`, `1.5E+300`, giữ nguyên từng ký
+    tự; số viết tay đủ chữ số ở dạng mà thư viện ghi lại thành số khác thì được ghi thành
+    chính số ấy; lúc khởi động dựng từ tệp đã ghi đúng thứ nó dựng từ giá trị đã lưu, hoặc từ
+    chối bằng cùng lời, kể cả với `.inf` và `.nan`; `timeout` của một máy chủ MCP được xét như
+    nhau trước và sau khi ghi. Qua `PATCH /api/agents/{id}`: `cost_cap_usd` cỡ nào cũng là 200
+    và là trần agent đang chạy; lần lưu khoá khác sau đó không bị chặn, dòng số không đổi; số
+    người viết tay không chặn lần lưu nào; với mọi khoá của agent, mỗi số hoặc được lưu hoặc
+    bị chính khoá ấy từ chối, không bao giờ bởi phép đọc lại, và sau mỗi lần đội đang chạy là
+    đội lần khởi động kế dựng; `NaN` cho `cost_cap_usd` là 422, không gì đổi. `PUT
+    /api/connections/routes` ghi lại `config.yaml` mà trần chi phí và `timeout` giữ nguyên
+    giá trị). Kiểm chứng đột biến: mười sửa đổi (trả lại cách ghi cũ, bỏ `.0`, thêm `.0` cả
+    khi đã có dấu chấm, bỏ cách ghi của số một lần sửa đem tới, bỏ cách ghi của số tệp đã giữ,
+    bỏ phép so giá trị, bỏ phép so bố cục, so bố cục bằng độ dài, so bố cục không kể hoa
+    thường, lấy chữ Python in ra làm chữ thay thế) đều bị test bắt.
 - **Danh sách công cụ của agent mở từ những gì tệp viết, không từ những gì agent đang giữ**
   - pytest: `tests/test_api_agents_declared.py::test_the_tools_an_agent_holds_are_not_what_its_file_lists`,
     `tests/test_api_agents_declared.py::test_a_save_answers_with_the_tools_the_file_now_lists`,

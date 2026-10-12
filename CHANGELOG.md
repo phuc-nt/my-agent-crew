@@ -401,6 +401,17 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the agent (`agent coder: cannot convert float infinity to integer`,
   `agent coder: telegram chat_id must be an integer`), with nothing written and the running
   agent as it was, and a file written by hand that way stops the start with the same line.
+- A number is written to `agent.yaml` as the number the next start reads. A save writes through
+  a library that shows a number the way Python does (`1e-05`, `1e+16`), and the reader the
+  server starts with takes a number without a dot for a text: a `cost_cap_usd` of `0.00001` or
+  `1e16` could not be saved from the web at all (422, "tệp ghi ra sẽ được đọc lại khác…"). Such
+  a number is now written with `.0` before its exponent (`1.0e-05`), which both read as the
+  number saved. A number written with an exponent and holding every digit a float has was
+  saved once, then written back one digit off by the next save of anything else, which the same
+  check refused: the agent could not be edited again until the number was set anew or the file
+  mended by hand. It is now written back as the number it is. A number a person typed stays as
+  typed, `1e-5` among them. `config.yaml` goes through the same writer when the model routes
+  are saved, and there such a number was changed with nothing to stop it.
 
 ## [0.15.0] — 2026-10-12
 
