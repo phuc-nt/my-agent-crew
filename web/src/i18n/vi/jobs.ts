@@ -39,6 +39,16 @@ export const viJobs = {
     openRunOf: (job: string) => `Xem riêng lượt chạy gần nhất của ${job}`,
     // Beside the Jobs entry in the nav: the count alone is red, this is what it counts.
     failing: (n: number) => `${n} lịch lỗi ở lần chạy gần nhất`,
+    // Under a row's last run while its job keeps failing: how long the streak is, then
+    // whether the owner was told and when a failure is told again. Each time is a clock
+    // today, "Hôm qua 07:00" the day before, and a date with its clock otherwise.
+    streak: (n: number, since: string) =>
+      n === 1 ? `Hỏng từ ${since}.` : `Hỏng ${n} lần liên tiếp từ ${since}.`,
+    streakTold: (told: string, next: string | null) =>
+      next === null
+        ? `Đã báo Telegram lúc ${told}.`
+        : `Đã báo Telegram lúc ${told}; còn hỏng thì nhắc lại sau ${next}.`,
+    streakUntold: "Chưa báo được qua Telegram; lần hỏng kế tiếp sẽ thử lại.",
     // A cron read aloud. The hour is the server's own clock, which is the owner's.
     cron: {
       every: (n: number, unit: string) => (n === 1 ? `Mỗi ${unit}` : `Mỗi ${n} ${unit}`),

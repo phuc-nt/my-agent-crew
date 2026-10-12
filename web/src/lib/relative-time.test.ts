@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayGroup, dayOffset, timeAgo, timeUntil } from "./relative-time";
+import { dayClock, dayGroup, dayOffset, timeAgo, timeUntil } from "./relative-time";
 
 // The suite runs in Asia/Ho_Chi_Minh (vite.config.ts), so 17:30Z is 00:30 on the 27th.
 const now = new Date("2026-09-26T17:30:00Z");
@@ -34,5 +34,36 @@ describe("relative time on the viewer's calendar", () => {
     expect(timeUntil("2026-09-26T17:42:00Z", now)).toBe("sau 12 phút");
     expect(timeUntil("2026-09-27T00:00:00Z", now)).toBe("sau 6 giờ");
     expect(timeUntil("2026-09-28T00:00:00Z", now)).toBe("28/09 07:00");
+  });
+});
+
+describe("a time as a sentence names it", () => {
+  // Built from local clock fields, not from an instant in UTC: the reading is about the
+  // viewer's own day, and it has to hold in whatever zone the suite runs.
+  const local = (day: number, hour: number, minute: number) => new Date(2026, 8, day, hour, minute);
+  const iso = (day: number, hour: number, minute: number) => local(day, hour, minute).toISOString();
+  const midMorning = local(27, 9, 30);
+
+  it("writes the clock alone for today, earlier or later than now", () => {
+    expect(dayClock(iso(27, 0, 5), midMorning)).toBe("00:05");
+    expect(dayClock(iso(27, 9, 30), midMorning)).toBe("09:30");
+    expect(dayClock(iso(27, 23, 59), midMorning)).toBe("23:59");
+  });
+
+  it("names yesterday from its first minute to its last", () => {
+    expect(dayClock(iso(26, 0, 0), midMorning)).toBe("Hôm qua 00:00");
+    expect(dayClock(iso(26, 23, 59), midMorning)).toBe("Hôm qua 23:59");
+    // Half an hour after midnight, a time 90 minutes back is already yesterday's.
+    expect(dayClock(iso(26, 23, 0), local(27, 0, 30))).toBe("Hôm qua 23:00");
+  });
+
+  it("writes the date with the clock for any other day, tomorrow included", () => {
+    expect(dayClock(iso(25, 23, 59), midMorning)).toBe("25/09 23:59");
+    expect(dayClock(iso(1, 7, 5), midMorning)).toBe("01/09 07:05");
+    expect(dayClock(iso(28, 0, 0), midMorning)).toBe("28/09 00:00");
+  });
+
+  it("hands back a timestamp it cannot read", () => {
+    expect(dayClock("not a date", midMorning)).toBe("not a date");
   });
 });

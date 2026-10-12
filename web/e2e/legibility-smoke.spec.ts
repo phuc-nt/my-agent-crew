@@ -83,6 +83,23 @@ for (const scheme of ["light", "dark"] as const) {
   });
 }
 
+for (const scheme of ["light", "dark"] as const) {
+  // The one line of a job's row in the danger tone, small and on the list's own surface:
+  // measured on the real row, since a probe would sit on the page's background instead.
+  test(`a failing job's sentence reads at 4.5:1 in ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    const failing = { count: 2, since: "2025-03-03T00:00:00Z", told_at: null, next_notice_at: null };
+    const job = { id: "default/brief", schedule_id: "brief", agent_id: "default", name: "Bản tin", kind: "prompt", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true, skills: [], next_run: null, last_run: null, running: false, paused: false, origin: "profile", failing };
+    await mockApi(page, { jobs: [job] });
+    await page.goto("/#/manage/jobs");
+    await expect(page.getByTestId("job-failing")).toBeVisible();
+    // The list fades in; measure once it has.
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+
+    expect(await contrast(page, "[data-testid=job-failing]")).toBeGreaterThanOrEqual(4.5);
+  });
+}
+
 // The attention card is amber so it is not skipped, and its text inherits that. A request
 // placed in its rows is still the thing to read, as it is in the chat, not more warning.
 test("a request in an attention row reads in body text, not the card's amber", async ({ page }) => {

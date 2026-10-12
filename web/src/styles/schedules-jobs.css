@@ -80,6 +80,15 @@
   overflow-wrap: anywhere;
 }
 
+/* A job that keeps failing, said in full under its last run: a line of its own that wraps
+   on a phone, in the tone the failed badge above it already has. */
+.job-failing {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger-text);
+  overflow-wrap: anywhere;
+}
+
 .job-meta time[title] {
   cursor: help;
 }

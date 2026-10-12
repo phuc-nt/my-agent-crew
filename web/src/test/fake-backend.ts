@@ -321,7 +321,9 @@ export class FakeBackend {
     }
     if (path === "/activity/runs") return json(this.listRuns(url.searchParams));
     if (path === "/stats") return json(this.stats);
-    if (path === "/jobs") return json(this.jobs);
+    // Like the server, every row says whether its job is in a streak of failures: null
+    // unless the test put one on the row.
+    if (path === "/jobs") return json(this.jobs.map((row) => ({ failing: null, ...row })));
     if (path === "/approvals") {
       // Like the server: narrowing happens here, so the page belongs to the conversation.
       const only = url.searchParams.get("conversation_id");

@@ -116,6 +116,46 @@ test("a job off in its profile dims its text but not its buttons", async ({ page
   expect((await shown(".job-name")).color).not.toBe(bright);
 });
 
+// A failed badge reads the same after one bad run as after a week of them. The row says how
+// long the job has been failing, whether the owner was told and when it is told again: one
+// sentence, which takes a line of the row and wraps on a phone rather than widening it.
+for (const width of [1440, 390]) {
+  test(`a job that keeps failing says since when and what the owner was told, at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const failed = run({ id: "r-err", agent_id: "coach", source: "job:coach/brief", status: "error" });
+    // Days long past, so each time reads as a date and a clock in the page's zone (UTC+7).
+    const failing = { count: 3, since: "2025-03-03T00:00:00Z", told_at: "2025-03-03T00:01:00Z", next_notice_at: "2025-03-04T00:01:00Z" };
+    await openJobs(page, [{ ...briefJob, last_run: failed, failing }, { ...briefJob, id: "coach/fine", name: "Ổn" }]);
+
+    const row = page.getByTestId("job").filter({ hasText: "Bản tin sáng" });
+    const streak = row.getByTestId("job-failing");
+    await expect(streak).toHaveText(
+      "Hỏng 3 lần liên tiếp từ 03/03 07:00. Đã báo Telegram lúc 03/03 07:01; còn hỏng thì nhắc lại sau 04/03 07:01.",
+    );
+    // A row whose job is in no streak says nothing.
+    await expect(page.getByTestId("job").filter({ hasText: "Ổn" })).toBeVisible();
+    await expect(page.getByTestId("job").filter({ hasText: "Ổn" }).getByTestId("job-failing")).toHaveCount(0);
+
+    const box = await page.evaluate(() => {
+      const line = document.querySelector("[data-testid=job-failing]")!;
+      const last = line.closest("[data-testid=job-last]")!.getBoundingClientRect();
+      const { left, right, top, height } = line.getBoundingClientRect();
+      const badge = line.parentElement!.querySelector(".badge")!.getBoundingClientRect();
+      return {
+        fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        within: left >= last.left - 1 && right <= last.right + 1,
+        below: top >= badge.bottom,
+        wrapped: height > 2 * parseFloat(getComputedStyle(line).fontSize),
+      };
+    });
+    expect(box.fits).toBe(true);
+    expect(box.within).toBe(true);
+    // Under the badge and the time, not squeezed in beside them.
+    expect(box.below).toBe(true);
+    if (width === 390) expect(box.wrapped).toBe(true);
+  });
+}
+
 // Checking several failing jobs is Sửa lịch or Xem riêng on one row, then back to the next:
 // the back link returned to the crew or to all activity, and the row had to be found again.
 test("the back link of a job's editor or run returns to that job's row", async ({ page }) => {
