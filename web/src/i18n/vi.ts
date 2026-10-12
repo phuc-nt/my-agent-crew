@@ -304,12 +304,13 @@ export const vi = {
     legendMcpOff: "agent chưa bật máy chủ MCP này",
     legendMcpNone: "agent không có công cụ MCP nào cần tới công cụ này",
     legendNoReads: "agent không giữ công cụ chỉ đọc nào để script gọi",
+    legendScriptOff: "agent được đặt “Không dùng script”",
     fromServer: (name: string) => `MCP ${name}`,
     withMcp: "đi kèm MCP",
     withMcpTitle: "Không thuộc danh sách công cụ của agent. Agent có tool_search khi được giao công cụ MCP không khai sẵn.",
     withReads: "đi kèm công cụ đọc",
     withReadsTitle:
-      "Không thuộc danh sách công cụ của agent. Agent có tool_script khi giữ ít nhất một công cụ chỉ đọc, kể cả công cụ MCP nằm trong read_only (không ẩn).",
+      "Không thuộc danh sách công cụ của agent. Agent có tool_script khi giữ ít nhất một công cụ chỉ đọc, kể cả công cụ MCP nằm trong read_only (không ẩn), trừ khi agent được đặt “Không dùng script”.",
   },
   connectionsPage: {
     title: "Kết nối dùng chung",

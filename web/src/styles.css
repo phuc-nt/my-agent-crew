@@ -13,6 +13,8 @@
  *   manage  → the manage screen's own frame: its nav, its body, the way back to chat.
  *   manage-cards → the manage sections' lists drawn as the metric-card surface.
  *   agent-admin → editing the crew: the agent editor's form, the tools matrix, connections.
+ *   script-settings → what the crew's screens say of scripts: the grid's mark for a script
+ *             tool switched off, and the field a schedule's script is typed in.
  *   conversation-activity → the activity strip belonging to the open chat.
  *   run-timeline   → the process visualisation inside an open run card.
  *   canvas  → the canvas dock beside the chat: its column, overlay, panel and history, and the
@@ -36,6 +38,7 @@
 @import "./styles/manage-cards.css";
 @import "./styles/agent-admin.css";
 @import "./styles/schedules.css";
+@import "./styles/script-settings.css";
 @import "./styles/conversation-activity.css";
 @import "./styles/run-timeline.css";
 @import "./styles/memory-review.css";
