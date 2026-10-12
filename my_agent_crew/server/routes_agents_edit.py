@@ -22,6 +22,7 @@ from pydantic import BaseModel
 
 from my_agent_crew import texts
 from my_agent_crew.agents import DEFAULT_AGENT_ID
+from my_agent_crew.agents.kit import with_kits
 from my_agent_crew.agents.profile import AgentProfile
 from my_agent_crew.agents.profile_edit import check_agent_id, restart_reasons, validated
 from my_agent_crew.agents.profile_edit_paths import check_inside_home, check_spelling
@@ -105,13 +106,16 @@ def save(
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     try:
-        rt.replace_agent(profile)
+        # The start's last step and this one's: what the agent's kits add to what its file
+        # states. The checks above are about what the edit brings, and a kit is not that.
+        running = with_kits(profile)
+        rt.replace_agent(running)
     except RuntimeError as exc:
         raise HTTPException(409, str(exc)) from exc
     except (ValueError, OSError) as exc:
         raise HTTPException(422, str(exc)) from exc
     write_raw(manifest, raw)
-    return profile
+    return running
 
 
 @router.post("/agents", status_code=201)

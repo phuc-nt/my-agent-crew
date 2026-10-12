@@ -4,7 +4,7 @@ A patch names the keys it changes and nothing else, so leaving a key out means "
 it" rather than "clear it" — the web sends one section at a time and must not wipe the
 rest of the file by omission. Clearing a key is asked for explicitly, by sending null.
 
-Validation starts with `parse_profile`, the same code that reads a hand-written file,
+Validation starts with `read_profile`, the same code that reads a hand-written file,
 so the web cannot write a profile the server would refuse to start with. It then asks
 more of the schedules an edit brings than boot asks of a file: see `check_schedules`.
 """
@@ -21,7 +21,7 @@ from my_agent_crew.agent_ids import is_agent_id
 from my_agent_crew.agents.profile import PROFILE_KEYS, AgentProfile, Schedule
 from my_agent_crew.agents.profile_edit_paths import PATH_KEYS
 from my_agent_crew.agents.profile_write import as_written
-from my_agent_crew.agents.profile_yaml import parse_profile
+from my_agent_crew.agents.profile_yaml import read_profile
 from my_agent_crew.agents.schedule import COMMAND, PROMPT
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.scheduler.cron import CronSpec, parse_every
@@ -104,7 +104,7 @@ def validated(
     `before` is the agent as it runs now. A new agent has none, so every schedule it
     carries is the edit's.
     """
-    profile = parse_profile(agent_id, agent_dir, to_be, settings)
+    profile = read_profile(agent_id, agent_dir, to_be, settings)
     check_schedules(agent_id, profile.schedules, before.schedules if before else ())
     return profile
 

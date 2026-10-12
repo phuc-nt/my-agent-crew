@@ -473,3 +473,35 @@ def test_a_home_named_through_a_link_is_written_by_where_it_is_or_from_the_agent
     assert f" {real}" in by_the_link.json()["detail"]
     assert (from_the_folder.status_code, by_itself.status_code) == (200, 200)
     assert runtime.deps_for("coder").agent.workspace == real
+
+
+# A word the start's reader takes for a switch or for a text, and the library a save writes
+# with takes another way: the key, the line a hand wrote, the name the library reads in it.
+READ_TWO_WAYS = [
+    ("workspace", "workspace: no\n", "no"),
+    ("skills_dirs", "skills_dirs:\n  - no\n", "no"),
+    ("persona_files", "persona_files:\n  - 0o10\n", "8"),
+]
+
+
+@pytest.mark.parametrize(("key", "by_hand", "read_otherwise"), READ_TWO_WAYS, ids=KEYS)
+def test_a_path_is_spelled_as_the_start_reads_the_file_and_no_other_way(
+    start, tmp_path: Path, agent_dir: Path, key: str, by_hand: str, read_otherwise: str
+) -> None:
+    """The file to be is judged as the next start will read it. Read as the library that
+    writes it reads it, a word of the file names a place the file never named: here a link
+    out of the home, and a save about something else would be refused over it."""
+    (tmp_path / "elsewhere").mkdir()
+    (agent_dir / read_otherwise).symlink_to(tmp_path / "elsewhere")
+    client, runtime, file = start("name: Thợ mã\n" + by_hand)
+    before = runtime.deps_for("coder").agent
+
+    reply = patch(client, description="Viết mã")
+
+    assert reply.status_code == 200, reply.text
+    assert by_hand in file.read_text(encoding="utf-8")
+    assert booted(file)["description"] == "Viết mã"
+    after = runtime.deps_for("coder").agent
+    assert after.description == "Viết mã"
+    for name in ("workspace", "skills_dirs", "persona_files"):
+        assert getattr(after, name) == getattr(before, name) == getattr(read_again(runtime), name)
