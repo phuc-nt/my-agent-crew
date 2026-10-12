@@ -1,8 +1,9 @@
 """`script_calls`: whether the scripts of an agent may call the tools that change things.
 
 It is read from the agent's own file and from nowhere else, so it is on only where somebody
-wrote it; a value that is neither of the two it knows stops the file from loading; and the
-editor sets and clears it like any other key (`agents/profile_settings.py`)."""
+wrote it; a value that is none of the three it knows stops the file from loading; and the
+editor sets and clears it like any other key (`agents/profile_settings.py`). What the third
+word, `none`, takes from an agent is in `test_script_switches.py`."""
 
 from __future__ import annotations
 
@@ -13,12 +14,18 @@ import pytest
 from fastapi.testclient import TestClient
 
 from my_agent_crew.agents.profile_yaml import load_yaml_profiles, parse_profile
-from my_agent_crew.config import SCRIPT_GATED, SCRIPT_READ_ONLY, Settings, load_settings
+from my_agent_crew.config import (
+    SCRIPT_GATED,
+    SCRIPT_NONE,
+    SCRIPT_READ_ONLY,
+    Settings,
+    load_settings,
+)
 from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.server.app import create_app
 from my_agent_crew.server.runtime_build import build_runtime
 
-REFUSED = "agent coach: script_calls must be read_only or gated"
+REFUSED = "agent coach: script_calls must be none, read_only or gated"
 
 
 def home_settings(home: Path) -> Settings:
@@ -30,8 +37,8 @@ def write_agent(home: Path, agent_id: str, body: str) -> None:
     (home / "agents" / agent_id / "agent.yaml").write_text(body, encoding="utf-8")
 
 
-def test_the_two_values_are_the_words_a_file_says() -> None:
-    assert (SCRIPT_READ_ONLY, SCRIPT_GATED) == ("read_only", "gated")
+def test_the_three_values_are_the_words_a_file_says() -> None:
+    assert (SCRIPT_NONE, SCRIPT_READ_ONLY, SCRIPT_GATED) == ("none", "read_only", "gated")
     assert Settings.__dataclass_fields__["script_calls"].default == "read_only"
 
 
@@ -80,14 +87,22 @@ def test_it_is_never_taken_from_the_settings_an_agent_inherits(tmp_path: Path, r
     assert made.to_dict()["script_calls"] == "read_only"
 
 
-@pytest.mark.parametrize(
-    "value",
-    ["Gated", "GATED", " gated", "write", "all", "", "true", True, False, None, 1, ["gated"]],
-    ids=repr,
-)
+UNKNOWN = ["Gated", "GATED", " gated", "write", "all", "", "true", "None", "off", None, 1]
+
+
+@pytest.mark.parametrize("value", [*UNKNOWN, ["gated"]], ids=repr)
 def test_a_value_it_does_not_know_stops_the_file_from_loading(tmp_path: Path, value) -> None:
     """Read loosely, a slip in the one word would either turn the writes on where nobody
-    meant to, or leave them off without a word where somebody did."""
+    meant to, or leave them off without a word where somebody did. The refusal names the
+    three words and stops there."""
+    raw = {"name": "Coach", "script_calls": value}
+    with pytest.raises(ValueError) as refused:
+        parse_profile("coach", tmp_path / "agents" / "coach", raw, home_settings(tmp_path))
+    assert str(refused.value) == REFUSED
+
+
+@pytest.mark.parametrize("value", [True, False], ids=repr)
+def test_a_boolean_is_refused_with_the_three_words_like_any_other(tmp_path: Path, value) -> None:
     raw = {"name": "Coach", "script_calls": value}
     with pytest.raises(ValueError, match=REFUSED):
         parse_profile("coach", tmp_path / "agents" / "coach", raw, home_settings(tmp_path))
@@ -177,7 +192,10 @@ def test_the_editor_refuses_a_value_it_does_not_know_before_it_is_written(crew, 
     reply = client.patch("/api/agents/coder", json={"profile": {"script_calls": value}})
 
     assert reply.status_code == 422
-    assert reply.json()["detail"] == "agent coder: script_calls must be read_only or gated"
+    told = "agent coder: script_calls must be none, read_only or gated"
+    # A boolean is told the same three words, and then which of them to write instead.
+    assert reply.json()["detail"].startswith(told)
+    assert (reply.json()["detail"] == told) is (value is not True)
     assert manifest(home) == before
     assert runtime.deps_for("coder").settings.script_calls == "gated"
     assert script_runs_again(runtime) is False
@@ -191,6 +209,6 @@ def test_a_new_agent_with_a_wrong_value_is_not_made(crew) -> None:
     )
 
     assert reply.status_code == 422
-    assert reply.json()["detail"] == "agent coder: script_calls must be read_only or gated"
+    assert reply.json()["detail"] == "agent coder: script_calls must be none, read_only or gated"
     assert not (home / "agents" / "coder" / "agent.yaml").exists()
     assert "coder" not in {p.id for p in runtime.profiles()}

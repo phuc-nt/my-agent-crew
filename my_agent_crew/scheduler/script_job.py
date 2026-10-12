@@ -3,11 +3,14 @@
 A check that is due once a week is asked about every morning, and a model told to answer
 OK when nothing is due is paid to answer OK. Here the check is a script. It runs the way a
 script of `tool_script` runs (`script/tool.py`), over the tools the agent's scripts may
-call, whether or not the agent holds that tool, and ends as a run with that one step. A
-model is asked there only where the script asks one itself (`script/model_calls.py`), and
-that is charged to the run. Only when the script ended well and printed something is a
-turn opened, as a prompt job opens one, with the schedule's `then_prompt` and what the
-script printed: that turn's run is then the job's, and is what is sent on to the person.
+call, whether or not the agent holds that tool, and ends as a run with that one step. The
+text is the owner's, written in the agent's file: it runs, reading only, for an agent
+handed no script tool too (`script_calls: none`). A model is asked there only where the
+script asks one itself (`script/model_calls.py`), which is charged to the run, and never
+for an agent whose scripts ask none (`script_llm: false`). Only when the script ended well
+and printed something is a turn opened, as a prompt job opens one, with the schedule's
+`then_prompt` and what the script printed: that turn's run is then the job's, and is what
+is sent on to the person.
 
 What a script printed is whatever tools gave it: a mail, a page, a note somebody else
 wrote. The prompt is the person's, and that turn has nobody watching it. So the output
@@ -36,7 +39,7 @@ from my_agent_crew.agent.nested_calls import outside_a_turn
 from my_agent_crew.agent.turn_context import job_context
 from my_agent_crew.scheduler.jobs import JOB_SOURCE, Job, ending, open_turn
 from my_agent_crew.script.gate import job_gate
-from my_agent_crew.script.model_calls import agents_model
+from my_agent_crew.script.model_calls import scripts_model
 from my_agent_crew.script.scope import SCRIPT_TOOL, writes_too
 from my_agent_crew.script.store_session import job_kept
 from my_agent_crew.script.tool import run_source
@@ -79,7 +82,7 @@ async def _carry_out(
     kept = job_kept(deps, job.schedule.id)
     try:
         with job_context(call_id), outside_a_turn(tell):
-            result, printed = await run_source(source, deps.tools, gate, kept, agents_model(deps))
+            result, printed = await run_source(source, deps.tools, gate, kept, scripts_model(deps))
     except Exception as exc:  # a bug here fails this job, and the jobs due beside it still run
         logger.exception("script job %s crashed", job.id)
         failed = TOOL_FAILED.format(error=type(exc).__name__)

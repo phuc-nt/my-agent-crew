@@ -14,6 +14,8 @@ things as well (`gated`, below). Each such call is put to the approval gate befo
 out, with the ones kept from every script above and a server's tool the owner hid. Of those
 kept from every script one is let back in: such an agent's script may hand a task to another
 agent, in a turn of the agent's own and nowhere else (`delegation.py`).
+
+One whose file says `script_calls: none` is handed no script tool, and so writes no script.
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ from difflib import get_close_matches
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
-from my_agent_crew.config import SCRIPT_GATED, Settings
+from my_agent_crew.config import SCRIPT_GATED, SCRIPT_NONE, Settings
 from my_agent_crew.mcp.config import HIDDEN
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL
 from my_agent_crew.mcp.tools import McpTool, held_back
@@ -50,6 +52,12 @@ ALWAYS_ASKS = frozenset({ASK_USER_TOOL_NAME, SCHEDULE_CREATE_TOOL_NAME})
 def writes_too(settings: Settings) -> bool:
     """Whether the agent's scripts may also call the tools that change things."""
     return settings.script_calls == SCRIPT_GATED
+
+
+def no_scripts(settings: Settings) -> bool:
+    """Whether the agent is handed no script tool at all, whatever tools it holds. The
+    script of a schedule is not the agent's to write, and is run all the same."""
+    return settings.script_calls == SCRIPT_NONE
 
 
 def only_reads(tool: Tool) -> bool:

@@ -8,7 +8,8 @@ A script may call a tool that only reads and asks nobody (`scope.py`): of the MC
 one the owner listed under `read_only` that is not hidden, however far it is let in. How far
 decides only whether the description below names it or the script finds it, with
 `tools.search`. An agent holds the tool while it holds one such tool, of its own or a
-server's, whatever its `tools:` list and its mode say (`hand_script`). Anything that writes,
+server's, whatever its `tools:` list and its mode say (`hand_script`), unless its file says
+`script_calls: none`, which hands it no script tool at all. Anything that writes,
 or stops for a person, is called the ordinary way, where the approval gate sees it. So the
 script never asks for approval, and one a restart cut is simply run again. Each call goes
 through a registry with the agent's own hooks, and is listed on the run card, since no other
@@ -26,7 +27,8 @@ with its result: it is closed as cut and never run again, whatever it had called
 
 A script may also ask a model itself, to sort a text among a few labels or to shorten one
 (`llm_calls.py`). The server asks for it (`model_calls.py`), and each asking is one more of
-the script's calls on the run card, with what it cost. And the script of an agent that
+the script's calls on the run card, with what it cost; an agent whose file says
+`script_llm: false` has scripts that ask none. And the script of an agent that
 changes things may hand a task to another agent, in a turn of the agent's own
 (`delegation.py`): it is given the time such a task takes, and its result carries what the
 conversations it opened spent.
@@ -51,10 +53,10 @@ from my_agent_crew.script.delegation import hands_on
 from my_agent_crew.script.description import description
 from my_agent_crew.script.gate import script_gate
 from my_agent_crew.script.kept import nowhere
-from my_agent_crew.script.model_calls import Ask, ModelCalls, agents_model
+from my_agent_crew.script.model_calls import Ask, ModelCalls, scripts_model
 from my_agent_crew.script.nested import Gate, ScriptRun
 from my_agent_crew.script.runner import run_script
-from my_agent_crew.script.scope import SCRIPT_TOOL, callable_tools, writes_too
+from my_agent_crew.script.scope import SCRIPT_TOOL, callable_tools, no_scripts, writes_too
 from my_agent_crew.script.store_session import Kept, turn_kept
 from my_agent_crew.tools.registry import Tool, ToolError, ToolRegistry
 from my_agent_crew.tools.result import ToolResult
@@ -162,10 +164,14 @@ def script_tool(
 def hand_script(deps: AgentDeps, scripted: Sequence[McpTool] = ()) -> None:
     """Hands the agent the script tool, last of what it holds now, when a script of its
     would have a tool to call: one of its own that only reads, or one of `scripted`. Or,
-    for an agent whose scripts may change things, any of its own a script may call."""
+    for an agent whose scripts may change things, any of its own a script may call. An
+    agent whose file says it writes no script is handed none, whatever it holds; one whose
+    scripts ask no model is handed a tool that tells of none."""
+    if no_scripts(deps.settings):
+        return
     gate = script_gate(deps) if writes_too(deps.settings) else None
     if scripted or callable_tools(deps.tools, gate is not None):
         # Read when a script runs, not now: the registry is replaced on the next hand-out.
         keeper = partial(turn_kept, deps)
-        model = agents_model(deps)
+        model = scripts_model(deps)
         deps.tools.register(script_tool(lambda: deps.tools, scripted, gate, keeper, model))
