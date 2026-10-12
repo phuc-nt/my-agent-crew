@@ -25,10 +25,12 @@ function open(agent: AgentInfo = fakeAgent) {
 }
 const declaring = (...schedules: ScheduleRow[]): AgentInfo => ({ ...fakeAgent, declared: { ...fakeAgent.declared, schedules } });
 
-/** Adds a row, names and times it, and makes it one that runs a script. */
+/** Adds a row, names and times it, and makes it one that runs a script. It is given an id:
+ *  what a script keeps is stored under it, and the form saves no script row without one. */
 async function addScriptRow() {
   await userEvent.click(screen.getByRole("button", { name: t.addSchedule }));
   const row = within(screen.getAllByTestId("schedule-row").at(-1) as HTMLElement);
+  await userEvent.type(row.getByLabelText(t.scheduleId), "orders");
   await userEvent.type(row.getByLabelText(t.scheduleName), "Đồng bộ");
   await userEvent.type(row.getByLabelText(t.scheduleCron), "40 6 * * *");
   await userEvent.click(row.getByRole("button", { name: t.scheduleScript }));
@@ -52,8 +54,8 @@ describe("a schedule's script, written in the form", () => {
     await save();
 
     await waitFor(() => expect(screen.getByTestId("restart-banner")).toBeInTheDocument());
-    expect(sent()).toEqual([{ name: "Đồng bộ", cron: "40 6 * * *", script: "if True:\n    print(1)", enabled: true, skills: [] }]);
-    expect(backend.agents[0].declared.schedules[0]).toMatchObject({ id: "job-0", prompt: null, command: null, then_prompt: null });
+    expect(sent()).toEqual([{ id: "orders", name: "Đồng bộ", cron: "40 6 * * *", script: "if True:\n    print(1)", enabled: true, skills: [] }]);
+    expect(backend.agents[0].declared.schedules[0]).toMatchObject({ id: "orders", prompt: null, command: null, then_prompt: null });
     expect(row.getByLabelText(t.scheduleScript)).toHaveValue("if True:\n    print(1)");
     expect(screen.getByRole("button", { name: t.save })).toBeDisabled();
   });
