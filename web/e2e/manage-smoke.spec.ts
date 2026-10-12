@@ -216,7 +216,7 @@ test("a schedule added from the jobs list through the agent's editor is on the l
     { id: "brief", name: "Bản tin sáng", cron: "0 7 * * *", prompt: "Tóm tắt", enabled: true, skills: ["goodreads"] },
     { name: "Dọn rác", every: "30m", command: "echo dọn", enabled: true, skills: [] },
   ]);
-  await expect(editor.getByTestId("schedule-live")).toHaveText("Đã lưu. Lịch chạy mới có hiệu lực ngay, không cần khởi động lại.");
+  await expect(editor.getByTestId("schedule-live")).toHaveText("Đã lưu. Thay đổi lịch chạy có hiệu lực ngay, không cần khởi động lại.");
   // Nothing on the page asks for the restart a schedule used to wait for.
   await expect(page.getByTestId("restart-banner")).toHaveCount(0);
   await expect(page.getByText("Cần khởi động lại", { exact: true })).toHaveCount(0);
