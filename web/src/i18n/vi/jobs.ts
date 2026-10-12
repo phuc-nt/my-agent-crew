@@ -49,6 +49,8 @@ export const viJobs = {
         ? `Đã báo Telegram lúc ${told}.`
         : `Đã báo Telegram lúc ${told}; còn hỏng thì nhắc lại sau ${next}.`,
     streakUntold: "Chưa báo được qua Telegram; lần hỏng kế tiếp sẽ thử lại.",
+    // Between the run's end and Telegram's answer, which can be most of a minute.
+    streakTelling: "Đang báo qua Telegram.",
     // A cron read aloud. The hour is the server's own clock, which is the owner's.
     cron: {
       every: (n: number, unit: string) => (n === 1 ? `Mỗi ${unit}` : `Mỗi ${n} ${unit}`),

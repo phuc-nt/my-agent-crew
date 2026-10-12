@@ -88,7 +88,7 @@ for (const scheme of ["light", "dark"] as const) {
   // measured on the real row, since a probe would sit on the page's background instead.
   test(`a failing job's sentence reads at 4.5:1 in ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
-    const failing = { count: 2, since: "2025-03-03T00:00:00Z", told_at: null, next_notice_at: null };
+    const failing = { count: 2, since: "2025-03-03T00:00:00Z", told_at: null, next_notice_at: null, telling: false };
     const job = { id: "default/brief", schedule_id: "brief", agent_id: "default", name: "Bản tin", kind: "prompt", cron: "0 7 * * *", every: null, prompt: "Tóm tắt", command: null, enabled: true, skills: [], next_run: null, last_run: null, running: false, paused: false, origin: "profile", failing };
     await mockApi(page, { jobs: [job] });
     await page.goto("/#/manage/jobs");

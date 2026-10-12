@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { coachAgent, defaultAgent, mockApi, run } from "./mock-api";
+import { coachAgent, defaultAgent, mockApi, run, sse } from "./mock-api";
 
 const master = { ...defaultAgent, name: "Trợ lý", delegates: ["coach"] };
 const { kind: _kind, ...briefRow } = coachAgent.schedules[0];
@@ -124,7 +124,7 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 844 });
     const failed = run({ id: "r-err", agent_id: "coach", source: "job:coach/brief", status: "error" });
     // Days long past, so each time reads as a date and a clock in the page's zone (UTC+7).
-    const failing = { count: 3, since: "2025-03-03T00:00:00Z", told_at: "2025-03-03T00:01:00Z", next_notice_at: "2025-03-04T00:01:00Z" };
+    const failing = { count: 3, since: "2025-03-03T00:00:00Z", told_at: "2025-03-03T00:01:00Z", next_notice_at: "2025-03-04T00:01:00Z", telling: false };
     await openJobs(page, [{ ...briefJob, last_run: failed, failing }, { ...briefJob, id: "coach/fine", name: "Ổn" }]);
 
     const row = page.getByTestId("job").filter({ hasText: "Bản tin sáng" });
@@ -181,4 +181,33 @@ test("the back link of a job's editor or run returns to that job's row", async (
   await page.goto("/#/manage/crew/coach");
   await page.getByTestId("agent-editor").getByRole("button", { name: "← Đội" }).click();
   await expect(page).toHaveURL(/#\/manage\/crew$/);
+});
+
+// The page reads a row when its run ends; the server counts the run into the job's streak
+// and tells the owner after that, then says on the stream that the list changed. The stream
+// is kept shut here until the server's answer is another one, so nothing but that signal
+// can be what brings the row up to date.
+test("a notice on its way becomes one the owner was told of when the stream says the list changed", async ({ page }) => {
+  const failed = run({ id: "r-err", agent_id: "coach", source: "job:coach/brief", status: "error" });
+  const since = "2025-03-03T00:00:00Z";
+  const row = (failing: object) => ({ ...briefJob, last_run: failed, failing: { count: 1, since, ...failing } });
+  const jobs: object[] = [row({ told_at: null, next_notice_at: null, telling: true })];
+  await mockApi(page, { agents: [master, coach], jobs });
+  let opens!: () => void;
+  const shut = new Promise<void>((resolve) => (opens = resolve));
+  await page.route(/\/api\/activity\/stream$/, async (route) => {
+    await shut;
+    const body = sse([{ type: "snapshot", runs: [] }, { type: "jobs" }]);
+    await route.fulfill({ status: 200, contentType: "text/event-stream", body });
+  });
+  await page.goto("/#/manage/jobs");
+  const streak = page.getByTestId("job-failing");
+  await expect(streak).toHaveText("Hỏng từ 03/03 07:00. Đang báo qua Telegram.");
+
+  jobs[0] = row({ told_at: "2025-03-03T00:00:02Z", next_notice_at: "2025-03-03T06:00:02Z", telling: false });
+  opens();
+
+  await expect(streak).toHaveText(
+    "Hỏng từ 03/03 07:00. Đã báo Telegram lúc 03/03 07:00; còn hỏng thì nhắc lại sau 03/03 13:00.",
+  );
 });

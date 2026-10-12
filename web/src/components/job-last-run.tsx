@@ -73,9 +73,11 @@ export function JobLastRun({ job, now, onOpenRun }: Props) {
  *  was told about it is on no other page. */
 function FailingStreak({ failing, now }: { failing: JobFailing; now: Date }) {
   const t = vi.jobRow;
+  // A notice on its way is said only while none of this streak has got through: one that
+  // is being sent again leaves the row saying when the owner was last told.
   const told = failing.told_at
     ? t.streakTold(dayClock(failing.told_at, now), failing.next_notice_at && dayClock(failing.next_notice_at, now))
-    : t.streakUntold;
+    : failing.telling ? t.streakTelling : t.streakUntold;
   return (
     <p className="job-failing" data-testid="job-failing">
       {t.streak(failing.count, dayClock(failing.since, now))} {told}

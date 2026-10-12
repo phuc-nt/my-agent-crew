@@ -28,7 +28,11 @@ export type ActivityPayload =
   // background once the first message named it.
   | { type: "conversation"; conversation: Conversation }
   // A canvas changed: its summary or its deletion, never its text.
-  | ArtifactEvent;
+  | ArtifactEvent
+  // The job list is no longer what a page read when a run ended: the server counts a run
+  // into its job's streak of failures, and tells the owner, only after the run is over.
+  // It carries nothing; the page reads the list again.
+  | { type: "jobs" };
 
 /** A job whose runs keep ending in an error, and what the owner was told about it. */
 export interface JobFailing {
@@ -40,6 +44,8 @@ export interface JobFailing {
   told_at: string | null;
   /** The earliest a failure is told again; null along with `told_at`. */
   next_notice_at: string | null;
+  /** A notice of this streak is on its way to Telegram, which has not answered yet. */
+  telling: boolean;
 }
 
 export interface JobInfo extends ScheduleInfo {

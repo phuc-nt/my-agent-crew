@@ -134,3 +134,51 @@ describe("useActivity and canvas events", () => {
     expect(result.current.state).toBe(before);
   });
 });
+
+// The server counts a failed run into its job's streak, and tells the owner, after the run
+// is over, which is after the page read the job list for that run.
+describe("useActivity and the job list", () => {
+  it("tells the page to read the jobs again, and leaves the runs as they were", async () => {
+    const net = network();
+    const onJobs = vitest.fn();
+    const { result } = renderHook(() => useActivity(true, undefined, onJobs));
+    act(() => {
+      stream().open();
+      stream().emit({ type: "snapshot", runs: [] });
+    });
+    await waitFor(() => expect(net.reads()).toBe(1));
+    const before = result.current.state;
+
+    act(() => stream().emit({ type: "jobs" }));
+
+    expect(onJobs).toHaveBeenCalledTimes(1);
+    expect(result.current.state).toBe(before);
+    // The runs did not change, so their list is not asked for.
+    expect(net.reads()).toBe(1);
+  });
+
+  it("calls the listener the page holds now, on the stream it opened at the start", async () => {
+    network();
+    const first = vitest.fn();
+    const second = vitest.fn();
+    const { rerender } = renderHook(({ onJobs }) => useActivity(true, undefined, onJobs), { initialProps: { onJobs: first } });
+    const opened = stream();
+    rerender({ onJobs: second });
+
+    act(() => opened.emit({ type: "jobs" }));
+
+    expect(FakeEventSource.instances).toHaveLength(1);
+    expect(opened.closed).toBe(false);
+    expect([first.mock.calls.length, second.mock.calls.length]).toEqual([0, 1]);
+  });
+
+  it("takes the signal in its stride when nothing listens for it", async () => {
+    network();
+    const { result } = renderHook(() => useActivity(true));
+    const before = result.current.state;
+
+    act(() => stream().emit({ type: "jobs" }));
+
+    expect(result.current.state).toBe(before);
+  });
+});

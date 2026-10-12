@@ -31,7 +31,7 @@ export function subscribeActivity(
     onPayload(JSON.parse(message.data) as ActivityPayload);
   // The server names each SSE event after its payload type; a type not listed here
   // never reaches the app.
-  for (const name of ["snapshot", "run", "event", "conversation", "artifact"]) {
+  for (const name of ["snapshot", "run", "event", "conversation", "artifact", "jobs"]) {
     source.addEventListener(name, handle);
   }
   source.onopen = () => onStatus(true);
