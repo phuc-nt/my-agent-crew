@@ -35,9 +35,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   as one text, the whole rest of the line, a trailing ` # remark` included. A value that opens
   with a YAML sign (a quote, `[`, `{`, `|`, `>`, `&`, `*`, `!`, `- `), a nested key, a value that
   runs over lines and an item of a list are left as written, so a front matter broken some other
-  way is still refused, by the error of the second reading. A front matter YAML takes is read as
-  before. This holds for a kit agent's file and for a skill's `SKILL.md`; the memory files keep
-  strict YAML.
+  way is still refused, by the error of the second reading. So is a line holding a control
+  character or a mark YAML ends a line at (a carriage return inside the line, U+0085, U+2028,
+  U+2029); the carriage return that ends a line of a Windows file is cut off. Each line taken
+  as text has to come out as an entry of its own at the top of what the block states: a line of
+  that shape inside a value that runs over lines (quoted, or in `{…}` or `[…]`), or one of two
+  lines under the same key, leaves the block refused, by the error YAML gave it. A front matter
+  YAML takes is read as before. This holds wherever a front matter is read: a kit agent's file,
+  a kit command, a skill's `SKILL.md` and a persona file, whose block is then left out of the
+  prompt as any front matter is, where 0.16.0 handed the model the file as written. The memory
+  files keep strict YAML.
 - A job that keeps failing shows it. Each row of `GET /api/jobs` gains `failing`: `null`, or
   `{count, since, told_at, next_notice_at, telling}`, the failures in a row the job is in, when
   the first was, when the channel last took a message about them, when the next message may come

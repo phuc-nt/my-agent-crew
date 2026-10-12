@@ -507,14 +507,27 @@ tên một test thì sửa dòng của nó trong cùng commit.
     skill dạng thư mục, và không dòng log nào nêu tệp; persona có khối như thế chỉ giữ phần
     thân; giá trị kết thúc bằng dấu hai chấm, có tab sau dấu hai chấm, có chữ tiếng Việt và
     emoji, có dấu nháy kép và dấu gạch chéo ngược, mở đầu bằng `--`, có ba dấu hai chấm đều
-    đến đúng từng ký tự; khoảng trắng cuối dòng không thuộc về chữ; phần sau dấu `#` thuộc về
+    đến đúng từng ký tự; khoảng trắng cuối dòng không thuộc về chữ; tệp có dấu xuống dòng kiểu
+    Windows đọc ra cùng chữ ấy; dòng mang 200.000 dấu cách ở giữa được đọc trong thời gian tỷ
+    lệ với độ dài của nó, không phải bình phương; phần sau dấu `#` thuộc về
     chữ; khối YAML đọc được giữ `true`, số, danh sách, giá trị trong nháy và bỏ ghi chú đúng
     như YAML; dòng có dạng đó nằm trong một giá trị trong nháy trải nhiều dòng không bị đọc
     lần hai khi YAML đọc được cả khối; bên cạnh một dòng được lấy làm chữ, các dòng khác giữ
     đúng kiểu YAML cho, kể cả dòng có dấu hai chấm chỉ nằm trong ghi chú; khoá lồng, giá trị
     hai dòng, mục danh sách, khoá trong nháy, khoá có dấu hai chấm, giá trị mở đầu bằng từng
     ký hiệu của YAML và khối còn hỏng ở dòng khác vẫn là `ValueError`; lỗi nêu dòng còn
-    vướng chứ không nêu dòng đã đọc được). Kiểm chứng đột biến: mười bảy sửa đổi (đọc lần
+    vướng chứ không nêu dòng đã đọc được; dòng có dạng đó nằm giữa một giá trị trong nháy,
+    trong `{…}` hay `[…]` trải nhiều dòng làm cả khối bị từ chối, kể cả khi chữ của nó, hay cả
+    khoá lẫn chữ của nó, còn đứng ở một cặp khoá khác, khi khối là một danh sách, và khi dòng
+    ấy không khai cặp khoá nào; hai dòng cùng một khoá cũng vậy; khối như thế bị từ chối bằng
+    lỗi YAML nêu ở lần đọc đầu; dòng mang U+0085, U+2028, U+2029, dấu về đầu dòng ở giữa,
+    chuông, sang trang hay ESC thì để nguyên và khối bị từ chối; khoá mà YAML đọc thành số
+    hay `true` vẫn là một cặp khoá). Mười bảy sửa đổi nữa ở phần này (regex dừng trước khoảng
+    trắng cuối dòng, giữ khoảng trắng cuối dòng trong chữ, không cắt dấu về đầu dòng của tệp
+    Windows, bỏ phép kiểm ký tự, cho qua từng nhóm ký tự trong sáu nhóm, không hỏi dòng đã lấy
+    có phải một cặp khoá, cho hai dòng khai một cặp khoá, không đòi khối là các cặp khoá, hỏi
+    cặp khoá của một dòng không khai gì, tìm chữ ở bất kỳ giá trị nào, chỉ tìm khoá, từ chối
+    bằng một lỗi riêng) đều bị test bắt. Kiểm chứng đột biến trước đó: mười bảy sửa đổi (đọc lần
     hai trước lần YAML, chỉ đọc lần hai, không đọc lần hai, ném lỗi của lần đọc đầu, bỏ kiểm
     ký hiệu ở giá trị, bỏ kiểm ký hiệu ở khoá, tính cả dấu hai chấm trong ghi chú, bỏ ghi chú
     khỏi chữ, viết chữ thành mã ASCII, bọc nháy mà không thoát ký tự, bọc nháy mọi giá trị,
