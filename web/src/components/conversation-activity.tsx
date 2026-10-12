@@ -1,19 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
-import { runGroups } from "../state/activity-reducer";
-import { readText, writeText } from "../lib/local-store";
-import { isSettled, stepProgress, waitingKey } from "../lib/run-progress";
+import { writeText } from "../lib/local-store";
+import { isSettled } from "../lib/run-progress";
 import { mergeRuns, useRunHistory } from "../hooks/use-run-history";
-import { ApprovalHistory } from "./approval-history";
-import { ConversationActivitySummary } from "./conversation-activity-summary";
-import { RunProgressHeader } from "./run-progress-header";
-import { RunGroupCard, formatClock } from "./run-timeline";
+import { activityBody, activityPill, activityStatus, EXPANDED_KEY, readExpanded } from "./conversation-activity-parts";
 import { Icon } from "./ui/icon";
 
-// Namespaced to this strip: a bare "activity.expanded" would collide with anything else
-// that later wants to remember an activity view's open state.
-const EXPANDED_KEY = "conversation-activity.expanded";
 // Far more turns than one conversation usually holds, and still one small request.
 const HISTORY_LIMIT = 100;
 
@@ -131,78 +124,23 @@ export function ConversationActivity({
     </span>
   );
 
-  const status = current ? (
-    <RunProgressHeader run={current} />
-  ) : recent.length > 0 ? (
-    // With nothing live the bar still has to answer "what happened last?" — a bare
-    // label with no run behind it reads like a missing feature.
-    <span className="muted">
-      {vi.conversationActivity.lastRun}: {vi.runStatus[recent[0].status]} ·{" "}
-      {formatClock(recent[0].started_at)} · {vi.runSteps(stepProgress(recent[0]).total)}
-    </span>
-  ) : (
-    // "Never ran" only once the store has said so; until then it cannot tell. Focusable
-    // from code alone, for a retry that finds no run and has nowhere else to leave the focus.
-    trouble || (
-      <span className="muted" role="status" tabIndex={-1}>
-        {history.loading ? vi.runFilters.loading : vi.noRuns}
-      </span>
-    )
-  );
+  const status = activityStatus({ current, recent, trouble, history });
 
-  const body = (
-    <div className="conversation-activity-body">
-      {trouble}
-      <ConversationActivitySummary
-        runs={runs}
-        conversationId={conversationId}
-        spent={spentUsd}
-        cap={capUsd}
-      />
-      {live.length > 0 && <h4>{vi.conversationActivity.live}</h4>}
-      {runGroups(live).map((group) => (
-        <RunGroupCard
-          key={group.run.id}
-          group={group}
-          agentName={agentName}
-          expanded
-          onOpenConversation={onOpenConversation}
-        />
-      ))}
-      {recent.length > 0 && <h4>{vi.recentRuns}</h4>}
-      {runGroups(recent).map((group) => (
-        <RunGroupCard
-          key={group.run.id}
-          group={group}
-          agentName={agentName}
-          onOpenConversation={onOpenConversation}
-        />
-      ))}
-      <h4>{vi.conversationActivity.approvals}</h4>
-      <ApprovalHistory
-        agentName={agentName}
-        onOpenConversation={onOpenConversation}
-        // The streamed runs, not the merged list: the stored runs arriving is not a run
-        // settling, and would ask for the approvals twice on every open. A request decided
-        // while its turn goes on to wait again settles no run, so the wait is part of it.
-        refreshKey={`${settled}|${waitingKey(streamed)}`}
-        conversationId={conversationId}
-      />
-    </div>
-  );
+  const body = activityBody({
+    trouble,
+    runs,
+    conversationId,
+    spentUsd,
+    capUsd,
+    live,
+    recent,
+    agentName,
+    onOpenConversation,
+    settled,
+    streamed,
+  });
 
-  // The column's headline state, in the same pill shape as the chat header's.
-  const waiting = current?.status === "awaiting_approval";
-  const pill = (
-    <span className={`status-pill${current ? (waiting ? " warn" : " ok") : ""}`}>
-      <span className="pill-dot" aria-hidden="true" />
-      {current
-        ? waiting
-          ? vi.conversationActivity.waiting
-          : vi.conversationActivity.live
-        : vi.conversationActivity.idle}
-    </span>
-  );
+  const pill = activityPill(current);
 
   if (docked) {
     return (
@@ -249,9 +187,4 @@ export function ConversationActivity({
       {expanded && runs.length > 0 && body}
     </section>
   );
-}
-
-/** Remembering the choice is a convenience; a browser that refuses storage collapses. */
-function readExpanded(): boolean {
-  return readText(EXPANDED_KEY) === "1";
 }
