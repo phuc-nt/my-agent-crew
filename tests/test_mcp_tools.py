@@ -21,7 +21,8 @@ from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.mcp.config import DEFERRED, DIRECT, HIDDEN
 from my_agent_crew.mcp.hub import CONNECTED, FAILED, IDLE, SIGNED_OUT, McpHub
 from my_agent_crew.mcp.tokens import TokenStore
-from my_agent_crew.mcp.tools import McpTool, build_tools, render, tool_name
+from my_agent_crew.mcp.tool_result import render
+from my_agent_crew.mcp.tools import McpTool, build_tools, tool_name
 from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.tools.registry import ToolRegistry
 from tests.mcp_fakes import CREATE, SEARCH, TOOLS, FakeMcp, make_hub, public, server, unparsed
@@ -671,6 +672,7 @@ async def test_what_the_owner_is_shown_of_a_server_holds_no_key(deps_factory):
                 "exposure": "deferred",
                 "requires_approval": False,
                 "read_only_hint": True,
+                "folded": None,
             },
             {
                 "name": CREATE_NAME,
@@ -679,6 +681,7 @@ async def test_what_the_owner_is_shown_of_a_server_holds_no_key(deps_factory):
                 "exposure": "hidden",
                 "requires_approval": True,
                 "read_only_hint": False,
+                "folded": None,
             },
         ],
     }

@@ -5245,6 +5245,32 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     dựng sổ; máy chủ liệt kê quá nhiều tool thì hỏng và nói vì sao; cả lần kết nối chỉ có thời gian
     của một request; header không viết được bị từ chối mà không lộ giá trị),
     `tests/test_tools_registry.py` (thu hẹp sổ theo nhiều tên một lần giữ nguyên thứ tự phần còn lại).
+- **phần tham số quá lớn được gấp trước khi tool bị bỏ**:
+  - pytest: `tests/test_mcp_schema_fold.py` (đoạn đứng hai chỗ được viết một lần trong `$defs` và trỏ
+    tới, phần thêm vào đứng cuối; bản gốc không bị đụng; đoạn được dời khỏi mọi chỗ một schema đứng,
+    với từng từ khoá ở từng dạng; thứ nằm dưới `enum`, `const`, `default`, `examples`, `required` hay
+    một từ khoá lạ không bao giờ bị dời; tham số tên như một từ khoá vẫn là tham số; bảng tên không bị
+    dời như một schema; từ khoá giữ thứ không phải schema thì để nguyên; tên đặt theo thứ tự đoạn đứng
+    lần đầu; đoạn đã dời trỏ tới đoạn dời ra từ trong nó; cùng một schema luôn gấp ra cùng một chuỗi
+    ký tự, dù các đoạn là một object hay được viết riêng; đoạn chỉ được dời khi cả schema ngắn lại,
+    đếm bằng số ký tự thật của cả hai cách viết: khi nó đứng một mình, khi đứng cạnh một đoạn đã dời,
+    khi phần lớn của nó là một đoạn đã dời, khi nó nhận cái tên dài hơn là `shared10`, và ký tự có
+    dấu được đếm là một ký tự; đoạn đứng một lần trong một đoạn đã dời thì được viết nguyên trong đó;
+    không gì lặp thì không gấp; tên mới tránh tên đã có và tên đang được trỏ tới, kể cả con trỏ không
+    dẫn tới đâu; `$ref` tới định nghĩa của chính schema được để nguyên; schema trỏ đi nơi khác, tự
+    đặt tên, có `$defs` không phải bảng, dài quá mức được đọc hay lồng quá sâu thì không gấp; bản gấp
+    mở lại không ra đúng bản gốc thì không được dùng; một phần tham số viết đủ ở mọi chỗ gấp còn một
+    phần nhỏ và mở lại đúng từng ký tự),
+    `tests/test_mcp_folded_tools.py` (tool vừa mức sau khi gấp được nhận, giữ bản máy chủ viết, nói
+    hai con số và ghi một dòng log; phần tham số vừa mức được trao nguyên, kể cả khi vừa đúng mức, khi
+    lặp nhiều hay đã có `$defs` riêng; thêm một ký tự là bị gấp; gấp rồi vẫn quá thì bị bỏ và nêu tên
+    như trước; mức được hỏi ở bản đã gấp, đúng tới từng ký tự; phần tham số không gấp được thì tool bị
+    bỏ như trước; tool bị bỏ vì trùng tên không được nói là đã gấp; `tool_search` đọc bản máy chủ
+    viết, không sâu hơn mức nó vẫn đọc; script được tả tool theo bản máy chủ viết; model được nói bản
+    đã gấp ở mọi lần gọi, cả trong request mà provider gửi đi, và cả khi tool được nạp bằng
+    `tool_search`), `tests/test_api_mcp.py` (dòng của tool ở `GET /api/mcp` mang `folded` với hai con
+    số, các tool khác mang `null`). Schema trong các test này được dựng riêng
+    (`tests/mcp_schema_fakes.py`); không schema của máy chủ thật nào được chép vào repo.
 - **Nửa ký tự trong câu trả lời của tool**:
   - pytest: `tests/test_tools_registry.py` (nửa ký tự trong câu trả lời, dạng chữ hay dạng kết
     quả, được thay bằng dấu U+FFFD và kết quả ghi được vào store; trong lời lỗi của chính tool
@@ -5305,7 +5331,8 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
     chủ đã kết nối và không token nào hiện ra; đăng xuất bỏ token và thu tool về; đăng nhập hỏng vẫn về
     đúng màn nói vì sao; callback không ai chờ không đổi gì; chỉ bắt đầu đăng nhập được từ chính máy
     chạy crew, với tên nào của máy đó cũng được; đăng nhập không bắt đầu được thì nói vì sao; đường
-    quay về chuyển tiếp lời xưng tên của nơi cấp mã),
+    quay về chuyển tiếp lời xưng tên của nơi cấp mã; dòng của tool mà model được nói ở bản đã gấp mang
+    `folded`),
     `tests/test_local_guard.py` (chỉ đường quay về từ đăng nhập nhận một lượt điều hướng từ trang khác).
 - **web: thẻ Máy chủ MCP ở Kết nối**:
   - vitest: `hooks/use-mcp-servers.test.ts` (đọc một lần khi mở và không đọc lại khi mọi máy chủ đã có
@@ -5368,6 +5395,23 @@ hình không giữ khoá; đăng nhập OAuth chỉ bắt đầu từ chính má
   cả máy chủ đã có người nhận; cho hai lần thử chồng nhau; bỏ lần thử được yêu cầu giữa chừng, hoặc cho
   nó lấy luôn kết quả của lần trước; giữ cả khoá gia hạn trong lúc thử; bắt mọi máy chủ chờ chung một
   lần thử), mỗi cái đều làm ít nhất một test đỏ.
+- Việc gấp phần tham số được kiểm bằng sáu mươi sửa đổi ở server: gấp cả phần tham số vừa mức; hỏi mức
+  lệch một ký tự, trước hay sau khi gấp; không hỏi mức ở bản đã gấp; đổi chỗ hai con số; đếm ký tự có
+  dấu như một chuỗi thoát; bỏ bước mở lại để so; dùng bản gấp không ngắn hơn bản gốc; dời đoạn chỉ đứng
+  một chỗ hay đoạn không làm cả schema ngắn đi; quên phần của con trỏ, của cái tên, hay của cái tên dài
+  hơn khi đã có nhiều tên; cân một đoạn theo cả những phần đã dời khỏi nó; đếm một đoạn theo số lần nó
+  đứng trong bản gốc thay vì số chỗ còn giữ nó sau khi gấp; lấy tên đã có hay tên đang được trỏ tới; đặt
+  phần thêm vào trước định nghĩa sẵn có, hay bỏ định nghĩa sẵn có; bỏ mức dài được đọc; không bắt trường
+  hợp lồng quá sâu; đọc `enum`, `const`, `default`, `examples`, `required` như chỗ của schema; dời cả
+  một bảng tên; bỏ sót `not`, `items` dạng danh sách hay `dependentSchemas`; nhận schema tự đặt tên hay
+  con trỏ đi nơi khác; nói cho model bản máy chủ viết; giữ bản đã gấp làm bản của tool; không ghi log,
+  ghi ở mức thấp hơn, hay ghi cho tool bị bỏ; để `folded` trống trên dòng của tool. Năm mươi tám cái làm
+  ít nhất một test đỏ. Mười cái trong số đó từng sống sót: bảy cái ở phép cân từng đoạn, mà các test lúc
+  ấy chỉ thử với một đoạn đứng một mình, nơi phép so cuối cùng với độ dài bản gốc che mất phép cân; ba
+  cái còn lại là bỏ bước mở lại để so, đếm theo số lần đứng trong bản gốc, và ghi log cho tool bị bỏ vì
+  trùng tên. Giờ phép cân được thử cạnh một đoạn đã dời, đúng tới từng ký tự, và mỗi cái có test riêng.
+  Hai sửa đổi còn lại không làm test nào đỏ vì hai dòng chúng sửa không mang hành vi nào (một dòng cho
+  khoá không phải chuỗi, một dòng cho cùng một object gặp lại); hai dòng ấy đã được bỏ.
 
 ## Tìm và nạp tool MCP (`tool_search`)
 

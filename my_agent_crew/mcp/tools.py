@@ -11,18 +11,18 @@ one being trusted.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import re
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from my_agent_crew import texts_mcp as t
-from my_agent_crew.mcp.config import DEFERRED, DIRECT, McpServer, MissingEnv
-from my_agent_crew.mcp.tool_limits import NAME_TAKEN, shown, unfit
-from my_agent_crew.mcp.wire import McpError
-from my_agent_crew.tools.registry import Tool, ToolError
+from my_agent_crew.llm.types import ToolSpec
+from my_agent_crew.mcp.config import DEFERRED, DIRECT, McpServer
+from my_agent_crew.mcp.tool_limits import NAME_TAKEN, Folded, shown, unfit
+from my_agent_crew.mcp.tool_result import Call, runner
+from my_agent_crew.tools.registry import Tool
 
 PREFIX = "mcp__"
 # The longest name every provider accepts for a tool.
@@ -33,7 +33,6 @@ SUMMARY_CHARS = 200
 HASH_CHARS = 8
 EMPTY_SCHEMA: dict[str, Any] = {"type": "object", "properties": {}}
 
-Call = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
 logger = logging.getLogger(__name__)
 
 
@@ -45,6 +44,14 @@ class McpTool(Tool):
     exposure: str = DEFERRED
     # What the server says of it. Shown, never acted on.
     read_only_hint: bool = False
+    # Its parameters as a model is told them, where the server's own were too long to
+    # send. `parameters` stays what the server wrote, and is what everything here reads.
+    folded: Folded | None = None
+
+    @property
+    def spec(self) -> ToolSpec:
+        told = self.folded.schema if self.folded else self.parameters
+        return ToolSpec(name=self.name, description=self.description, parameters=told)
 
     def to_dict(self) -> dict[str, Any]:
         return {**super().to_dict(), "server": self.server, "exposure": self.exposure}
@@ -84,52 +91,6 @@ def tool_name(server: str, tool: str) -> str:
     return f"{name[: MAX_NAME_CHARS - HASH_CHARS - 1]}_{digest}"
 
 
-def _block(block: Any) -> str:
-    if not isinstance(block, dict):
-        return ""
-    kind = block.get("type")
-    if kind == "text":
-        return str(block.get("text") or "")
-    if kind == "resource":
-        resource = block.get("resource")
-        resource = resource if isinstance(resource, dict) else {}
-        text = resource.get("text")
-        if isinstance(text, str) and text:
-            return text
-        return t.MCP_BLOCK.format(kind="resource", detail=resource.get("uri") or "?")
-    if kind == "resource_link":
-        return t.MCP_BLOCK.format(kind="link", detail=block.get("uri") or "?")
-    return t.MCP_BLOCK.format(kind=kind or "?", detail=block.get("mimeType") or "?")
-
-
-def render(result: dict[str, Any]) -> str:
-    """The text of a tool's result. A picture or a sound is named, not carried: a turn
-    reads text. A result with no text but with structured content is that content."""
-    content = result.get("content")
-    parts = [_block(block) for block in content] if isinstance(content, list) else []
-    text = "\n".join(part for part in parts if part)
-    structured = result.get("structuredContent")
-    if not text and structured is not None:
-        return json.dumps(structured, ensure_ascii=False)
-    return text
-
-
-def _runner(call: Call, remote: str) -> Callable[[dict[str, Any]], Awaitable[str]]:
-    async def run(arguments: dict[str, Any]) -> str:
-        try:
-            result = await call(remote, arguments)
-        except MissingEnv as exc:
-            raise ToolError(t.MCP_MISSING_ENV.format(names=", ".join(exc.names))) from exc
-        except McpError as exc:
-            raise ToolError(str(exc)) from exc
-        text = render(result)
-        if result.get("isError"):
-            raise ToolError(text or t.MCP_TOOL_FAILED)
-        return text or t.MCP_EMPTY_RESULT
-
-    return run
-
-
 def _schema(raw: Any) -> dict[str, Any]:
     # A provider refuses a tool whose parameters are not an object.
     if isinstance(raw, dict) and raw.get("type") == "object":
@@ -151,7 +112,8 @@ def build_tools(
     """(the server's tools, the names left out). A tool is left out when it is more than
     is taken (`tool_limits`) or another already took the name it comes to here; one that
     is hidden is built, so the owner sees it listed, and is kept from the agents where
-    they are handed their tools."""
+    they are handed their tools. One whose parameters fit only folded is taken, and said
+    to be in the log."""
     tools: dict[str, McpTool] = {}
     skipped: list[str] = []
     for raw in listed:
@@ -159,7 +121,7 @@ def build_tools(
         if not isinstance(remote, str) or not remote:
             continue
         schema = _schema(raw.get("inputSchema"))
-        why = unfit(remote, schema)
+        why, folded = unfit(remote, schema)
         name = "" if why else tool_name(server.name, remote)
         if name in tools:
             why = NAME_TAKEN
@@ -168,13 +130,21 @@ def build_tools(
             # %r: a name is the server's to choose, line breaks and all.
             logger.warning("MCP server %s: tool %r left out, %s", server.name, skipped[-1], why)
             continue
+        if folded:
+            logger.info(
+                "MCP server %s: tool %r parameters folded, %d chars to %d",
+                server.name,
+                remote,
+                folded.before,
+                folded.after,
+            )
         reads = server.reads_only(remote)
         annotations = raw.get("annotations")
         tools[name] = McpTool(
             name=name,
             description=_description(server, raw),
             parameters=schema,
-            run=_runner(call, remote),
+            run=runner(call, remote),
             requires_approval=not reads,
             replay_safe=reads,
             server=server.name,
@@ -182,5 +152,6 @@ def build_tools(
             exposure=server.exposure_of(remote),
             read_only_hint=isinstance(annotations, dict)
             and annotations.get("readOnlyHint") is True,
+            folded=folded,
         )
     return tuple(tools.values()), tuple(skipped)

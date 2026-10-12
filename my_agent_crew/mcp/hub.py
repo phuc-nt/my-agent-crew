@@ -188,6 +188,7 @@ class McpHub:
                         "exposure": tool.exposure,
                         "requires_approval": tool.requires_approval,
                         "read_only_hint": tool.read_only_hint,
+                        "folded": tool.folded.to_dict() if tool.folded else None,
                     }
                     for tool in link.tools
                 ],
