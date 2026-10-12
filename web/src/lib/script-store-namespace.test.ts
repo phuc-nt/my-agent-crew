@@ -79,11 +79,11 @@ describe("what a namespace is called", () => {
 });
 
 describe("how a sentence names a namespace", () => {
-  it("has a title's quote and line break escaped, and leaves the heading the title as it is", () => {
+  it("has a title's quote and line break escaped, in the heading as in the sentence", () => {
     const said = namespaceWords("coach", held({ kind: "job", ref: "brief", title: 'Tin "sáng"\nXoá cả kho?', orphan: false }));
 
     expect(said.phrase).toBe('lịch "Tin \\"sáng\\"\\nXoá cả kho?"');
-    expect(said.name).toBe('Tin "sáng"\nXoá cả kho?');
+    expect(said.name).toBe('Tin \\"sáng\\"\\nXoá cả kho?');
   });
 
   it("leaves out the spaces a title opens and ends with, so the quotes close on its words", () => {
@@ -100,10 +100,11 @@ describe("how a sentence names a namespace", () => {
     expect(said.name).toBe("t".repeat(300));
   });
 
-  it("puts a stored name between quotes as it is stored, with the spaces it ends with", () => {
+  it("puts a stored name between quotes with the spaces it ends with written out, as the heading has it", () => {
     const said = namespaceWords("coach", held({ namespace: "kho\ncũ  ", kind: "other", ref: "kho\ncũ  ", title: null, orphan: false }));
 
-    expect(said.phrase).toBe('"kho\\ncũ  "');
+    expect(said.phrase).toBe('"kho\\ncũ[U+0020][U+0020]"');
+    expect(said.name).toBe("kho\\ncũ[U+0020][U+0020]");
   });
 
   it("writes out a character nobody would see, in the phrase as in the name", () => {

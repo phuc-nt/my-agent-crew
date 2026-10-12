@@ -9,7 +9,7 @@ export function hasHiddenChars(text: string): boolean {
 }
 
 /** A character written as its code point: a right-to-left override is "[U+202E]". */
-function asCode(char: string): string {
+export function asCode(char: string): string {
   const code = char.codePointAt(0) ?? 0;
   return `[U+${code.toString(16).toUpperCase().padStart(4, "0")}]`;
 }
@@ -27,10 +27,15 @@ const BLANK = /[\p{Default_Ignorable_Code_Point}\p{Co}\u2800]|(?! )\p{Zs}/gu;
 /** The spaces a part of a path opens or ends with: beside a slash nobody sees those either. */
 const EDGE = /^ +| +$/g;
 
+/** The text with each of those written as its code point: a no-break space is "[U+00A0]". */
+export function showBlankChars(text: string): string {
+  return text.replace(BLANK, asCode);
+}
+
 /** A path with each character nobody would see in it written as its code point, so two files
  *  whose names draw alike read apart: "notes/plan.md " is "notes/plan.md[U+0020]". */
 export function showPathChars(path: string): string {
-  const shown = (part: string) => part.replace(EDGE, (spaces) => asCode(" ").repeat(spaces.length)).replace(BLANK, asCode);
+  const shown = (part: string) => showBlankChars(part.replace(EDGE, (spaces) => asCode(" ").repeat(spaces.length)));
   return path.split("/").map(shown).join("/");
 }
 

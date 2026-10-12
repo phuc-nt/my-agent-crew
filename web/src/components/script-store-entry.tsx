@@ -5,6 +5,7 @@ import { vi } from "../i18n/vi";
 import { errorText } from "../lib/error-text";
 import { showHiddenChars } from "../lib/hidden-chars";
 import { prettyJson } from "../lib/pretty-json";
+import { writtenName } from "../lib/quoted-name";
 import { formatDateTime } from "./run-timeline";
 
 const { scriptStore: words } = vi;
@@ -37,14 +38,16 @@ type Shown = { row: string } & (
  * The whole value is read when asked for, never with the list: one may run to tens of
  * thousands of characters. It is set out as JSON when it is JSON and shown as it is kept
  * otherwise, in a box that scrolls on its own. A key and a value are text a script took
- * from wherever its tools read, so the characters nobody would see in them are written out.
+ * from wherever its tools read, so the characters nobody would see in them are written out;
+ * the key the same way in its row, in the names of its buttons and over its value, so two
+ * keys a page would draw alike read apart in each.
  */
 export function ScriptStoreEntryRow({ entry, refused, onRead, onGone, onDelete }: Props) {
   const [shown, setShown] = useState<Shown | null>(null);
   /** Counts the reads asked for: of two under way at once, the later one is the key's. */
   const reads = useRef(0);
   const boxId = useId();
-  const key = showHiddenChars(entry.key);
+  const key = writtenName(entry.key);
   // The box is the key's while the row is the writing it was asked under, or the writing
   // the value says it is once the list has caught up with it. A row that moved on to any
   // other writing has a value nobody read: one read before it is no longer the key's.
