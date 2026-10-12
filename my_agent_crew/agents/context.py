@@ -5,6 +5,7 @@ an edit on disk takes effect on the next message, no restart."""
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import suppress
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -33,10 +34,13 @@ def _read_capped(path: Path) -> str | None:
 
 def _persona(path: Path) -> str | None:
     """A persona file's text; a kit's agent markdown carries a front matter the model
-    need not read, so only the body is kept."""
+    need not read, so only the body is kept. An opening block that is not YAML is no
+    front matter: the file is read as written, where every turn of the agent used to
+    fail on it."""
     text = _read_capped(path)
     if text and text.startswith("---"):
-        _, text = split_front_matter(text)
+        with suppress(ValueError):
+            _, text = split_front_matter(text)
     return text or None
 
 

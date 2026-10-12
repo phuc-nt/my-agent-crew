@@ -5,6 +5,7 @@ Claude Code and opencode do, with the same placeholders (`$ARGUMENTS`, `$1`…`$
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -12,6 +13,8 @@ from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.agents.kit import Kit, split_front_matter
+
+logger = logging.getLogger(__name__)
 
 ARGUMENTS = "$ARGUMENTS"
 _POSITIONAL = re.compile(r"\$([1-9])")
@@ -65,13 +68,19 @@ def parse_command(text: str, name: str, path: str = "") -> Command:
 
 
 def load_commands(kits: Sequence[Kit]) -> tuple[Command, ...]:
-    """Later kits win by name, the order `agent_kits` returns them in."""
+    """Later kits win by name, the order `agent_kits` returns them in. A file whose
+    front matter cannot be read is left out and named in the log, like an agent file:
+    every agent reads the home's kit, so one such file stopped the whole start."""
     by_name: dict[str, Command] = {}
     for kit in kits:
         for path in kit.command_files:
-            command = parse_command(
-                path.read_text(encoding="utf-8"), kit.command_name(path), str(path)
-            )
+            try:
+                command = parse_command(
+                    path.read_text(encoding="utf-8"), kit.command_name(path), str(path)
+                )
+            except ValueError as exc:
+                logger.warning("kit command %s skipped: %s", path, exc)
+                continue
             by_name[command.name] = command
     return tuple(by_name.values())
 
