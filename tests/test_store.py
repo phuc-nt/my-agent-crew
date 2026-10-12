@@ -358,6 +358,40 @@ def test_children_of_finds_what_the_calls_of_a_script_opened_by_the_scripts_own_
     assert store.children_of((), ("",)) == [] and store.children_of((), ()) == []
 
 
+def test_children_of_takes_no_id_without_a_number_for_a_call_a_script_made(store: Store):
+    """A call a script made is numbered, always (`nested_call_id`). An id that ends where the
+    number would begin is some other call's whole id: the child it opened is that call's."""
+    store.create(parent_call_id="other")
+    bare, numbered = store.create(parent_call_id="abc:"), store.create(parent_call_id="abc:1")
+
+    assert [c.id for c in store.children_of((), ("abc",))] == [numbered.id]
+    # Found by the call that goes by that very id, and once where both are asked for.
+    assert [c.id for c in store.children_of(("abc:",))] == [bare.id]
+    assert [c.id for c in store.children_of(("abc:",), ("abc",))] == [bare.id, numbered.id]
+
+
+def test_what_a_conversation_delegated_leaves_out_another_ones_child_that_ends_as_its_script_begins(
+    store: Store,
+):
+    """The eight tasks a conversation may hand on, and the tree and the cost shown for it, are
+    counted from this list: a task another conversation handed on is none of them."""
+    store.create(parent_call_id="other")
+    parent, other = store.create(), store.create()
+    store.append(
+        parent.id, Message(role="assistant", tool_calls=(ToolCall("s1", "tool_script", {}),))
+    )
+    handed = ToolCall("s1:", "delegate", {"task": "a"})
+    store.append(other.id, Message(role="assistant", tool_calls=(handed,)))
+    theirs, ours = store.create(parent_call_id="s1:"), store.create(parent_call_id="s1:1")
+
+    assert [c.id for c in store.delegated_children(parent.id, "delegate", "tool_script")] == [
+        ours.id
+    ]
+    assert [c.id for c in store.delegated_children(other.id, "delegate", "tool_script")] == [
+        theirs.id
+    ]
+
+
 def test_what_a_conversation_delegated_includes_what_its_scripts_did_when_asked(store: Store):
     parent, other = store.create(), store.create()
     asked = (ToolCall("d1", "delegate", {"task": "a"}), ToolCall("s1", "tool_script", {}))
