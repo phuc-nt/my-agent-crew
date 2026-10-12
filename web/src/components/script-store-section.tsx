@@ -5,6 +5,7 @@ import { useScriptStore } from "../hooks/use-script-store";
 import { vi } from "../i18n/vi";
 import { errorText } from "../lib/error-text";
 import { quotedName } from "../lib/quoted-name";
+import { namespaceWords } from "../lib/script-store-namespace";
 import { EmptyState } from "./empty-state";
 import { type RefusedDelete, ScriptStoreNamespaceCard } from "./script-store-namespace";
 import { Icon } from "./ui/icon";
@@ -58,14 +59,15 @@ type Gone = { namespace: string; namespaceAt: number; entryAt?: number };
 
 /**
  * A delete is asked about first, naming the key, or how many keys go with a namespace.
- * It takes away the row the keyboard was on. The keyboard then goes to the key that
+ * That number is counted on the server as it is when asked, so the list is read again first:
+ * a script may have written since the list on screen was read. It takes away the row the keyboard was on. The keyboard then goes to the key that
  * took its place, to the last key when none did, and once the namespace is empty to the
  * heading of the namespace that took its place, of the last one, or to the agent's select.
  * A line says what went. A person who took the keyboard elsewhere while the server was
  * answering keeps it there, and a delete the server refused moves nothing.
  */
 function ScriptStoreList({ agentId, fallback }: { agentId: string; fallback: RefObject<HTMLElement | null> }) {
-  const { store, failed, refresh, value, remove, drop } = useScriptStore(agentId);
+  const { store, failed, refresh, reread, value, remove, drop } = useScriptStore(agentId);
   const root = useRef<HTMLDivElement>(null);
   /** The deletes the server has not answered yet, by what each names. */
   const deleting = useRef(new Set<string>());
@@ -84,26 +86,52 @@ function ScriptStoreList({ agentId, fallback }: { agentId: string; fallback: Ref
     (key ?? card?.querySelector<HTMLElement>(".script-store-heading") ?? fallback.current)?.focus();
   }, [gone, fallback]);
 
-  const onDelete = async (held: ScriptStoreNamespace, at: number, where: string, entry?: ScriptStoreEntry, entryAt?: number) => {
+  /** The namespace as the server has it now, with how a sentence names it; undefined when
+   *  it has none by that name any more, null when the screen closed while it was read. */
+  const asItIsNow = async (namespace: string) => {
+    const now = await reread();
+    if (now === null) return null;
+    const fresh = now.namespaces.find((it) => it.namespace === namespace);
+    return fresh && { keys: fresh.entries.length, where: namespaceWords(agentId, fresh).phrase };
+  };
+
+  const onDelete = async (held: ScriptStoreNamespace, at: number, shown: string, entry?: ScriptStoreEntry, entryAt?: number) => {
     const whole = target(held.namespace);
     const mine = target(held.namespace, entry?.key);
-    // Pressed again before the answer, or a key of a namespace that is going whole: the
-    // server has been asked already, so nobody is asked to agree a second time.
+    // Pressed again before this press is settled, or a key of a namespace that is being asked
+    // about or is going whole: nobody is asked to agree a second time.
     if (deleting.current.has(mine) || deleting.current.has(whole)) return;
-    // A key is whatever a script chose: it goes into the question, and into the line that
-    // says what went, between quotes and on one line.
-    const key = entry && quotedName(entry.key);
-    const question = key === undefined ? words.deleteAllConfirm(held.entries.length, where) : words.deleteKeyConfirm(key, where);
-    if (!window.confirm(question)) return;
+    // Taken before the first wait, so a press that comes during it finds it taken.
     deleting.current.add(mine);
-    setRefused(null);
-    setSaid("");
     try {
+      // A key is whatever a script chose: it goes into the question, and into the line that
+      // says what went, between quotes and on one line.
+      const key = entry && quotedName(entry.key);
+      let where = shown;
+      let question: string;
+      if (key !== undefined) question = words.deleteKeyConfirm(key, where);
+      else {
+        const fresh = await asItIsNow(held.namespace);
+        if (fresh === null) return;
+        if (fresh === undefined) {
+          // Gone since the list was read: nothing is left to ask about, or to delete.
+          setRefused(null);
+          setSaid(words.nothingDeleted);
+          setGone({ namespace: held.namespace, namespaceAt: at });
+          return;
+        }
+        where = fresh.where;
+        question = words.deleteAllConfirm(fresh.keys, where);
+      }
+      if (!window.confirm(question)) return;
+      setRefused(null);
+      setSaid("");
       const deleted = await remove(held.namespace, entry?.key);
       if (deleted === 0) setSaid(words.nothingDeleted);
       else setSaid(key === undefined ? words.deletedAll(deleted, where) : words.deletedKey(key));
       setGone({ namespace: held.namespace, namespaceAt: at, entryAt });
     } catch (error) {
+      setSaid("");
       setRefused({ namespace: held.namespace, key: entry?.key, text: errorText(error) });
     } finally {
       deleting.current.delete(mine);

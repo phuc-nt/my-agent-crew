@@ -8,6 +8,10 @@ export interface ScriptStoreController {
   failed: unknown;
   /** Reads the list again. */
   refresh(): Promise<void>;
+  /** Reads the list again for a question that counts on it, shows it, and answers it: null
+   *  when the screen has closed since. Rejects with the request's error, which it shows
+   *  nowhere: the one who asked says it where the person is. */
+  reread(): Promise<ScriptStoreInfo | null>;
   /** One key's value, whole, with how long it is and when it was written. Rejects with the
    *  request's error; a 404 means the key is gone. A value written since the list was read
    *  has the list read again, so the row beside the value is that same writing's. */
@@ -46,24 +50,38 @@ export function useScriptStore(agentId: string): ScriptStoreController {
   const [failed, setFailed] = useState<unknown>(null);
   /** Counts the reads asked for: only the answer to the last one is taken. */
   const asked = useRef(0);
+  /** Whether the screen is still there for an answer to come back to. */
+  const open = useRef(false);
 
-  const refresh = useCallback(async () => {
-    asked.current += 1;
-    const mine = asked.current;
-    try {
-      const read = await scriptStoreApi.list(agentId);
-      if (mine !== asked.current) return;
-      setStore(read);
-      setFailed(null);
-    } catch (error) {
-      if (mine === asked.current) setFailed(error);
-    }
-  }, [agentId]);
+  /** One read of the list. A failure is shown over the list, or thrown to the one who asked. */
+  const read = useCallback(
+    async (failure: "shown" | "thrown") => {
+      asked.current += 1;
+      const mine = asked.current;
+      try {
+        const list = await scriptStoreApi.list(agentId);
+        if (mine === asked.current) {
+          setStore(list);
+          setFailed(null);
+        }
+        return open.current ? list : null;
+      } catch (error) {
+        if (failure === "thrown") throw error;
+        if (mine === asked.current) setFailed(error);
+        return null;
+      }
+    },
+    [agentId],
+  );
+  const refresh = useCallback(async () => void (await read("shown")), [read]);
+  const reread = useCallback(() => read("thrown"), [read]);
 
   useEffect(() => {
+    open.current = true;
     void refresh();
     // An answer that comes back after the screen closed is nobody's.
     return () => {
+      open.current = false;
       asked.current += 1;
     };
   }, [refresh]);
@@ -107,5 +125,5 @@ export function useScriptStore(agentId: string): ScriptStoreController {
     [agentId, drop],
   );
 
-  return { store, failed, refresh, value, remove, drop };
+  return { store, failed, refresh, reread, value, remove, drop };
 }

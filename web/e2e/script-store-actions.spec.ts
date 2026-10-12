@@ -87,7 +87,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       await card(page, "job:brief").getByRole("button", { name: words.deleteKeyLabel("b"), exact: true }).click();
       await card(page, "job:retired").getByRole("button", { name: words.deleteAllLabel('lịch "retired"') }).click();
 
-      expect(asked).toHaveLength(2);
+      // The second question comes once the list has been read again for its count.
+      await expect.poll(() => asked.length).toBe(2);
       await expect(said(page)).toBeEmpty();
       expect(store.keys("coach", "job:brief")).toEqual(["a", "b", "c"]);
       expect(store.keys("coach", "job:retired")).toEqual(["x", "y"]);
