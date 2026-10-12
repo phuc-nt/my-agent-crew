@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
 import { coachAgent, defaultAgent, mockApi, run } from "./mock-api";
 import { spills } from "./spills";
@@ -71,44 +71,52 @@ test("a script job's row shows the start of its script and stays inside the page
   await expect(other.getByTestId("job-then-prompt")).toHaveCount(0);
 });
 
-test("a script row in the editor is read, not typed in, and goes back as it came", async ({ page }) => {
+test("a script row in the editor is typed in where it stands, and what is typed is what is saved", async ({ page }) => {
   await mockApi(page, { agents: [master, coach], jobs });
   await page.goto("/#/manage/crew/coach/schedules");
   const editor = page.getByTestId("agent-editor");
   const [row, other] = [editor.getByTestId("schedule-row").nth(0), editor.getByTestId("schedule-row").nth(1)];
-  const kind = row.getByTestId("schedule-script-kind");
-  await expect(kind).toContainText(vi.jobKindScript);
-  await expect(kind.getByText(vi.editor.scheduleScriptHint)).toBeVisible();
-  // No choice to turn it into a prompt or a command; the row beside it keeps its own.
-  await expect(row.getByRole("group", { name: vi.editor.scheduleAction })).toHaveCount(0);
-  await expect(other.getByRole("group", { name: vi.editor.scheduleAction }).getByRole("button")).toHaveText([vi.editor.schedulePrompt, vi.editor.scheduleCommand]);
+  const kinds = (of: Locator) => of.getByRole("group", { name: vi.editor.scheduleAction }).getByRole("button");
+  // Every row chooses among the three, and the one it is, is the one pressed.
+  for (const each of [row, other]) await expect(kinds(each)).toHaveText([vi.editor.schedulePrompt, vi.editor.scheduleCommand, vi.editor.scheduleScript]);
+  await expect(kinds(row).nth(2)).toHaveAttribute("aria-pressed", "true");
+  await expect(kinds(other).nth(0)).toHaveAttribute("aria-pressed", "true");
+  await expect(row.getByText(vi.editor.scheduleScriptHint)).toBeVisible();
+  await expect(row.getByText(vi.editor.scheduleThenPromptHint)).toBeVisible();
   await settled(page);
 
-  for (const [label, text] of [[vi.editor.scheduleScript, SOURCE], [vi.editor.scheduleThenPrompt, THEN]]) {
-    const box = row.getByLabel(label, { exact: true });
+  const script = row.getByLabel(vi.editor.scheduleScript, { exact: true });
+  for (const [box, text] of [[script, SOURCE], [row.getByLabel(vi.editor.scheduleThenPrompt, { exact: true }), THEN]] as const) {
     await expect(box).toHaveValue(text);
-    await expect(box).toHaveJSProperty("readOnly", true);
-    // Still a box a finger can land in, to scroll and copy from, at the size that does not zoom.
-    expect(await box.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)), label).toBeGreaterThanOrEqual(16);
-    await box.tap();
-    await page.keyboard.type("print(1)");
-    await expect(box).toHaveValue(text);
+    await expect(box).toHaveJSProperty("readOnly", false);
+    // At the size a phone does not zoom the page into when the box takes focus.
+    expect(await box.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
   }
+  // Three choices on one track: each still a target a thumb can hit, none pushed off the row.
+  for (const button of await kinds(row).all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(40);
   expect(await pageWidth(page)).toBeLessThanOrEqual(390);
-  expect(await spills(page, '[data-testid="schedule-script-kind"]')).toEqual([]);
+  expect(await spills(page, '[data-testid="schedule-row"]')).toEqual([]);
   await expect(editor.getByRole("button", { name: vi.editor.save, exact: true })).toBeDisabled();
 
-  await other.getByLabel(vi.editor.scheduleName, { exact: true }).fill("Bản tin sớm");
+  // Typed at the script's end, the second line indented as Python reads it.
+  const ADDED = "if not new:\n    print('không có đơn mới')\n";
+  await script.tap();
+  await script.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(el.value.length, el.value.length));
+  await page.keyboard.type(ADDED);
+  await expect(script).toHaveValue(SOURCE + ADDED);
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
+
   const patch = page.waitForRequest((r) => r.method() === "PATCH" && /\/api\/agents\/coach$/.test(r.url()));
   await editor.getByRole("button", { name: vi.editor.save, exact: true }).click();
   const sent = (await patch).postDataJSON() as { profile: { schedules: Record<string, unknown>[] } };
   expect(sent.profile.schedules).toEqual([
-    { id: "sync", name: "Đồng bộ đơn", cron: "40 6 * * *", script: SOURCE, then_prompt: THEN, enabled: true, skills: [] },
-    { id: "brief", name: "Bản tin sớm", cron: "0 7 * * *", prompt: "Tóm tắt", enabled: true, skills: ["goodreads"] },
+    { id: "sync", name: "Đồng bộ đơn", cron: "40 6 * * *", script: SOURCE + ADDED, then_prompt: THEN, enabled: true, skills: [] },
+    { id: "brief", name: "Bản tin sáng", cron: "0 7 * * *", prompt: "Tóm tắt", enabled: true, skills: ["goodreads"] },
   ]);
-  // Taken by the parser's rules, and the script is still there to read.
+  // Taken by the parser's rules, and a reload reads back what the file now holds.
   await expect(editor.getByTestId("restart-banner")).toBeVisible();
-  await expect(row.getByLabel(vi.editor.scheduleScript, { exact: true })).toHaveValue(SOURCE);
+  await page.reload();
+  await expect(page.getByTestId("schedule-row").nth(0).getByLabel(vi.editor.scheduleScript, { exact: true })).toHaveValue(SOURCE + ADDED);
 });
 
 test("a call let through the approval gate says so on its own line of the run, beside its time", async ({ page }) => {

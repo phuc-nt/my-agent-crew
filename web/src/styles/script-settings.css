@@ -1,5 +1,5 @@
 /*
- * What the crew's screens say of scripts.
+ * What the crew's screens say of scripts, and the box a schedule's script is written in.
  *
  * The grid's mark for an agent whose file takes the script tool away reads as the other
  * marks of a choice do: quiet, since nothing is wrong.
@@ -7,4 +7,23 @@
 .matrix td.cell.script-off,
 .legend-mark.script-off {
   color: var(--muted);
+}
+
+/* A pasted tab is drawn four columns wide, as an editor draws it, rather than the eight
+   that push a nested line off a phone. Long lines wrap, as in every textarea, so the box
+   never scrolls sideways under a thumb. */
+.schedule-script {
+  tab-size: 4;
+}
+
+/* The row the jobs list sent the person to. It stops below the sticky bar, as the heading
+   does, and wears a ring while it holds the focus it was given: several rows look alike,
+   and near the page's end the one meant cannot be brought to the top. */
+.schedule-row[tabindex="-1"] {
+  scroll-margin-top: calc(var(--editor-bar-height, 0px) + var(--space-2));
+}
+
+.schedule-row[tabindex="-1"]:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

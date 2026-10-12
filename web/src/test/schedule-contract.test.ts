@@ -44,6 +44,19 @@ describe("the action of a schedule, as the double reads it", () => {
     }
   });
 
+  // `profile_yaml._script`, in its order: the prompt to follow, then the script. Whether
+  // Python reads the script is the one check the double leaves to the server.
+  it("refuses a prompt to follow or a script that is blank or no string, and a script over its bound", () => {
+    for (const then of ["", "  \n", 7, false])
+      expect(readSchedules([{ ...timed, script: SOURCE, then_prompt: then }])).toEqual({ error: "schedule sync: then_prompt must be a non-empty string" });
+    for (const script of ["  \n\t", 7, ["print(1)"]])
+      expect(readSchedules([{ ...timed, script }])).toEqual({ error: "schedule sync: script must be a non-empty string" });
+    expect(readSchedules([{ ...timed, script: "#".repeat(20_000) }])).toHaveProperty("ok");
+    expect(readSchedules([{ ...timed, script: "#".repeat(20_001) }])).toEqual({ error: "schedule sync: script is longer than 20000 characters" });
+    // Counted in characters, as Python counts them, not in the two units an emoji takes here.
+    expect(readSchedules([{ ...timed, script: "😀".repeat(20_000) }])).toHaveProperty("ok");
+  });
+
   it("still refuses a key it does not know, and the derived kind among them", () => {
     expect(readSchedules([{ ...timed, script: SOURCE, kind: "script" }])).toEqual({ error: 'schedule has unknown keys ["kind"]' });
     expect(readSchedules([{ ...timed, script: SOURCE, then: "Tóm tắt" }])).toEqual({ error: 'schedule has unknown keys ["then"]' });

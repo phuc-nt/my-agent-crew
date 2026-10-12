@@ -8,6 +8,12 @@ import type { DeclaredProfile } from "../api/types";
 /** One schedule as the file declares it: `kind` is derived and never written back. */
 export type ScheduleRow = DeclaredProfile["schedules"][number];
 
+/** What a row does when its time comes: the three actions the parser takes one of. */
+export type ActionKind = "prompt" | "command" | "script";
+
+/** The parser's bound on a script (`script.limits.MAX_SOURCE_CHARS`), in characters. */
+export const MAX_SCRIPT_CHARS = 20_000;
+
 /** A new row, in the shape the server declares rows in, so an untouched one compares equal. */
 export function blankSchedule(): ScheduleRow {
   return { id: "", name: "", cron: "", every: null, prompt: "", command: null, enabled: true, skills: [] };
@@ -24,22 +30,30 @@ export function usesCommand(row: ScheduleRow): boolean {
 }
 
 /**
- * A row that runs a script. Its action is written by hand in `agent.yaml`: the form shows
- * it and never makes one, so only a row the file declared this way is one. Such a row
- * carries `prompt: null` and `command: null`, and a row from a server older than script
- * jobs has no `script` key at all.
+ * A row that runs a script: one the file declares so, or one the form's choice turned into
+ * one, which holds an empty script until something is typed and, as every row does, null
+ * for the two actions it is not. A row of another kind holds `script: null`, and a row from
+ * a server older than script jobs has no such key at all.
  */
 export function usesScript(row: ScheduleRow): boolean {
-  return typeof row.script === "string" && row.script !== "";
+  if (typeof row.script !== "string") return false;
+  return row.script !== "" || (row.prompt === null && row.command === null);
+}
+
+/** Which of the three a row does. The script is asked first: its row carries
+ *  `prompt: null`, as a command's does. */
+export function actionKind(row: ScheduleRow): ActionKind {
+  return usesScript(row) ? "script" : usesCommand(row) ? "command" : "prompt";
 }
 
 /**
  * A row as the parser wants it: a blank or switched-off key is left out rather than sent
  * as null, so the file holds one timing and one action and nothing it has to explain.
  *
- * A script row goes back with the script it came with, character for character, and with
- * neither a prompt nor a command: the parser takes exactly one of the three, and whatever
- * the form sent in place of the script would replace the job the file describes.
+ * A script row goes back with its script character for character, indentation and the last
+ * line break included, and with neither a prompt nor a command: the parser takes exactly
+ * one of the three. The prompt its output goes on with is optional, and the parser refuses
+ * an empty one, so a box left blank sends no key at all.
  */
 export function sendableRow(row: ScheduleRow): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -50,9 +64,8 @@ export function sendableRow(row: ScheduleRow): Record<string, unknown> {
     if (typeof value === "string" && value.trim() !== "") out[key] = value;
   }
   if (script) {
-    out.script = row.script;
-    // Allowed beside a script only, and optional there: a row without one sends no key.
-    if (typeof row.then_prompt === "string") out.then_prompt = row.then_prompt;
+    if (row.script?.trim()) out.script = row.script;
+    if (row.then_prompt?.trim()) out.then_prompt = row.then_prompt;
   }
   out.enabled = row.enabled;
   out.skills = row.skills;

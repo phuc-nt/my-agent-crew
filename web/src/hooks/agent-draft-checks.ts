@@ -7,7 +7,7 @@
 import type { AgentPatch } from "../api/types";
 import { vi } from "../i18n/vi";
 import { clashingIds, idsToSend } from "./schedule-ids";
-import { type ScheduleRow, sendableRow, usesCommand, usesEvery, usesScript } from "./schedule-row-shape";
+import { actionKind, MAX_SCRIPT_CHARS, type ScheduleRow, sendableRow, usesEvery } from "./schedule-row-shape";
 
 export interface RowProblems {
   id?: string;
@@ -28,9 +28,10 @@ export interface DraftProblems {
   unfilled?: true;
 }
 
-/** The box a row's timing is typed in, and the one its action is. */
+/** The box a row's timing is typed in. */
 const timingOf = (row: ScheduleRow) => (usesEvery(row) ? row.every : row.cron) ?? "";
-const actionOf = (row: ScheduleRow) => (usesCommand(row) ? row.command : row.prompt) ?? "";
+/** What an action left blank is told, by the kind the row is. */
+const MISSING = { prompt: vi.editor.promptMissing, command: vi.editor.commandMissing, script: vi.editor.scriptMissing };
 
 // Minute, hour, day, month, weekday: the ranges `CronSpec.parse` holds each field to.
 const CRON_RANGES = [
@@ -68,17 +69,28 @@ function isEvery(text: string): boolean {
   return match !== null && Number(match[1]) * UNIT_SECONDS[match[2].toLowerCase()] >= 60;
 }
 
-/** What is wrong with a row; a box still blank is named only when `reveal` says so. */
+/**
+ * What is wrong with a row; a box still blank is named only when `reveal` says so.
+ *
+ * The parser takes exactly one of prompt, command and script, and the row holds exactly
+ * the one its choice names, so the rule left to check is that it is not blank. Of a script
+ * it also refuses one over its bound, counted as Python counts, in characters rather than
+ * in UTF-16 units. Whether the script is one Python can read is the server's to say: it
+ * is asked on save, and its refusal names the line.
+ */
 function rowProblems(row: ScheduleRow, reveal: boolean, unfilled: () => void): RowProblems {
   const found: RowProblems = {};
   const timing = timingOf(row);
   if (!timing.trim() && !reveal) unfilled();
   else if (usesEvery(row) ? !isEvery(timing) : !isCron(timing))
     found.timing = usesEvery(row) ? vi.editor.everyInvalid : vi.editor.cronInvalid;
-  // A script row has neither box: its action is in the file, and it is not the form's to miss.
-  if (usesScript(row) || actionOf(row).trim()) return found;
-  if (!reveal) unfilled();
-  else found.action = usesCommand(row) ? vi.editor.commandMissing : vi.editor.promptMissing;
+  const kind = actionKind(row);
+  const action = row[kind] ?? "";
+  if (!action.trim()) {
+    if (reveal) found.action = MISSING[kind];
+    else unfilled();
+  } else if (kind === "script" && action.length > MAX_SCRIPT_CHARS && Array.from(action).length > MAX_SCRIPT_CHARS)
+    found.action = vi.editor.scriptTooLong(MAX_SCRIPT_CHARS);
   return found;
 }
 

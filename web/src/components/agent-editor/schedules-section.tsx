@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { blankSchedule, type ScheduleRow } from "../../hooks/schedule-row-shape";
 import type { AgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
@@ -8,10 +8,12 @@ import { ScheduleRowEditor } from "./schedule-row";
 interface Props {
   form: AgentDraft;
   readOnly: boolean;
-  /** The agent's loaded skills, which a prompt job can attach. */
+  /** The agent's loaded skills, which a job that opens a turn can attach. */
   skills: string[];
   /** Opened from a job's "edit schedule": bring this section into view and focus it. */
   focused?: boolean;
+  /** The id of the schedule that job runs: its row is what is brought into view. */
+  focusRow?: string;
 }
 
 /**
@@ -21,7 +23,7 @@ interface Props {
  * the save banner says. The consolidation cron lives here rather than among the limits
  * because it is a schedule too, and it shows in the jobs list beside the others.
  */
-export function SchedulesSection({ form, readOnly, skills, focused }: Props) {
+export function SchedulesSection({ form, readOnly, skills, focused, focusRow }: Props) {
   const rows = (form.draft.schedules ?? []) as ScheduleRow[];
   const problems = form.problems.schedules ?? {};
   const keys = useRowKeys(rows);
@@ -32,6 +34,12 @@ export function SchedulesSection({ form, readOnly, skills, focused }: Props) {
   const list = useRef<HTMLUListElement>(null);
   const add = useRef<HTMLButtonElement>(null);
   const refocus = useRef<number | null>(null);
+  // The row the jobs list sent the person to, found once, as the form opens, among the
+  // rows the file declares: a row given the same id afterwards is not the one they meant.
+  const [landed] = useState(() => {
+    const at = focused && focusRow !== undefined ? rows.findIndex((row) => row.id === focusRow) : -1;
+    return at < 0 ? undefined : keys[at];
+  });
 
   const remove = (i: number) => {
     refocus.current = i;
@@ -49,12 +57,16 @@ export function SchedulesSection({ form, readOnly, skills, focused }: Props) {
     (next ?? add.current)?.focus();
   });
 
-  // Arriving from the jobs list means this section, which sits far down the form; left
-  // at the top of the editor, the person would have to hunt for what they clicked.
+  // Arriving from the jobs list means the schedule whose "edit" was pressed, in a section
+  // that sits far down the form: left at the top of the editor, or at the section's
+  // heading above several rows, the person would have to hunt for what they clicked. A job
+  // with no row of its own, as the memory pass is, lands on the heading.
   useEffect(() => {
     if (!focused) return;
-    heading.current?.scrollIntoView?.({ block: "start" });
-    heading.current?.focus({ preventScroll: true });
+    // The landed row is the one row that can take focus, wherever in the list it now is.
+    const target = list.current?.querySelector<HTMLElement>(".schedule-row[tabindex]") ?? heading.current;
+    target?.scrollIntoView?.({ block: "start" });
+    target?.focus({ preventScroll: true });
   }, [focused]);
 
   return (
@@ -73,6 +85,7 @@ export function SchedulesSection({ form, readOnly, skills, focused }: Props) {
             problems={problems[i]}
             skills={skills}
             readOnly={readOnly}
+            landed={keys[i] === landed}
             onChange={(patch) => edit(i, patch)}
             onRemove={() => remove(i)}
           />

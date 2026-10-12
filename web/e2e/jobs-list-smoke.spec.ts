@@ -15,54 +15,61 @@ const briefJob = {
   paused: false,
 };
 
+// The nightly memory pass is a job too, and no row of the agent's schedules.
+const memoryJob = { ...briefJob, id: "coach/memory-consolidate", schedule_id: "memory-consolidate", name: "Gom ghi nhớ", kind: "consolidate", prompt: null, skills: [] };
+
 async function openJobs(page: Page, jobs: object[] = [briefJob]) {
   await mockApi(page, { agents: [master, coach], jobs });
   await page.goto("/#/manage/jobs");
 }
 
+/** The top of what the editor landed on and of the first row's name against the bottom of
+ *  the editor's bar, read in one frame, and the gap a landing keeps below the bar, in pixels. */
+const clearance = (page: Page, landing: string) =>
+  page.evaluate((landing) => {
+    const bottom = document.querySelector(".editor-bar")!.getBoundingClientRect().bottom;
+    const row = document.querySelector("[data-testid=schedule-row]")!;
+    const name = [...row.querySelectorAll(".field-label")].find((el) => el.textContent === "Tên")!;
+    const editor = document.querySelector("[data-testid=agent-editor]")!;
+    const probe = document.body.appendChild(document.createElement("div"));
+    probe.style.height = "var(--space-2)";
+    const gap = probe.getBoundingClientRect().height;
+    probe.remove();
+    return {
+      landed: document.querySelector(landing)!.getBoundingClientRect().top - bottom,
+      name: name.getBoundingClientRect().top - bottom,
+      gap,
+      // Above the bar: the page did scroll, or the checks below prove nothing.
+      scrolled: editor.getBoundingClientRect().top < document.querySelector(".editor-bar")!.getBoundingClientRect().top,
+    };
+  }, landing);
+
 for (const viewport of [
   { width: 390, height: 844 },
   { width: 1280, height: 800 },
 ]) {
-  // The editor's bar is sticky, so a heading scrolled to the very top sits under it, and on
-  // a phone the first row's name box went under it too.
-  test(`Sửa lịch lands on the schedules below the editor's bar at ${viewport.width}px`, async ({ page }) => {
-    await page.setViewportSize(viewport);
-    await openJobs(page);
-    await page.getByTestId("job").getByRole("button", { name: "Sửa lịch Bản tin sáng" }).click();
-    const editor = page.getByTestId("agent-editor");
-    const heading = editor.getByRole("heading", { name: "Lịch chạy" });
-    await expect(heading).toBeFocused();
+  // The editor's bar is sticky, so what is scrolled to the very top sits under it: the row
+  // of the job whose link was pressed, or the heading for a job that has no row, and on a
+  // phone the row's name box went under it too.
+  for (const [what, job, landing] of [
+    ["the job's own row", "Bản tin sáng", "[data-testid=schedule-row]"],
+    ["the schedules' heading for the memory pass, which has no row", "Gom ghi nhớ", "[data-testid=section-schedules] h3"],
+  ]) {
+    test(`Sửa lịch lands on ${what}, below the editor's bar at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await openJobs(page, [briefJob, memoryJob]);
+      await page.getByTestId("job").getByRole("button", { name: `Sửa lịch ${job}` }).click();
+      await expect(page.getByTestId("agent-editor").locator(landing)).toBeFocused();
 
-    // Each box's top against the bar's bottom, read in one frame once the scroll settles, and
-    // the gap the heading keeps below the bar, in pixels.
-    const clearance = () =>
-      page.evaluate(() => {
-        const bottom = document.querySelector(".editor-bar")!.getBoundingClientRect().bottom;
-        const row = document.querySelector("[data-testid=schedule-row]")!;
-        const name = [...row.querySelectorAll(".field-label")].find((el) => el.textContent === "Tên")!;
-        const heading = document.querySelector("[data-testid=section-schedules] h3")!;
-        const editor = document.querySelector("[data-testid=agent-editor]")!;
-        const probe = document.body.appendChild(document.createElement("div"));
-        probe.style.height = "var(--space-2)";
-        const gap = probe.getBoundingClientRect().height;
-        probe.remove();
-        return {
-          heading: heading.getBoundingClientRect().top - bottom,
-          name: name.getBoundingClientRect().top - bottom,
-          gap,
-          // Above the bar: the page did scroll, or the checks below prove nothing.
-          scrolled: editor.getBoundingClientRect().top < document.querySelector(".editor-bar")!.getBoundingClientRect().top,
-        };
-      });
-    await expect.poll(async () => (await clearance()).heading).toBeGreaterThanOrEqual(0);
-    const settled = await clearance();
-    // Below the bar by that gap and no more: a margin that also counted the page's top padding
-    // left the schedules a strip lower than the bar needs.
-    expect(settled.heading).toBeLessThanOrEqual(settled.gap + 1);
-    expect(settled.name).toBeGreaterThanOrEqual(0);
-    expect(settled.scrolled).toBe(true);
-  });
+      await expect.poll(async () => (await clearance(page, landing)).landed).toBeGreaterThanOrEqual(0);
+      const settled = await clearance(page, landing);
+      // Below the bar by that gap and no more: a margin that also counted the page's top
+      // padding left the schedules a strip lower than the bar needs.
+      expect(settled.landed).toBeLessThanOrEqual(settled.gap + 1);
+      expect(settled.name).toBeGreaterThanOrEqual(0);
+      expect(settled.scrolled).toBe(true);
+    });
+  }
 
   // A sticky box stops at its scroller's padding, so the bar stuck that far down and the form
   // scrolled past visibly in the strip above it.
@@ -70,7 +77,7 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await openJobs(page);
     await page.getByTestId("job").getByRole("button", { name: "Sửa lịch Bản tin sáng" }).click();
-    await expect(page.getByTestId("agent-editor").getByRole("heading", { name: "Lịch chạy" })).toBeFocused();
+    await expect(page.getByTestId("agent-editor").getByTestId("schedule-row").first()).toBeFocused();
 
     const gap = () =>
       page.evaluate(() => {

@@ -19,6 +19,22 @@ const SCRIPT_CALLS = ["none", "read_only", "gated"];
 
 type Read<T> = { ok: T } | { error: string };
 
+/** `script.limits.MAX_SOURCE_CHARS`: the longest script the parser reads, in characters. */
+const MAX_SCRIPT_CHARS = 20_000;
+
+/** `profile_yaml._script`: what is wrong with a script job's own two keys, as far as that
+ *  can be said without Python. Whether the script is one Python reads is the server's. */
+function scriptError(raw: Record<string, unknown>, where: string): string | null {
+  const { script, then_prompt: then } = raw;
+  if (then !== undefined && then !== null && !(typeof then === "string" && then.trim()))
+    return `${where}: then_prompt must be a non-empty string`;
+  if (!script) return null;
+  if (typeof script !== "string" || !script.trim()) return `${where}: script must be a non-empty string`;
+  if (Array.from(script).length > MAX_SCRIPT_CHARS)
+    return `${where}: script is longer than ${MAX_SCRIPT_CHARS} characters`;
+  return null;
+}
+
 /** `approval_ttl.parse_approval_ttl`: whole seconds from a minute to half a day, or absent. */
 function readTtl(value: unknown, where: string): Read<number | null> {
   if (value === null || value === undefined) return { ok: null };
@@ -56,6 +72,8 @@ export function readSchedules(value: unknown): Read<Declared[]> {
     if (raw.then_prompt !== undefined && raw.then_prompt !== null && !raw.script)
       return { error: "schedule takes then_prompt only beside script" };
     const id = String(raw.id || `job-${index}`);
+    const unread = scriptError(raw, `schedule ${id}`);
+    if (unread) return { error: unread };
     // `profile_edit.validated`: the scheduler keys jobs by id, so a second one would
     // replace the first without a word.
     if (rows.some((row) => row.id === id)) return { error: `two schedules share the id ${id}` };

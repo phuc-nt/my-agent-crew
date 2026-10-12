@@ -502,7 +502,7 @@ export const vi = {
     memoryConsolidate: "Lịch gom ghi nhớ (cron)",
     memoryConsolidateHint: "Bỏ trống để không gom. Ví dụ 0 3 * * * là 3 giờ sáng mỗi ngày.",
     schedules: "Lịch chạy",
-    schedulesHint: "Mỗi lịch chạy theo cron hoặc theo chu kỳ, rồi nhắc agent hoặc chạy một lệnh shell.",
+    schedulesHint: "Mỗi lịch chạy theo cron hoặc theo chu kỳ, rồi nhắc agent, chạy một lệnh shell hoặc chạy một script.",
     schedulesEmpty: "Agent này chưa có lịch nào.",
     scheduleId: "Mã",
     scheduleIdHint: "Bỏ trống để tự đặt. Giữ nguyên mã thì lịch sử chạy không bị tách.",
@@ -521,10 +521,11 @@ export const vi = {
     scheduleAction: "Làm gì",
     schedulePrompt: "Nhắc agent",
     scheduleCommand: "Lệnh shell",
-    // A job that runs a script with no model call. It is written by hand in the file: the
-    // form names it, shows it and says where it is changed, and offers no box to type in.
+    // A job that runs a script with no model call. Under its box: what runs it, how to
+    // indent in a box the Tab key leaves, and the two things only the server can refuse.
     scheduleScript: "Script",
-    scheduleScriptHint: "Nội dung script sửa trong tệp agent.yaml, không sửa được ở đây.",
+    scheduleScriptHint:
+      "Chạy bằng bộ máy của tool_script, không mở lượt nào của agent. Thụt lề bằng dấu cách (phím Tab chuyển sang ô kế tiếp); dấu tab dán vào được giữ nguyên. Tối đa 20.000 ký tự; máy chủ xét cú pháp khi lưu.",
     scheduleThenPrompt: "Nhắc agent khi script in ra kết quả",
     scheduleSkillsEmpty: "Agent này chưa có kỹ năng nào để gắn.",
     // A row not named yet goes by its place in the list: "Xoá lịch số 2".
@@ -573,6 +574,12 @@ export const vi = {
     scriptLlm: "Cho script hỏi mô hình",
     scriptLlmHint:
       "Đây là phần duy nhất của script tốn tiền: mỗi script hỏi mô hình tối đa 10 lần. Tắt thì script trong lượt và script của lịch chạy đều không hỏi được.",
+    // A schedule that runs a script, written in the form. Under the box of the prompt its
+    // output goes on with: when a turn is opened, and that otherwise nobody hears of the run.
+    scheduleThenPromptHint:
+      "Không bắt buộc. Khi script in ra kết quả, một lượt được mở với lời nhắc này kèm phần đã in, và câu trả lời được gửi qua Telegram. Bỏ trống, hoặc script không in gì, thì không ai được báo.",
+    scriptMissing: "Nhập script cần chạy.",
+    scriptTooLong: (most: number) => `Script dài quá ${most.toLocaleString("vi-VN")} ký tự; rút gọn rồi mới lưu được.`,
   },
   welcomeTitleFor: (name: string) => `Xin chào! Tôi là ${name} — trợ lý đa năng của bạn.`,
   welcomeBody:
