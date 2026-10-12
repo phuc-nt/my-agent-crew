@@ -183,6 +183,7 @@ def stamps(since: str, told_at: str | None = None, again_at: str | None = None, 
         "since": day + since,
         "told_at": told_at and day + told_at,
         "next_notice_at": again_at and day + again_at,
+        "telling": False,
     }
 
 
@@ -749,12 +750,14 @@ async def test_the_row_of_a_job_shows_its_count_through_every_stage(
         fake.fail["sendMessage"] = 500
         await tick()
         untold = {"count": 1, "since": at(5), "told_at": None, "next_notice_at": None}
+        untold["telling"] = False
         assert (await row())["failing"] == untold
 
         # Failed again, and this time the chat took it.
         fake.fail.clear()
         await tick()
         told = {"count": 2, "since": at(5), "told_at": at(10), "next_notice_at": at(370)}
+        told["telling"] = False
         assert (await row())["failing"] == told
         assert fake.sent == [again(2)]
         # Written on the owner's clock with its offset, as the row's next run is.

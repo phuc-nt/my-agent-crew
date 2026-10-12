@@ -14,7 +14,9 @@ the line.
 
 Told means the channel took the message. One that was not sent, was not said in time, or
 had no channel to go to leaves the streak untold, so the next failure tries again and says
-how many there have been by then.
+how many there have been by then. While a message is on its way the streak says so: a
+send can take up to a minute, and whoever reads the job's row meanwhile is not to be told
+that nothing got through.
 
 Kept in memory, not in the store: a restart begins every job's count again, and a job
 still failing after it is told at once.
@@ -49,6 +51,8 @@ class Streak:
     since: datetime
     # When the channel last took a message of this streak; None while none got through.
     told_at: datetime | None = None
+    # A message of this streak is on its way to the channel, and may or may not be taken.
+    telling: bool = False
 
     def due(self, now: datetime) -> bool:
         """Whether a failure at `now` is told: nothing of this streak was yet, or what was
@@ -64,6 +68,7 @@ class Streak:
             "since": _stamp(self.since),
             "told_at": _stamp(self.told_at),
             "next_notice_at": _stamp(again),
+            "telling": self.telling,
         }
 
 
@@ -108,13 +113,20 @@ class Streaks:
         before = self._held.get(job.id)
         streak = replace(before, count=before.count + 1) if before else Streak(1, now)
         self._held[job.id] = streak
-        if not streak.due(now) or not await say(job, f"{text}\n{closing(streak)}", self._notify):
+        if not streak.due(now):
             return
-        # Read again, not written from `streak`: the send waited, and by now the job may
-        # have left the clock, or another run of it may have been counted.
-        held = self._held.get(job.id)
-        if held is not None:
-            self._held[job.id] = replace(held, told_at=self._clock())
+        self._held[job.id] = replace(streak, telling=True)
+        sent = False
+        try:
+            sent = await say(job, f"{text}\n{closing(streak)}", self._notify)
+        finally:
+            # Read again, not written from `streak`: the send waited, and by now the job may
+            # have left the clock, or another run of it may have been counted. In a
+            # `finally`, so a send cut short does not leave the row saying one is under way.
+            held = self._held.get(job.id)
+            if held is not None:
+                told_at = self._clock() if sent else held.told_at
+                self._held[job.id] = replace(held, telling=False, told_at=told_at)
 
     async def _close(self, job: Job, run: RunRecord) -> None:
         streak = self._held.pop(job.id, None)

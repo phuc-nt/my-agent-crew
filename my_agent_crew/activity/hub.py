@@ -143,6 +143,11 @@ class ActivityHub(CutRuns):
         background would otherwise not appear until something else forced a reload."""
         self._watchers.broadcast({"type": "conversation", "conversation": conversation})
 
+    def publish_jobs(self) -> None:
+        """Tells watchers the job list is no longer what they read when a run ended: the
+        failures in a row a job is in are counted and told after its run is over."""
+        self._watchers.broadcast({"type": "jobs"})
+
     def publish_artifact(self, artifact: dict[str, Any], conversation_ids: list[str]) -> None:
         """Tells watchers a canvas changed: created, written, renamed, restored or deleted."""
         self._watchers.broadcast(
