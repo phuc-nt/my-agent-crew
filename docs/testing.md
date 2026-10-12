@@ -76,9 +76,10 @@ tra agent cha đọc được lời báo cuộc con đã bị xoá thay vì mộ
 
 Vài test bảo vệ repo chứ không phải một tính năng:
 
-- **ngân sách kích thước tệp**: không tệp nguồn nào quá 200 dòng, của gói lẫn của `scripts/`, để
-  module đọc gọn trong một màn hình; thư mục nào được kiểm cũng phải còn tệp nguồn, để dời thư
-  mục đi không làm test đạt trên rỗng;
+- **ngân sách kích thước tệp**: không tệp nguồn nào quá 200 dòng, của gói, của `scripts/` lẫn của
+  web (`.ts`, `.tsx`, `.css` dưới `web/src`, không tính tệp test và `web/src/test/`), để module đọc
+  gọn trong một màn hình; thư mục nào được kiểm cũng phải còn tệp nguồn, và web phải còn tệp nguồn
+  của từng loại, để dời thư mục đi không làm test đạt trên rỗng;
 - **bundle** trong `my_agent_crew/server/static` có mặt và được phục vụ ở `/`, với 404 của `/api/*`
   vẫn là JSON; mọi icon và manifest mà trang và manifest trỏ tới đều có trong bundle và được
   phục vụ đúng content-type;
