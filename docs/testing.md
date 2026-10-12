@@ -485,6 +485,23 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trong home thì 200 như trước và nằm lại trong tệp như đã gõ). Kiểm chứng đột biến: năm sửa đổi ở
     phép xét cách viết (không xét gì, không nhận chuỗi tệp đang ghi, xét cả đường dẫn trong home,
     không nhận đường dẫn thật, để chuỗi của loại này bảo lãnh cho loại kia) đều bị test bắt.
+- **Nằm trong home là xét cả chuỗi lẫn chỗ nó dẫn tới**
+  - pytest: `tests/test_api_agents_edit_path_spelling.py` (với cả ba loại: một liên kết nằm trong
+    cây ngoài home mà dẫn vào home, gửi bằng đường dẫn của nó hay bằng cách lùi ra khỏi home với
+    `..`, là 422 nêu chuỗi đã gửi và đường dẫn thật trong home, tệp và agent đang chạy không đổi;
+    trỏ liên kết ấy đi chỗ khác sau lần lưu thì agent đang chạy và tệp đọc lại đều không theo tới
+    đó; chính đường dẫn thật là 200; liên kết ấy mà tệp viết tay đã ghi sẵn cho cùng loại, gửi
+    lại nguyên văn, là 200; `~/…` đi qua một liên kết tới cây ngoài home là 422, và `~/…` là
+    liên kết dẫn vào home cũng là 422; tên persona bắt đầu bằng `~` là thư mục cạnh tệp của
+    agent, không hỏi tới thư mục của người dùng; home đặt qua một liên kết: chuỗi tuyệt đối đi
+    qua liên kết ấy là 422 nêu đường dẫn thật, chuỗi tương đối và đường dẫn thật là 200);
+    `tests/test_profile_wrong_shapes.py` (tệp bị sửa tay dưới đội đang chạy: mỗi hồ sơ một giá
+    trị sai hình dạng ở một chỗ, 1176 tệp, mỗi tệp gặp một lần sửa bỏ khoá ấy và một lần sửa khoá
+    khác: 200 hoặc 422, không bao giờ 5xx, sau 422 tệp và đội đang chạy không đổi). Kiểm chứng
+    đột biến: mười sửa đổi (bỏ nửa "chuỗi nằm trong home", bỏ nửa "chỗ dẫn tới nằm trong
+    home", không đọc `~`, đọc `~` cả ở tên persona, không gộp `..`, không nhận đường dẫn thật,
+    không nhận chuỗi tệp đang ghi, để giá trị không duyệt qua được ném lỗi, bỏ tên persona và bỏ
+    thư mục `skills` mà lúc khởi động đọc khi tệp không nêu) đều bị test bắt.
 - **Hồ sơ agent sai hình dạng bị từ chối bằng 422 nêu tên khoá, không bao giờ là 500**
   - pytest: `tests/test_profile_wrong_shapes.py` (đi hết mọi khoá của hồ sơ, mọi trường của một
     dòng lịch thuộc cả ba loại và mọi trường của `telegram`, lấy từ chính bảng khoá của mã, nhân

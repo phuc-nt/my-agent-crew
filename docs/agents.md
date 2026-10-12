@@ -317,6 +317,17 @@ home thì lần bỏ khoá là 422. Ghi chính cái tên ấy vào tệp thì đ
 theo nó; thư mục `skills` của agent cũng thế, nó được đọc dù tệp ghi gì. Đường dẫn nằm trong home
 thì xét như trước, viết cách nào cũng được.
 
+**Nằm trong home là xét cả chuỗi lẫn chỗ nó dẫn tới.** Một đường dẫn chỉ được coi là trong home
+khi cả hai đều nằm trong home: chuỗi đã gửi, đọc mà không theo liên kết nào (`~` thành thư mục
+của người dùng, chuỗi tương đối nối vào thư mục agent, `.` và `..` gộp theo chữ), và đường dẫn
+thật nó dẫn tới. Chỉ xét chỗ dẫn tới thì chưa đủ: một liên kết nằm trong một cây ngoài home mà
+hôm nay dẫn vào home thì ai làm việc trong cây ấy cũng trỏ nó đi chỗ khác được, và agent theo nó
+tới đó (tệp persona được đọc lại mỗi lượt, không cần khởi động lại). Chuỗi như vậy đi qua đúng
+luật của đường dẫn ngoài home ở đoạn trên: 422 nêu đường dẫn thật trong home nên ghi, trừ khi
+tệp đã ghi sẵn chuỗi ấy cho cùng loại đường dẫn. Home ở đây là chỗ tên của nó dẫn tới lúc server
+khởi động: `MY_AGENT_HOME` đặt qua một liên kết (`/tmp/…` trên macOS) thì chuỗi tuyệt đối đi qua
+liên kết ấy cũng là 422 nêu đường dẫn thật, còn chuỗi tương đối từ thư mục agent thì không đổi.
+
 **Cả hai danh sách mẫu shell phải là danh sách.** Một chuỗi trần thì duyệt qua được, nên
 `shell_ask_patterns: "rm"` nếu không sẽ thành các mẫu `r` và `m` và hàng rào
 hỏi trước lệnh phá hoại sẽ âm thầm mất hết ý nghĩa; cùng chuỗi đó

@@ -277,6 +277,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   rewritten on the person's behalf. Taking a key out is judged the same way, by the name the start
   then reads in its place. A hand-written file that spells its path through a link is still saved,
   and a path inside the home is judged as before, however it is spelled.
+  A path is inside the home when its text is and where it leads is: the text read with nothing
+  followed (`~`, the agent's folder before a relative text, `.` and `..` folded as text), and the
+  place it resolves to. Where it leads was all that counted, so a link lying in a tree outside
+  the home and leading into it was saved for a workspace, a skills folder and a persona file
+  alike, and the agent followed it wherever it was pointed afterwards, with no restart for a
+  persona. Such a text is now the same 422, naming the place inside the home to write, unless
+  the file already spells it for that kind of path. This refuses what v0.15.0 took: a link
+  outside the home that leads into it, and an absolute text that reaches the home through a
+  link the home is named by (`/tmp/…` on macOS for a home under `/private/tmp`); a text
+  relative to the agent's folder is unchanged.
 - A message to Telegram on a line gone quiet no longer waits for ever, and no longer stops the
   schedules. A call that named no limit of its own (`sendMessage`, `sendChatAction`,
   `setMyCommands`, `getFile`, a photo or a document sent from a file) handed the HTTP client `None`,
