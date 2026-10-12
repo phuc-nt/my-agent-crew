@@ -67,15 +67,15 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
 
       await card(page, "job:brief").getByRole("button", { name: words.deleteKeyLabel("b"), exact: true }).click();
 
-      await expect(said(page)).toHaveText(words.deletedKey("b"));
-      expect(asked).toEqual([`confirm: ${words.deleteKeyConfirm("b", BRIEF)}`]);
+      await expect(said(page)).toHaveText(words.deletedKey('"b"'));
+      expect(asked).toEqual([`confirm: ${words.deleteKeyConfirm('"b"', BRIEF)}`]);
       await expect(card(page, "job:brief").getByTestId("script-store-entry")).toHaveCount(2);
       expect(store.keys("coach", "job:brief")).toEqual(["a", "c"]);
       await expect(view(page, "c")).toBeFocused();
 
       // The last key has none after it: the keyboard goes to the one before.
       await card(page, "job:brief").getByRole("button", { name: words.deleteKeyLabel("c"), exact: true }).click();
-      await expect(said(page)).toHaveText(words.deletedKey("c"));
+      await expect(said(page)).toHaveText(words.deletedKey('"c"'));
       await expect(view(page, "a")).toBeFocused();
     });
 
@@ -121,7 +121,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
 
       await gone.press("Enter");
 
-      await expect(said(page)).toHaveText(words.gone("b"));
+      await expect(said(page)).toHaveText(words.gone('"b"'));
       await expect(gone).toHaveCount(0);
       await expect(view(page, "c")).toBeFocused();
     });

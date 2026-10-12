@@ -131,7 +131,7 @@ describe("what an agent's scripts keep, listed", () => {
     // Its keys still open and can still be deleted.
     await userEvent.click(within(job).getByRole("button", { name: words.viewLabel("seen") }));
     expect(await within(job).findByRole("group", { name: words.valueLabel("seen") })).toHaveTextContent('[ "a1" ]');
-    expect(within(job).getByRole("button", { name: words.deleteAllLabel("job:retired") })).toBeEnabled();
+    expect(within(job).getByRole("button", { name: words.deleteAllLabel('"job:retired"') })).toBeEnabled();
   });
 
   it("says in one sentence what this is when the agent's scripts kept nothing", async () => {

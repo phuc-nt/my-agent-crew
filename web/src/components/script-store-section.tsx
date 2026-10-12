@@ -4,7 +4,7 @@ import type { AgentInfo } from "../api/types";
 import { useScriptStore } from "../hooks/use-script-store";
 import { vi } from "../i18n/vi";
 import { errorText } from "../lib/error-text";
-import { showHiddenChars } from "../lib/hidden-chars";
+import { quotedName } from "../lib/quoted-name";
 import { EmptyState } from "./empty-state";
 import { type RefusedDelete, ScriptStoreNamespaceCard } from "./script-store-namespace";
 import { Icon } from "./ui/icon";
@@ -90,7 +90,9 @@ function ScriptStoreList({ agentId, fallback }: { agentId: string; fallback: Ref
     // Pressed again before the answer, or a key of a namespace that is going whole: the
     // server has been asked already, so nobody is asked to agree a second time.
     if (deleting.current.has(mine) || deleting.current.has(whole)) return;
-    const key = entry && showHiddenChars(entry.key);
+    // A key is whatever a script chose: it goes into the question, and into the line that
+    // says what went, between quotes and on one line.
+    const key = entry && quotedName(entry.key);
     const question = key === undefined ? words.deleteAllConfirm(held.entries.length, where) : words.deleteKeyConfirm(key, where);
     if (!window.confirm(question)) return;
     deleting.current.add(mine);
@@ -110,7 +112,7 @@ function ScriptStoreList({ agentId, fallback }: { agentId: string; fallback: Ref
 
   const onGone = (held: ScriptStoreNamespace, at: number, entry: ScriptStoreEntry, entryAt: number) => {
     setRefused(null);
-    setSaid(words.gone(showHiddenChars(entry.key)));
+    setSaid(words.gone(quotedName(entry.key)));
     drop(held.namespace, entry.key);
     setGone({ namespace: held.namespace, namespaceAt: at, entryAt });
   };

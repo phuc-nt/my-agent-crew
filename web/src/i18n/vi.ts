@@ -993,10 +993,13 @@ export const vi = {
       "Những gì script của agent giữ lại bằng store(khoá, giá_trị) để lần chạy sau đọc bằng load(khoá), xếp theo từng lịch và từng cuộc trò chuyện.",
     empty: "Script của agent này chưa giữ lại gì: giá trị script lưu bằng store(khoá, giá_trị) sẽ hiện ở đây.",
     kinds: { job: "Lịch", conv: "Cuộc trò chuyện", other: "Nơi khác" },
-    // How a sentence names a namespace, as in "Xoá cả 3 khoá của lịch "Bản tin sáng"?".
+    // How a sentence names a namespace, as in "Xoá cả 3 khoá của lịch "Bản tin sáng"?". A name
+    // comes to a sentence between its quotes already, escaped and cut to length
+    // (`quotedName` in lib/quoted-name.ts): to these two, to `gone` and to the delete
+    // sentences below. None of them adds quotes of its own.
     named: {
-      job: (name: string) => `lịch "${name}"`,
-      conv: (name: string) => `cuộc trò chuyện "${name}"`,
+      job: (quoted: string) => `lịch ${quoted}`,
+      conv: (quoted: string) => `cuộc trò chuyện ${quoted}`,
     },
     orphan: "Không còn nơi dùng",
     orphanHint: {
@@ -1019,14 +1022,14 @@ export const vi = {
     valueLabel: (key: string) => `Giá trị của khoá ${key}`,
     valueLoading: "Đang đọc giá trị…",
     valueRaw: "Không đọc được như JSON nên hiện nguyên văn.",
-    gone: (key: string) => `Khoá ${key} không còn nữa; đã tải lại danh sách.`,
+    gone: (quoted: string) => `Khoá ${quoted} không còn nữa; đã tải lại danh sách.`,
     deleteKey: "Xoá",
     deleteKeyLabel: (key: string) => `Xoá khoá ${key}`,
-    deleteKeyConfirm: (key: string, where: string) => `Xoá khoá "${key}" của ${where}? Không thể hoàn tác.`,
+    deleteKeyConfirm: (quoted: string, where: string) => `Xoá khoá ${quoted} của ${where}? Không thể hoàn tác.`,
     deleteAll: "Xoá tất cả",
     deleteAllLabel: (where: string) => `Xoá mọi khoá của ${where}`,
     deleteAllConfirm: (count: number, where: string) => `Xoá cả ${count} khoá của ${where}? Không thể hoàn tác.`,
-    deletedKey: (key: string) => `Đã xoá khoá ${key}.`,
+    deletedKey: (quoted: string) => `Đã xoá khoá ${quoted}.`,
     deletedAll: (count: number, where: string) => `Đã xoá ${count} khoá của ${where}.`,
     nothingDeleted: "Không còn gì để xoá: phần này đã không còn trên máy chủ.",
   },
