@@ -5,7 +5,7 @@ title: Cài đặt, vận hành và publish tài liệu
 
 # Cài đặt, vận hành và publish tài liệu
 
-**Phiên bản**: 0.14.0 · **Cập nhật**: 2026-10-11
+**Phiên bản**: 0.15.0 · **Cập nhật**: 2026-10-12
 
 ## 1. Yêu cầu
 
@@ -120,7 +120,7 @@ Schema SQLite tự thêm cột/bảng khi khởi động; không có bước mig
 
 **Lượt đang chạy lúc khởi động lại được làm tiếp một lần.** `kickstart -k` giữa một lượt cắt lượt đó: lượt web bị cắt ngay, lượt Telegram được chờ tối đa 30 s rồi chat nhận lời báo sẽ làm tiếp ([channels.md](channels.md#offset-và-restart)). Server khởi động kế tiếp mở lại đúng run đó, cùng số tiền đã tiêu và dưới cùng trần chi phí, rồi chạy tiếp từ nhật ký; tool chỉ đọc được gọi lại, còn lệnh gọi nào có thể đã chạy mà đổi trạng thái thì được đóng bằng một ghi chú "không rõ đã chạy hay chưa" để model tự kiểm, không chạy lại ngầm. Lượt đang chờ một quyết định thì vẫn chờ quyết định đó; lượt của cuộc đã hết ngân sách, đã có lượt mới hơn, hoặc đã từng được làm tiếp một lần thì ở lại trạng thái bị ngắt. Chi tiết ở [design.md](design.md#hình-dạng-runtime). Vẫn nên khởi động lại lúc không có lượt nào đang chạy khi chọn được. Server chạy với `--no-schedule` không làm tiếp lượt nào và đóng hẳn những lượt bị cắt, nên dùng cờ đó khi cần xem dữ liệu sau một lần sập mà không muốn lượt cũ chạy tiếp (dừng dịch vụ trước, vì một home chỉ nhận một server mỗi lúc).
 
-**Sao lưu `agent.sqlite3` trước.** Schema chỉ đi một chiều: bản mới thêm bảng và cột (canvas thêm bốn bảng và ba cột, xem [system-architecture.md](system-architecture.md#28-canvas-tài-liệu-người-và-agent-cùng-sửa); bản 0.12.0 thêm bảng `message_requests` và ba cột `runs.resumed`, `messages.turn_notes`, `queued_messages.request_id`) và không có bước lùi. Tệp chạy ở chế độ WAL, nên chép tệp bằng `cp` khi server đang chạy có thể thiếu những lần ghi còn nằm trong tệp `-wal`. Dùng API backup của SQLite, mở nguồn chỉ đọc bằng `mode=ro` (đừng dùng `immutable=1` trên tệp đang chạy):
+**Sao lưu `agent.sqlite3` trước.** Schema chỉ đi một chiều: bản mới thêm bảng và cột (canvas thêm bốn bảng và ba cột, xem [system-architecture.md](system-architecture.md#28-canvas-tài-liệu-người-và-agent-cùng-sửa); bản 0.12.0 thêm bảng `message_requests` và ba cột `runs.resumed`, `messages.turn_notes`, `queued_messages.request_id`; bản 0.15.0 thêm bảng `script_store`) và không có bước lùi. Tệp chạy ở chế độ WAL, nên chép tệp bằng `cp` khi server đang chạy có thể thiếu những lần ghi còn nằm trong tệp `-wal`. Dùng API backup của SQLite, mở nguồn chỉ đọc bằng `mode=ro` (đừng dùng `immutable=1` trên tệp đang chạy):
 
 ```bash
 mkdir -p "$HOME/.my-agent-crew/backups/truoc-nang-cap"
@@ -185,19 +185,19 @@ uv lock --check        # uv.lock khớp pyproject.toml chưa; CI chạy `uv sync
 #    không chép nguyên commit message.
 
 # 5. Commit rồi đẩy — để CI chạy thật trước khi tag
-git add -A && git commit -m "chore(release): v0.14.0"
+git add -A && git commit -m "chore(release): v0.15.0"
 git push origin main
 
 # 6. Đợi CI xanh. Chỉ tag khi đã xanh: tag trỏ vào commit đỏ là thứ khó gỡ.
 gh run watch
 
 # 7. Tag có chú thích (mọi tag cũ đều là annotated — giữ cho đồng nhất)
-git tag -a v0.14.0 -m "v0.14.0"
-git push origin v0.14.0
+git tag -a v0.15.0 -m "v0.15.0"
+git push origin v0.15.0
 
 # 8. GitHub Release: ghi chú là mục của bản này trong CHANGELOG (bỏ dòng tiêu đề), cộng một
 #    dòng kết quả eval nếu đã chạy — chỉ số ca đạt và chi phí, không nội dung ca.
-gh release create v0.14.0 --title "v0.14.0 — <một câu nói bản này làm gì>" --notes-file notes.md
+gh release create v0.15.0 --title "v0.15.0 — <một câu nói bản này làm gì>" --notes-file notes.md
 ```
 
 **Không nên**: tag trước khi push (tag trỏ tới commit chưa ai thấy); tag khi CI đang đỏ; nâng số

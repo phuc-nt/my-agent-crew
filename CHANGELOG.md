@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-10-12
+
 ### Added
 
 - An agent's scripts can call the tools that change things too, when its owner says so.
@@ -2116,6 +2118,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.15.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.15.0
 [0.14.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.14.0
 [0.13.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.13.0
 [0.12.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.12.0
