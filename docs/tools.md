@@ -1431,6 +1431,16 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     của nó đã được dời đi và nó đã rời đội; lần xoá bị từ chối (409) thì kho còn nguyên. Agent
     mới mang lại cùng id bắt đầu với kho trống: nó là một agent khác.
 
+    Gỡ agent không dừng việc nó đang làm: lượt hay job đang chạy đi tiếp tới hết. Script đang chạy
+    lúc agent bị gỡ, và script mà một lượt còn sống sau đó chạy thêm, vẫn chạy tới cuối nhưng
+    **không giữ được gì**: kết quả là một script hỏng, kết bằng dòng nói agent chạy nó đã bị gỡ khỏi
+    đội, và không dòng nào được ghi dưới id ấy. Agent mới mang cùng id, dù được tạo trước khi script
+    cũ chạy xong, không nhận gì của script đó và tự giữ như mọi agent. Sửa agent (`PATCH
+    /api/agents/{id}`) không phải là gỡ: script đang chạy lúc lưu vẫn giữ được. Mỗi id mang một số
+    đời, tăng mỗi lần agent mang id ấy bị gỡ; agent nhận số ấy lúc được dựng và lần ghi của script
+    được so với số hiện tại ngay trong lần ghi (`store/script_store.py`). Số đời nằm trong bộ nhớ
+    của server, vì không script nào sống qua một lần khởi động lại.
+
 Giới hạn nằm trong code, không cấu hình nào nới được:
 
 | Giới hạn | Mức |

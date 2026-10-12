@@ -28,3 +28,9 @@ STORE_NOT_KEPT = (
     "Script chạy xong nhưng KHÔNG giữ được gì bằng store: trong lúc nó chạy, một lần chạy khác "
     "đã ghi vào cùng kho và không còn đủ chỗ (tối đa {most} ký tự). Chạy lại script."
 )
+# Ends the answer of a script that ran to its end for an agent that was removed meanwhile, or
+# before it began in a turn that outlived the agent: what it stored has no agent to belong to.
+STORE_AGENT_GONE = (
+    "Script chạy xong nhưng KHÔNG giữ được gì bằng store: agent chạy script này đã bị gỡ khỏi "
+    "đội, nên những gì nó lưu không còn thuộc về ai."
+)

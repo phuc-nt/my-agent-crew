@@ -8,7 +8,8 @@ script that failed, was refused a call or ran out of time leaves things as it fo
 Where is settled here and never by the script. A job's script keeps under the job's own id,
 and so does a script of the turn that job opened, which is how the two read each other. A
 script of any other turn keeps under its conversation, and goes when the conversation is
-deleted. An agent's scripts reach only what that agent kept.
+deleted. An agent's scripts reach only what that agent kept, and only while it is of the
+crew: what was put together for an agent that was since removed keeps nothing (`era`).
 
 A turn's run is saved before the first of its events is read (`activity/tracked.py`), so it
 is on record, with where it came from, before any script of the turn can run, and after a
@@ -44,6 +45,8 @@ class Kept:
     table: ScriptStore
     agent_id: str
     namespace: str
+    # Which agent of that id the script runs for (`ScriptStore.era`).
+    era: int = 0
     # The namespace as this run sees it, read the first time the script asks, and its size.
     _held: dict[str, str] | None = None
     _chars: int = 0
@@ -82,12 +85,15 @@ class Kept:
     def commit(self) -> str | None:
         """Applies what the script wrote, for a script that ended well. None when it is kept
         or there was nothing to keep; else the words its answer ends on, since none of it
-        was: the namespace was written by another run meanwhile and no longer has the room."""
+        was: the agent was removed, or the namespace was written by another run meanwhile
+        and no longer has the room."""
         if not self._writes:
             return None
         most = limits.MAX_STORE_TOTAL_CHARS
-        if self.table.apply(self.agent_id, self.namespace, self._writes, most):
+        if self.table.apply(self.agent_id, self.namespace, self._writes, most, self.era):
             return None
+        if self.table.era(self.agent_id) != self.era:
+            return t.STORE_AGENT_GONE
         return t.STORE_NOT_KEPT.format(most=most)
 
 
@@ -95,6 +101,12 @@ def _schedule_named(source: str) -> str:
     """The schedule a run's source names (`job:<agent id>/<schedule id>`), or "" for none."""
     prefix = f"{JOB}:"
     return source[len(prefix) :].partition("/")[2] if source.startswith(prefix) else ""
+
+
+def _kept(deps: AgentDeps, namespace: str) -> Kept:
+    """A namespace as a script of that agent keeps it: of the agent as it was put together,
+    which a turn or a job goes on holding after the agent was removed."""
+    return Kept(deps.store.script_store, deps.agent.id, namespace, deps.kept_era)
 
 
 def turn_kept(deps: AgentDeps) -> Kept | None:
@@ -106,9 +118,9 @@ def turn_kept(deps: AgentDeps) -> Kept | None:
     run = deps.store.runs.latest_for_conversation(conv_id)
     schedule_id = _schedule_named(run.source) if run is not None else ""
     namespace = job_namespace(schedule_id) if schedule_id else conversation_namespace(conv_id)
-    return Kept(deps.store.script_store, deps.agent.id, namespace)
+    return _kept(deps, namespace)
 
 
 def job_kept(deps: AgentDeps, schedule_id: str) -> Kept:
     """Where the script a schedule runs keeps things: under the schedule's own id."""
-    return Kept(deps.store.script_store, deps.agent.id, job_namespace(schedule_id))
+    return _kept(deps, job_namespace(schedule_id))

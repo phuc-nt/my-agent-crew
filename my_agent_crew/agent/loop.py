@@ -70,6 +70,10 @@ class AgentDeps:
     # The tool names a `tools:` list can bring this agent, for whoever edits the list
     # (`server/tool_list_names.py`). An agent no assembly made is told none.
     listable_tools: tuple[str, ...] = ()
+    # The era of the agent's id in what scripts keep, as it was when this agent was put
+    # together (`store/script_store.py`). Removing the agent moves the id on, and a turn or
+    # a job that still holds this agent then keeps nothing more under the id.
+    kept_era: int = 0
 
     @property
     def agent(self) -> AgentProfile:
