@@ -98,7 +98,7 @@ describe("the schedules part of the agent editor", () => {
     await save();
 
     const note = await screen.findByTestId("schedule-live");
-    expect(note.textContent).toBe("Đã lưu. Lịch chạy mới có hiệu lực ngay, không cần khởi động lại.");
+    expect(note.textContent).toBe("Đã lưu. Thay đổi lịch chạy có hiệu lực ngay, không cần khởi động lại.");
     // Read out when it appears, as the answer to the press on Save.
     expect(note).toHaveAttribute("role", "status");
     expect(screen.queryByText("Cần khởi động lại")).not.toBeInTheDocument();
