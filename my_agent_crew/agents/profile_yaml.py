@@ -29,7 +29,7 @@ from my_agent_crew.agents.profile import (
 )
 from my_agent_crew.agents.profile_places import followed, persona_names
 from my_agent_crew.agents.profile_settings import listed, names, settings_from
-from my_agent_crew.agents.schedule import ACTIONS, SCHEDULE_KEYS, Schedule
+from my_agent_crew.agents.schedule import ACTIONS, SCHEDULE_KEYS, Schedule, each_on_its_own_id
 from my_agent_crew.config import Settings
 from my_agent_crew.script.check import parse
 from my_agent_crew.script.limits import MAX_SOURCE_CHARS, ScriptError
@@ -145,7 +145,7 @@ def parse_profile(
             listed(raw, "persona_files", who, each=str) or PERSONA_FILES, agent_dir, who
         ),
         skills_dirs=tuple(skills_dirs),
-        schedules=tuple(schedules),
+        schedules=each_on_its_own_id(agent_id, schedules),
         telegram=telegram,
         memory_consolidate=consolidate_cron,
         mode=mode,

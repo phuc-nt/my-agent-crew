@@ -301,8 +301,9 @@ def test_a_schedule_cannot_take_the_consolidation_jobs_id(crew) -> None:
     assert runtime.deps_for("coder").agent.schedules == ()
 
 
-# Boots, but the edit path would not have written it: an hour the clock cannot read, and
-# two rows on one id.
+# Boots, but the edit path would not have written it: an hour the clock cannot read. Two
+# rows on one id stood here as well, until such a file stopped the start
+# (`tests/test_profile_schedule_ids.py`).
 HAND_WRITTEN_SCHEDULES = """\
 name: Thợ mã
 schedules:
@@ -312,7 +313,7 @@ schedules:
   - id: tối
     cron: "0 21 * * *"
     prompt: nghỉ
-  - id: tối
+  - id: khuya
     cron: "0 22 * * *"
     prompt: ngủ
 """
@@ -351,7 +352,7 @@ def test_rows_an_edit_leaves_alone_do_not_hold_the_save(tmp_path: Path) -> None:
     assert [s.id for s in runtime.deps_for("coder").agent.schedules if not s.consolidate] == [
         "sáng",
         "tối",
-        "tối",
+        "khuya",
         "trưa",
     ]
 

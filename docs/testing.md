@@ -450,6 +450,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_api_agents_edit.py::test_a_schedule_cannot_take_the_consolidation_jobs_id`,
     `tests/test_api_agents_edit.py::test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in`,
     `tests/test_api_agents_edit.py::test_clearing_memory_consolidation_removes_the_key`
+- **Mỗi lịch của một agent một mã riêng: hai lịch cùng mã chặn boot, lần lưu nói đúng câu đó**
+  - pytest: `tests/test_profile_schedule_ids.py` (bảy kiểu trùng, mỗi kiểu ở master và ở một
+    agent thường: viết hai lần, viết hai lần cách một dòng, mã theo chỗ `job-N` bên một dòng
+    ghi đúng mã ấy ở trước hay ở sau, một số và chữ của nó, số 0 là dòng không mã, tên của job
+    consolidate khi nó bật: boot dừng với câu nêu agent và mã; bảy tệp mỗi lịch một mã khởi
+    động như trước, cả khi hai mã chỉ khác chữ hoa hay một dòng lấy tên job consolidate đang
+    tắt; ba agent cùng một mã lịch đều có job của mình trên đồng hồ; tệp bị sửa tay thành
+    trùng mã lúc server đang chạy: lần lưu không đụng tới lịch và `reload` đều là 422 với đúng
+    câu của boot, tệp và agent đang chạy giữ nguyên; PATCH và POST đem tới hai lịch cùng mã là
+    422 với câu đó, không ghi gì). Kiểm chứng đột biến: tám sửa đổi (bỏ phép so khi đọc tệp,
+    không bao giờ báo trùng, không ghi lại mã đã gặp, bỏ qua job consolidate, so không phân
+    biệt hoa thường, bỏ mã khỏi câu, bỏ tên agent khỏi câu, bỏ qua dòng đầu) đều bị test bắt.
 - **Đường dẫn một lần sửa đưa vào phải nằm dưới home; đường dẫn agent đang chạy với thì để nguyên**
   - pytest: `tests/test_api_agents_edit.py`
     ("test_a_persona_file_outside_the_home_is_refused",
