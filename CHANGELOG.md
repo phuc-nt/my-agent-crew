@@ -75,6 +75,103 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   keeps nothing: it is answered as a script that failed, with a line saying the agent it ran for was
   removed. That holds when another agent was given the id before the script ended. A save of the
   agent is no removal.
+- The agent editor on the web sets `script_calls` and `script_llm`. Its tools part ends with a
+  "Script" section. "Script gọi được gì" is `script_calls`, one of "Không dùng script" (`none`),
+  "Chỉ công cụ đọc" (`read_only`) and "Cả công cụ thay đổi dữ liệu" (`gated`), with a line under
+  it saying what the choice leads to. "Cho script hỏi mô hình" is `script_llm`, and stays to be
+  set on an agent that uses no script, since a schedule's script still runs there. An agent whose
+  file writes neither key opens at what it runs with. A save sends only the key that changed and
+  asks for no restart, the section says under its heading that both hold from the turn after a
+  save, and a choice taken back leaves nothing to save.
+  While the form holds both `gated` and a ticked "Tự chủ", the line under the choice is a warning
+  that the agent's scripts change things and nobody is asked, and the same sentence stands under
+  "Tự chủ" at the top of the form: whichever of the two is switched on second, the person reads it
+  where they pressed. It goes by the form as it stands, before any save. The section ends with a
+  link to what that agent's scripts keep. On a server that does not report a key yet (0.15.0
+  reports `script_calls` alone of the two) the form reads it as its default.
+  The **Công cụ** table marks `tool_script` with `⊘` ("agent được đặt “Không dùng script”") for an
+  agent set to `none`, where `∅` stays the mark of an agent with no tool a script may call, and
+  the legend line of `⊘` shows only when the crew has such an agent.
+- The agent editor's tool list reads `listable_tools`. Under "Chỉ dùng các công cụ được chọn" each
+  name the server tells is a row, described by the tools table where that has the tool, and the
+  form keeps no rule of its own for which names a `tools:` list has a say over. So `delegate` has
+  a row on an agent that hands work out, even while no agent holds the tool, and can be ticked
+  back.
+  A name the file's list holds and the server does not tell (a tool of another mode, one the
+  machine cannot run now, one handed whatever the list says) keeps a ticked row of its own after
+  the others, with a line under it ("Hiện giờ danh sách không đem lại công cụ này cho agent. Bỏ
+  chọn thì tên này rời khỏi danh sách."), and is written back with the list until the person
+  unticks it; ticking another row drops no name. A tool unticked and ticked again goes back where
+  the file's list has it, which leaves nothing to save, and a name that list never held is written
+  after the file's names, in the order of the rows. A save that changes nothing in the list sends
+  no `tools`.
+  The rows are those of the agent as saved. While the form holds an unsaved change of "Chế độ" or
+  of "Có thể giao việc cho", a line under the list says to save that first: the answer to that
+  save carries the new names. A row that goes with its tick while the keyboard is on it hands the
+  keyboard to the row that took its place, else to the last row, else to the radio that is on
+  above the list. On a server that reports no `listable_tools` the rows are the tools the table
+  does not mark as a server's, as `tool_search` or as `tool_script`.
+- A schedule's script is written in the agent editor, which in 0.15.0 showed such a row to read
+  and offered no box to type in. "Làm gì" on a row picks one of "Nhắc agent" (`prompt`), "Lệnh
+  shell" (`command`) and "Script" (`script`). A script row has a box for the script, sent
+  character for character with no line break added at its end (so one of several lines is written
+  to the file as a `script: |-` block), and a box for "Nhắc agent khi script in ra kết quả"
+  (`then_prompt`) that may stay empty: the key is then not in the file, and emptying a box that
+  held words takes the key out. Changing "Làm gì" carries no text from one kind's box into
+  another's; while the row is on the page each kind keeps what was typed for it and gets it back
+  when chosen again, and only the kind chosen at the save is written. Tab moves to the next box,
+  so a script is indented with spaces, and a pasted tab is kept.
+  The form holds a save over an empty script ("Nhập script cần chạy.", said once a save was tried)
+  and over one past 20,000 characters (said as soon as it is, counted in characters as the server
+  counts). It does not judge the Python: the server does at the save, and its 422 stands word for
+  word over the form with all that was typed still there.
+  A script row must have an id. What the script keeps is stored under `job:<id>`, and a row the
+  file leaves unnamed is numbered by its place at every start, so a schedule added or taken out
+  above it changes where the job reads and stores. A script row whose "Mã" is empty or only spaces
+  is not saved, whether the row is new or was switched over from a prompt or a command: the box
+  says why once a save was tried, and the hint under it says what the id is for in place of "Bỏ
+  trống để tự đặt". The form fills no id in. A script row the server has numbered opens with that
+  id in its box, so opening an agent is no change and nobody has to type; the next save of the
+  schedules sends the id back and the file holds it from then on. Rows of the other two kinds may
+  leave the id empty as before.
+- The web shows what scripts keep. Quản lý → **Ghi nhớ** has a tab "Script giữ lại" with an
+  address of its own (`#/manage/memory/scripts/<agent id>`), for one agent at a time; the link in
+  the editor's "Script" section opens it on that agent. Each place is a block headed by its kind
+  ("Lịch", "Cuộc trò chuyện", "Nơi khác") and its name: the `title`, else the `ref`, and for a
+  place of neither shape the name it is stored under. That stored name stands beneath the heading
+  when the two differ. A schedule's place links to that job's row in **Lịch chạy** and a
+  conversation's to the conversation. An `orphan` place is marked "Không còn nơi dùng", says why
+  it can be deleted and is no link. Under the heading stand the number of keys, the size against
+  `limit_chars` and a bar. From 80% of the limit the bar changes colour and a line says the place
+  is nearly full ("Sắp đầy: …"); at the limit it changes again and the line says it is full ("Đã
+  đầy: …").
+  Each key is a row with its size, when it was written and its `preview`. "Xem giá trị" reads the
+  whole value into a box that scrolls on its own and that the keyboard reaches, set out as
+  indented JSON when it reads as JSON and as it is otherwise, with a line saying so. A value
+  written again since the list was read has the list read again, so the size and the time beside
+  it are that writing's. A key gone by then is said to be gone and the list is read again.
+  "Xoá" on a key and "Xoá tất cả" on a place ask first, naming the key and the place. Before "Xoá
+  tất cả" asks, the list is read again, and the question counts the keys and names the place as
+  that read found them, since a script may have written since; a place gone by then is said to
+  have nothing left and nobody is asked. After a delete a line says what went, and the keyboard
+  goes to the key that took its place, else to the last key, else to the heading of the place that
+  took the emptied one's, else to the last place, else to the agent box. A refusal of the server's
+  shows at the key's row or under the place's heading, and nothing moves.
+  A key is whatever text a script took from what its tools read, so wherever the screen draws a
+  key, a place's name or a title, or puts one into the name of a button, of a value's box or of a
+  heading, into a question or into the line after a delete, the characters nobody sees are written
+  out, one way everywhere: a quote, a backslash and a control character as JSON writes them (`\"`,
+  `\n`, `\t`); the controls JSON leaves as they are, U+2028 and U+2029 the same way (`\u0085`,
+  `\u2028`); a character that draws as nothing or as an odd space as its code (`[U+200B]`); and a
+  space that opens or ends the name or stands next to another as `[U+0020]`, since a page folds
+  those. Two keys that differ only in such a character therefore read differently in every place.
+  In a question and in the line after it the name stands in quotes and is cut at 80 characters.
+  The screen does not read again by itself while it is open: what a script writes meanwhile shows
+  once the agent is chosen again or the page is loaded again. Between a new bundle on disk and the
+  restart, the 0.15.0 server still running has the list alone: places show under the names they
+  are stored by, with a size and no limit, mark or bar; "Xem giá trị" is answered 404, so the key
+  is said to be gone, the list is read again and the row is back; "Xoá" and "Xoá tất cả" are
+  answered 405, shown as a refusal, and nothing is deleted.
 
 ### Changed
 
@@ -90,6 +187,33 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   exported trajectory covers what the cut left of a secret on either side of it: its first
   characters before the ellipsis, as it did, and its last ones after it, where the cover looked
   only at the start of a text.
+- The web shows why a step failed without a press, and whole. A failed step's answer was folded
+  behind "Xem kết quả" in a box that scrolled, and a step heard while its run went on was cut at
+  160 characters however it ended. A call that failed or was refused now stands open on the step
+  of a run, on the tool card in the thread, on a script's call once the list of its calls is open,
+  and on the card of a task handed on that failed. An answer within what a step keeps is shown
+  whole, wrapped to the card and in no box that scrolls, and "Ẩn kết quả" folds it. The tool card
+  in the thread holds all the tool answered, so a longer failure there is open and whole too, in
+  the box that scrolls. A step that went well stays folded until it is pressed. A failed step
+  heard while the run goes on is kept by the server's rule above, counted in characters and
+  folding the white space the server folds, so it reads as the stored one that takes its place
+  when the run ends.
+- The message a script job opens a turn with is drawn as the schedule's prompt and what the script
+  printed. That message holds the `then_prompt`, a sentence for the model and what the script
+  printed between two marker lines, and the thread drew all of it in the bubble. The bubble is now
+  the `then_prompt` alone. Under it stands a block "Script in ra" with what was printed, line for
+  line, the number of its lines and "Đã đưa cho model làm dữ liệu, không phải lời dặn.". The block
+  is open while short and folded past 12 lines or 800 characters; opened, it scrolls in a box of
+  its own that the keyboard reaches, and a character nobody sees is written there as its code
+  (`[U+200B]`). Only a message of the very shape the server writes is read this way: the closing
+  line last, the opening line of the same number, and right over that the server's sentence, word
+  for word. Any other stays the plain message it is. The stored text is untouched, so "Sửa và gửi
+  lại từ đây" and the Markdown export use the message as it was stored.
+- "Sửa lịch" on a job in **Lịch chạy** opens the agent's editor at that schedule's own row, where
+  it opened at the heading of the schedules: the row is scrolled into view right under the
+  editor's sticky bar and takes the keyboard. A job with no row in the form (the memory pass,
+  `memory-consolidate`) lands on the heading as before. The way back still returns to that job's
+  row in the list.
 
 ### Fixed
 
@@ -179,6 +303,35 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   `delegates` answers with the new ones. A name is told there exactly when a list holding it
   earns no warning, bar `image_read` on a machine with no vision route, which is neither told nor
   warned of.
+- What a conversation outside the sidebar has spent no longer stands still on the web. The sidebar
+  lists the master's conversations; one of another agent, such as that of an agent a task was
+  handed to, is opened from a run card or from "Cần bạn xử lý", and no row of the list is read
+  again for it when a run ends. The header's chip read what the thread heard as each turn ended
+  and the overview card of the activity column read the conversation as it was loaded, so after a
+  turn the two showed two amounts, and the overview and the hold on the composer of a conversation
+  over its budget stayed at what the load found until the page was loaded again. Both now take one
+  reading, the larger of the load and what the thread heard, since the server only adds to what
+  was spent. Only a turn that ends `done` or `halted` says the amount: after a turn of this tab's
+  that ends in an error, stops to ask the person or is stopped, the conversation is loaded once
+  more, for both places.
+- The web reads the crew again after a save on **Kết nối**. A key that is set or removed, and the
+  routes saved for every agent, are applied to the running crew, which the server builds anew: a
+  key can hand an agent a tool it did not hold, and an agent that names no route runs on the new
+  ones. The tools were read again and the crew was not, so an agent editor opened next began its
+  tool list without the new tool and showed the routes as they had been.
+- Switching on an agent's tool list in the editor no longer writes every tool the crew holds. "Chỉ
+  dùng các công cụ được chọn" began with every tool of the crew in the list, so the agent was
+  listed tools only other agents get, `delegate` on an agent that hands work to nobody among them,
+  each one a warning when the server starts. The list now begins from the tools the agent holds
+  among its rows, and from all the rows for an agent that holds none of them.
+- A schedule's command row keeps the `skills` its file lists. In the agent editor a row made a
+  command was handed an empty list, so a command whose file lists skills counted as changed after
+  a switch to a prompt and back, and a save wrote the list away. Each kind of row now keeps its
+  own list.
+- The keyboard is no longer left on nothing when an MCP server that `config.yaml` no longer
+  declares is unticked in the agent editor. Its row goes with the tick; a keyboard that was on it
+  now goes to the row that took its place, else to the last row, else to the radio that is on
+  above the tools.
 
 ## [0.15.0] — 2026-10-12
 
