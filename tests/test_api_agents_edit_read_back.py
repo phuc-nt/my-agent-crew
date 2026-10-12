@@ -260,6 +260,31 @@ def test_a_save_leaves_the_running_agent_as_the_next_start_will_read_its_file(cr
         assert read(client) == (8, False)
 
 
+# A key a person wrote twice, by where it stands: in the profile, in a schedule's row, in
+# a mapping the profile holds. The start reads the later of the two and says nothing; the
+# library a save reads with takes the file for broken.
+TWICE = {
+    "max_steps": "name: Thợ mã\nmax_steps: 5\nmax_steps: 7\n",
+    "prompt": 'schedules:\n  - id: sang\n    cron: "0 7 * * *"\n    prompt: Chào\n    prompt: Về\n',
+    "chat_id": "telegram:\n  token_env: BOT_MOT\n  chat_id: 1\n  chat_id: 2\n",
+}
+
+
+@pytest.mark.parametrize("key", TWICE)
+def test_a_key_written_twice_holds_up_a_save_and_the_refusal_names_the_key(crew, key):
+    """Which of the two the person meant is theirs to say. The save changes nothing, and
+    tells them the key to look for."""
+    serve, manifest = crew
+
+    with serve(TWICE[key]) as client:
+        reply = client.patch("/api/agents/coder", json={"profile": {"description": "Viết mã"}})
+
+    assert reply.status_code == 422
+    assert reply.json()["detail"].startswith(texts.MANIFEST_BROKEN.format(error=""))
+    assert f'duplicate key "{key}"' in reply.json()["detail"]
+    assert manifest.read_text("utf-8") == TWICE[key]
+
+
 # --- the look itself ---
 
 

@@ -278,7 +278,10 @@ Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.
   run, cho người mở run xem. Tin cũng **không bao giờ** mang mã của script. Lời của một tool hỏng
   thì được giữ nguyên, câu của một lỗi mà script tự `raise` cũng vậy. Vì thế tham số của một lời gọi
   chỉ có trong tin khi chính tool hỏng nhắc lại nó (`Công cụ lỗi: không có ghi chú tên X`), và dữ
-  liệu chỉ có khi script tự viết nó vào câu lỗi.
+  liệu chỉ có khi script tự viết nó vào câu lỗi. Còn một đường thứ ba: lỗi mà trình thông dịch
+  ném ra khi script đang xử lý một giá trị thì trích chính giá trị ấy (`int(...)` của một chuỗi
+  không phải số, một khoá mà mapping không có), nên lý do có thể mang một phần thứ tool vừa trả
+  về, trong giới hạn 600 ký tự nói trên.
 - Tin của thành viên đội mang dòng `[Name]` ở đầu như bản tin theo lịch; tin của master thì không.
   Tin đi qua bước bỏ dấu markdown như mọi tin của bot (mục [Cuộc trò chuyện](#cuộc-trò-chuyện) ở
   trên): `**đậm**` và `*nghiêng*` trong tên lịch hay trong lý do mất dấu sao, nên lịch tên

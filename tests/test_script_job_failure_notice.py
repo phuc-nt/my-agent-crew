@@ -7,7 +7,8 @@ schedule, why, and where the run is. Why is what ended the script: the line of i
 the line that says nothing of it could be kept, to its last sentence, which is often what to
 do about it. Nothing the script printed before it failed is part of it, and neither is the
 script's text. What a call was given is in it only where the tool that failed said it back,
-and what an error the script raised says is in it as the script wrote it. The run's step keeps
+and what an error the script raised says is in it as the script wrote it. A value the script
+was working on is in it where the interpreter's own error quotes it. The run's step keeps
 all the script said, and is not made from the message, nor the message from it; its summary
 is what ended the script too, cut shorter (`test_job_run_summary.py`). A job of another kind,
 and a script whose output opened a turn, are told as they were.
@@ -191,6 +192,49 @@ async def test_what_an_error_the_script_raised_says_is_told(deps_factory):
     assert run.status == FAILED
     assert text == notice(erred(2, "ValueError: thiếu cột ngày ở dòng 2 của sổ"))
     assert "3 dòng sổ" not in text
+
+
+# What a tool gave back, which the script went on to work on without printing it.
+MAIL = "Kính gửi anh Phúc, mã xác nhận của anh là 4471."
+WORKED_ON = [
+    ("int(tools.mail_read())", f"ValueError: invalid literal for int() with base 10: {MAIL!r}"),
+    ('{"táo": 3}[tools.mail_read()]', f"KeyError: {MAIL!r}"),
+]
+
+
+@pytest.mark.parametrize(("working", "error"), WORKED_ON, ids=["a number", "a key"])
+async def test_an_error_raised_over_what_a_tool_gave_back_is_told_as_the_interpreter_says_it(
+    deps_factory, working, error
+):
+    """The third way a tool's words reach the person. The tool did not fail and the script
+    printed nothing of it: the script worked on what it was given, and the error that
+    ended it there quotes the value. That is why the script ended, and is told."""
+    mail = Reads("mail_read", MAIL)
+    rig = told(deps_factory(extra_tools=[mail.tool]), due(f'print("đã đọc 3 thư")\n{working}'))
+
+    run = await rig.sched.run_job(DUE)
+
+    [(_, text)] = rig.notices
+    assert run.status == FAILED and text == notice(erred(2, error))
+    assert "4471" in text and "đã đọc" not in text
+
+
+async def test_a_long_value_an_error_quotes_is_cut_as_every_reason_is(deps_factory):
+    """No more of it than of any other reason: the head and the tail of the one line."""
+    page = "Mở đầu trang. " + "chữ " * 300 + "Hết trang, mã 4471."
+    read = Reads("page_read", page)
+    source = 'print("đã tải trang")\n{"giá": 3}[tools.page_read()]'
+    rig = told(deps_factory(extra_tools=[read.tool]), due(source))
+
+    run = await rig.sched.run_job(DUE)
+
+    whole = erred(2, f"KeyError: {page!r}")
+    reason = whole[:FAILURE_HEAD] + CUT + whole[-FAILURE_TAIL:]
+    [(_, text)] = rig.notices
+    assert run.status == FAILED and len(whole) > 1200
+    assert len(reason) == 601 and text == notice(reason)
+    assert "Mở đầu trang." in text and text.split("\n")[1].endswith("Hết trang, mã 4471.'")
+    assert "đã tải trang" not in text
 
 
 async def test_a_script_that_ended_well_and_kept_nothing_is_told_by_the_line_that_says_so(

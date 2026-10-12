@@ -9,6 +9,9 @@ The home is one a start gives more than its files state: a kit of the crew and a
 an agent's own (a command, a skill folder and a hook each), a master whose file leaves
 out its name, and the forms a person writes by hand that the start's reader and the
 library a save writes with read two ways (`max_steps: 010`, `enabled: no`).
+
+A turn that stopped to ask the person is held here too: it is carried on by their word,
+and takes the agent it finds then, which is the agent as saved.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from my_agent_crew import texts
 from my_agent_crew.agents import load_profiles
 from my_agent_crew.agents.profile import AgentProfile
 from my_agent_crew.config import ensure_home, load_settings
@@ -30,6 +34,7 @@ from my_agent_crew.server.app import create_app
 from my_agent_crew.server.credential_catalog import KNOWN
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import build_runtime
+from tests.test_server_api import parse_sse
 
 HOOK = {
     "hooks": {
@@ -308,3 +313,63 @@ def test_after_a_save_the_crew_that_runs_is_the_crew_a_start_would_bring_up(
         saved = save(client, home)
 
         assert apart(runtime, home, **saved) == []
+
+
+WRITE = '/tool workspace_write {"path": "x.txt", "content": "1"}'
+ASK = '/tool ask_user {"question": "Dời hạn sang thứ sáu?"}'
+# What the turn stopped on, where the person's word goes, the word, and what a write the
+# turn asked for leaves under the agent's folder once it is carried on.
+WAITED = {
+    "for a decision": (WRITE, "", {"approve": True}, ["khac/x.txt"]),
+    "for an answer": (ASK, "/answer", {"answer": "có"}, []),
+}
+
+
+def stopped(client: TestClient, asked: str) -> tuple[str, str]:
+    """A turn of the coder's that stopped to ask: its conversation, and what it waits on."""
+    conv = client.post("/api/conversations", json={"agent_id": "coder"}).json()
+    base = f"/api/conversations/{conv['id']}"
+    last = parse_sse(client.post(f"{base}/messages", json={"text": asked}).text)[-1]
+    assert last["type"] == "approval_required"
+    return base, f"{base}/approvals/{last['approval_id']}"
+
+
+def written(home: Path) -> list[str]:
+    folder = home / "agents" / "coder"
+    return sorted(str(found.relative_to(folder)) for found in folder.rglob("x.txt"))
+
+
+@pytest.mark.parametrize("waited", WAITED)
+def test_a_turn_that_waited_on_the_person_goes_on_with_the_agent_as_saved(
+    home: Path, waited: str
+) -> None:
+    """A turn takes its agent once, when it begins, and a save reaches the next one. A turn
+    that stopped to ask is begun again by the person's word, and takes its agent then: the
+    model it asks next and the folder it writes to are the ones the save named."""
+    asked, address, word, left = WAITED[waited]
+    client, _ = crew(home)
+    with client:
+        base, waiting = stopped(client, asked)
+        edit(client, "coder", routes=["fake:sau"], workspace="khac")
+        went_on = parse_sse(client.post(waiting + address, json=word).text)
+        told = client.get(base).json()["messages"]
+
+    assert went_on[-1]["type"] == "done"
+    assert [said["model"] for said in told if said["role"] == "assistant"] == ["echo", "sau"]
+    assert written(home) == left
+
+
+def test_a_write_agreed_to_after_a_save_took_the_tool_away_is_not_made(home: Path) -> None:
+    """The request was made of the agent that had the tool; the yes is given to the agent
+    as saved, which has it no more. Nothing is written on the strength of the older one."""
+    client, _ = crew(home)
+    with client:
+        _, waiting = stopped(client, WRITE)
+        edit(client, "coder", tools=["workspace_read"])
+        went_on = parse_sse(client.post(waiting, json={"approve": True}).text)
+
+    answered = [event for event in went_on if event["type"] == "tool_result"]
+    assert [(event["ok"], event["output"]) for event in answered] == [
+        (False, texts.UNKNOWN_TOOL.format(name="workspace_write"))
+    ]
+    assert written(home) == []

@@ -517,6 +517,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lưu đọc tệp không qua hàm chung nên master mang tên `default`, bỏ tên mặc định của master ở
     hàm chung, để tên mặc định đè tên tệp ghi, xét cách viết đường dẫn theo cách đọc của thư
     viện ghi tệp) đều bị test bắt.
+    Tệp đầu còn giữ lượt đang dừng chờ người: lượt chờ duyệt hay chờ trả lời, được tiếp tục sau
+    một lần lưu, hỏi model của tuyến vừa lưu và ghi vào workspace vừa lưu; lời gọi ghi được đồng
+    ý sau khi lần lưu lấy lại tool của nó thì không chạy. Kiểm chứng đột biến: một sửa đổi (hội
+    thoại giữ agent nó chạy lần đầu) làm cả ba test đỏ.
 - **Hồ sơ agent sai hình dạng bị từ chối bằng 422 nêu tên khoá, không bao giờ là 500**
   - pytest: `tests/test_profile_wrong_shapes.py` (đi hết mọi khoá của hồ sơ, mọi trường của một
     dòng lịch thuộc cả ba loại và mọi trường của `telegram`, lấy từ chính bảng khoá của mã, nhân
@@ -5958,6 +5962,9 @@ khi chạy; phần đó có mục riêng ở dưới.
     sửa trống; tệp của agent mới chỉ là lần sửa; mọi khoá đọc lại ra khác đều được nêu tên, khoá bị
     đổi, khoá bị mất và khoá không ai xin; tệp hiện có mà lúc khởi động không đọc nổi là việc của
     người sửa tay; tệp sắp ghi mà lúc khởi động không đọc nổi thì không được ghi).
+    Một khoá viết tay hai lần (ở hồ sơ, ở một dòng lịch, ở `telegram`) chặn lần lưu bằng 422,
+    tệp không đổi một byte, và lời từ chối nêu đúng tên khoá ấy; đột biến bỏ lời của thư viện
+    khỏi lời từ chối bị test bắt.
   - Kiểm chứng đột biến cho cách ghi không ngắt dòng và phép đọc lại: hai mươi sửa đổi (dòng dài
     lại bị ngắt, ngắt ở bề rộng gấp đôi, mọi chuỗi một dòng để mặc trình ghi hay đều vào ngoặc
     kép, chuỗi được xét theo cách đọc của chính trình ghi hay theo việc lúc khởi động có đọc ra
@@ -6016,6 +6023,9 @@ khi chạy; phần đó có mục riêng ở dưới.
     trong khi step của run vẫn giữ đủ như trước và tóm tắt của run là đúng dòng lỗi ấy; tool hỏng
     được kể bằng lời của chính nó,
     tham số mà nó nhắc lại vì thế có trong tin; câu của lỗi do script tự `raise` có trong tin;
+    lỗi trình thông dịch ném ra trên thứ một tool trả về, `int(...)` của một chuỗi hay một khoá
+    mà mapping không có, được kể đúng lời của nó, trích cả giá trị ấy, còn chữ đã in thì không;
+    giá trị dài thì bị cắt như mọi lý do, 200 ký tự đầu và 400 ký tự cuối;
     script chạy xong mà không giữ được gì bằng `store` thì lý do là đúng dòng nói vậy; script không
     chạy nổi thì lý do là loại lỗi, như run ghi; câu từ chối của cổng duyệt tới nơi nguyên vẹn, dài
     hơn 160 ký tự và kết bằng phần dặn gọi trực tiếp, không kèm chữ đã in; lỗi dài thì tin mang 200
