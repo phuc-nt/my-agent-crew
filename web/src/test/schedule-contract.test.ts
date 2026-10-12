@@ -139,3 +139,38 @@ describe("the two script switches, as the double reads them", () => {
     expect(applyAgentPatch(set, { name: "Khác" })).toMatchObject({ ok: { script_calls: "gated", script_llm: false } });
   });
 });
+
+describe("the delegates and the names a list has a say over, as the double answers a save", () => {
+  // Not the master, chatting, naming nobody: it hands no work out.
+  const plain = { ...fakeAgent, is_master: false, listable_tools: ["memory_save", "write_file"] };
+  const lead = { ...plain, delegates: ["dev"], declared: { ...plain.declared, delegates: ["dev"] }, listable_tools: ["delegate", "memory_save", "write_file"] };
+
+  it("writes the delegates where the form reads them back, and a cleared key as nobody", () => {
+    expect(applyAgentPatch(plain, { delegates: ["dev"] })).toMatchObject({ ok: { delegates: ["dev"], declared: { delegates: ["dev"], tools: [] } } });
+    expect(applyAgentPatch(lead, { delegates: null })).toMatchObject({ ok: { delegates: [], declared: { delegates: [] } } });
+  });
+
+  it("lists `delegate`, in its sorted place, once a save makes the agent hand work out", () => {
+    expect(applyAgentPatch(plain, { delegates: ["dev"] })).toMatchObject({ ok: { listable_tools: lead.listable_tools } });
+    expect(applyAgentPatch(plain, { mode: "work" })).toMatchObject({ ok: { listable_tools: lead.listable_tools } });
+  });
+
+  it("stops listing it once a save leaves the agent handing none out, and never twice", () => {
+    expect(applyAgentPatch(lead, { delegates: [] })).toMatchObject({ ok: { listable_tools: plain.listable_tools } });
+    expect(applyAgentPatch(lead, { delegates: null })).toMatchObject({ ok: { listable_tools: plain.listable_tools } });
+    expect(applyAgentPatch({ ...plain, mode: "work", listable_tools: lead.listable_tools }, { mode: "assistant" })).toMatchObject({ ok: { listable_tools: plain.listable_tools } });
+    expect(applyAgentPatch(lead, { delegates: ["dev", "coach"] })).toMatchObject({ ok: { listable_tools: lead.listable_tools } });
+  });
+
+  it("keeps it for the master and for a work agent, whoever they name", () => {
+    const master = { ...lead, is_master: true, delegates: [] };
+    expect(applyAgentPatch(master, { delegates: [] })).toMatchObject({ ok: { listable_tools: lead.listable_tools } });
+    expect(applyAgentPatch({ ...lead, mode: "work" }, { delegates: [] })).toMatchObject({ ok: { listable_tools: lead.listable_tools } });
+  });
+
+  it("leaves the names alone on a save of anything else", () => {
+    // A list the server would never send, to show nothing here recomputes it.
+    const odd = { ...plain, listable_tools: ["write_file", "delegate"] };
+    expect(applyAgentPatch(odd, { name: "Khác", tools: ["write_file"] })).toMatchObject({ ok: { listable_tools: ["write_file", "delegate"] } });
+  });
+});

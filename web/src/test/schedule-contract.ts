@@ -129,6 +129,19 @@ export function applyAgentPatch<T extends object>(agent: T, patch: Record<string
   }
   // The list the file now writes; a null clears the key, which reads back as no list.
   if ("tools" in patch) next.declared = { ...(next.declared as object), tools: patch.tools ?? [] };
+  // The agents the file now names, which the form reads back; a null names nobody.
+  if ("delegates" in patch) {
+    next.delegates = patch.delegates ?? [];
+    next.declared = { ...(next.declared as object), delegates: next.delegates };
+  }
+  // The answer to a save already says which names a list has a say over for the agent as
+  // it now is. The one name a save moves here is `delegate`: there exactly while the agent
+  // hands work out, which the master, a work agent and one naming delegates do.
+  if (Array.isArray(next.listable_tools) && ("mode" in patch || "delegates" in patch)) {
+    const hands = next.is_master === true || next.mode === "work" || ((next.delegates ?? []) as string[]).length > 0;
+    const others = (next.listable_tools as string[]).filter((name) => name !== "delegate");
+    next.listable_tools = hands ? [...others, "delegate"].sort() : others;
+  }
   // A null clears the key: no server at all, as the profile reads once the key is gone.
   if ("mcp" in patch) next.mcp = patch.mcp ?? [];
   // The two script switches take their own values and nothing else: a label or a string
