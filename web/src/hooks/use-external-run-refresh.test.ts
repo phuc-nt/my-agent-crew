@@ -74,28 +74,28 @@ describe("a run first seen running while a drain's chip is still on screen", () 
   it("reloads the thread right away instead of waiting for the run to change status", () => {
     const { reloadWhenIdle, controller } = fakeThread({ waiting: [chip] });
     const activity = fakeActivity([run()]);
-    renderHook(() => useExternalRunRefresh("c1", controller, activity));
+    renderHook(() => useExternalRunRefresh("c1", controller, activity, false));
     expect(reloadWhenIdle).toHaveBeenCalled();
   });
 
   it("does not reload when there is no chip waiting: a plain external run keeps its old, quieter behaviour", () => {
     const { reloadWhenIdle, controller } = fakeThread({ waiting: [] });
     const activity = fakeActivity([run()]);
-    renderHook(() => useExternalRunRefresh("c1", controller, activity));
+    renderHook(() => useExternalRunRefresh("c1", controller, activity, false));
     expect(reloadWhenIdle).not.toHaveBeenCalled();
   });
 
   it("reloads even when the run is first seen already finished: an echo reply or a turn halted on budget never renders as running at all", () => {
     const { reloadWhenIdle, controller } = fakeThread({ waiting: [chip] });
     const activity = fakeActivity([run({ status: "done", finished_at: "2026-09-19T08:00:01Z" })]);
-    renderHook(() => useExternalRunRefresh("c1", controller, activity));
+    renderHook(() => useExternalRunRefresh("c1", controller, activity, false));
     expect(reloadWhenIdle).toHaveBeenCalled();
   });
 
   it("reloads when the run is first seen halted: the same instant turn can also stop on its own budget cap", () => {
     const { reloadWhenIdle, controller } = fakeThread({ waiting: [chip] });
     const activity = fakeActivity([run({ status: "halted", finished_at: "2026-09-19T08:00:01Z" })]);
-    renderHook(() => useExternalRunRefresh("c1", controller, activity));
+    renderHook(() => useExternalRunRefresh("c1", controller, activity, false));
     expect(reloadWhenIdle).toHaveBeenCalled();
   });
 
@@ -105,7 +105,7 @@ describe("a run first seen running while a drain's chip is still on screen", () 
     // then drops: a stream that has never synced yet is merely "not synced yet", a
     // different state this hook does not treat as behind (see the `everSynced` ref).
     const { rerender } = renderHook(
-      ({ activity }) => useExternalRunRefresh("c1", controller, activity),
+      ({ activity }) => useExternalRunRefresh("c1", controller, activity, false),
       { initialProps: { activity: fakeActivity([], { synced: true }) } },
     );
     rerender({ activity: fakeActivity([], { synced: false }) });
@@ -125,7 +125,7 @@ describe("a turn this tab reads along with", () => {
       thread: fakeThread({ busy: p.busy }, { watching: p.watching, unowned: p.unowned, reloadWhenIdle }).controller,
       activity: fakeActivity(p.runs),
     });
-    const hook = renderHook(({ thread, activity }) => useExternalRunRefresh("c1", thread, activity), {
+    const hook = renderHook(({ thread, activity }) => useExternalRunRefresh("c1", thread, activity, false), {
       initialProps: props(first),
     });
     return { reloadWhenIdle, result: hook.result, move: (next: typeof first) => hook.rerender(props(next)) };

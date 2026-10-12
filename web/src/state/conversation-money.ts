@@ -15,11 +15,16 @@ export interface ConversationMoney {
  *
  * Two readings of the spend exist. The row is what the server last sent: the sidebar's
  * entry, read again whenever a run ends, or, for a conversation the sidebar does not list
- * (it lists the master's only), the conversation as it was loaded. The thread hears what
- * each turn's last event says. A turn this tab streams loads nothing again, so the row of
- * a conversation outside the list stays where the load left it. The server only ever adds
- * to a conversation's spend, so the larger reading is the later one, and that one figure
- * goes to the header and to the overview alike.
+ * (it lists the master's only), the conversation as it was last loaded. The thread hears
+ * the spend from a turn's last event, and only `done` and `halted` say it: a turn that ends
+ * in an error, at a request to the person, or stopped by them says nothing of money.
+ *
+ * So neither reading is always the later one. After a turn that said its spend the thread
+ * is ahead of a row nothing has read since. After one that did not, a conversation outside
+ * the list is loaded again (`useExternalRunRefresh`), which brings both readings up; until
+ * that load lands both are the figure from before the turn. The server only ever adds to a
+ * conversation's spend, so the larger of the two is the later, and that one figure goes to
+ * the header and to the overview alike.
  *
  * A listed row also brings the server's own word on the budget when it is read again.
  * Nothing brings it for a conversation outside the list, so there it is worked out from

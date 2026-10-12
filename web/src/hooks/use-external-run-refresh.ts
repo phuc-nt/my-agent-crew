@@ -6,6 +6,8 @@ import type { ThreadController } from "./use-thread";
 
 const LIVE: RunInfo["status"][] = ["running", "awaiting_approval"];
 const AWAITING: RunInfo["status"] = "awaiting_approval";
+/** The ways a run ends whose turn says, in its last event, what the conversation has spent. */
+const PRICED: RunInfo["status"][] = ["done", "halted"];
 
 /**
  * Keeps the open thread in step with runs this tab did not stream: a message sent from
@@ -14,7 +16,9 @@ const AWAITING: RunInfo["status"] = "awaiting_approval";
  * The thread is a copy fetched once and then extended by this tab's own streams, so
  * without this it goes on showing an old state until someone reloads by hand. A run this
  * tab streams is already on screen event by event, so it is left alone: fetching it again
- * would only redraw what is there.
+ * would only redraw what is there. All but its money, when the turn ends without saying
+ * it and the conversation is `unlisted`: the sidebar holds no row for it, so nothing but a
+ * load reads what it has spent.
  *
  * Returns the run another channel has going in this conversation, for the thread to show
  * its progress the way it shows its own.
@@ -23,6 +27,7 @@ export function useExternalRunRefresh(
   conversationId: string | null,
   thread: ThreadController,
   activity: ActivityController,
+  unlisted: boolean,
 ): RunInfo | null {
   const seen = useRef(new Map<string, RunInfo["status"]>());
   const ours = useRef(new Set<string>());
@@ -102,6 +107,11 @@ export function useExternalRunRefresh(
       // already carries its terminal status. Either way the chip needs the same reload.
       const drains = prev === undefined && thread.state.waiting.length > 0;
       if (!mine && drains && !behind.current) changed = true;
+      // Only `done` and `halted` say what the conversation has spent. A turn of this tab's
+      // that ends any other way (an error, a request to the person, a Stop) has left the
+      // spend to be read from the server, and outside the list no row brings it.
+      const unpriced = prev === "running" && run.status !== "running" && !PRICED.includes(run.status);
+      if (mine && unlisted && unpriced) changed = true;
       if (mine || prev === undefined || prev === run.status) continue;
       // Going back to running only matters when it took an approval with it.
       if (run.status !== "running" || prev === AWAITING) changed = true;
@@ -111,7 +121,7 @@ export function useExternalRunRefresh(
     if (changed && !behind.current) reloadWhenIdle();
     // `key` stands for `runs`, which is a new array on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, busy, unowned, reloadWhenIdle]);
+  }, [key, busy, unowned, unlisted, reloadWhenIdle]);
 
   // Once the stream has said what is live, a call still spinning in a conversation with
   // nothing going is one no run will ever answer — a turn cut off before its result.

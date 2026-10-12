@@ -87,6 +87,74 @@ describe("what a conversation has spent, in the header and in the overview", () 
   });
 });
 
+// Only a turn's `done` and `halted` say what the conversation has spent. A turn that ends any
+// other way leaves the figure to be read from the server, and no list row brings it here.
+describe("what a conversation outside the list has spent after a turn that does not say", () => {
+  const going = (id: string) => fakeRun({ id: "t1", agent_id: "coach", conversation_id: id, status: "running", finished_at: null, spent_usd: 0, summary: "" });
+  const loads = (id: string) => backend.requests.filter((r) => r.method === "GET" && r.path === `/conversations/${id}`).length;
+
+  /** A turn of this tab's, held open, with its run seen going as the stream tells every tab. */
+  async function turnGoing(title: string) {
+    const c = backend.create({ title, agent_id: "coach", spent_usd: 0.05 });
+    await open(c.id, title);
+    await waitFor(() => expect(chip()).toHaveTextContent("$0.05"));
+    const turn = backend.holdTurn(c.id);
+    await userEvent.type(screen.getByRole("textbox"), "làm đi{Enter}");
+    await screen.findByRole("button", { name: vi.stop });
+    act(() => stream().emit({ type: "run", run: going(c.id) }));
+    return { c, turn };
+  }
+
+  /** What the server keeps once the turn is over, then the run's end as the stream tells it:
+   *  the two places that show the spend read it once more, and say the same. */
+  async function readsAgain(c: { id: string; spent_usd: number }, ended: Partial<ReturnType<typeof fakeRun>>) {
+    const before = loads(c.id);
+    expect(chip()).toHaveTextContent("$0.05");
+    expect(await cost()).toHaveTextContent(spent(0.05));
+    c.spent_usd = 0.25;
+    act(() => stream().emit({ type: "run", run: { ...going(c.id), finished_at: "2026-09-19T08:00:05Z", spent_usd: 0.2, ...ended } }));
+
+    await waitFor(() => expect(chip()).toHaveTextContent("$0.25"));
+    expect(await cost()).toHaveTextContent(spent(0.25));
+    expect(await cost()).not.toHaveTextContent(spent(0.05));
+    expect(loads(c.id)).toBe(before + 1);
+  }
+
+  it("is read again, for both places, once a turn ends in an error", async () => {
+    const { c, turn } = await turnGoing("Lượt lỗi");
+    await act(async () => {
+      turn.push([{ type: "error", message: "Model không trả lời." }]);
+      turn.release();
+    });
+    expect(await screen.findByTestId("notice")).toHaveTextContent("Model không trả lời.");
+
+    await readsAgain(c, { status: "error", summary: "Model không trả lời." });
+    // The load brings the figure and leaves what the turn said of itself.
+    expect(screen.getByTestId("notice")).toHaveTextContent("Model không trả lời.");
+  });
+
+  it("is read again, for both places, once a turn stops to ask the person", async () => {
+    const { c, turn } = await turnGoing("Lượt chờ duyệt");
+    await act(async () => {
+      turn.push([{ type: "approval_required", approval_id: "ap1", tool_call_id: "tc1", name: "shell_run", arguments: { command: "make" }, reason: "", expires_at: "" }]);
+      turn.release();
+    });
+    await screen.findByRole("button", { name: vi.approve });
+
+    await readsAgain(c, { status: "awaiting_approval", finished_at: null, summary: "shell_run" });
+    expect(screen.getByRole("button", { name: vi.approve })).toBeInTheDocument();
+  });
+
+  it("is read again, for both places, once the person stops a turn", async () => {
+    const { c } = await turnGoing("Lượt bị dừng");
+    await userEvent.click(screen.getByRole("button", { name: vi.stop }));
+    expect(await screen.findByTestId("notice")).toHaveTextContent(vi.stopped);
+
+    await readsAgain(c, { status: "error", summary: "interrupted" });
+    expect(screen.getByTestId("notice")).toHaveTextContent(vi.stopped);
+  });
+});
+
 describe("a spent budget in a conversation outside the list", () => {
   it("holds the composer and offers one raise once the turn halts, and a raise lifts it", async () => {
     const c = backend.create({ title: "Việc của HLV", agent_id: "coach", cost_cap_usd: 1 });
