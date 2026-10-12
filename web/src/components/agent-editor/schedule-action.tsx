@@ -41,7 +41,8 @@ interface Kept {
  * the page. Only the kind chosen when the form is saved is written.
  *
  * Skills are attached to the turn a row opens: a prompt's own, or the one a script's
- * output goes on to. A command opens none, and a prompt and a script each keep their own.
+ * output goes on to. A command opens none. Each kind keeps its own list like its own words,
+ * a command the one its row was written with, so going round and back changes nothing.
  */
 export function ScheduleAction({ row, problem, skills, readOnly, onChange }: Props) {
   const kept = useRef<Partial<Record<ActionKind, Kept>>>({});
@@ -54,8 +55,9 @@ export function ScheduleAction({ row, problem, skills, readOnly, onChange }: Pro
     const patch: Partial<ScheduleRow> = { [kind]: null, [to]: back?.text ?? "" };
     if (kind === "script" || to === "script") patch.then_prompt = to === "script" ? (back?.then ?? null) : null;
     // A command written by hand may list skills this form never showed: they go on with
-    // the row to the kind where they can be seen and taken off.
-    patch.skills = to === "command" ? [] : (back?.skills ?? (kind === "command" ? row.skills : []));
+    // the row to the kind where they can be seen and taken off. They are the command's own
+    // all the same, and come back with it; a kind new to the row starts with none.
+    patch.skills = back?.skills ?? (kind === "command" ? row.skills : []);
     onChange(patch);
   };
 
