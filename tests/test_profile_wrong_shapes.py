@@ -207,8 +207,18 @@ def test_an_edit_is_taken_or_refused_with_422_and_a_refused_one_changes_nothing(
         assert {agent_id: deps.agent for agent_id, deps in runtime.agents.items()} == running
         return
     # Taken: the file it wrote is one the next start reads, and the crew can be listed.
-    assert [profile.id for profile in load_yaml_profiles(runtime.settings)]
+    saved = load_yaml_profiles(runtime.settings)
+    assert [profile.id for profile in saved]
     assert client.get("/api/agents").status_code == 200
+    # What a job does goes to the model or to a shell as it stands, so it is a text. A job
+    # holding anything else fails when its time comes, and holds up the jobs due beside it.
+    doing = [
+        schedule.script or schedule.command or schedule.prompt
+        for profile in saved
+        for schedule in profile.schedules
+        if not schedule.consolidate
+    ]
+    assert all(isinstance(action, str) for action in doing), doing
 
 
 # --- the shapes that crashed, and the words each is refused in ---
@@ -298,3 +308,53 @@ def test_a_file_of_a_shape_that_crashed_is_refused_when_the_agents_are_read_agai
 
     assert (answer.status_code, answer.json()["detail"]) == (422, f"agent tay: {told}")
     assert set(runtime.agents) == {DEFAULT_AGENT_ID}
+
+
+# --- a job that does no text, which an edit may not bring ---
+
+NO_TEXTS = [5, True, ["chào"], {"k": "v"}]
+
+
+@pytest.mark.parametrize("held", NO_TEXTS, ids=repr)
+@pytest.mark.parametrize("action", ["prompt", "command"])
+def test_an_edit_may_not_bring_a_job_that_does_no_text(crew, action, held):
+    client, _, home = crew
+    files = manifests(home)
+    profile = {"schedules": [ROWS[action] | {action: held}]}
+
+    edited = client.patch(EDIT, json={"profile": profile})
+    created = client.post(CREATE, json={"agent_id": NEW, "profile": profile})
+
+    told = f"schedule sang: {action} must be a non-empty string"
+    assert [(answer.status_code, answer.json()["detail"]) for answer in (edited, created)] == [
+        (422, f"agent {EDITED}: {told}"),
+        (422, f"agent {NEW}: {told}"),
+    ]
+    assert manifests(home) == files
+
+
+@pytest.mark.parametrize("action", ["prompt", "command"])
+def test_a_job_the_file_already_holds_does_not_hold_up_a_save_about_something_else(
+    tmp_path, action
+):
+    """A file written by hand may hold such a job, and the start takes it. The agent runs
+    with it, so it is not the edit's: a save that leaves the row as it is goes through."""
+    home = tmp_path / "home"
+    folder = home / "agents" / "tay"
+    folder.mkdir(parents=True)
+    rows = [ROWS[action] | {action: 5}]
+    (folder / "agent.yaml").write_text(yaml.safe_dump({"schedules": rows}), encoding="utf-8")
+    env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
+    runtime = build_runtime(load_settings(env=env))
+    app = create_app(runtime, schedule=False)
+
+    with TestClient(app, base_url="http://127.0.0.1", raise_server_exceptions=False) as client:
+        renamed = client.patch("/api/agents/tay", json={"profile": {"name": "Tay"}})
+        resent = client.patch("/api/agents/tay", json={"profile": {"schedules": rows}})
+        changed = [rows[0] | {"name": "Khác"}]
+        moved = client.patch("/api/agents/tay", json={"profile": {"schedules": changed}})
+
+    assert (renamed.status_code, resent.status_code) == (200, 200)
+    # Changed, the row is the edit's, and is asked what any row an edit brings is.
+    told = f"agent tay: schedule sang: {action} must be a non-empty string"
+    assert (moved.status_code, moved.json()["detail"]) == (422, told)

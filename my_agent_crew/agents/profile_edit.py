@@ -22,6 +22,7 @@ from my_agent_crew.agents.profile import PROFILE_KEYS, AgentProfile, Schedule
 from my_agent_crew.agents.profile_edit_paths import PATH_KEYS
 from my_agent_crew.agents.profile_write import as_written
 from my_agent_crew.agents.profile_yaml import parse_profile
+from my_agent_crew.agents.schedule import COMMAND, PROMPT
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.scheduler.cron import CronSpec, parse_every
 
@@ -109,8 +110,8 @@ def validated(
 
 
 def check_schedules(agent_id: str, schedules: Sequence[Schedule], kept: Sequence[Schedule]) -> None:
-    """Each schedule the edit adds or changes has a timing the clock can read and an id
-    of its own.
+    """Each schedule the edit adds or changes has a timing the clock can read, an id of
+    its own and a text to run.
 
     Boot checks neither. The parser leaves timing to the scheduler, which first reads it
     when the jobs list is asked for or the clock ticks: a hand-written file with a typo in
@@ -118,6 +119,9 @@ def check_schedules(agent_id: str, schedules: Sequence[Schedule], kept: Sequence
     fails every tick for every job beside it. And the scheduler keys its jobs by id, so a
     second job on the same id — a blank row numbered by its place onto a kept row's
     `job-1`, or a row named like the consolidation job — replaces the first without a word.
+    Nor does it read what a job does, beyond a script: a prompt or a command goes to the
+    model or to a shell as it stands, and one that is no text fails when its time comes,
+    with no run to show for it and the jobs due beside it held up.
 
     The rows in `kept`, the schedules the agent runs with now, are not checked again: a
     file edited by hand may already hold one this check would refuse, and holding an
@@ -139,6 +143,11 @@ def check_schedules(agent_id: str, schedules: Sequence[Schedule], kept: Sequence
                 parse_every(str(schedule.every))
         except ValueError as exc:
             raise ValueError(f"agent {agent_id}: schedule {schedule.id}: {exc}") from exc
+        for action in (PROMPT, COMMAND):
+            doing = getattr(schedule, action)
+            if doing and not isinstance(doing, str):
+                where = f"agent {agent_id}: schedule {schedule.id}"
+                raise ValueError(f"{where}: {action} must be a non-empty string")
 
 
 def restart_reasons(old: AgentProfile | None, new: AgentProfile) -> list[str]:
