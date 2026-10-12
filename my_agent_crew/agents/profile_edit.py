@@ -86,19 +86,24 @@ def apply_patch(raw: Any, patch: dict[str, Any]) -> Any:
 def validated(
     agent_id: str,
     agent_dir: Path,
-    raw: Any,
+    to_be: dict[str, Any],
     settings: Settings,
     before: AgentProfile | None = None,
 ) -> AgentProfile:
     """The patched manifest read as a profile, or a ValueError naming what is wrong.
 
-    Plain dicts, not ruamel's: a profile holds what it parsed for the rest of the
-    server's life, and a round-trip node carries the whole document along with it.
+    `to_be` is the file about to be written as the next start will read it
+    (`profile_read_back.py`), and not as the library that writes it reads it. The two go
+    by two versions of YAML: a switch a person wrote as `off` is a boolean to the one and
+    a text to the other, and measured by the other every save of that agent, about
+    anything, was refused for it. It is plain dicts too: a profile holds what it parsed
+    for the rest of the server's life, and a round-trip node carries the whole document
+    along with it.
 
     `before` is the agent as it runs now. A new agent has none, so every schedule it
     carries is the edit's.
     """
-    profile = parse_profile(agent_id, agent_dir, dict(raw), settings)
+    profile = parse_profile(agent_id, agent_dir, to_be, settings)
     check_schedules(agent_id, profile.schedules, before.schedules if before else ())
     return profile
 

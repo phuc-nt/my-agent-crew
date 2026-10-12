@@ -5675,17 +5675,22 @@ khi chạy; phần đó có mục riêng ở dưới.
     in ra, vẫn là chuỗi đã lưu qua cả hai trình đọc; dòng dài không bị ngắt thành một chuỗi khác,
     kể cả dòng có hai dấu cách liền nhau; chuỗi một dòng mà lúc khởi động sẽ đọc thành thứ khác,
     như `No`, `on`, `yes`, `1:30`, được viết trong ngoặc kép và đọc lại là chính nó).
-  - pytest: `tests/test_api_agents_edit_read_back.py` (qua đúng cửa một người dùng: script viết
-    tay thụt bằng tab vẫn là script đó sau khi lưu một dòng lịch khác, thử ở bốn mươi độ dài tên
-    vì chỗ ngắt dòng đi theo độ dài mọi tên đứng trước, và lần khởi động sau vẫn lên; prompt là
-    `No` hay `1:30` được lưu thành đúng chữ ấy; lần lưu mà lần khởi động sau sẽ đọc ra khác là
-    422 nêu khoá, tệp không đổi một byte và agent đang chạy giữ nguyên, thử bằng cách cho trình
-    ghi ngắt dòng trở lại; thứ người viết tay mà hai thư viện đọc khác nhau, như `max_steps: 010`
-    hay `enabled: no`, không chặn lần lưu nào. Và chính phép so: tệp sắp ghi là tệp hiện có với
-    các khoá của lần sửa được đặt, kể cả khoá bị gỡ và lần sửa trống; tệp của agent mới chỉ là
-    lần sửa; mọi khoá đọc lại ra khác đều được nêu tên, khoá bị đổi, khoá bị mất và khoá không
-    ai xin; tệp hiện có mà lúc khởi động không đọc nổi là việc của người sửa tay; tệp sắp ghi mà
-    lúc khởi động không đọc nổi thì không được ghi).
+  - pytest: `tests/test_api_agents_edit_read_back.py` (qua đúng cửa một người dùng: script viết tay
+    thụt bằng tab vẫn là script đó sau khi lưu một dòng lịch khác, thử ở bốn mươi độ dài tên vì chỗ
+    ngắt dòng đi theo độ dài mọi tên đứng trước, và lần khởi động sau vẫn lên; prompt là `No` hay
+    `1:30` được lưu thành đúng chữ ấy; lần lưu mà lần khởi động sau sẽ đọc ra khác là 422 nêu khoá,
+    tệp không đổi một byte và agent đang chạy giữ nguyên, thử bằng cách cho trình ghi ngắt dòng trở
+    lại; thứ người viết tay mà hai thư viện đọc khác nhau, như `max_steps: 010` hay `enabled: no`,
+    không chặn lần lưu nào; công tắc viết tay bằng chữ, `script_llm` là `off`, `no`, `on`, `yes` và
+    `shell_network` là `no`, `off`, `yes`, thì agent lên được, lần lưu khoá khác là 200, agent đang
+    chạy giữ đúng/sai đó và tệp vẫn ghi đúng chữ đó; lần lưu tự gửi một trong sáu chữ cho một trong
+    hai công tắc vẫn là 422, tệp không đổi một byte; lần lưu đặt chính công tắc đó thì ghi giá trị
+    vừa gửi và để yên chữ của công tắc kia; sau một lần lưu khoá khác, agent đang chạy vẫn là agent
+    mà lần khởi động sau đọc ra, `max_steps` 8 và dòng lịch tắt, không đòi khởi động lại. Và chính
+    phép so: tệp sắp ghi là tệp hiện có với các khoá của lần sửa được đặt, kể cả khoá bị gỡ và lần
+    sửa trống; tệp của agent mới chỉ là lần sửa; mọi khoá đọc lại ra khác đều được nêu tên, khoá bị
+    đổi, khoá bị mất và khoá không ai xin; tệp hiện có mà lúc khởi động không đọc nổi là việc của
+    người sửa tay; tệp sắp ghi mà lúc khởi động không đọc nổi thì không được ghi).
   - Kiểm chứng đột biến cho cách ghi không ngắt dòng và phép đọc lại: hai mươi sửa đổi (dòng dài
     lại bị ngắt, ngắt ở bề rộng gấp đôi, mọi chuỗi một dòng để mặc trình ghi hay đều vào ngoặc
     kép, chuỗi được xét theo cách đọc của chính trình ghi hay theo việc lúc khởi động có đọc ra

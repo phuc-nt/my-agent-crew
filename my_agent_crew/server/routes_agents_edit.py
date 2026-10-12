@@ -74,18 +74,22 @@ def save(
     cannot be made — and a file already written at that point would say the edit worked
     while the answer said it did not, then take effect at the next restart.
 
-    `edited` is the edit: the keys it sets. The file to be is read once more as the next
-    start will read it, and an edit that would be read as anything else is refused
-    (`profile_read_back.py`). One that touches the agent's routes may not
+    `edited` is the edit: the keys it sets. The file to be is read as the next start will
+    read it, and an edit that would be read as anything else is refused
+    (`profile_read_back.py`). That reading is the one validated and wired, not the reading
+    of the library that writes the file: the two differ over what a person may write by
+    hand (`script_llm: off`), and the agent that runs after a save is the one the next
+    start brings up. One that touches the agent's routes may not
     leave it an escalation route no turn could move to; a file that already holds such a
     route loads with it unused, and does not hold up a save about something else.
     """
     manifest, home = manifest_path(rt, agent_id), rt.settings.home
     try:
-        profile = validated(agent_id, agent_dir, raw, rt.settings, before)
         check_read_back(manifest, raw, edited)
+        to_be = read_to_be(raw)
+        profile = validated(agent_id, agent_dir, to_be, rt.settings, before)
         check_inside_home(profile, home, before)
-        check_spelling(agent_dir, home, read_now(manifest), read_to_be(raw))
+        check_spelling(agent_dir, home, read_now(manifest), to_be)
         problem = escalation_problem(profile.settings, rt.providers)
         if problem and ROUTE_KEYS & set(edited):
             raise ValueError(problem)

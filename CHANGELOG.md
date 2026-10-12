@@ -22,17 +22,18 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   starting with a line that names all three, and a YAML boolean (a bare `off`, `no`, `false`,
   `on`, `yes` or `true`) is told to write `none` or the one of the three meant.
 - `script_llm: false` in the agent's own `agent.yaml` (default `true`, read from that file alone)
-  keeps the agent's scripts from asking a model, in a turn and in a schedule's `script:` alike.
-  The description of `tool_script` then tells of no `llm`, and a script that calls
-  `llm.classify` or `llm.summarise` all the same is told "không hỏi model được ở đây.", a mistake
-  it can catch: no model is asked, nothing is paid, and the call is neither on the run card nor
-  among the calls the scripts of one turn may make. The script still counts it among its own 25
-  calls and ten askings, so one that catches each refusal and asks on ends at the eleventh. Only
-  a real YAML boolean is taken: `"false"`, `0` or an empty value stops the start. Both keys are
-  in `GET /api/agents` and `GET /api/agents/{id}` under the same names, are taken by
-  `PATCH /api/agents/{id}` and `POST /api/agents` (a wrong value is a 422 and nothing is
-  written), and hold at once: a save takes the script tool from a running agent or hands it
-  back, with no restart.
+  keeps the agent's scripts from asking a model, in a turn and in a schedule's `script:` alike. The
+  description of `tool_script` then tells of no `llm`, and a script that calls `llm.classify` or
+  `llm.summarise` all the same is told "không hỏi model được ở đây.", a mistake it can catch: no
+  model is asked, nothing is paid, and the call is neither on the run card nor among the calls the
+  scripts of one turn may make. The script still counts it among its own 25 calls and ten askings,
+  so one that catches each refusal and asks on ends at the eleventh. Only a real YAML boolean is
+  taken: `"false"`, `0` or an empty value stops the start. A bare `off`, `no`, `on` or `yes` written
+  by hand is one to the reader the server starts with, and a save of another key leaves the word as
+  it was written. Both keys are in `GET /api/agents` and `GET /api/agents/{id}` under the same
+  names, are taken by `PATCH /api/agents/{id}` and `POST /api/agents` (a wrong value is a 422 and
+  nothing is written), and hold at once: a save takes the script tool from a running agent or hands
+  it back, with no restart.
 - A schedule whose script failed tells the person. A script job opens no turn when its script
   fails, so nothing was sent on, and from the chat a failed job looked like one that ran well
   and printed nothing. When the run of the script itself ends `error`, the agent's channel now
@@ -109,6 +110,17 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - The description of `tool_script` now says that `store(key, None)` forgets the key and keeps no
   value, so a model does not keep a `None` to mark a thing as done and read back a key that holds
   nothing. A `None` inside a list or a dict is kept as it is.
+- A switch written by hand as a YAML 1.1 word no longer holds up every save of its agent.
+  `shell_network: no` (or `off`, `on`, `yes`) starts the agent, because the reader the server starts
+  with takes the word for a boolean. The library a save reads and writes with takes it for a text,
+  and a save was validated by that reading, so every `PATCH /api/agents/{id}` on such an agent
+  answered 422 (`shell_network must be true or false`), whatever key the edit was about. A save is
+  now validated, and the running agent rebuilt, from the file about to be written as the next start
+  will read it; the word stays in the file as it was written. The agent that runs after a save is
+  therefore the one the next start brings up: a hand-written `max_steps: 010` stays 8, where a save
+  of another key had made it 10 until the restart, a schedule row written `enabled: no` is still
+  shown as off, and such a save no longer asks for a restart over schedules it did not touch. An
+  edit that itself sends a word for a switch (`"shell_network": "no"`) is still a 422.
 - An agent whose hand-written `agent.yaml` keeps a path outside the crew home can be edited from
   the web and the API again. Every `PATCH /api/agents/{id}` on such an agent (one that
   `agent add --workspace` aimed at a repo elsewhere, or whose file names a persona or a skills
