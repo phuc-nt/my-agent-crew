@@ -86,7 +86,9 @@ async def put_persona_file(agent_id: str, name: str, body: FileRequest, rt: Rt) 
 @router.post("/agents/reload")
 async def reload_agents(rt: Rt) -> dict[str, Any]:
     """Pick up agents added on disk outside the web (a kit installed, a folder copied in)
-    without a restart."""
+    without a restart, their schedules with them. An agent that already runs is not read
+    again here: a file of its edited by hand is read at the next start, or when a key or
+    the crew's routes are saved, which builds every running agent from its file again."""
     async with write_lock:
         try:
             added = joined(rt, read_crew(rt))

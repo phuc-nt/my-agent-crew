@@ -16,10 +16,7 @@ test nào phải đổi theo. Số lượng test không giữ ở đây — ch�
 Ưu tiên tầng thấp nhất: một quy tắc của vòng lặp thuộc về pytest, một reducer thuộc về vitest, và
 Playwright chỉ cho những gì chỉ DOM mới cho thấy. Hành vi vắt qua nhiều tầng (một duyệt
 tạm dừng vòng lặp *và* thanh hiện ra; nâng trần chi phí gỡ `over_budget` ở server *và* mở lại
-ô soạn; lưu lịch trả về lý do cần khởi động lại bằng một câu trọn vẹn ở server *và* trình sửa
-agent hiện nguyên câu đó, kể cả khi xoá lịch; câu ấy chỉ viết một lần ở mỗi bên, và
-`tests/test_api_agents_edit.py::test_the_web_fakes_answer_a_schedule_edit_with_the_servers_own_reason`
-giữ bản của fake khớp bản của server) có một test ở mỗi bên ranh giới. Fake server của vitest và mock
+ô soạn) có một test ở mỗi bên ranh giới. Fake server của vitest và mock
 của Playwright tự tính
 lại những trường server suy ra (như `over_budget` từ trần), để test không tin vào một con số
 cũ. Route của Playwright trả cả thân một lần, nên một stream còn đang chạy khi bấm Dừng được
@@ -5896,8 +5893,8 @@ khi chạy; phần đó có mục riêng ở dưới.
     chạy tiếp, không bắt thì dừng như mọi lỗi, không model nào được hỏi và không lời gọi nào được
     ghi; lần hỏi bị từ chối như thế vẫn được script đếm, nên script bắt lỗi rồi hỏi tiếp bị dừng ở
     lần hỏi quá mức, không lời gọi nào trên thẻ run và không model nào nghe; script của một lịch ở
-    agent ấy cũng không hỏi được model: run `error`, không tiền, không cuộc trò chuyện; cả hai khoá
-    không nằm trong danh sách khoá cần khởi động lại; sửa qua API thì agent trong đội mất
+    agent ấy cũng không hỏi được model: run `error`, không tiền, không cuộc trò chuyện; sửa qua API
+    thì agent trong đội mất
     `tool_script` mà không cần khởi động lại và được trao lại khi đổi về `read_only`, tệp ghi đúng
     chữ `none` chứ không phải `null` của YAML; tắt `script_llm` qua API thì lời mô tả của agent
     trong đội đổi theo, gỡ khoá thì về mặc định và tệp không còn dòng ấy; lần lưu có hiệu lực từ
@@ -6027,6 +6024,40 @@ khi chạy; phần đó có mục riêng ở dưới.
   - Vitest: `components/agent-editor/delete-agent.test.tsx` (hộp xoá agent nói, trước ô gõ id,
     thứ thư mục trong `.trash` không mang về: những gì script của agent giữ lại, lịch nó được tạo
     từ chat và trạng thái bật/tắt của từng lịch; hội thoại và lịch sử run được nêu là giữ nguyên).
+- **Lịch trong tệp lên đồng hồ ngay khi lưu; không lần lưu nào đòi khởi động lại**:
+  - pytest: `tests/test_profile_schedules_live.py` (qua API, trên một home có một agent yaml, đồng
+    hồ đứng ở chỗ test đặt và lệnh của job được thay bằng một bản ghi lại: đổi cron thì job chạy ở
+    giờ mới, giờ cũ không còn chạy và giờ mới đã qua trong ngày không được chạy bù; đổi `every` thì
+    khoảng chờ tính từ lúc lưu; lần lưu không đụng tới giờ của một dòng, dù đổi lệnh và tên của
+    chính dòng ấy hay tên của agent, không dời lần chạy kế tiếp, và lần chạy ấy dùng lệnh vừa lưu;
+    dòng tệp vừa bật lại không chạy bù giờ đã qua trong lúc nó tắt; dòng mới chạy ở giờ đầu tiên
+    sau lúc lưu, không sớm hơn; dòng bị bỏ không chạy nữa, rời `GET /api/jobs` và chạy tay là 404,
+    dòng ở lại vẫn chạy; dòng bị bỏ mất công tắc tạm dừng, và dòng thêm lại dưới cùng id là job
+    mới, đang bật, không chạy bù giờ đã qua khi không tệp nào nêu nó; công tắc tạm dừng sống qua
+    lần lưu đổi lệnh và lần lưu đổi giờ của dòng; job đang chạy lúc dòng của nó được lưu thì xong
+    với tên và lệnh nó bắt đầu, không chạy lại, và dòng mới chạy ở giờ của nó; job đang chạy lúc
+    dòng của nó bị bỏ thì xong và lần hỏng ấy không được đếm cho dòng thêm lại; dòng được đổi giờ
+    khi một job trước nó của nhịp đang chạy thì chờ giờ mới; dòng bị bỏ lúc đó không chặn job
+    đứng sau; dòng được đổi lệnh lúc đó chạy đúng một lần, bằng lệnh mới; danh sách job đang đọc dở
+    khi một dòng bị bỏ vẫn được trả lời đủ; dòng bị bỏ không để lại số lần hỏng nào cho dòng tạo
+    lại dưới id của nó, còn lần lưu giữ dòng thì đếm tiếp từ số cũ; agent bị xoá mang theo số lần
+    hỏng của job của nó; agent tạo kèm lịch, agent cài từ một template có lịch và thư mục chép tay
+    rồi `reload` đều có job trên đồng hồ ngay, câu trả lời của lần cài là `needs_restart: false`;
+    lần cài `force` đè lên agent đang chạy vẫn là `needs_restart: true`, `live` rỗng, và đồng hồ
+    chưa có job nào của tệp mới; tệp sửa tay của agent đang chạy lên đồng hồ khi một khoá ở Kết
+    nối được lưu; giờ của `memory_consolidate` theo cùng quy tắc, và gỡ khoá ấy thì job và công
+    tắc của nó đi theo);
+    `tests/test_api_agents_edit.py::test_no_save_asks_for_a_restart_and_a_save_of_schedules_no_more_than_another`
+    (`restart_required` là danh sách rỗng ở mọi lần lưu). Kiểm chứng đột biến: hai mươi ba sửa
+    đổi (dòng đổi giờ giữ mốc cũ, xoá mốc của dòng bị bỏ, giữ công tắc của dòng bị bỏ, xoá công tắc
+    hay số lần hỏng của mọi dòng được lưu, không đọc lại bảng, giữ số lần hỏng của dòng bị bỏ,
+    agent bị xoá để lại số lần hỏng, lần lưu nào cũng đặt lại mốc, bỏ qua lần đổi `every`, bỏ qua
+    lần đổi cron, dòng vừa bật lại giữ mốc cũ, dòng mới nhận mốc id của nó để lại, bỏ phép xét lại
+    giữa nhịp, xét lại cả job mà agent đã rời đội, chỉ xét lại dòng bị bỏ, đánh dấu dòng bị bỏ qua
+    như đã xét, lần lưu, lần nhận agent hay lần lưu ở Kết nối không báo đồng hồ, lần cài vẫn đòi
+    khởi động lại vì có lịch, lần cài không bao giờ đòi, lần lưu vẫn nêu một lý do khởi động lại)
+    đều bị test bắt. Một sửa đổi không ép được bằng test: sửa bảng tại chỗ thay vì đặt bảng mới
+    chỉ hỏng khi hai luồng chạm nhau.
 - **Job hỏng mà không có cuộc trò chuyện được báo cho chủ: lần đầu báo ngay, sau đó nhiều nhất 6
   giờ một tin, và một dòng khi job chạy lại được**:
   - pytest: `tests/test_job_failure_streaks.py` (job lệnh hỏng lần đầu thì kênh nhận ngay một tin

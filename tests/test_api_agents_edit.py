@@ -1,10 +1,8 @@
-import re
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from my_agent_crew import texts
 from my_agent_crew.config import load_settings
 from my_agent_crew.server.app import create_app
 from my_agent_crew.server.runtime_build import build_runtime
@@ -168,8 +166,10 @@ def test_a_plain_new_agent_does_not_ask_for_a_restart(crew) -> None:
     assert reply.json()["restart_required"] == []
 
 
-def test_only_a_schedule_asks_for_a_restart(crew) -> None:
-    client, _, _ = crew
+def test_no_save_asks_for_a_restart_and_a_save_of_schedules_no_more_than_another(crew) -> None:
+    """The clock reads the schedules at the save (`test_profile_schedules_live.py`), so the
+    answer has nothing left to ask a restart for. The key stays, as the list it was."""
+    client, runtime, _ = crew
     client.post("/api/agents", json={"agent_id": "coder", "profile": {}})
 
     renamed = client.patch("/api/agents/coder", json={"profile": {"name": "Thợ mã"}})
@@ -177,31 +177,17 @@ def test_only_a_schedule_asks_for_a_restart(crew) -> None:
         "/api/agents/coder",
         json={"profile": {"schedules": [{"id": "sáng", "cron": "0 7 * * *", "prompt": "chào"}]}},
     )
-
+    on_the_clock = [job.id for job in runtime.scheduler.jobs()]
     dropped = client.patch("/api/agents/coder", json={"profile": {"schedules": None}})
     consolidating = client.patch(
         "/api/agents/coder", json={"profile": {"memory_consolidate": "0 3 * * *"}}
     )
 
-    assert renamed.json()["restart_required"] == []
-    assert scheduled.json()["restart_required"] == [texts.RESTART_REASON_SCHEDULES]
-    # The clock keeps the job it started with, so taking one away needs the restart too.
-    assert dropped.json()["restart_required"] == [texts.RESTART_REASON_SCHEDULES]
-    # Consolidation is one more job on that clock. The editor shows each reason as the
-    # sentence it is, so it gets the same one, once, and not the name of the key.
-    assert consolidating.json()["restart_required"] == [texts.RESTART_REASON_SCHEDULES]
-
-
-def test_the_web_fakes_answer_a_schedule_edit_with_the_servers_own_reason():
-    """The web's fakes answer a save with this sentence (`SCHEDULES_RESTART_REASON` in
-    web/src/test/schedule-contract.ts). Reworded on one side only, the editor's tests would
-    go on checking a banner the server no longer shows."""
-    contract = Path(__file__).resolve().parents[1] / "web" / "src" / "test" / "schedule-contract.ts"
-    mirrored = re.search(
-        r'^export const SCHEDULES_RESTART_REASON = "([^"]+)";$', contract.read_text("utf-8"), re.M
-    )
-    assert mirrored is not None
-    assert mirrored.group(1) == texts.RESTART_REASON_SCHEDULES
+    for reply in (renamed, scheduled, dropped, consolidating):
+        assert reply.status_code == 200 and reply.json()["restart_required"] == []
+    # Not said and not needed: each save is on the clock by the time it is answered.
+    assert on_the_clock == ["coder/sáng"]
+    assert [job.id for job in runtime.scheduler.jobs()] == ["coder/memory-consolidate"]
 
 
 def test_a_saved_schedule_comes_back_in_the_shape_it_can_be_resent_in(crew) -> None:

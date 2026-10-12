@@ -159,9 +159,11 @@ POST /api/agents/install {"template": "researcher", "agent_id"?: "…", "workspa
 → 201 {"installed": ["researcher"], "live": ["researcher"], "needs_restart": false}
 ```
 
-`installed` là những gì đã được ghi, `live` là những gì server đang chạy nạp ngay tại chỗ (master
-có thể giao việc cho nó ngay), và `needs_restart` là true khi một agent vừa cài có
-`schedules`: job chỉ khởi động lúc boot. 404 cho template
+`installed` là những gì đã được ghi, `live` là những gì server đang chạy nạp ngay tại chỗ: master
+có thể giao việc cho nó ngay, và lịch khai trong `agent.yaml` của nó lên đồng hồ cùng lúc, không
+cần khởi động lại. `needs_restart` chỉ là true khi có một agent đã ghi mà không vào `live`, tức là
+khi `force` ghi đè lên tệp của một agent đang chạy: agent đang chạy không được dựng lại ở đây, nên
+tệp mới chờ lần khởi động sau. 404 cho template
 lạ, 409 khi id đã có người dùng (`force` ghi đè).
 
 **Lần cài bị từ chối để home y như cũ.** Mọi thứ lời gọi nêu đều được kiểm, và home được
@@ -220,7 +222,9 @@ POST   /api/agents/reload                       → {"added": ["…"]}
 
 `reload` nhận mọi thư mục vừa chép vào hoặc không nhận ai: một `agent.yaml` hỏng cú pháp hay
 sai kiểu, hoặc một workspace không thể là thư mục, là 422 nêu đúng tệp hay đường dẫn, và đội
-đang chạy giữ nguyên.
+đang chạy giữ nguyên. Agent được nhận mang theo lịch khai trong tệp của nó: các job ấy lên đồng
+hồ ngay, tính từ lúc nhận. Agent đang chạy thì `reload` không đọc lại, nên tệp của nó sửa bằng
+tay chưa có hiệu lực ở đây (xem [Lịch](#lịch)).
 
 **Một patch chỉ nêu những gì nó thay đổi.** Khoá bỏ ngoài giữ nguyên giá trị; muốn xoá một khoá thì
 phải nói rõ bằng `null`. Điều này quan trọng vì web gửi từng mục một —
@@ -276,7 +280,7 @@ viện ghi tệp. Một công tắc người viết tay theo kiểu YAML 1.1 (`s
 no`, cả `on` và `yes`) là đúng/sai với bộ đọc lúc khởi động, nên agent lên được và mọi lần lưu khoá
 khác đều đi qua; dòng viết tay giữ nguyên chữ `off` hay `no`. Agent chạy sau một lần lưu là đúng
 agent mà lần khởi động sau dựng lên: `max_steps: 010` vẫn là 8, dòng lịch `enabled: no` vẫn tắt, và
-`restart_required` không đòi khởi động lại vì một lịch không ai đụng tới. Lần lưu tự gửi một chữ cho
+một lịch không ai đụng tới giữ nguyên mốc chạy của nó trên đồng hồ. Lần lưu tự gửi một chữ cho
 công tắc (`"script_llm": "off"`) thì vẫn là 422: chữ đó sẽ được viết trong ngoặc kép, lần khởi động
 sau đọc ra một chuỗi, và một chuỗi không phải là đúng/sai.
 
@@ -383,12 +387,12 @@ hồ, lịch nó được tạo từ chat (bảng `created_schedules`) và công
 không nhận lại job nào trong đó. Job đến giờ mà agent của nó không còn trong đội thì bị bỏ qua
 kèm một dòng log, các job khác của nhịp ấy vẫn chạy.
 
-**`restart_required` chỉ bao giờ nói về lịch.** Tuyến, tool, persona, tên, ngân sách,
-giao việc và cả khối `telegram` đều được dựng lại trực tiếp — bot được dựng lại ngay khi
-lưu. Chỉ đồng hồ được dựng một lần lúc boot, nên đổi `schedules` hoặc `memory_consolidate`
-cần khởi động lại và nói ra như vậy. Mỗi lý do là một câu trọn vẹn mà trình sửa agent hiện
-nguyên văn sau "Đã lưu.", không phải tên của khoá đã đổi. Không gì khác cần, và đó là thứ
-giữ cho thông báo này đáng đọc.
+**`restart_required` luôn là danh sách rỗng.** Mọi thứ một lần lưu đổi đều vào đội đang chạy
+ngay: tuyến, tool, persona, tên, ngân sách, giao việc và cả khối `telegram` được dựng lại trực
+tiếp (bot được dựng lại ngay khi lưu), còn `schedules` và `memory_consolidate` được đồng hồ đọc
+lại ngay trong lần lưu đó, theo các quy tắc ở [Lịch](#lịch). Lịch từng là thứ duy nhất chờ khởi
+động lại, và nay không còn chờ nữa. Khoá này được giữ trong câu trả lời của `POST /api/agents`
+và `PATCH /api/agents/{id}` cho những client vẫn đọc nó; nó không còn mang câu nào.
 
 **Lần lưu có hiệu lực từ lượt kế tiếp.** Lần lưu không sửa agent đang chạy: nó đặt một agent dựng
 lại vào chỗ agent cũ trong đội. Một lượt nhận agent của nó một lần, lúc bắt đầu, và đồng hồ nhận
@@ -628,7 +632,8 @@ OAuth vừa xong hay vừa hết hạn, job tạo từ chat, job bật hay tắt
 hay API (`mcp`, `tools`, `routes`, thêm hoặc xoá agent). Thứ chỉ có hiệu lực khi agent được dựng
 lại thì roster cũng kể từ lúc đó, tức là cùng lúc chính agent ấy dùng được nó: một tệp skill mới
 thả vào thư mục skill (cần sửa agent qua web hay API, hoặc khởi động lại), và `agent.yaml` sửa
-tay, kể cả job khai trong đó (cần khởi động lại). Xem đúng thứ master đang đọc bằng
+tay, kể cả job khai trong đó (cần khởi động lại, hoặc một lần lưu khoá hay tuyến chung ở Kết
+nối, vì lần lưu đó dựng lại mọi agent từ tệp của nó). Xem đúng thứ master đang đọc bằng
 `GET /api/agents/default/prompt`.
 
 Hai chỗ roster cố ý không nói khác đi. Một máy chủ vừa nối xong có thể vắng mặt trong chốc lát,
@@ -934,8 +939,9 @@ for row in rows:
 Mỗi mục trong `schedules` thành một job `<agent id>/<schedule id>` trong scheduler
 (tick 20 s, trường cron đọc theo `timezone` của `config.yaml`, mặc định là múi giờ của máy).
 
-Có hai nguồn lịch. Lịch viết tay dưới đây sống trong `agent.yaml` của agent, sửa xong cần
-khởi động lại, và job của nó mang `origin: "profile"`. Lịch agent tự đề xuất qua tool
+Có hai nguồn lịch. Lịch viết tay dưới đây sống trong `agent.yaml` của agent, lên đồng hồ ngay
+khi agent được lưu qua web hay API (xem [Lịch trong tệp lên đồng hồ ngay khi
+lưu](#lịch-trong-tệp-lên-đồng-hồ-ngay-khi-lưu)), và job của nó mang `origin: "profile"`. Lịch agent tự đề xuất qua tool
 `schedule_create` (xem [tools.md](tools.md#đề-xuất-lịch-chạy)) sống trong bảng
 `created_schedules` của database thay vì file, chạy ngay không cần khởi động lại, sống qua
 lần khởi động lại kế tiếp, và job của nó mang `origin: "chat"`. Tab Lịch chạy gắn nhãn "tạo từ
@@ -956,6 +962,38 @@ văn prompt trước khi chạy lần đầu, dù cuộc trò chuyện có auton
 | `enabled` | mặc định `true`. Lịch đang bật có thể tạm dừng và tiếp tục từ thẻ job (`PATCH /api/jobs/{agent}/{id}/state`); công tắc đó lưu trong bảng `job_state` và sống qua khởi động lại. Lịch tắt ở đây chỉ bật lại được bằng cách sửa yaml |
 | `skills` | danh sách tên skill gắn toàn văn vào cuộc trò chuyện mà job prompt mở ra; mặc định rỗng, và tên không skill nào cung cấp được ghi log cảnh báo lúc khởi động. Tên skill có gạch nối viết trong `prompt` cũng được gắn. Với job script, đó là cuộc trò chuyện mở cho `then_prompt`, và tên skill viết trong `then_prompt` cũng được gắn |
 | `approval_ttl_seconds` | số giây một yêu cầu duyệt trong cuộc trò chuyện job prompt mở ra chờ người trả lời: số nguyên từ 60 đến 43200 (12 giờ), không đặt trong ngoặc kép; không đặt thì theo `approval_ttl_seconds` của `config.yaml`. Job chạy lúc không ai thức nên đặt dài hơn, ví dụ `7200`. Cuộc trò chuyện giữ hạn này cho mọi yêu cầu về sau, kể cả sau khi server khởi động lại, và cuộc của agent con được giao việc chép lại nó. Trình sửa trên web giữ khoá này qua các lần sửa nhưng không có ô nhập; `PATCH /api/agents/{id}` gửi `schedules` mà dòng nào thiếu khoá thì dòng đó mất khoá |
+
+### Lịch trong tệp lên đồng hồ ngay khi lưu
+
+Lưu một agent qua trình sửa trên web, `POST /api/agents` hay `PATCH /api/agents/{id}` thì đồng hồ
+đọc lại ngay các dòng lịch mà tệp của nó nêu, kể cả job gom ghi nhớ sinh từ `memory_consolidate`.
+Cài một template và `POST /api/agents/reload` cũng làm vậy với agent vừa vào đội. Không lần nào
+trong số đó cần khởi động lại. Đồng hồ so từng job theo id với dòng nó đang giữ:
+
+- **Dòng mới, dòng đổi `cron` hay `every`, và dòng tệp vừa bật lại (`enabled` từ tắt sang bật)
+  được tính từ lúc lưu.** Job cron chạy ở giờ khớp đầu tiên sau lúc lưu; job `every` chạy sau
+  đúng một khoảng tính từ lúc lưu. Giờ đã qua không được chạy bù: đổi `0 7 * * *` thành
+  `0 6 * * *` lúc 06:30 thì job chạy lúc 06:00 sáng hôm sau, không chạy ngay vì đã lỡ 06:00 hôm
+  nay.
+- **Dòng không đổi giờ thì giữ nguyên mốc.** Sửa prompt, lệnh, script, tên hay skill của một
+  dòng, hoặc sửa một khoá khác của agent, không dời lần chạy kế tiếp của dòng đó: job `every: 2h`
+  đã chờ được 90 phút vẫn chạy sau 30 phút nữa, và chạy bằng nội dung vừa lưu.
+- **Dòng bị bỏ khỏi tệp rời đồng hồ và không chạy nữa.** Công tắc tạm dừng của nó (bảng
+  `job_state`) bị xoá và số lần hỏng liên tiếp đang đếm cho nó được quên; lịch sử run giữ nguyên.
+  Sau này thêm lại một dòng cùng id thì đó là một job mới: đang bật, tính từ lúc lưu, không mang
+  gì của dòng cũ.
+- **Công tắc tạm dừng sống qua mọi lần lưu còn giữ dòng đó**, kể cả lần lưu đổi giờ của nó. Số
+  lần hỏng liên tiếp cũng vậy, nên dòng báo lịch chạy lại được vẫn tới khi job chạy được.
+- **Job đang chạy lúc lưu thì chạy xong như dòng nó bắt đầu.** Lần chạy đó không bị cắt và không
+  chạy lại vì lần lưu. Nếu dòng của nó vừa bị bỏ thì kết quả của lần chạy ấy không được đếm hay
+  báo cho job nào.
+- **Dòng được lưu hay bị bỏ trong lúc một job khác của cùng nhịp đang chạy** thì không chạy theo
+  dòng cũ ở nhịp đó; nhịp kế tiếp (20 giây sau) xét nó theo dòng mới.
+
+Tệp `agent.yaml` của một agent đang chạy mà sửa bằng tay thì không ai đọc lại cho đến lần khởi
+động sau, hoặc đến một lần lưu khoá hay tuyến mô hình chung ở Quản lý → Kết nối: lần lưu đó dựng
+lại mọi agent đang chạy từ tệp của nó, và lịch trong tệp lên đồng hồ theo đúng các quy tắc trên.
+Lịch tạo từ chat không đi qua đường này: nó vẫn được đọc từ database mỗi lần đồng hồ cần.
 
 ### Job chạy script
 
@@ -1106,8 +1144,9 @@ lệnh đều được rào để một thất bại ghi lại lỗi và phần 
 
 Cùng lý do, phần chuyên môn của một job prompt (câu truy vấn, tên cột, cách chọn biểu đồ, bố cục
 bản tin) nên nằm trong một tài liệu ở workspace mà prompt chỉ trỏ tới và bảo agent đọc bằng
-`workspace_read`. Profile nạp một lần lúc khởi động, còn tệp trong workspace được đọc lại mỗi lần
-job chạy: sửa tài liệu thì sáng hôm sau có hiệu lực, không cần khởi động lại, và nội dung đi cùng
+`workspace_read`. Prompt trong `agent.yaml` chỉ đổi khi agent được lưu lại hay server khởi động
+lại, còn tệp trong workspace được đọc lại mỗi lần
+job chạy: sửa tài liệu thì sáng hôm sau có hiệu lực, không cần lưu hay khởi động lại gì, và nội dung đi cùng
 schema mà nó mô tả thay vì lệch dần với nó. Trong `agent.yaml` chỉ còn cron, lệnh script và vài
 dòng prompt.
 

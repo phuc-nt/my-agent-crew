@@ -1,5 +1,6 @@
-"""Whose the jobs on the clock are: what each agent's file gives it, and what goes when an
-agent leaves the crew. `runner.py` decides when a job runs; this module, whom it is for."""
+"""Whose the jobs on the clock are: what each agent's file gives it, which of those begin
+again when a file is saved, and what goes when an agent leaves the crew. `runner.py` decides
+when a job runs; this module, whom it is for."""
 
 from __future__ import annotations
 
@@ -16,6 +17,19 @@ def profile_jobs(agents: dict[str, AgentDeps]) -> dict[str, Job]:
             job = Job(id=f"{agent_id}/{schedule.id}", agent_id=agent_id, schedule=schedule)
             jobs[job.id] = job
     return jobs
+
+
+def starts_afresh(held: Job | None, stated: Job) -> bool:
+    """Whether a job a file states now is judged from this moment on, and not from the mark
+    the clock kept under its id: a job the clock did not hold, one whose timing is another,
+    or one its file had switched off and switches on. The mark of such a job is that of a
+    row that is no more, and judged from it the job would run at once for a time that
+    passed under the row before it. A save of what the job does, or of what it is called,
+    leaves its timing as it was, and so its mark: the job still runs when it was going to."""
+    if held is None:
+        return True
+    was, now = held.schedule, stated.schedule
+    return (was.cron, was.every) != (now.cron, now.every) or (now.enabled and not was.enabled)
 
 
 def forget_agent(held: dict[str, Job], store: Store | None, agent_id: str) -> None:

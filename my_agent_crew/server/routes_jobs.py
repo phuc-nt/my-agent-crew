@@ -62,8 +62,9 @@ def _is_profile_schedule(rt: Rt, agent_id: str, schedule_id: str) -> bool:
 
 @router.delete("/jobs/{job_id:path}", status_code=204)
 def delete_job(job_id: str, rt: Rt) -> None:
-    """Only a chat-created row can be deleted here; a profile schedule is edited in
-    `agent.yaml` and needs a restart to change, so this route refuses to touch it.
+    """Only a chat-created row can be deleted here; a profile schedule is a line of
+    `agent.yaml`, taken out by saving the agent without it, so this route refuses to touch
+    it: gone from the clock alone, it would be back at the next start.
 
     Checked against `rt.agents` directly, not `rt.scheduler.get()`: a row whose agent was
     since removed from the crew has no `Job` the scheduler can build at all (`chat_jobs`

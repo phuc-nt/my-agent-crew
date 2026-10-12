@@ -75,6 +75,9 @@ async def commit(rt: Runtime, prepared: Prepared, before: ChannelKey) -> None:
         rt.agents[agent_id] = deps
         peers[agent_id] = deps.profile
     rt.wire_delegation()
+    # Every agent was read again from its file, a schedule edited there by hand with the
+    # rest: the clock goes by the crew that runs, here as after any save of an agent.
+    rt.scheduler.reload_profiles()
     # A key that changed may be the one a server that is down was waiting for.
     rt.mcp.wake.set()
     await sync_channel(rt, before)

@@ -145,7 +145,7 @@ def install(body: InstallRequest, rt: Runtime) -> dict[str, Any]:
     if added and rt.channel is not None:
         rt.channel.use_agents(rt.agents)
     live = [name for name in installed if name in added]
-    needs_restart = any(p.id in installed and p.schedules for p in profiles) or set(
-        installed
-    ) - set(live)
-    return {"installed": installed, "live": live, "needs_restart": bool(needs_restart)}
+    # An agent that joined runs at once, its schedules with it. What waits for a restart
+    # is one that did not: a file written over an agent that runs, a crew that cannot grow.
+    waiting = set(installed) - set(live)
+    return {"installed": installed, "live": live, "needs_restart": bool(waiting)}

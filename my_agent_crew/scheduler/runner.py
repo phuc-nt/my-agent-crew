@@ -60,6 +60,13 @@ class Scheduler:
         self._jobs.forget_agent(agent_id)
         self._streaks.forget_agent(agent_id)
 
+    def reload_profiles(self) -> None:
+        """Puts on the clock what the crew's files state now, with no restart: called when
+        an agent joined the crew or was saved, on the event loop as `tick()` is. A job no
+        file states any more leaves no count of failures to one later made under its id."""
+        for job_id in self._jobs.reload():
+            self._streaks.forget(job_id)
+
     def describe(self) -> list[dict[str, Any]]:
         now = self._clock()
         out = []
@@ -104,6 +111,10 @@ class Scheduler:
         await expire_overdue(self._agents, self._hub, self._deliver)
         results = []
         for job in self.due(now):
+            if job.agent_id in self._agents and self._jobs.rows().get(job.id) != job:
+                # Saved or taken away while an earlier job of this tick ran: what was judged
+                # due is not what the clock holds now, and the next tick judges that.
+                continue
             self._jobs.last[job.id] = now
             if job.agent_id in self._agents:
                 results.append(await self.run_job(job.id))

@@ -1,7 +1,8 @@
 """Everything the server holds for its lifetime: one store, one activity hub, one
 scheduler, and one `AgentDeps` per agent profile. All agents share the store and the
 provider clients; each gets its own workspace, memory, skills, shell cwd and routes.
-Building a runtime from a home directory is `runtime_build`."""
+Building a runtime from a home directory is `runtime_build`; agents joining, changing and
+leaving a crew that runs is `runtime_crew`."""
 
 from __future__ import annotations
 
@@ -11,7 +12,6 @@ from typing import Any
 
 import httpx
 
-from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import DEFAULT_AGENT_ID, AgentProfile
@@ -22,7 +22,7 @@ from my_agent_crew.inbound_queue import QueueDrain
 from my_agent_crew.mcp.hub import McpHub
 from my_agent_crew.memory.session_summary import schedule_summary
 from my_agent_crew.scheduler import Scheduler
-from my_agent_crew.server.agent_assembly import build_agent_deps
+from my_agent_crew.server import runtime_crew
 from my_agent_crew.server.crew_abilities import crew_abilities
 from my_agent_crew.store import Store
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME, build_delegate_tool
@@ -134,52 +134,19 @@ class Runtime:
         self.mcp.attach(self.agents)
 
     def add_agents(self, profiles: Iterable[AgentProfile]) -> list[str]:
-        """Brings agents installed while the server runs into this runtime: deps built
-        the same way as at startup, the shared peer map extended, every delegating agent's
-        tool rebuilt. Channels and schedules are not started here; those need a restart.
-        Ids already present are skipped and not reported. Every newcomer is built before
-        any joins: one that cannot be built leaves the crew as it was."""
-        if self.client is None:
-            raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
-        peers = self.default.peers if isinstance(self.default.peers, dict) else {}
-        fresh = [profile for profile in profiles if profile.id not in self.agents]
-        built = [
-            build_agent_deps(p, self.providers, self.client, self.store, self.settings.routes)
-            for p in fresh
-        ]
-        for profile, deps in zip(fresh, built, strict=True):
-            deps.peers = peers
-            self.agents[profile.id] = deps
-            peers[profile.id] = profile
-        if fresh:
-            self.wire_delegation()
-        return [profile.id for profile in fresh]
+        """Brings agents installed while the server runs into the crew, their schedules onto
+        the clock, and returns the ids that joined (`runtime_crew.py`)."""
+        return runtime_crew.add_agents(self, profiles)
 
     def replace_agent(self, profile: AgentProfile) -> None:
-        """Swap in an edited profile without a restart. The deps are rebuilt, not patched:
-        routes, skills and tools all derive from the profile, so a patched agent would not
-        match what it can do. The shared peer map shows the new name to everyone else."""
-        if self.client is None:
-            raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
-        deps = build_agent_deps(
-            profile, self.providers, self.client, self.store, self.settings.routes
-        )
-        peers = self.default.peers if isinstance(self.default.peers, dict) else {}
-        deps.peers = peers
-        self.agents[profile.id] = deps
-        peers[profile.id] = profile
-        self.wire_delegation()
+        """Swaps in an edited profile, schedules and all, without a restart
+        (`runtime_crew.py`)."""
+        runtime_crew.replace_agent(self, profile)
 
     def remove_agent(self, agent_id: str) -> None:
-        """Drop an agent from the running crew, and its jobs from the clock. Conversations
-        that named it stay put and fall back to the default agent; nothing else is kept."""
-        # The peer map is reached through the default agent, so it is taken before the pop
-        # rather than after: dropping the default first would leave nothing to read it from.
-        peers = self.default.peers if isinstance(self.default.peers, dict) else {}
-        self.agents.pop(agent_id, None)
-        peers.pop(agent_id, None)
-        self.scheduler.forget_agent(agent_id)
-        self.wire_delegation()
+        """Drops an agent from the running crew, and its jobs from the clock
+        (`runtime_crew.py`)."""
+        runtime_crew.remove_agent(self, agent_id)
 
     def deps_for_conversation(self, conv_id: str) -> AgentDeps:
         """Raises KeyError for an unknown conversation; a conversation whose agent profile
