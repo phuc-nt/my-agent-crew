@@ -12,6 +12,7 @@ import httpx
 from my_agent_crew.agents import AgentProfile
 from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.provider import ProviderChain
+from my_agent_crew.server.tool_list_names import Reason, listed_elsewhere
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Store
 from my_agent_crew.tools import Tool, ToolRegistry
@@ -46,15 +47,25 @@ logger = logging.getLogger(__name__)
 OPTIONAL_TOOLS = frozenset({"image_read"})
 
 
-def allowed(tools: Sequence[Tool], names: Sequence[str], agent_id: str) -> list[Tool]:
+def allowed(
+    tools: Sequence[Tool], names: Sequence[str], agent_id: str, why: Reason | None = None
+) -> list[Tool]:
     """An empty allow-list means every tool. A name nobody built is a warning, not an
-    error: a profile that lists a tool from a newer version should still start."""
+    error: a profile that lists a tool from a newer version should still start.
+
+    `why` knows the tools that are not built here (`tool_list_names`). A name it explains
+    is not called unknown: it is passed over when the tool is handed later, and otherwise
+    the warning says why the list does not bring it."""
     if not names:
         return list(tools)
     wanted = set(names)
     kept = [tool for tool in tools if tool.name in wanted]
     for missing in sorted(wanted - {tool.name for tool in kept} - OPTIONAL_TOOLS):
-        logger.warning("agent %s: tools lists unknown tool %s", agent_id, missing)
+        reason = why(missing) if why else None
+        if reason is None:
+            logger.warning("agent %s: tools lists unknown tool %s", agent_id, missing)
+        elif reason:
+            logger.warning("agent %s: tools lists %s, %s", agent_id, missing, reason)
     return kept
 
 
@@ -132,11 +143,14 @@ def build_tools(
             profile.settings.write_paths,
         ),
     ]
+    # Made for every agent and held by a work agent only: an assistant whose list names
+    # one is then told the mode keeps it, rather than that nobody knows the name.
+    work_only = [
+        build_edit_tool(profile.workspace, profile.settings.write_paths),
+        *build_search_tools(profile.workspace),
+    ]
     if profile.is_work:
-        tools += [
-            build_edit_tool(profile.workspace, profile.settings.write_paths),
-            *build_search_tools(profile.workspace),
-        ]
+        tools += work_only
     if pictures is not None:
         # The crew home is a root too, so a delegate can read the master's inbox.
         tools.append(build_image_tool((profile.workspace, profile.settings.home), pictures))
@@ -147,7 +161,8 @@ def build_tools(
     spill = Spill(profile.settings.home)
     limit = profile.settings.tool_output_chars
     tools.append(build_output_read_tool(store, spill, limit))
-    kept = allowed(tools, profile.tools, profile.id)
+    why = listed_elsewhere(profile, {tool.name for tool in work_only})
+    kept = allowed(tools, profile.tools, profile.id, why)
     can_reread = any(tool.name == READ_TOOL for tool in kept)
     hooks = HookRunner(profile.hooks, profile.id) if profile.hooks else None
     summariser = None

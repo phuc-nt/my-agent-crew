@@ -458,6 +458,20 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "the tools grid shows the script tool with an agent that reads on its own, with no server at all"
     (ô tool agent thiếu mang chú giải chế độ, không mang chú giải "bị loại"; trình sửa của agent
     không có danh sách mở ở "Dùng tất cả công cụ hợp lệ" với các ô chọn bị khoá)
+- **Cảnh báo về một tên trong `tools:` chỉ gọi là "unknown" khi không tool nào mang tên ấy**
+  - pytest: `tests/test_tool_list_warnings.py`, mọi ca dựng cả đội qua `build_runtime` và đọc
+    log của lần khởi động, không gọi riêng `allowed()` (agent có giao việc khai `delegate` trong
+    danh sách: agent work, agent khai `delegates`, master — không dòng cảnh báo nào và vẫn giữ
+    tool; tên không tool nào mang vẫn ra đúng câu `tools lists unknown tool …`; `image_read`
+    trên máy không có tuyến đọc ảnh vẫn im; `delegate` ở agent không giao việc cho ai: một dòng
+    nói nó không giao việc cho ai, không có chữ "unknown", agent không giữ tool; `tool_script`,
+    `tool_search`, `mcp__…`: một dòng nói danh sách không quyết tool ấy; `tool_script` đến với
+    agent có tool đọc dù danh sách có nêu tên hay không; `workspace_edit`, `workspace_grep`,
+    `workspace_glob` trên danh sách của assistant: một dòng nói cần `mode: work`, cùng danh sách
+    ấy ở agent work thì im và giữ tool; nối lại một agent vừa sửa không nhắc lại cảnh báo của
+    agent khác); `tests/test_agent_profiles.py`
+    ("test_a_tool_that_needs_a_key_is_not_reported_as_an_unknown_name",
+    "test_an_allow_list_that_omits_delegate_keeps_a_work_agent_from_delegating")
 - **Toàn bộ tham số của một tool call**
   - vitest: `components/tool-args-detail.test.tsx`; `components/components.test.tsx`
     "opens a tool row's full arguments from under its summary"

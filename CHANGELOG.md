@@ -23,6 +23,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   workspace elsewhere vouches for no skills folder and no persona file. Moving an outside
   workspace to another place outside the home is still refused, moving it into the home is
   accepted, and a new agent still may name no path outside the home.
+- A start no longer warns `tools lists unknown tool delegate` about an agent that lists `delegate`
+  as the docs tell it to. Naming it is how an agent with a `tools:` list keeps handing work out,
+  and the tool is handed once every agent exists, after the list was matched, so every such agent
+  was warned at every start. The warning now tells three cases apart. A name that is honoured
+  later (`delegate` on the master, a work agent or an agent that names `delegates`) is passed
+  over. A real tool the list cannot bring is named with the reason in place of "unknown":
+  `tool_script`, `tool_search` and a server's `mcp__…` tools come by what the agent holds and the
+  servers under `mcp`, whether listed or not; `workspace_edit`, `workspace_grep` and
+  `workspace_glob` come with `mode: work`; `delegate` is not given to an agent that hands work to
+  nobody. A name no tool carries is still `tools lists unknown tool …`, word for word.
 
 ## [0.15.0] — 2026-10-12
 
