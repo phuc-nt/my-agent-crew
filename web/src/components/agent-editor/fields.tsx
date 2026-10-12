@@ -106,17 +106,21 @@ export function NumberField({ label, hint, value, step, min, disabled, onChange 
 interface CheckProps {
   label: string;
   hint?: string;
+  /** What the tick means together with another setting: said under it, as its description. */
+  warning?: string;
   checked: boolean;
   disabled?: boolean;
   onChange: (value: boolean) => void;
 }
 
-export function CheckField({ label, hint, checked, disabled, onChange }: CheckProps) {
+export function CheckField({ label, hint, warning, checked, disabled, onChange }: CheckProps) {
+  const warningId = useId();
   return (
     <div className="field check-field">
       <label>
         <input
           type="checkbox"
+          aria-describedby={warning ? warningId : undefined}
           checked={checked}
           disabled={disabled}
           onChange={(e) => onChange(e.target.checked)}
@@ -124,6 +128,11 @@ export function CheckField({ label, hint, checked, disabled, onChange }: CheckPr
         <span>{label}</span>
       </label>
       {hint && <span className="muted field-hint">{hint}</span>}
+      {warning && (
+        <span className="field-hint warn-text" id={warningId}>
+          {warning}
+        </span>
+      )}
     </div>
   );
 }

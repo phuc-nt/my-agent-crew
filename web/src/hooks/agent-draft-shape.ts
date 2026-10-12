@@ -26,6 +26,10 @@ export const EDITABLE: DraftKey[] = [
   "telegram",
 ];
 
+/** Scripts that may change things, on an agent the form has running by itself: each such
+ * call goes through and nobody is asked. The form says so at both of the settings. */
+export const scriptsAskNobody = (draft: AgentPatch): boolean => draft.script_calls === "gated" && draft.autonomous === true;
+
 /** The keys `mode: work` supplies a default for when the manifest stays silent. */
 export const MODE_DEFAULTED: DraftKey[] = ["cost_cap_usd", "max_steps", "autonomous"];
 

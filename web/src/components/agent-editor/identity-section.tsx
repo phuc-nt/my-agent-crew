@@ -1,3 +1,4 @@
+import { scriptsAskNobody } from "../../hooks/agent-draft-shape";
 import type { AgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
 import { CheckField, Field, TextField } from "./fields";
@@ -7,8 +8,15 @@ interface Props {
   readOnly: boolean;
 }
 
-/** Who the agent is and where it works: the name the master sees, the one-line
- * description it routes on, the chat/work mode, and the folder it may touch. */
+/**
+ * Who the agent is and where it works: the name the master sees, the one-line description
+ * it routes on, the chat/work mode, and the folder it may touch.
+ *
+ * Autonomy is ticked here, and what scripts may call is chosen further down, with the
+ * tools. On an agent whose scripts may change things the two mean together that nobody is
+ * asked, and the line that says so stands under each of them: someone who ticks this box
+ * reads it where they ticked.
+ */
 export function IdentitySection({ form, readOnly }: Props) {
   const { draft, set } = form;
   return (
@@ -47,6 +55,7 @@ export function IdentitySection({ form, readOnly }: Props) {
       />
       <CheckField
         label={vi.editor.autonomous}
+        warning={scriptsAskNobody(draft) ? vi.editor.scriptCallsGatedAutonomous : undefined}
         checked={draft.autonomous ?? false}
         disabled={readOnly}
         onChange={(v) => set("autonomous", v)}
