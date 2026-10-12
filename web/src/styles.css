@@ -17,6 +17,7 @@
  *             tool switched off, and the field a schedule's script is typed in.
  *   conversation-activity → the activity strip belonging to the open chat.
  *   run-timeline   → the process visualisation inside an open run card.
+ *   script-handoff → what a script job's script printed, under the message that handed it on.
  *   canvas  → the canvas dock beside the chat: its column, overlay, panel and history, and the
  *             note a message carries from it, under the message in the thread.
  *   canvas-library → the library of every canvas on the manage screen.
@@ -47,6 +48,7 @@
 @import "./styles/approvals.css";
 @import "./styles/thread-composer.css";
 @import "./styles/chat-state.css";
+@import "./styles/script-handoff.css";
 @import "./styles/canvas.css";
 @import "./styles/canvas-page.css";
 @import "./styles/canvas-source.css";

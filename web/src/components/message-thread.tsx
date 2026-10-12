@@ -4,6 +4,7 @@ import { useAutoScroll } from "../hooks/use-auto-scroll";
 import { vi } from "../i18n/vi";
 import type { WritingItem } from "../lib/canvas-writing";
 import { type ReplyBlock, splitMedia } from "../lib/reply-blocks";
+import { splitScriptHandoff } from "../lib/script-handoff";
 import type { ThreadItem } from "../state/thread-reducer";
 import { AttachmentChip, fileName, splitAttachments, type AttachmentBlock } from "./attachment-chip";
 import type { CanvasLinks } from "./canvas/canvas-card";
@@ -14,6 +15,7 @@ import { BubbleActions } from "./copy-button";
 import { ForkButton } from "./fork-button";
 import { MarkdownBody } from "./markdown-body";
 import { RunProgressHeader } from "./run-progress-header";
+import { ScriptPrinted } from "./script-printed";
 import { ToolCallCard } from "./tool-call-card";
 import { AgentAvatar } from "./ui/agent-avatar";
 import { BrandMark } from "./ui/brand-mark";
@@ -199,9 +201,8 @@ function Item({
   const assistant = item.kind === "assistant";
   // What a person sent through Telegram arrives as lines naming the saved files; those
   // become the photo or the file again rather than a path in their own bubble.
-  const blocks: (ReplyBlock | AttachmentBlock)[] = assistant
-    ? splitMedia(item.text)
-    : splitAttachments(item.text);
+  const handed = item.kind === "user" ? splitScriptHandoff(item.text) : null;
+  const blocks: (ReplyBlock | AttachmentBlock)[] = assistant ? splitMedia(item.text) : splitAttachments(handed?.prompt ?? item.text);
   const bubble = (
     <div className={`bubble ${item.kind}`} data-testid={`message-${item.kind}`}>
       {/* Your own messages need no name on screen — the side they sit on says it — but a
@@ -249,13 +250,12 @@ function Item({
     </div>
   );
   // The canvas note a message carried hangs under its bubble, not inside it: the bubble's
-  // colour is the person's own words, and the note is the document's.
-  return item.kind === "user" && item.context ? (
+  // colour is the person's own words, and the note is the document's. So does what a script printed.
+  return (
     <>
       {bubble}
-      <CanvasNoteChip note={item.context} />
+      {handed && <ScriptPrinted text={handed.printed} />}
+      {item.kind === "user" && item.context && <CanvasNoteChip note={item.context} />}
     </>
-  ) : (
-    bubble
   );
 }
