@@ -433,16 +433,34 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_a_skills_dir_outside_the_home_is_refused": ba lời từ chối gốc);
     `tests/test_api_agents_edit_outside_paths.py` (agent có tệp viết tay giữ `workspace` ngoài home:
     sửa `script_calls`, `max_steps` hay `description` là 200, agent trong đội đổi theo, tệp chỉ thêm
-    đúng dòng ấy và workspace vẫn là cây chủ đã chọn; gửi lại đúng workspace ấy, kể cả viết vòng qua
-    `..`, cùng một khoá khác là 200; đổi sang một cây khác ngoài home, sang thư mục cha hay thư mục
-    con là 422, tệp và agent đang chạy không đổi; đổi vào trong home thì được và không đổi ngược ra
-    được; thư mục skill ngoài home và tệp persona ngoài home mà tệp đã ghi: khoá khác lưu được, gửi
-    lại được, thêm cái thứ hai ngoài home là 422 và chữ của tệp thứ hai không vào system prompt;
-    loại này không bảo lãnh cho loại kia: workspace ngoài home không thành thư mục skill hay tệp
-    persona, thư mục skill không thành workspace, tệp persona không thành thư mục skill hay
-    workspace; workspace ngoài home mà người viết tay vào tệp sau lần khởi động chưa phải là cái
-    agent đang chạy với: lưu một khoá khác là 422 nêu đường dẫn ấy, agent đang chạy giữ workspace
-    cũ; tạo agent mới trỏ tới chỗ một agent khác đang làm việc ngoài home là 422)
+    đúng dòng ấy và workspace vẫn là cây chủ đã chọn; gửi lại đúng workspace ấy như tệp đang viết,
+    kể cả khi tệp viết vòng qua `..`, cùng một khoá khác là 200; đổi sang một cây khác ngoài home,
+    sang thư mục cha hay thư mục con là 422, tệp và agent đang chạy không đổi; đổi vào trong home
+    thì được và không đổi ngược ra được; thư mục skill ngoài home và tệp persona ngoài home mà tệp
+    đã ghi: khoá khác lưu được, gửi lại được, thêm cái thứ hai ngoài home là 422 và chữ của tệp thứ
+    hai không vào system prompt; loại này không bảo lãnh cho loại kia: workspace ngoài home không
+    thành thư mục skill hay tệp persona, thư mục skill không thành workspace, tệp persona không
+    thành thư mục skill hay workspace; workspace ngoài home mà người viết tay vào tệp sau lần khởi
+    động chưa phải là cái agent đang chạy với: lưu một khoá khác là 422 nêu đường dẫn ấy, agent đang
+    chạy giữ workspace cũ; tạo agent mới trỏ tới chỗ một agent khác đang làm việc ngoài home là 422;
+    tệp persona trong thư mục agent là một liên kết tới tệp ngoài home mà tệp không nêu tên nào:
+    khoá khác vẫn lưu được và chữ persona vẫn vào system prompt)
+- **Đường dẫn ngoài home chỉ được viết như tệp đang viết, hoặc viết chính đường dẫn thật**
+  - pytest: `tests/test_api_agents_edit_path_spelling.py` (với cả ba loại `workspace`,
+    `skills_dirs`, `persona_files`: cách viết mới của đường dẫn agent đang chạy với, qua một liên
+    kết hay vào một thư mục rồi lùi ra bằng `..`, là 422, câu lỗi nêu chuỗi đã gửi và đường dẫn nên
+    ghi, tệp và agent đang chạy không đổi; chuỗi tệp viết tay đã ghi sẵn, gửi lại nguyên văn, là 200
+    và nằm lại trong tệp đúng như đã gõ; cách viết vòng của chủ không chặn lần lưu khoá khác, tệp
+    chỉ thêm đúng dòng ấy; đường dẫn thật là 200 dù tệp đang viết cách nào; sau một lần lưu, dời
+    liên kết hay đổi thư mục thành liên kết không đổi được chỗ tệp đã lưu trỏ tới, dù lần lưu trả
+    lời gì; cái tên lúc khởi động đọc khi tệp không nêu (`workspace`, `skills`, `AGENTS.md`), dù là
+    liên kết ra ngoài home, ghi vào tệp là 200; bỏ khoá `workspace` hay `persona_files` khi cái tên
+    đọc thay vào là một liên kết ra ngoài home là 422 nêu đường dẫn thật, và dời liên kết sau đó
+    không đổi chỗ agent trỏ tới; một cây vừa là workspace vừa là thư mục skill, tệp viết qua liên
+    kết cho loại này: gửi chuỗi ấy cho loại kia là 422, theo cả hai chiều; cách viết vòng mà vẫn nằm
+    trong home thì 200 như trước và nằm lại trong tệp như đã gõ). Kiểm chứng đột biến: năm sửa đổi ở
+    phép xét cách viết (không xét gì, không nhận chuỗi tệp đang ghi, xét cả đường dẫn trong home,
+    không nhận đường dẫn thật, để chuỗi của loại này bảo lãnh cho loại kia) đều bị test bắt.
 - **Danh sách công cụ của agent mở từ những gì tệp viết, không từ những gì agent đang giữ**
   - pytest: `tests/test_api_agents_declared.py::test_the_tools_an_agent_holds_are_not_what_its_file_lists`,
     `tests/test_api_agents_declared.py::test_a_save_answers_with_the_tools_the_file_now_lists`,
