@@ -1,10 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { useAgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
-import { agent, CHATS, CREW, LEADS, open, radio, rows, saved, section, ticked } from "../../test/tool-picker-screen";
-import { ToolsSection } from "./tools-section";
+import { agent, CHATS, LEADS, open, radio, rows, saved, section, ticked } from "../../test/tool-picker-screen";
 
 const t = vi.editor;
 
@@ -48,27 +46,5 @@ describe("a change to the mode or to the delegates that is not saved yet", () =>
     expect(hint()).not.toBeInTheDocument();
     expect(rows()).toEqual(LEADS);
     expect(ticked()).toEqual(["write_file"]);
-  });
-});
-
-describe("an agent that is not saved yet", () => {
-  /** The list the form holds, which is what a save of it would write. */
-  let held: string[] | null | undefined;
-  function Blank() {
-    const form = useAgentDraft(null);
-    held = form.draft.tools;
-    return <ToolsSection form={form} readOnly={false} tools={CREW} mcpServers={[]} />;
-  }
-
-  // No server has judged it yet: the catalogue's own marks say what no list gives.
-  it("is offered every tool the catalogue does not mark, and starts from them all", async () => {
-    render(<Blank />);
-    expect(rows()).toEqual(["ask_user", "delegate", "web_search", "write_file"]);
-    await userEvent.click(radio(t.toolsPick));
-
-    expect(ticked()).toEqual(["ask_user", "delegate", "web_search", "write_file"]);
-    // And no name beside them, which no row would show.
-    expect(held).toEqual(["ask_user", "delegate", "web_search", "write_file"]);
-    expect(section().queryByText(t.toolsFollowSaved)).not.toBeInTheDocument();
   });
 });

@@ -23,7 +23,8 @@ const CALLS: ScriptCalls[] = ["none", "read_only", "gated"];
  * form has running by itself, that line says what the two mean together: nobody is asked.
  *
  * Last comes the way to what those scripts keep from one run to the next, on the screen
- * that shows it with this agent chosen. An agent that is not saved yet has kept nothing.
+ * that shows it with this agent chosen. The form's type allows no agent at all, which no
+ * screen opens this on: the link is made of the agent's id, so it waits for one.
  */
 export function ScriptControls({ form, readOnly }: Props) {
   const callsHint = useId();
