@@ -5876,6 +5876,9 @@ khi chạy; phần đó có mục riêng ở dưới.
     `LIKE` ở cả hai bảng, bỏ dấu `/` sau id, bỏ phép kiểm ở nhịp, giữ job trên đồng hồ sau khi
     đã báo, hạ dòng log xuống mức gỡ lỗi, và hai sửa đổi để lần gửi kết quả tra thẳng agent)
     đều bị test bắt.
+  - Vitest: `components/agent-editor/delete-agent.test.tsx` (hộp xoá agent nói, trước ô gõ id,
+    thứ thư mục trong `.trash` không mang về: những gì script của agent giữ lại, lịch nó được tạo
+    từ chat và trạng thái bật/tắt của từng lịch; hội thoại và lịch sử run được nêu là giữ nguyên).
 - **Tóm tắt của run do lịch chạy: chỗ cắt có dấu, script hỏng tóm bằng thứ đã làm nó dừng**:
   - pytest: `tests/test_job_run_summary.py` (chữ không quá 160 ký tự thì tóm tắt là cả chữ ấy,
     không dấu gì; dài hơn thì là 160 ký tự cuối đứng sau dấu `…`, 161 ký tự; job `command` nói
