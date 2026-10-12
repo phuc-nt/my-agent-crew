@@ -11,8 +11,99 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- An agent's own `agent.yaml` can take the script tool away from it. `script_calls: none` hands
+  the agent no `tool_script`, whatever tools it holds and whatever a server offers to scripts, so
+  the model writes no script in its turns. A schedule's `script:` of that agent still runs, and
+  calls only the tools that read: that script is the owner's text in the file, not the model's.
+  The master's roster says such an agent holds no `tool_script`. The key now reads one of three
+  words, `none`, `read_only` (the default) and `gated`. Any other value stops the crew from
+  starting with a line that names all three, and a YAML boolean (a bare `off`, `no`, `false`,
+  `on`, `yes` or `true`) is told to write `none` or the one of the three meant.
+- `script_llm: false` in the agent's own `agent.yaml` (default `true`, read from that file alone)
+  keeps the agent's scripts from asking a model, in a turn and in a schedule's `script:` alike.
+  The description of `tool_script` then tells of no `llm`, and a script that calls
+  `llm.classify` or `llm.summarise` all the same is told "không hỏi model được ở đây.", a mistake
+  it can catch: no model is asked, nothing is paid, and the call is neither on the run card nor
+  among the calls the scripts of one turn may make. The script still counts it among its own 25
+  calls and ten askings, so one that catches each refusal and asks on ends at the eleventh. Only
+  a real YAML boolean is taken: `"false"`, `0` or an empty value stops the start. Both keys are
+  in `GET /api/agents` and `GET /api/agents/{id}` under the same names, are taken by
+  `PATCH /api/agents/{id}` and `POST /api/agents` (a wrong value is a 422 and nothing is
+  written), and hold at once: a save takes the script tool from a running agent or hands it
+  back, with no restart.
+- A schedule whose script failed tells the person. A script job opens no turn when its script
+  fails, so nothing was sent on, and from the chat a failed job looked like one that ran well
+  and printed nothing. When the run of the script itself ends `error`, the agent's channel now
+  gets one message of the runtime's, three lines: which schedule it was (its name, as one line),
+  why it ended, and where the run is on the web UI. Why is what the run's step kept of what the
+  script said, whole up to 600 characters and by its head and its tail past that. The message
+  never holds the script's text or what a call was given. A member's notice goes under its
+  `[Name]` line, the master's as the bot speaks. One message is sent for each failed run, with
+  no grouping and no spacing, and a run started with `POST /api/jobs/{agent}/{id}/run` is told
+  the same way. Nothing is sent for a script that ran well (whether it printed or not), for the
+  turn a `then_prompt` opened (that is a conversation, delivered as a prompt job's is, failed or
+  not), for a failed `command` job, for a run a server stop cut, or when there is no channel. A
+  message that could not be sent is logged (`job <id>: failure notice not sent`) and not tried
+  again; the run stands as it ended and the jobs due after it still run.
+- What scripts keep can be read whole and cleared out. `GET /api/agents/{id}/script-store` now
+  says `limit_chars` at its root (262,144, the most each place may hold, which each place's
+  `chars` is measured against), and each place says whose it is: `kind` (`job`, `conv`, or
+  `other` for a name of neither shape), `ref` (the schedule's or the conversation's id; the job
+  is `<agent id>/<ref>`), `title` (the schedule's name or the conversation's title, `null` when
+  unknown or blank) and `orphan` (`true` when the schedule is no longer one of that agent's jobs,
+  those made in a chat among them, or the conversation is gone). `GET
+  /api/agents/{id}/script-store/value?namespace=&key=` gives one value whole, however long:
+  `{namespace, key, text, chars, updated_at}`, 404 for a key that holds nothing and for an agent
+  nobody knows. `DELETE /api/agents/{id}/script-store?namespace=&key=` forgets one key, or all
+  the place holds when `key` is left out, and answers `{deleted: n}`; forgetting what is not
+  there is `{deleted: 0}` and no mistake, and `namespace` must be named, so no call forgets all
+  an agent kept at once. No route writes a value: only a script that ended well does. A script
+  running while its place is cleared goes by what it had read and writes back only the keys it
+  stored itself. Removing an agent (`DELETE /api/agents/{id}`) now drops what its scripts kept,
+  so an agent later given the same id starts with nothing.
+
+### Changed
+
+- A tool call that failed keeps more of what it said on the run card. A step kept the first 160
+  characters of an answer, which for a refusal is the complaint and not the way round it, and
+  for a call that did not fit is the mistake and not how the tool is called. A failed call (a
+  tool call of a turn, a call a script made, a script's asking of a model, the closing step of
+  a command job or a script job) is now kept as one line, whole up to 600 characters, and past
+  that as its first 200, an ellipsis and its last 400. `output` of such a step, and of a failed
+  entry of a script's `calls`, is therefore up to 601 characters where it was up to 161. A call
+  that went well stays at 160, as do a route that was passed over, what the model said, a
+  question and the arguments of a call.
+
 ### Fixed
 
+- A batch that changes things and was ended partway no longer leaves a later script of the same
+  turn short of calls. A batch takes all its calls from what the scripts of one turn may make
+  before the first runs; when a call was refused as its turn came, or the script's clock or a
+  stopped turn ended the batch, the calls that never began stayed counted, and a later script
+  could be ended for calls nobody made. They are now given back however the batch ended. A call
+  that began stays counted.
+- A script no longer asks a model once its conversation has spent all it may. The turn read what
+  the conversation had spent before each call of a model it made itself, and never before the
+  ones a script made, so a script went on asking, up to its ten, past the cost cap. Each asking
+  is now refused before it is made or counted, and the script ends there ("cuộc trò chuyện đã
+  chạm trần chi phí, script không hỏi model thêm được."), which it cannot catch. The askings
+  before it were paid and stay on the run card. The script of a schedule runs in no conversation,
+  so only its ten askings bound it.
+- The refusal past the eight tasks a conversation may hand on no longer promises the next turn.
+  It said a turn hands on at most eight and to hand the task on at the next one; the count is the
+  conversation's, tasks handed on by a script among them, so the next turn was refused in the
+  same words. It now names the conversation and says what is left: do the work itself, or tell
+  the person a new conversation is needed.
+- A conversation is no longer counted as handed on by a script it has nothing to do with. A
+  script's child is found by the id of the call that ran the script with the nested call's number
+  taken off, and an id that ended where the number would begin matched too. The child of a call
+  that goes by that very id was then counted among the script's: in the eight tasks, in the
+  conversation's tree and in the cost shown for it.
+- The description of `tool_script` now says that `store(key, None)` forgets the key and keeps no
+  value, so a model does not keep a `None` to mark a thing as done and read back a key that holds
+  nothing. A `None` inside a list or a dict is kept as it is.
 - An agent whose hand-written `agent.yaml` keeps a path outside the crew home can be edited from
   the web and the API again. Every `PATCH /api/agents/{id}` on such an agent (one that
   `agent add --workspace` aimed at a repo elsewhere, or whose file names a persona or a skills
