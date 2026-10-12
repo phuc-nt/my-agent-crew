@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from my_agent_crew.activity import ActivityHub, tracked
+from my_agent_crew.activity.step_previews import CUT, PREVIEW_CHARS
 from my_agent_crew.agent.events import ToolCallEvent, ToolResultEvent
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.turn_context import JOB
@@ -54,8 +55,11 @@ class Job:
 
 
 def ending(text: str) -> str:
-    """The end of what a job with no model said, which is what its run is summed up by."""
-    return text.strip()[-160:]
+    """The end of what a job with no model said, which is what its run is summed up by. A
+    text longer than a summary keeps opens on the mark of a cut: its end alone would begin
+    in the middle of a word, with nothing to say more came before."""
+    text = text.strip()
+    return text if len(text) <= PREVIEW_CHARS else CUT + text[-PREVIEW_CHARS:]
 
 
 def prompt_skills(job: Job, skills: Sequence[Skill]) -> list[str]:
