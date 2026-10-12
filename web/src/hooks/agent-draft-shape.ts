@@ -29,10 +29,16 @@ export const EDITABLE: DraftKey[] = [
 /** The keys `mode: work` supplies a default for when the manifest stays silent. */
 export const MODE_DEFAULTED: DraftKey[] = ["cost_cap_usd", "max_steps", "autonomous"];
 
+/** A schedule's two script keys say the same null as absent: a server older than script
+ * jobs declares its rows without them, and a row switched to a script and back holds them
+ * as null. Left as they are, that row would count as changed with nothing in it changed. */
+const unsaid = (key: string, value: unknown) =>
+  value === null && (key === "script" || key === "then_prompt") ? undefined : value;
+
 /** Deep equality by serialisation: the values here are JSON already, and a route list or
  * a tool allow-list has to compare by content rather than by identity. */
 export function same(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  return JSON.stringify(a ?? null, unsaid) === JSON.stringify(b ?? null, unsaid);
 }
 
 /**

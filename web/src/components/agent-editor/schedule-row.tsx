@@ -1,59 +1,49 @@
 import { type MouseEvent, useRef } from "react";
 import type { RowProblems } from "../../hooks/agent-draft-checks";
-import { type ScheduleRow, usesCommand, usesEvery, usesScript } from "../../hooks/schedule-row-shape";
+import { type ScheduleRow, usesEvery } from "../../hooks/schedule-row-shape";
 import { vi } from "../../i18n/vi";
 import { cronText, everyText } from "../../lib/cron-text";
 import { TextField } from "./fields";
-import { Choice, SkillPicker } from "./schedule-parts";
-import { ScheduleScriptAction } from "./schedule-script-action";
+import { ScheduleAction } from "./schedule-action";
+import { Choice } from "./schedule-parts";
 
 interface Props {
   row: ScheduleRow;
   /** Where the row sits in the list, counted from 1: the name of a row not named yet. */
   position: number;
   problems?: RowProblems;
-  /** The agent's loaded skills, offered to prompt jobs. */
+  /** The agent's loaded skills, offered to the turn a row opens. */
   skills: string[];
   readOnly: boolean;
+  /** The row the jobs list sent the person to: it can take focus, to be brought into view. */
+  landed?: boolean;
   onChange: (patch: Partial<ScheduleRow>) => void;
   onRemove: () => void;
 }
 
-/** The four keys a row switches between, two at a time. */
-type Side = "cron" | "every" | "prompt" | "command";
+/** The two keys a row's timing switches between. */
+type Timing = "cron" | "every";
 
 const TIMINGS = [
   ["cron", vi.editor.scheduleCron],
   ["every", vi.editor.scheduleEvery],
 ] as const;
 
-const ACTIONS = [
-  ["prompt", vi.editor.schedulePrompt],
-  ["command", vi.editor.scheduleCommand],
-] as const;
-
 /**
  * One schedule: when it runs, what it does, and whether it is on.
  *
- * The parser takes exactly one of cron / every and, of the two actions this form writes,
- * exactly one of prompt / command, so each pair is one choice with one box rather than
- * two boxes that can both be filled.
+ * The parser takes exactly one of cron / every and exactly one of prompt / command /
+ * script, so each is one choice with one box rather than boxes that can all be filled.
  * Switching sets the other key to null: the row keeps the declared shape, and a row the
  * person never touched still compares equal to the file and is not counted as a change.
  * What the switched-away box held is kept for the life of the row and comes back with it,
- * so a mis-tap is undone by tapping back rather than by retyping. A command carries no
- * skills; a prompt's come back with the prompt.
- *
- * A row that runs a script is the third action, and the one this form does not write: it
- * is shown in place of the choice, so no tap turns it into a prompt or a command, and the
- * choice of an ordinary row has no third side to turn it into a script.
+ * so a mis-tap is undone by tapping back rather than by retyping. What a row does, and the
+ * same rule for it, is `ScheduleAction`.
  */
 export function ScheduleRowEditor(props: Props) {
-  const { row, position, problems, skills, readOnly, onChange, onRemove } = props;
-  const kept = useRef<Partial<Record<Side, string>>>({});
-  const keptSkills = useRef<string[] | null>(null);
+  const { row, position, problems, skills, readOnly, landed, onChange, onRemove } = props;
+  const kept = useRef<Partial<Record<Timing, string>>>({});
   const every = usesEvery(row);
-  const command = usesCommand(row);
   const title = row.name || row.id || vi.editor.scheduleUnnamed(position);
   const timing = (every ? row.every : row.cron) ?? "";
   // The jobs list shows this same reading; seeing it here is how a swapped hour and
@@ -68,17 +58,9 @@ export function ScheduleRowEditor(props: Props) {
         ? vi.editor.scheduleEveryHint
         : vi.editor.scheduleCronHint;
 
-  const swap = (from: Side, to: Side): Partial<ScheduleRow> => {
+  const swap = (from: Timing, to: Timing): Partial<ScheduleRow> => {
     kept.current[from] = row[from] ?? "";
     return { [from]: null, [to]: kept.current[to] ?? "" };
-  };
-  const pickAction = (pick: "prompt" | "command") => {
-    if (pick === "command") {
-      keptSkills.current = row.skills;
-      onChange({ ...swap("prompt", "command"), skills: [] });
-    } else {
-      onChange({ ...swap("command", "prompt"), skills: keptSkills.current ?? row.skills });
-    }
   };
   // The second click of a double click lands on whatever moved under the pointer — the
   // next row's Xoá — and would remove that schedule too.
@@ -87,7 +69,7 @@ export function ScheduleRowEditor(props: Props) {
   };
 
   return (
-    <li className="crew-card schedule-row" data-testid="schedule-row">
+    <li className="crew-card schedule-row" data-testid="schedule-row" tabIndex={landed ? -1 : undefined}>
       <div className="schedule-row-head">
         <TextField
           label={vi.editor.scheduleName}
@@ -146,37 +128,7 @@ export function ScheduleRowEditor(props: Props) {
       />
 
       <span className="field-label">{vi.editor.scheduleAction}</span>
-      {usesScript(row) ? (
-        <ScheduleScriptAction script={row.script ?? ""} thenPrompt={row.then_prompt} />
-      ) : (
-        <>
-          <Choice
-            label={vi.editor.scheduleAction}
-            value={command ? "command" : "prompt"}
-            options={ACTIONS}
-            disabled={readOnly}
-            onPick={pickAction}
-          />
-          <TextField
-            label={command ? vi.editor.scheduleCommand : vi.editor.schedulePrompt}
-            value={(command ? row.command : row.prompt) ?? ""}
-            error={problems?.action}
-            mono={command}
-            rows={command ? 2 : 3}
-            disabled={readOnly}
-            onChange={(text) => onChange(command ? { command: text } : { prompt: text })}
-          />
-          {/* Skills are attached to the conversation a prompt opens; a command has none. */}
-          {!command && (
-            <SkillPicker
-              available={skills}
-              chosen={row.skills}
-              disabled={readOnly}
-              onChange={(chosen) => onChange({ skills: chosen })}
-            />
-          )}
-        </>
-      )}
+      <ScheduleAction row={row} problem={problems?.action} skills={skills} readOnly={readOnly} onChange={onChange} />
     </li>
   );
 }

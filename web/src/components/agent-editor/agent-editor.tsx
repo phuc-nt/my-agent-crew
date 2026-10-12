@@ -22,8 +22,9 @@ interface Props {
   mcpServers: McpServerInfo[];
   providers: string[];
   onBack: () => void;
-  /** What the back link says when it leads somewhere other than the crew list. */
-  backLabel?: string;
+  /** The job whose row of the jobs list the editor was opened from, as `<agent>/<schedule>`:
+   *  the back link says it returns there, and that schedule's row is brought into view. */
+  fromJob?: string;
   /** Called after a save or a delete so the crew list stops showing the old profile. */
   onChanged: () => void;
   /** A section to bring into view on arrival, such as "schedules" from the jobs list. */
@@ -37,7 +38,7 @@ interface Props {
  * needs to know there is something unsaved while they are still scrolling through them,
  * not after they have left.
  */
-export function AgentEditor({ agent, agents, tools, mcpServers, providers, onBack, backLabel, onChanged, focus }: Props) {
+export function AgentEditor({ agent, agents, tools, mcpServers, providers, onBack, fromJob, onChanged, focus }: Props) {
   const form = useAgentDraft(agent, onChanged);
   const readOnly = !agent.editable;
   // A box left empty holds the save without a banner until Lưu is pressed; pressing it
@@ -64,7 +65,7 @@ export function AgentEditor({ agent, agents, tools, mcpServers, providers, onBac
     <div className="agent-editor" data-testid="agent-editor" ref={root}>
       <div className="editor-bar" ref={bar}>
         <button type="button" className="ghost" onClick={onBack}>
-          {backLabel ?? vi.editor.back}
+          {fromJob ? vi.jobRow.back : vi.editor.back}
         </button>
         <AgentAvatar id={agent.id} name={agent.name} />
         <span className="editor-title">
@@ -136,6 +137,7 @@ export function AgentEditor({ agent, agents, tools, mcpServers, providers, onBac
         readOnly={readOnly}
         skills={agent.skills}
         focused={focus === "schedules"}
+        focusRow={fromJob?.startsWith(`${agent.id}/`) ? fromJob.slice(agent.id.length + 1) : undefined}
       />
       <ChannelSection form={form} agent={agent} readOnly={readOnly} />
       {/* Last, because it is the sum of every section above it. */}

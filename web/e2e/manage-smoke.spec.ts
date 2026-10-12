@@ -198,7 +198,8 @@ test("a schedule is added from the jobs list through the agent's editor", async 
   // The job rides along so the editor's back link returns to its row.
   await expect(page).toHaveURL(/#\/manage\/crew\/coach\/schedules\?job=coach%2Fbrief$/);
   const editor = page.getByTestId("agent-editor");
-  await expect(editor.getByRole("heading", { name: "Lịch chạy" })).toBeFocused();
+  // On the row of the job whose link was pressed, not on the heading above the rows.
+  await expect(editor.getByTestId("schedule-row").first()).toBeFocused();
 
   await editor.getByRole("button", { name: "+ Thêm lịch" }).click();
   const row = editor.getByTestId("schedule-row").nth(1);

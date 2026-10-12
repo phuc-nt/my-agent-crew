@@ -10,11 +10,11 @@ interface ChoiceProps<T extends string> {
 }
 
 /**
- * One of two ways to say the same thing, as a segmented control.
+ * One of a few ways to say the same thing, as a segmented control.
  *
  * Buttons with `aria-pressed` rather than radios: each choice swaps which box is shown,
  * and a pressed button says that plainly to a screen reader without a fieldset around
- * a pair of inputs that each hold nothing.
+ * a set of inputs that each hold nothing.
  */
 export function Choice<T extends string>({ label, value, options, disabled, onPick }: ChoiceProps<T>) {
   return (
@@ -43,7 +43,8 @@ interface SkillProps {
 }
 
 /**
- * The skills attached in full to the conversation a prompt job opens.
+ * The skills attached in full to the conversation a job opens: a prompt's own, or the
+ * one a script's output goes on to.
  *
  * A name the row already carries stays on offer even when the agent no longer loads it,
  * so the person can see it and take it off rather than have it vanish from the form while

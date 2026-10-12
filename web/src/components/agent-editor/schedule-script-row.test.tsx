@@ -109,49 +109,56 @@ describe("a schedule that runs a script, in the agent editor", () => {
     expect(screen.getByRole("button", { name: vi.editor.save })).toBeDisabled();
   });
 
-  it("says what kind it is and where the script is changed, and shows the script whole", () => {
+  it("shows its kind chosen among the three, and its script and its prompt whole", () => {
     const [row] = open(sync);
-    const kind = row.getByTestId("schedule-script-kind");
-    expect(within(kind).getByText(vi.jobKindScript, { selector: ".badge" })).toBeInTheDocument();
-    expect(within(kind).getByText(vi.editor.scheduleScriptHint)).toBeInTheDocument();
-    expect(vi.editor.scheduleScriptHint).toContain("agent.yaml");
+    const kinds = within(row.getByRole("group", { name: vi.editor.scheduleAction })).getAllByRole("button");
+    expect(kinds.map((kind) => [kind.textContent, kind.getAttribute("aria-pressed")])).toEqual([
+      [vi.editor.schedulePrompt, "false"],
+      [vi.editor.scheduleCommand, "false"],
+      [vi.editor.scheduleScript, "true"],
+    ]);
     expect(row.getByLabelText(vi.editor.scheduleScript)).toHaveValue(SOURCE);
     expect(row.getByLabelText(vi.editor.scheduleThenPrompt)).toHaveValue(sync.then_prompt);
-  });
-
-  it("offers no way to make it a prompt or a command, and no box to type its script in", async () => {
-    const [row] = open(sync);
-    expect(row.queryByRole("group", { name: vi.editor.scheduleAction })).toBeNull();
+    // One action, one box: the boxes of the two kinds it is not are not on the row.
     expect(row.queryByLabelText(vi.editor.schedulePrompt)).toBeNull();
     expect(row.queryByLabelText(vi.editor.scheduleCommand)).toBeNull();
-
-    for (const label of [vi.editor.scheduleScript, vi.editor.scheduleThenPrompt]) {
-      const box = row.getByLabelText(label) as HTMLTextAreaElement;
-      const before = box.value;
-      expect(box.readOnly).toBe(true);
-      await userEvent.type(box, "print(1)");
-      expect(box).toHaveValue(before);
-    }
-    // Nothing typed, nothing to save.
-    expect(screen.getByRole("button", { name: vi.editor.save })).toBeDisabled();
   });
 
-  it("is not on offer for a row the form makes: a prompt or a command, nothing else", async () => {
+  it("is typed in where it stands, and what is typed is what is saved", async () => {
+    const [row] = open(sync);
+    for (const label of [vi.editor.scheduleScript, vi.editor.scheduleThenPrompt])
+      expect((row.getByLabelText(label) as HTMLTextAreaElement).readOnly).toBe(false);
+    // Nothing typed, nothing to save.
+    expect(screen.getByRole("button", { name: vi.editor.save })).toBeDisabled();
+
+    await userEvent.type(row.getByLabelText(vi.editor.scheduleScript), "print(1)");
+    await userEvent.type(row.getByLabelText(vi.editor.scheduleThenPrompt), " nhé");
+    const [sent] = await saved();
+
+    const written = { script: `${SOURCE}print(1)`, then_prompt: `${sync.then_prompt} nhé` };
+    expect(sent).toEqual({ ...SYNC_SENT, ...written });
+    expect(backend.agents[0].declared.schedules[0]).toMatchObject({ ...written, prompt: null, command: null });
+  });
+
+  it("is on offer for every row, and a row the form adds starts as a prompt", async () => {
     const [, other] = open(sync, brief);
     const choice = (row: ReturnType<typeof within>) =>
       within(row.getByRole("group", { name: vi.editor.scheduleAction })).getAllByRole("button").map((b) => b.textContent);
-    expect(choice(other)).toEqual([vi.editor.schedulePrompt, vi.editor.scheduleCommand]);
+    const three = [vi.editor.schedulePrompt, vi.editor.scheduleCommand, vi.editor.scheduleScript];
+    expect(choice(other)).toEqual(three);
 
     await userEvent.click(screen.getByRole("button", { name: vi.editor.addSchedule }));
     const added = within(screen.getAllByTestId("schedule-row")[2]);
-    expect(choice(added)).toEqual([vi.editor.schedulePrompt, vi.editor.scheduleCommand]);
-    expect(added.queryByTestId("schedule-script-kind")).toBeNull();
+    expect(choice(added)).toEqual(three);
+    expect(added.getByRole("button", { name: vi.editor.schedulePrompt })).toHaveAttribute("aria-pressed", "true");
+    expect(added.queryByLabelText(vi.editor.scheduleScript)).toBeNull();
   });
 
   // `then_prompt` is allowed beside a script and optional there; a null is not a prompt.
   it("sends no prompt to follow for a script that has none", async () => {
     const [row, other] = open({ ...sync, then_prompt: null }, brief);
-    expect(row.queryByLabelText(vi.editor.scheduleThenPrompt)).toBeNull();
+    // The box is there to be filled, and empty.
+    expect(row.getByLabelText(vi.editor.scheduleThenPrompt)).toHaveValue("");
     await userEvent.type(other.getByLabelText(vi.editor.scheduleName), " sớm");
 
     const [kept] = await saved();

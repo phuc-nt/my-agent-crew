@@ -74,19 +74,10 @@ input.mono {
   font-size: max(16px, var(--text-md));
 }
 
-/* A script row's action: the kind where the other rows have a choice of two, with the
-   line saying where it is changed beside it, wrapping under it on a phone. */
-.schedule-script-kind {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-2);
-  min-width: 0;
-}
-
-/* Read, not typed in: the sunken surface of a box that is off, with its words left at
-   full strength, since reading them is what the box is for. It still takes focus, to be
-   scrolled and copied from, so the focus halo is left as it is. */
+/* A script on an agent this form cannot change is read, not typed in: the sunken surface
+   of a box that is off, with its words left at full strength, since reading them is what
+   the box is for. It still takes focus, to be scrolled and copied from, so the focus halo
+   is left as it is. */
 .schedule-row textarea[readonly] {
   background: var(--surface-sunken);
 }
@@ -105,7 +96,7 @@ input.mono {
   border-color: var(--danger);
 }
 
-/* A choice of two, drawn like the sub-section tabs: one sunken track, the pressed
+/* A choice of a few, drawn like the sub-section tabs: one sunken track, the pressed
    option lifted out of it in the accent fill so the chosen way reads at a glance. */
 .segmented {
   display: inline-flex;

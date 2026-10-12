@@ -78,8 +78,8 @@ interface Props {
   onOpenCanvas: (canvasId: string | null) => void;
   /** The conversations this tab has listed, for the names of those a canvas is used in. */
   conversations: Conversation[];
-  /** The open editor or run was reached from a job's row, and its back link returns there. */
-  fromJob?: boolean;
+  /** The job whose row the open editor or run was reached from: its back link returns there. */
+  fromJob?: string;
   /** The live stream the pages follow; absent leaves out the notice of a drop. */
   connection?: { connected: boolean; connecting: boolean; onRetry: () => void };
 }
@@ -377,7 +377,7 @@ export function ManageScreen(props: Props) {
                 mcpServers={mcp.servers}
                 providers={registry.connections?.providers.map((p) => p.name) ?? []}
                 onBack={() => props.onEditAgent(null)}
-                backLabel={props.fromJob ? vi.jobRow.back : undefined}
+                fromJob={props.fromJob}
                 onChanged={crewChanged}
                 focus={props.editFocus}
               />

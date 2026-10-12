@@ -17,7 +17,7 @@ describe("which rows run a script", () => {
     // A row from a server older than script jobs has no such key at all.
     const { script: _script, then_prompt: _then, ...older } = prompt;
     expect(usesScript(older)).toBe(false);
-    // The form makes rows that nudge or run a command; a new one is never a script.
+    // A row the form adds starts as a nudge; it runs a script only once that is chosen.
     expect(usesScript(blankSchedule())).toBe(false);
     expect(blankSchedule()).not.toHaveProperty("script");
   });

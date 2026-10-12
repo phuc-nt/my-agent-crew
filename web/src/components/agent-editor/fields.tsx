@@ -6,6 +6,8 @@ import { useId, useState, type ReactNode } from "react";
 interface FieldProps {
   label: string;
   hint?: string;
+  /** The id the hint is rendered under, for a control that is described by it. */
+  hintId?: string;
   /** Why the value cannot be saved as it is; shown under the control, in the danger colour. */
   error?: string;
   /** The id the error is rendered under, so the control can point at it. */
@@ -20,12 +22,16 @@ interface FieldProps {
  * the control's accessible name — so every control below carries its own `aria-label`
  * rather than inheriting the label element's whole text.
  */
-export function Field({ label, hint, error, errorId, children }: FieldProps) {
+export function Field({ label, hint, hintId, error, errorId, children }: FieldProps) {
   return (
     <label className="field">
       <span className="field-label">{label}</span>
       {children}
-      {hint && <span className="muted field-hint">{hint}</span>}
+      {hint && (
+        <span className="muted field-hint" id={hintId}>
+          {hint}
+        </span>
+      )}
       {error && (
         <span className="field-error" id={errorId}>
           {error}

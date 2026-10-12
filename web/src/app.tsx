@@ -144,7 +144,7 @@ export function App() {
           canvasId={route.section === "canvas" ? route.param : undefined}
           conversations={list.conversations}
           onOpenCanvas={(id) => navigate({ kind: "manage", section: "canvas", param: id ?? undefined })}
-          fromJob={fromJob !== undefined}
+          fromJob={fromJob}
           onEditSchedules={(agentId, job) =>
             navigate({ kind: "manage", section: "crew", param: agentId, focus: "schedules", fromJob: job })
           }

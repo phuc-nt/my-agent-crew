@@ -244,9 +244,9 @@ export interface ScheduleInfo {
   every: string | null;
   prompt: string | null;
   command: string | null;
-  /** The source of a script the job runs with no model call. Written in `agent.yaml` only:
-   * the form shows it and sends it back as it came. Absent from a server older than script
-   * jobs, as `then_prompt` is. */
+  /** The source of a script the job runs with no model call, held character for character:
+   * Python reads its indentation. Absent from a server older than script jobs, as
+   * `then_prompt` is. */
   script?: string | null;
   /** Beside `script` only: when the script prints something, a turn is opened with this
    * prompt and what was printed. */
