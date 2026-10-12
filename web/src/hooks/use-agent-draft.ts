@@ -91,6 +91,9 @@ export function useAgentDraft(
   // cap and unattended running that nobody typed. Pinning the displayed values makes the
   // form honest — the person can then raise them deliberately.
   const set = useCallback(<K extends DraftKey>(key: K, value: AgentPatch[K]) => {
+    // "Saved" speaks of the form as the save left it. Beside a field changed since, it
+    // would be read as saying that change is saved too.
+    setScheduleLive(false);
     setDraft((current) => {
       const next = { ...current, [key]: value };
       if (key === "mode" && value !== current.mode) {
@@ -105,6 +108,7 @@ export function useAgentDraft(
   const reset = useCallback(() => {
     setDraft(base);
     setError(null);
+    setScheduleLive(false);
   }, [base]);
 
   const save = useCallback(async () => {
@@ -136,8 +140,6 @@ export function useAgentDraft(
       // among several good ones, and clearing the form would make the person retype all
       // of them to find out which.
       setError(errorText(e));
-      // "Saved" beside the reason a save was refused would speak for the wrong one.
-      setScheduleLive(false);
       return false;
     } finally {
       setSaving(false);

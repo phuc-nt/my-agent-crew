@@ -29,16 +29,17 @@ export type ActivityPayload =
   | { type: "conversation"; conversation: Conversation }
   // A canvas changed: its summary or its deletion, never its text.
   | ArtifactEvent
-  // The job list is no longer what a page read when a run ended: the server counts a run
-  // into its job's streak of failures, and tells the owner, only after the run is over.
-  // It carries nothing; the page reads the list again.
+  // The job list is no longer what a page read. The server counts a run into its job's
+  // streak of failures, and tells the owner, only after the run is over; and a schedule
+  // saved, an agent that joined and one that left change which jobs there are with no run
+  // at all. It carries nothing; the page reads the list again.
   | { type: "jobs" };
 
 /** A job whose runs keep ending in an error, and what the owner was told about it. */
 export interface JobFailing {
   /** Runs in a row that failed, the latest included: one at least. */
   count: number;
-  /** When the first run of the streak started. */
+  /** When the first failure of the streak was counted, which is after that run ended. */
   since: string;
   /** When the owner was last told over Telegram; null while no notice has got through. */
   told_at: string | null;

@@ -349,6 +349,8 @@ Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạ
   trên đường thì dòng vẫn nói lần báo gần nhất. Trang đọc lại danh sách job khi một run kết thúc,
   khi luồng phát `jobs`, khi nối lại luồng và sau mỗi lần lưu hồ sơ agent, nên câu ấy đổi theo mà
   không cần tải lại trang. Hai lần đọc đang chờ cùng lúc thì trang giữ câu trả lời của lần hỏi sau.
+  Công tắc tạm dừng vừa gạt và dòng lịch tạo từ chat vừa xoá hiện ngay theo câu trả lời của server,
+  rồi trang đọc lại danh sách: một lần đọc đang chờ từ trước đó không đưa được dòng về như cũ.
 - Không có tin trong các trường hợp sau: job chạy tốt, dù có in gì hay không; lượt của một prompt
   job và lượt mà `then_prompt` mở ra (lượt là một cuộc trò chuyện và được giao như prompt job ở
   trên, kể cả khi hỏng, nên không được đếm ở đây); run bị cắt vì server dừng (`interrupted`); job

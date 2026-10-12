@@ -169,14 +169,14 @@ describe("the tools of a server", () => {
     expect(t.exposureTitle.codemode).toContain("tool_script");
   });
 
-  // A schema too long to hand a model whole is folded, and the model then knows less of the
-  // tool than the server said. The row says so and by how much, in text a phone can read.
+  // A schema too long to hand a model whole is folded: each repeated part is said once and
+  // nothing the server said is lost. The row says so and both lengths, in text a phone can read.
   it("say of one whose parameters were folded how long the schema was and is now", () => {
-    show([mcpServer({ tools: [...tools, mcpTool("notion", "query", { folded: { from: 83073, to: 21255 } })] })]);
+    show([mcpServer({ tools: [...tools, mcpTool("notion", "query", { folded: { from: 83073, to: 21825 } })] })]);
 
     const query = within(row().getByTestId("mcp-tool-query"));
     expect(query.getByText("đã gộp tham số")).toHaveClass("badge");
-    const sizes = query.getByText("83.073 → 21.255 ký tự");
+    const sizes = query.getByText("83.073 → 21.825 ký tự");
     expect(sizes).toHaveClass("muted");
     expect(sizes).not.toHaveAttribute("title");
     // Only that tool: the three beside it went through whole.

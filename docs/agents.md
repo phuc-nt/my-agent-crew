@@ -972,7 +972,8 @@ Lưu một agent qua trình sửa trên web, `POST /api/agents` hay `PATCH /api/
 đọc lại ngay các dòng lịch mà tệp của nó nêu, kể cả job gom ghi nhớ sinh từ `memory_consolidate`.
 Cài một template và `POST /api/agents/reload` cũng làm vậy với agent vừa vào đội. Không lần nào
 trong số đó cần khởi động lại. Trên web, sau một lần lưu có đổi lịch, trình sửa nói "Đã lưu. Thay
-đổi lịch chạy có hiệu lực ngay, không cần khởi động lại.", và màn Lịch chạy đọc lại danh sách job
+đổi lịch chạy có hiệu lực ngay, không cần khởi động lại." cho tới khi một ô của form được sửa tiếp
+hay form được đặt lại, và màn Lịch chạy đọc lại danh sách job
 sau mỗi lần lưu, tạo, cài hay xoá agent, nên dòng mới có mặt và dòng bị bỏ biến mất mà không cần
 tải lại trang. `POST /api/agents/reload` chưa có nút nào trên web. Đồng hồ so từng job theo id
 với dòng nó đang giữ:

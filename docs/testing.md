@@ -6076,7 +6076,8 @@ khi chạy; phần đó có mục riêng ở dưới.
   - vitest: `hooks/use-agent-draft.test.ts` (lần lưu đổi lịch được nói là có hiệu lực ngay khi
     server không nêu lý do khởi động lại nào; cron của `memory_consolidate` cũng là một lịch; lần
     lưu không đổi lịch nào không nói gì và rút lại câu của lần trước; server nêu một lý do thì
-    không gọi lịch là đã có hiệu lực; lần lưu bị từ chối rút lại câu ấy; mở agent khác thì câu về
+    không gọi lịch là đã có hiệu lực; lần lưu bị từ chối rút lại câu ấy; câu ấy rút đi ngay khi
+    một ô được sửa tiếp, và khi form được đặt lại về điều tệp đang giữ; mở agent khác thì câu về
     lịch của agent trước không còn), `components/agent-editor/schedules-section.test.tsx` (sau
     khi lưu một dòng lịch, và sau khi bỏ một dòng, trình sửa nói đúng câu "Đã lưu. Thay đổi lịch
     chạy có hiệu lực ngay, không cần khởi động lại." trong một vùng `role="status"`, không chữ
@@ -6089,12 +6090,14 @@ khi chạy; phần đó có mục riêng ở dưới.
     editor is on the list at once": đúng câu ấy, không còn băng khởi động lại, hai dòng trên màn
     Lịch chạy mà không tải lại trang); `schedule-script-editor.spec.ts` và
     `script-jobs-phone.spec.ts` (câu ấy hiện mà trang không rộng hơn màn hình).
-  - Kiểm chứng đột biến ở phía web: mười hai sửa đổi (nói câu ấy sau mọi lần lưu, bỏ qua lý do
+  - Kiểm chứng đột biến ở phía web: mười ba sửa đổi (nói câu ấy sau mọi lần lưu, bỏ qua lý do
     khởi động lại mà server nêu, không tính cron gom ghi nhớ, giữ câu khi mở agent khác, giữ câu
-    sau lần lưu bị từ chối, lần lưu không đọc lại job, App trao một hàm rỗng, lần cài không đọc
-    lại job, câu khởi động lại dưới mọi lần cài, dưới không lần cài nào, câu là `role="alert"`,
-    câu vẫn đòi khởi động lại) đều bị test bắt; sửa đổi "lần lưu không đọc lại job" còn bị
-    `manage-smoke.spec.ts` bắt trong trình duyệt thật.
+    khi một ô được sửa tiếp, giữ câu khi form được đặt lại, lần lưu không đọc lại job, App trao
+    một hàm rỗng, lần cài không đọc lại job, câu khởi động lại dưới mọi lần cài, dưới không lần
+    cài nào, câu là `role="alert"`, câu vẫn đòi khởi động lại) đều bị test bắt; sửa đổi "lần lưu
+    không đọc lại job" còn bị `manage-smoke.spec.ts` bắt trong trình duyệt thật. Câu ấy rút đi ở
+    lần sửa kế tiếp nên lần lưu bị từ chối không còn nhánh riêng: muốn lưu lại thì phải sửa một ô
+    trước, và lần sửa ấy đã rút câu.
 - **Job hỏng mà không có cuộc trò chuyện được báo cho chủ: lần đầu báo ngay, sau đó nhiều nhất 6
   giờ một tin, và một dòng khi job chạy lại được**:
   - pytest: `tests/test_job_failure_streaks.py` (job lệnh hỏng lần đầu thì kênh nhận ngay một tin
@@ -6168,15 +6171,20 @@ khi chạy; phần đó có mục riêng ở dưới.
     mà không run nào kết thúc, từ "Đang báo qua Telegram." sang giờ đã báo; sang câu tin không
     tới nơi; hết câu hỏng khi job đã chạy lại được; câu trả lời của lần đọc hỏi trước mà về sau
     không đè lên lần đọc hỏi sau; lần đọc mà luồng đòi bị hỏng thì màn nói không đọc được danh
-    sách, không vẽ một danh sách rỗng).
+    sách, không vẽ một danh sách rỗng; công tắc tạm dừng vừa gạt không bị một lần đọc hỏi trước
+    đó mà về sau gạt ngược lại; dòng lịch tạo từ chat vừa xoá không trở lại vì lần đọc ấy; công
+    tắc hiện theo chính câu trả lời của server trước khi danh sách được đọc lại; sau lần gạt,
+    danh sách được đọc lại nên điều mà lần đọc bị bỏ mang về không mất).
   - Playwright: `jobs-list-smoke.spec.ts` ("a job that keeps failing says since when and what
     the owner was told", ở ba bề rộng; "a notice on its way becomes one the owner was told of
     when the stream says the list changed": luồng thật của trình duyệt được giữ lại, rồi phát
     `jobs`, và dòng đổi câu mà không tải lại trang), `legibility-smoke.spec.ts` (câu ấy đạt 4.5:1
     ở nền sáng và nền tối).
-  - Kiểm chứng đột biến ở phía web: mười tám sửa đổi. Năm ở câu trên dòng (nói đã báo khi
+  - Kiểm chứng đột biến ở phía web: hai mươi hai sửa đổi. Năm ở câu trên dòng (nói đã báo khi
     `told_at` là `null`, gọi một lần hỏng là chuỗi, không bao giờ nêu giờ nhắc kế, `dayClock` lệch
-    một ngày ở "Hôm qua", chỉ hiện câu khi đã báo) và mười ba ở đường đọc lại (không nghe sự kiện
+    một ngày ở "Hôm qua", chỉ hiện câu khi đã báo), bốn ở công tắc và nút xoá (lần gạt không đọc
+    lại danh sách, lần gạt chỉ bỏ lần đọc đang chờ mà không đọc lại, lần xoá không đọc lại danh
+    sách, công tắc chỉ hiện điều lần đọc lại mang về) và mười ba ở đường đọc lại (không nghe sự kiện
     `jobs`, nghe mà không gọi hàm, để tín hiệu đi tiếp vào trạng thái run, tín hiệu đọc thêm danh
     sách run, giữ hàm của lần vẽ đầu, App không trao hàm nào, vẽ câu trả lời nào về sau cùng, chỉ
     vẽ lần đọc đầu tiên, coi lần đọc hỏng là danh sách rỗng, không bao giờ nói tin đang trên

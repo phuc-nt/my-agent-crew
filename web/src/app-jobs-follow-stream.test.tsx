@@ -4,8 +4,9 @@
 // arrived a moment later, and went on saying so until some other run ended. The streak
 // now says while a notice is on its way, and the stream says when the list changed after
 // a run was over, on which the page reads it again.
-import { act, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi as vitest } from "vitest";
 import type { JobFailing, JobInfo } from "./api/types";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
@@ -48,7 +49,7 @@ async function opensJobs(jobs: JobInfo[]) {
   backend.jobs = jobs;
   window.location.hash = "#/manage/jobs";
   render(<App />);
-  await waitFor(() => expect(screen.getAllByTestId("job")).toHaveLength(1));
+  await waitFor(() => expect(screen.getAllByTestId("job")).toHaveLength(jobs.length));
   expect(jobReads()).toBe(1);
 }
 
@@ -140,5 +141,75 @@ describe("the jobs list, while the owner is being told that a job failed", () =>
 
     expect(await screen.findByText(vi.loadFailed)).toBeInTheDocument();
     expect(screen.queryByTestId("job")).not.toBeInTheDocument();
+  });
+});
+
+// The switch and the delete button put the server's answer on the row themselves. A read of
+// the list that was asked for before the change, and answers after it, used to put the row
+// back as it had been.
+describe("the jobs list, when the person changes a row while a read of the list is out", () => {
+  const fromChat: JobInfo = { ...briefJob, id: "coach/chat-1a2b3c4d", schedule_id: "chat-1a2b3c4d", name: "Nhắc uống nước", origin: "chat" };
+  const enabled = () => screen.getByRole("checkbox", { name: `${vi.jobEnabled}: ${briefJob.name}` });
+  const rows = () => screen.getAllByTestId("job");
+
+  /** The page asks for the list because the stream said so, and that answer is kept back. */
+  async function readIsOut(jobs: JobInfo[]) {
+    const net = network({ hold: [2] });
+    await opensJobs(jobs);
+    act(() => stream().emit({ type: "jobs" }));
+    await waitFor(() => expect(jobReads()).toBe(2));
+    return async () => {
+      await act(async () => {
+        net.release(2);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+      expect(net.handed()).toBe(jobReads());
+    };
+  }
+
+  it("keeps a switch just moved when the read asked for before it answers after", async () => {
+    const lands = await readIsOut([{ ...briefJob }]);
+
+    await userEvent.click(enabled());
+    await waitFor(() => expect(enabled()).not.toBeChecked());
+    await lands();
+
+    expect(enabled()).not.toBeChecked();
+    expect(within(rows()[0]).getByText(vi.jobPaused)).toBeInTheDocument();
+  });
+
+  it("does not bring a deleted row back when the read asked for before it answers after", async () => {
+    const confirm = vitest.spyOn(window, "confirm").mockReturnValue(true);
+    onTestFinished(() => confirm.mockRestore());
+    const lands = await readIsOut([{ ...briefJob }, fromChat]);
+
+    await userEvent.click(screen.getByRole("button", { name: `${vi.jobDelete}: ${fromChat.name}` }));
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    await lands();
+
+    expect(rows()).toHaveLength(1);
+    expect(screen.queryByText(fromChat.name)).not.toBeInTheDocument();
+  });
+
+  it("shows a switch moved from the server's own answer, before the list is read again", async () => {
+    network({ hold: [2] });
+    await opensJobs([{ ...briefJob }]);
+
+    await userEvent.click(enabled());
+
+    await waitFor(() => expect(enabled()).not.toBeChecked());
+    expect(jobReads()).toBe(2);
+  });
+
+  // The read that is dropped may have been the only one to bring some other news, so the
+  // list is asked for again after the change: here a schedule saved in another tab.
+  it("reads the list again after a switch, so what the dropped read brought is not lost", async () => {
+    await readIsOut([{ ...briefJob }]);
+    backend.jobs = [...backend.jobs, fromChat];
+
+    await userEvent.click(enabled());
+
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    expect(enabled()).not.toBeChecked();
   });
 });
