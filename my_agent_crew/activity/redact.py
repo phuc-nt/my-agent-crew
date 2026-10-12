@@ -63,12 +63,18 @@ def redact_tree(value: Any, secrets: list[str]) -> Any:
 
 def _cover_cuts(text: str, secret: str) -> str:
     """A run's record keeps previews, not whole texts. A cut through a secret leaves its head
-    at the end of the text or before the ellipsis a preview adds, and an output kept from its
-    end starts with the secret's tail; neither is the whole value an exact match looks for."""
+    at the end of the text or before the ellipsis a preview adds, and its tail where the
+    text picks up again: at the start of an output kept from its end, and after the ellipsis
+    of a failure kept by its head and its tail. Neither is the whole value an exact match
+    looks for, so every piece between two cuts is looked at from both of its ends."""
+    return ELLIPSIS.join(_without_ends(piece, secret) for piece in text.split(ELLIPSIS))
+
+
+def _without_ends(text: str, secret: str) -> str:
     kept = _tail_at_start(text, secret)
     if kept:
         text = texts.TRAJECTORY_REDACTED + text[kept:]
-    return ELLIPSIS.join(_without_head(piece, secret) for piece in text.split(ELLIPSIS))
+    return _without_head(text, secret)
 
 
 def _without_head(text: str, secret: str) -> str:

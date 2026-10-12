@@ -9,14 +9,21 @@ import pytest
 from fastapi.testclient import TestClient
 
 from my_agent_crew.activity.redact import MIN_SECRET_CHARS, env_secrets, redact
-from my_agent_crew.activity.step_previews import argument_preview, preview
+from my_agent_crew.activity.step_previews import (
+    CUT,
+    FAILURE_HEAD,
+    FAILURE_TAIL,
+    argument_preview,
+    failure_preview,
+    preview,
+)
 from my_agent_crew.activity.trajectory import RESULT_LIMIT
 from my_agent_crew.config import Route
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.script.tool import SCRIPT_TOOL
 from my_agent_crew.server import create_app
 from my_agent_crew.store.db import now_iso
-from my_agent_crew.store.runs import DONE, RunRecord
+from my_agent_crew.store.runs import DONE, FAILED, RunRecord
 from my_agent_crew.texts import TRAJECTORY_REDACTED
 from my_agent_crew.tools.result import NestedCall
 from tests.trajectory_fake import delegating_turn
@@ -67,6 +74,19 @@ def test_the_head_or_the_tail_a_cut_left_of_a_secret_is_covered():
     assert redact("cắt ở " + PLANTED[:20], secrets) == f"cắt ở {covered}"
     assert redact(f"xem {PLANTED[:12]}… rồi tiếp", secrets) == f"xem {covered}… rồi tiếp"
     assert redact(PLANTED[-12:] + " là phần cuối", secrets) == f"{covered} là phần cuối"
+
+
+def test_a_tail_is_covered_after_every_cut_and_a_head_before_every_one():
+    """A text kept by its head and its tail has a cut in its middle, and one cut twice has
+    two: what follows each can open with the end of a secret, as the text itself can."""
+    secrets = env_secrets({"PLANTED_API_KEY": PLANTED})
+    head, tail, covered = PLANTED[:12], PLANTED[-12:], TRAJECTORY_REDACTED
+
+    text = f"{tail} mở đầu, {head}…{tail} ở giữa, {head}…{tail} và hết ở {head}"
+
+    assert redact(text, secrets) == (
+        f"{covered} mở đầu, {covered}…{covered} ở giữa, {covered}…{covered} và hết ở {covered}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -272,6 +292,56 @@ def test_a_secret_in_what_a_script_called_is_covered_with_the_rest_of_the_record
     for body in (as_json.text, as_md.text):
         assert not [piece for piece in pieces(PLANTED) if piece in body]
         assert "workspace_read" in body and TRAJECTORY_REDACTED in body
+
+
+# Neither holds a letter of `PLANTED`, so what is left of a failure's text is told from it.
+BEFORE, AFTER = "0", "9"
+
+
+def cut_through(where: str, left: int) -> tuple[str, str]:
+    """What a failed call said, longer than is kept whole, with `PLANTED` lying across one of
+    the two cuts so that `left` of its characters are kept: its first ones before the cut of
+    the head, or its last ones after the cut of the tail. With it, what an export may show."""
+    covered = TRAJECTORY_REDACTED
+    if where == "head":
+        said = BEFORE * (FAILURE_HEAD - left) + PLANTED + AFTER * 600
+        return said, BEFORE * (FAILURE_HEAD - left) + covered + CUT + AFTER * FAILURE_TAIL
+    said = BEFORE * 600 + PLANTED + AFTER * (FAILURE_TAIL - left)
+    return said, BEFORE * FAILURE_HEAD + CUT + covered + AFTER * (FAILURE_TAIL - left)
+
+
+@pytest.mark.parametrize("left", [MIN_SECRET_CHARS, 19, len(PLANTED) - 1])
+@pytest.mark.parametrize("where", ["head", "tail"])
+@pytest.mark.parametrize("kept_on", ["the step", "a call of a script"])
+def test_a_secret_across_either_cut_of_a_failure_is_covered_in_both(
+    client, monkeypatch, kept_on, where, left
+):
+    """A failure is kept by its head and its tail. A secret lying across the first cut
+    leaves its head before the ellipsis, and one across the second leaves its tail after
+    it: in the middle of the text, where neither its start nor its end is."""
+    c, store = client
+    monkeypatch.setenv("TRAJECTORY_TEST_API_KEY", PLANTED)
+    said, shown = cut_through(where, left)
+    kept = failure_preview(said)
+    assert PLANTED not in kept and (PLANTED[:left] if where == "head" else PLANTED[-left:]) in kept
+    step = {"kind": "tool", "name": SCRIPT_TOOL, "ok": False, "output": "hỏng", "duration_ms": 9}
+    if kept_on == "the step":
+        step["output"] = kept
+    else:
+        step["calls"] = [asdict(NestedCall("notes_read", {"key": "hạn"}, False, kept, 3))]
+    conv = store.create()
+    run = RunRecord("r4", "default", conv.id, "chat", "Đọc", FAILED, now_iso(), steps=[step])
+    run.after_seq = 0
+    store.runs.save(run)
+
+    as_json, as_md = download(c, "r4"), download(c, "r4", format="md")
+
+    [exported] = as_json.json()["run"]["steps"]
+    holder = exported if kept_on == "the step" else exported["calls"][0]
+    # All that was kept of the secret is covered, and nothing around it is.
+    assert holder["output"] == shown
+    for body in (as_json.text, as_md.text):
+        assert not [piece for piece in pieces(PLANTED) if piece in body]
 
 
 def test_a_secret_with_quotes_or_backslashes_is_covered_where_json_escaped_it(client, monkeypatch):
