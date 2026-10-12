@@ -5827,10 +5827,19 @@ khi chạy; phần đó có mục riêng ở dưới.
     không lấy gì của script agent khác đang chạy; lưu agent không phải là gỡ, script đang chạy lúc
     lưu vẫn giữ được; ở bảng: lần ghi mang đời của một agent đã bị gỡ không ghi gì, bỏ khoá cũng là
     ghi; mỗi lần gỡ một id cho một đời khác mọi đời trước, id khác không đổi; script được báo agent
-    đã bị gỡ chứ không phải kho đầy). Script ở đây chờ ở một công cụ chỉ trả lời khi test cho phép,
+    đã bị gỡ chứ không phải kho đầy; script của agent đã bị gỡ `load` lần đầu sau lúc gỡ thì nhận
+    rỗng và được trả lời như script hỏng với cùng dòng ấy, khi id chưa có chủ cũng như khi agent
+    mới đã giữ giá trị ở đúng chỗ đó; script đang chạy lúc gỡ mà chưa đọc cũng vậy; cái script đã
+    đọc trước lúc gỡ thì nó đọc tiếp và xong êm; ở bảng: lần đọc mang đời đã qua không trả gì, đời
+    hiện tại đọc được của mình, và không lần gỡ nào lọt vào giữa lúc so đời và lúc đọc; script
+    chỉ đọc cho agent đã bị gỡ vẫn được báo agent đã bị gỡ).
+    Script ở đây chờ ở một công cụ chỉ trả lời khi test cho phép,
     nên lần gỡ rơi đúng chỗ test đặt: sau khi script đã ghi, trước khi nó xong. Kiểm chứng đột biến:
     năm sửa đổi (lần ghi không so đời, gỡ agent không đổi đời, lấy đời lúc script bắt đầu thay vì
     lúc agent được dựng, agent được dựng không nhận đời hiện tại, luôn báo kho đầy) đều bị test bắt.
+    Phía đọc, thêm năm sửa đổi (lần đọc không so đời, so đời ở một lần giữ khoá riêng trước lần
+    đọc, script đọc không nêu đời, không ghi nhớ rằng agent đã đi, không báo cho script chỉ đọc)
+    đều bị test bắt.
   - pytest: `tests/test_store.py` (xoá một cuộc trò chuyện xoá cả chỗ giữ của nó, của agent nào
     cũng vậy, và không đụng chỗ của cuộc khác hay của job; lần xoá hỏng giữa chừng thì cái đã
     giữ còn nguyên, vì xoá trong cùng một giao dịch).

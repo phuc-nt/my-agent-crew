@@ -1464,10 +1464,14 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     lúc agent bị gỡ, và script mà một lượt còn sống sau đó chạy thêm, vẫn chạy tới cuối nhưng
     **không giữ được gì**: kết quả là một script hỏng, kết bằng dòng nói agent chạy nó đã bị gỡ khỏi
     đội, và không dòng nào được ghi dưới id ấy. Agent mới mang cùng id, dù được tạo trước khi script
-    cũ chạy xong, không nhận gì của script đó và tự giữ như mọi agent. Sửa agent (`PATCH
+    cũ chạy xong, không nhận gì của script đó và tự giữ như mọi agent. Script của agent đã bị
+    gỡ cũng **không đọc được gì** dưới id ấy: `load` đầu tiên của nó sau lúc gỡ trả về rỗng, dù id
+    đã có chủ mới hay chưa, và script kết bằng cùng dòng báo ấy, dù nó có ghi hay chỉ đọc. Cái nó
+    đã đọc trước lúc gỡ là của chính agent nó, nên nó dùng tiếp. Sửa agent (`PATCH
     /api/agents/{id}`) không phải là gỡ: script đang chạy lúc lưu vẫn giữ được. Mỗi id mang một số
     đời, tăng mỗi lần agent mang id ấy bị gỡ; agent nhận số ấy lúc được dựng và lần ghi của script
-    được so với số hiện tại ngay trong lần ghi (`store/script_store.py`). Số đời nằm trong bộ nhớ
+    được so với số hiện tại ngay trong lần ghi (`store/script_store.py`); lần đọc đầu tiên của
+    script cũng được so như thế, trong cùng một lần giữ khoá với lần đọc. Số đời nằm trong bộ nhớ
     của server, vì không script nào sống qua một lần khởi động lại.
   - **Trên web.** Quản lý → Ghi nhớ có tab "Script giữ lại" (`#/manage/memory/scripts/<agent id>`);
     liên kết "Xem những gì script của agent này giữ lại" trong trình sửa agent dẫn tới đúng chỗ đó.

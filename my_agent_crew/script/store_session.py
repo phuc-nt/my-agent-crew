@@ -9,7 +9,8 @@ Where is settled here and never by the script. A job's script keeps under the jo
 and so does a script of the turn that job opened, which is how the two read each other. A
 script of any other turn keeps under its conversation, and goes when the conversation is
 deleted. An agent's scripts reach only what that agent kept, and only while it is of the
-crew: what was put together for an agent that was since removed keeps nothing (`era`).
+crew: what was put together for an agent that was since removed keeps nothing and reads
+nothing (`era`), whoever has the id by then.
 
 A turn's run is saved before the first of its events is read (`activity/tracked.py`), so it
 is on record, with where it came from, before any script of the turn can run, and after a
@@ -52,10 +53,14 @@ class Kept:
     _chars: int = 0
     # What the script wrote, by key: the last value as JSON text, or None for a key dropped.
     _writes: dict[str, str | None] = field(default_factory=dict)
+    # The agent was gone when the script first asked: it was shown nothing, and keeps nothing.
+    _gone: bool = False
 
     def _seen(self) -> dict[str, str]:
         if self._held is None:
-            self._held = self.table.read(self.agent_id, self.namespace)
+            held = self.table.read_as(self.agent_id, self.namespace, self.era)
+            self._gone = held is None
+            self._held = held or {}
             self._chars = held_chars(self._held)
         return self._held
 
@@ -86,7 +91,10 @@ class Kept:
         """Applies what the script wrote, for a script that ended well. None when it is kept
         or there was nothing to keep; else the words its answer ends on, since none of it
         was: the agent was removed, or the namespace was written by another run meanwhile
-        and no longer has the room."""
+        and no longer has the room. A script that asked for an agent already gone ends on
+        the same words whether it wrote or only read: what it read was nothing of its own."""
+        if self._gone:
+            return t.STORE_AGENT_GONE
         if not self._writes:
             return None
         most = limits.MAX_STORE_TOTAL_CHARS

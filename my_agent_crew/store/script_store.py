@@ -9,6 +9,8 @@ holds no more than it may.
 An id outlives its agent: removing an agent stops nothing it is doing, and the id may be
 given to another. So each id has an era, which moves on when all its agent kept is dropped
 with it. A write names the era it was made in, and one of an era gone by is not written.
+A script's read names it too, and one of an era gone by reads nothing: what lies under the
+id by then is another agent's.
 """
 
 from __future__ import annotations
@@ -66,6 +68,16 @@ class ScriptStore:
                 (agent_id, namespace),
             ).fetchall()
         return {row["key"]: row["value_json"] for row in rows}
+
+    def read_as(self, agent_id: str, namespace: str, era: int) -> dict[str, str] | None:
+        """The namespace as a script reads it for the agent of that `era`. None when the era
+        is not the id's now: that agent was removed, and what is there is nobody's or
+        another agent's. Looked at in the hold of the lock that reads, as a write's is
+        (`apply`), so no removal falls between the look and the read."""
+        with self._lock:
+            if era != self._eras.get(agent_id, 0):
+                return None
+            return self.read(agent_id, namespace)
 
     def kept_by(self, agent_id: str) -> list[KeptValue]:
         """All one agent keeps, for the owner's screens: by namespace, then by key."""

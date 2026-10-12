@@ -30,6 +30,7 @@ STORE_NOT_KEPT = (
 )
 # Ends the answer of a script that ran to its end for an agent that was removed meanwhile, or
 # before it began in a turn that outlived the agent: what it stored has no agent to belong to.
+# One that only loaded after the removal ends on it too, having been answered with nothing.
 STORE_AGENT_GONE = (
     "Script chạy xong nhưng KHÔNG giữ được gì bằng store: agent chạy script này đã bị gỡ khỏi "
     "đội, nên những gì nó lưu không còn thuộc về ai."
