@@ -122,6 +122,17 @@ async def test_storing_none_drops_the_key(deps_factory):
     assert held(deps) == {(of(conv), "b"): "2"}
 
 
+async def test_a_none_inside_a_value_is_kept_where_a_none_alone_forgets_the_key(deps_factory):
+    deps = agent(deps_factory)
+    conv = deps.store.create()
+    await ran(deps, conv, 'store("due", [1, None])\nstore("gone", {"at": None})')
+
+    result = await ran(deps, conv, 'store("gone", None)\nprint(load("due"), load("gone"))')
+
+    assert (result.ok, result.output) == (True, "[1, None] None")
+    assert held(deps) == {(of(conv), "due"): "[1,null]"}
+
+
 # --- a script that did not end well ---
 
 NOT_FROM_A_SCRIPT = t.SCRIPT_ASKS_FIRST.format(name="shell_run", instead="gọi trực tiếp")
@@ -312,11 +323,13 @@ def test_the_model_is_told_how_a_script_keeps_a_thing_and_when_it_is_kept(
     deps_factory, script_calls
 ):
     """Told whichever tools its scripts may call. A model nobody told would never keep a thing,
-    and one told only the two names would take the None of a first run for a mistake, or count
-    on what a script that failed had written."""
+    and one told only the two names would take the None of a first run for a mistake, count
+    on what a script that failed had written, or keep a None to mark a thing as done and read
+    back a key that holds nothing."""
     told = agent(deps_factory, script_calls=script_calls).tools.get(SCRIPT_TOOL).description
 
     assert "`store(khoá, giá_trị)` giữ một giá trị JSON" in told
     assert "`load(khoá)` đọc lại ở lần chạy sau (chưa có thì None)" in told
+    assert "`store(khoá, None)` là quên khoá đó" in told
     assert "chỉ giữ khi script chạy xong không lỗi" in told
     assert "riêng cho cuộc trò chuyện hoặc job này" in told

@@ -25,7 +25,8 @@ _SCRIPT_HOW = (
     "gọi đó. Ví dụ:\n"
     "{example}\n"
     "`store(khoá, giá_trị)` giữ một giá trị JSON và `load(khoá)` đọc lại ở lần chạy sau (chưa có "
-    "thì None); chỉ giữ khi script chạy xong không lỗi, riêng cho cuộc trò chuyện hoặc job này.\n"
+    "thì None), `store(khoá, None)` là quên khoá đó; chỉ giữ khi script chạy xong không lỗi, "
+    "riêng cho cuộc trò chuyện hoặc job này.\n"
     "Đây là một phần của Python: biến, if/for/while, hàm, list/dict/set/tuple, f-string, "
     "comprehension, try/except, `json`, và len, str, int, float, bool, range, enumerate, zip, "
     "sorted, reversed, min, max, sum, any, all, abs, round, isinstance. Không có import, class, "
@@ -56,8 +57,7 @@ SCRIPT_MCP = (
 )
 # Closes whichever list is the last: what is counted may be of either kind.
 SCRIPT_MORE = "- … và {count} công cụ nữa, tìm bằng tools.search."
-# Shown to the model inside `SCRIPT_DESCRIPTION`, and run as written by a test: `TEN` stands
-# for a tool's name.
+# Shown to the model inside the description, and run as written by a test: `TEN` is a tool's name.
 SCRIPT_BATCH_EXAMPLE = (
     'answers = tools.batch([{"tool": "TEN", "args": {"id": n}} for n in (1, 2, 3)])\n'
     "for answer in answers:\n"

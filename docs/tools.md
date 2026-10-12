@@ -1285,6 +1285,15 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     phải chuỗi thì bị từ chối: JSON chỉ có khoá là chuỗi, nên khoá `3` giữ lại sẽ đọc ra thành
     `"3"`, và `3 in seen` hôm nay đúng thì mai sai. Khoá của `store`/`load` là một chuỗi không
     rỗng.
+  - **`store(khoá, None)` là quên, không phải giữ một `None`.** `None` đứng một mình không phải
+    một giá trị giữ được: lời gọi đó bỏ khoá khỏi kho. Với một khoá viết đúng nó không bao giờ
+    là lỗi, kể cả khi khoá chưa giữ gì, và không chiếm chỗ nào trong kho (chỗ của giá trị cũ
+    được trả lại, nên kho đã đầy vẫn quên được). `load(khoá)` sau đó trả `None`, y như với khoá
+    chưa từng giữ: script không phân biệt được "đã giữ `None`" với "chưa giữ gì". Muốn đánh dấu
+    một việc đã làm thì giữ `True` hay cả danh sách, đừng giữ `None`. `None` nằm **trong** list
+    hay dict thì được giữ như mọi phần tử khác (`store("due", [1, None])` đọc lại đúng thế).
+    Như mọi lần ghi, lần quên chỉ có hiệu lực khi script chạy xong. Lời mô tả `tool_script` mà
+    model đọc cũng nói câu này.
   - **Chỉ giữ khi script chạy xong.** Trong lúc script chạy không gì được ghi vào bảng, dù `load`
     vẫn thấy những gì chính script đó vừa `store`. Script chạy đến hết thì mọi lần ghi của nó được
     áp **một lần, cùng một lúc**. Script gặp lỗi không bắt, bị từ chối một lời gọi, chạm một giới
