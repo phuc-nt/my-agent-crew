@@ -124,17 +124,18 @@ def children_of(
     """Every conversation opened by one of these tool calls, oldest first — what a parent
     turn spawned, for the cost rollup and for showing the tree in the UI. `scripts` are the
     calls that ran a script, each of which opened whatever a call of its own did: those are
-    linked to `nested_call_id`, so they are found by that id with its number taken off. The
-    rest of it is matched whole, as any id is: a capital is no small letter, and a `_` is
-    no other character."""
+    linked to `nested_call_id`, so they are found by that id with its number taken off, and
+    an id with no number to take off is not one of them. The rest of it is matched whole, as
+    any id is: a capital is no small letter, and a `_` is no other character."""
     began = tuple(f"{script}{_NUMBERED}" for script in scripts if script)
     if not call_ids and not began:
         return []
     own, nested = (",".join("?" * len(ids)) for ids in (call_ids, began))
+    unnumbered = "rtrim(parent_call_id, '0123456789')"
     with lock:
         rows = conn.execute(
-            f"SELECT * FROM conversations WHERE parent_call_id IN ({own})"
-            f" OR rtrim(parent_call_id, '0123456789') IN ({nested}) ORDER BY rowid",
+            f"SELECT * FROM conversations WHERE parent_call_id IN ({own}) OR"
+            f" ({unnumbered} IN ({nested}) AND {unnumbered} != parent_call_id) ORDER BY rowid",
             (*call_ids, *began),
         ).fetchall()
     return [Conversation.from_row(r) for r in rows]
