@@ -32,8 +32,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   by hand is one to the reader the server starts with, and a save of another key leaves the word as
   it was written. Both keys are in `GET /api/agents` and `GET /api/agents/{id}` under the same
   names, are taken by `PATCH /api/agents/{id}` and `POST /api/agents` (a wrong value is a 422 and
-  nothing is written), and hold at once: a save takes the script tool from a running agent or hands
-  it back, with no restart.
+  nothing is written), and hold with no restart, from the agent's next turn and the next run of a
+  schedule of its: there a save takes the script tool from the agent or hands it back. A turn or a
+  job already running ends as it began, with the tool and the model it had.
 - A schedule whose script failed tells the person. A script job opens no turn when its script
   fails, so nothing was sent on, and from the chat a failed job looked like one that ran well
   and printed nothing. When the run of the script itself ends `error`, the agent's channel now

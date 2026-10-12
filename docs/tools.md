@@ -1064,8 +1064,11 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     gọi lại. Điều này áp cho mọi script của agent `gated`, kể cả script chỉ đọc.
   - **Tắt.** Bỏ khoá hoặc ghi `script_calls: read_only`; script của agent trở lại chỉ đọc và lời
     mô tả của `tool_script` trở lại như cũ. Ghi `script_calls: none` thì agent không còn được
-    trao `tool_script` nữa (bullet "Ai được giao"). Sửa qua API có hiệu lực ngay, sửa tay cần
-    khởi động lại.
+    trao `tool_script` nữa (bullet "Ai được giao"). Sửa qua API có hiệu lực không cần khởi động lại,
+    từ lượt kế tiếp của agent và từ lần chạy kế tiếp của một lịch; lượt hay job đang chạy lúc lưu
+    thì kết thúc như lúc nó bắt đầu, nên một lượt đã bắt đầu ở mức `gated` vẫn `gated` tới hết, mỗi
+    lời gọi ghi vẫn qua cổng duyệt ([agents.md](agents.md#sửa-agent-từ-webapi)). Sửa tay cần khởi
+    động lại.
 - **Tên không có.** Gọi `tools.TÊN` khi agent không giữ tool nào tên đó (thường là gõ nhầm) chỉ là
   một lỗi bắt được: câu trả lời nêu tool gần tên nhất trong số tool script gọi được ("Ý bạn là
   …?") và chỉ sang `tools.names()` và `tools.search`. Không tool nào chạy, nhưng lời gọi vẫn tính

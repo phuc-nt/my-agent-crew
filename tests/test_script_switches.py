@@ -5,11 +5,14 @@ server lets a script call; the script of a schedule, which the owner wrote, stil
 still only reads. `script_llm: false` leaves the agent's scripts no model to ask, in a turn
 and in a job. Both are read from the agent's own file (`agents/profile_settings.py`), set by
 the editor, written back as the next start reads them, and followed by the running agent
-at once. What the other words of `script_calls` do is in `test_script_calls_setting.py`.
+with no restart: from its next turn and the next run of a schedule of its, while a turn
+under way ends as it began. What the other words of `script_calls` do is in
+`test_script_calls_setting.py`.
 """
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from pathlib import Path
 from textwrap import dedent
@@ -41,10 +44,11 @@ from tests.test_crew_roster_abilities import TOOLS as TOLD_TOOLS
 from tests.test_crew_roster_abilities import crew_of, said
 from tests.test_mcp_tool_search import CREATE_NAME, SEARCH_NAME
 from tests.test_script_calls_setting import home_settings, manifest, write_agent
-from tests.test_script_gate import agent, shelled
+from tests.test_script_gate import agent, played, ran, shelled
 from tests.test_script_job import crew as job_crew
 from tests.test_script_job_gate import DUE, scheduled
 from tests.test_script_model_calls import CATCHES, NOT_HERE, SORTING
+from tests.test_script_store import Waits
 from tests.test_script_tool import OPENED, Reads, erred, halted, play, unfinished
 from tests.test_script_turns import reading
 
@@ -357,6 +361,70 @@ def test_the_editor_takes_the_model_from_a_running_agents_scripts_and_hands_it_b
     assert reply.status_code == 200 and reply.json()["profile"]["script_llm"] is True
     assert "script_llm" not in manifest(home)
     assert "llm.classify" in script_tool_of(runtime).description
+
+
+# --- when a save holds ---
+
+
+async def test_a_turn_under_way_ends_as_it_began_and_the_next_begins_as_saved(served):
+    """A turn takes its agent once, as it begins (`inbound.py`). A save puts another agent in
+    the crew in its place and leaves the one the turn took as it was (`server/runtime.py`).
+    So the switches hold from the next turn: the one under way keeps the script tool it
+    began with, and its scripts keep the model they could ask."""
+    client, runtime, _ = served
+    conv = runtime.store.create(agent_id="coder")
+    held, waits = runtime.inbound.deps_for_conversation(conv.id), Waits()
+    held.tools.register(waits.tool)
+    script = asyncio.create_task(played(held, conv.id, 'tools.hung_read()\nprint("xong")'))
+    await waits.entered.wait()
+
+    saved = patch(client, script_calls="none", script_llm=False)
+    assert saved.status_code == 200 and saved.json()["restart_required"] == []
+    waits.go.set()
+    result, _ = await script
+
+    # The script that was running ends well, and the turn may write another that asks.
+    assert (result.ok, result.output) == (True, "xong")
+    assert held.tools.get(SCRIPT_TOOL) is not None
+    assert "llm.classify" in held.tools.get(SCRIPT_TOOL).description
+    assert (held.settings.script_calls, held.settings.script_llm) == ("read_only", True)
+    asked = await ran(held, conv, 'print("hỏi được:", len(llm.summarise("thư dài")) > 0)')
+    assert (asked.ok, asked.output) == (True, "hỏi được: True")
+    # The next turn of the same conversation takes the agent as it was saved.
+    fresh = runtime.inbound.deps_for_conversation(conv.id)
+    assert fresh is not held and fresh is runtime.deps_for("coder")
+    assert fresh.tools.get(SCRIPT_TOOL) is None
+    assert (fresh.settings.script_calls, fresh.settings.script_llm) == ("none", False)
+
+
+ASKS_EACH_MORNING = """\
+name: Coder
+routes: [fake:echo]
+schedules:
+  - id: due
+    name: Tóm tắt thư
+    cron: '0 7 * * *'
+    script: |
+      print(len(llm.summarise("Kính gửi anh Phúc, đơn HP3-12 đã giao hôm qua.")) > 0)
+"""
+
+
+async def test_the_next_run_of_a_schedule_begins_with_the_agent_as_saved(tmp_path: Path):
+    """The clock takes the agent each time a job runs (`scheduler/runner.py`), from the crew
+    a save changes. The schedule itself stays as the start read it."""
+    home = tmp_path / "home"
+    write_agent(home, "coder", ASKS_EACH_MORNING)
+    env = {"MY_AGENT_HOME": str(home), "MY_AGENT_ROUTES": "fake:echo"}
+    runtime = build_runtime(load_settings(env=env))
+    with TestClient(create_app(runtime, schedule=False), base_url="http://127.0.0.1") as client:
+        before = await runtime.scheduler.run_job("coder/due")
+        saved = patch(client, script_llm=False)
+        after = await runtime.scheduler.run_job("coder/due")
+
+    assert (before.status, before.summary) == (DONE, "True")
+    assert saved.status_code == 200 and saved.json()["restart_required"] == []
+    assert (after.status, after.conversation_id) == (FAILED, None)
+    assert after.steps[0]["output"] == preview(unfinished(erred(1, NOT_HERE)))
 
 
 def test_an_edit_about_something_else_keeps_both(served):
