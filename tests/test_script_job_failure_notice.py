@@ -15,6 +15,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
+from datetime import timedelta
 from textwrap import dedent
 from typing import Any
 
@@ -251,6 +252,46 @@ async def test_a_notice_that_could_not_be_sent_is_logged_and_the_run_stands(
     # The run is what it was: failed for the script's reason, and kept so.
     assert (run.status, run.steps[0]["output"]) == (FAILED, WHY.replace("\n", " "))
     assert rig.kept() == [run.to_dict()]
+
+
+async def test_a_notice_that_never_returns_is_given_up_on_and_the_next_job_runs(
+    deps_factory, caplog, monkeypatch
+):
+    """A chat on a line gone quiet answers nothing and closes nothing. The clock waits for
+    the notice of one job before it runs the next, so a notice it waited on for ever would
+    be the last thing it did until the server was started again."""
+    monkeypatch.setattr(f"{LOGGER}.NOTICE_TIMEOUT_SECONDS", 0.05)
+    asked: list[str] = []
+    dropped: list[str] = []
+
+    async def hangs(agent_id: str, text: str) -> bool:
+        asked.append(agent_id)
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            dropped.append(agent_id)
+            raise
+        return True
+
+    after = Schedule("after", "Việc sau", cron="0 7 * * *", script='print("xong")')
+    rig = told(deps_factory(), due(BROKEN), after, notify=hangs)
+    assert rig.sched.due() == []
+
+    with caplog.at_level(logging.INFO, logger=LOGGER):
+        runs = await asyncio.wait_for(rig.sched.tick(MORNING + timedelta(days=1)), timeout=30)
+
+    # The job after the one whose notice hung ran, in the same round of the clock.
+    [failed, later] = runs
+    assert (later.source, later.status) == ("job:default/after", DONE)
+    # The send was let go of, not left waiting behind the clock...
+    assert asked == ["default"] and dropped == ["default"]
+    # ...and is in the log as any notice that could not be sent is.
+    [record] = [r for r in caplog.records if r.name == LOGGER]
+    assert record.levelno == logging.ERROR and DUE in record.getMessage()
+    assert record.exc_info is not None and isinstance(record.exc_info[1], TimeoutError)
+    assert (failed.status, failed.steps[0]["output"]) == (FAILED, WHY.replace("\n", " "))
+    assert rig.kept() == [failed.to_dict()]
+    assert [job["running"] for job in rig.sched.describe()] == [False, False]
 
 
 async def test_a_clock_with_nobody_to_tell_says_and_logs_nothing_of_it(deps_factory, caplog):
