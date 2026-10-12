@@ -431,18 +431,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("test_a_persona_file_outside_the_home_is_refused",
     "test_a_workspace_outside_the_home_is_refused",
     "test_a_skills_dir_outside_the_home_is_refused": ba lời từ chối gốc);
-    `tests/test_api_agents_edit_outside_paths.py` (agent có tệp viết tay giữ `workspace` ngoài
-    home: sửa `script_calls`, `max_steps` hay `description` là 200, có hiệu lực ngay, tệp chỉ thêm
-    đúng dòng ấy và workspace vẫn là cây chủ đã chọn; gửi lại đúng workspace ấy, kể cả viết vòng
-    qua `..`, cùng một khoá khác là 200; đổi sang một cây khác ngoài home, sang thư mục cha hay
-    thư mục con là 422, tệp và agent đang chạy không đổi; đổi vào trong home thì được và không
-    đổi ngược ra được; thư mục skill ngoài home và tệp persona ngoài home mà tệp đã ghi: khoá khác
-    lưu được, gửi lại được, thêm cái thứ hai ngoài home là 422 và chữ của tệp thứ hai không vào
-    system prompt; loại này không bảo lãnh cho loại kia: workspace ngoài home không thành thư mục
-    skill hay tệp persona, thư mục skill không thành workspace, tệp persona không thành thư mục
-    skill hay workspace; workspace ngoài home mà người viết tay vào tệp sau lần khởi động chưa
-    phải là cái agent đang chạy với: lưu một khoá khác là 422 nêu đường dẫn ấy, agent đang chạy
-    giữ workspace cũ; tạo agent mới trỏ tới chỗ một agent khác đang làm việc ngoài home là 422)
+    `tests/test_api_agents_edit_outside_paths.py` (agent có tệp viết tay giữ `workspace` ngoài home:
+    sửa `script_calls`, `max_steps` hay `description` là 200, agent trong đội đổi theo, tệp chỉ thêm
+    đúng dòng ấy và workspace vẫn là cây chủ đã chọn; gửi lại đúng workspace ấy, kể cả viết vòng qua
+    `..`, cùng một khoá khác là 200; đổi sang một cây khác ngoài home, sang thư mục cha hay thư mục
+    con là 422, tệp và agent đang chạy không đổi; đổi vào trong home thì được và không đổi ngược ra
+    được; thư mục skill ngoài home và tệp persona ngoài home mà tệp đã ghi: khoá khác lưu được, gửi
+    lại được, thêm cái thứ hai ngoài home là 422 và chữ của tệp thứ hai không vào system prompt;
+    loại này không bảo lãnh cho loại kia: workspace ngoài home không thành thư mục skill hay tệp
+    persona, thư mục skill không thành workspace, tệp persona không thành thư mục skill hay
+    workspace; workspace ngoài home mà người viết tay vào tệp sau lần khởi động chưa phải là cái
+    agent đang chạy với: lưu một khoá khác là 422 nêu đường dẫn ấy, agent đang chạy giữ workspace
+    cũ; tạo agent mới trỏ tới chỗ một agent khác đang làm việc ngoài home là 422)
 - **Danh sách công cụ của agent mở từ những gì tệp viết, không từ những gì agent đang giữ**
   - pytest: `tests/test_api_agents_declared.py::test_the_tools_an_agent_holds_are_not_what_its_file_lists`,
     `tests/test_api_agents_declared.py::test_a_save_answers_with_the_tools_the_file_now_lists`,
@@ -5560,25 +5560,30 @@ khi chạy; phần đó có mục riêng ở dưới.
   - pytest: `tests/test_script_switches.py` (tệp ghi `none` được đọc thành đúng chữ ấy; tệp ghi
     `off`, `no`, `false`, `on`, `yes`, `true`, viết hoa hay thường, mà YAML đọc thành boolean, làm
     tệp không nạp được, câu lỗi nêu cả ba chữ và dặn viết `none`; agent ghi `none` được dựng không
-    có `tool_script` và giữ mọi tool khác theo đúng thứ tự; tool của máy chủ MCP mà script gọi
-    được cũng không đem `tool_script` về, kể cả khi máy chủ nối lại; script của một lịch vẫn chạy
-    ở agent như thế, và chỉ đọc: lời gọi lệnh làm script dừng với dòng bảo gọi trực tiếp, lệnh
-    không chạy; master được kể agent ấy không có `tool_script`, và đổi từ `gated` sang `none` thì
-    roster thôi ghi nó viết script có ghi; `script_llm` mặc định bật, chỉ đọc từ tệp của chính
-    agent, cấu hình chung có tắt cũng không được thừa hưởng; chỉ boolean thật mới đặt được nó:
-    chuỗi `false`, `true`, `no`, `off`, chuỗi rỗng, 0, 1, bỏ trống hay một danh sách làm tệp không
-    nạp được; agent tắt `script_llm` đọc lời mô tả `tool_script` không có chữ `llm` nào, ở cả hai
-    mức `script_calls`, phần còn lại giữ nguyên từng chữ; script vẫn hỏi thì nhận một lỗi bắt
-    được và chạy tiếp, không bắt thì dừng như mọi lỗi, không model nào được hỏi và không lời gọi
-    nào được ghi; lần hỏi bị từ chối như thế vẫn được script đếm, nên script bắt lỗi rồi hỏi tiếp
-    bị dừng ở lần hỏi quá mức, không lời gọi nào trên thẻ run và không model nào nghe; script của
-    một lịch ở agent ấy cũng không hỏi được model: run `error`, không tiền, không cuộc trò chuyện;
-    cả hai khoá không nằm trong danh sách khoá cần khởi động lại; sửa qua API thì agent đang chạy
-    mất `tool_script` ngay và được trao lại khi đổi về `read_only`, tệp ghi đúng chữ `none` chứ
-    không phải `null` của YAML; tắt `script_llm` qua API thì lời mô tả đổi ngay, gỡ khoá thì về
-    mặc định và tệp không còn dòng ấy; sửa một khoá khác giữ nguyên cả hai; tạo agent mới kèm cả
-    hai được; giá trị không phải boolean cho `script_llm`, và boolean cho `script_calls`, bị từ
-    chối 422 trước khi ghi tệp, câu lỗi của `script_calls` dặn chữ phải gửi).
+    có `tool_script` và giữ mọi tool khác theo đúng thứ tự; tool của máy chủ MCP mà script gọi được
+    cũng không đem `tool_script` về, kể cả khi máy chủ nối lại; script của một lịch vẫn chạy ở agent
+    như thế, và chỉ đọc: lời gọi lệnh làm script dừng với dòng bảo gọi trực tiếp, lệnh không chạy;
+    master được kể agent ấy không có `tool_script`, và đổi từ `gated` sang `none` thì roster thôi
+    ghi nó viết script có ghi; `script_llm` mặc định bật, chỉ đọc từ tệp của chính agent, cấu hình
+    chung có tắt cũng không được thừa hưởng; chỉ boolean thật mới đặt được nó: chuỗi `false`,
+    `true`, `no`, `off`, chuỗi rỗng, 0, 1, bỏ trống hay một danh sách làm tệp không nạp được; agent
+    tắt `script_llm` đọc lời mô tả `tool_script` không có chữ `llm` nào, ở cả hai mức
+    `script_calls`, phần còn lại giữ nguyên từng chữ; script vẫn hỏi thì nhận một lỗi bắt được và
+    chạy tiếp, không bắt thì dừng như mọi lỗi, không model nào được hỏi và không lời gọi nào được
+    ghi; lần hỏi bị từ chối như thế vẫn được script đếm, nên script bắt lỗi rồi hỏi tiếp bị dừng ở
+    lần hỏi quá mức, không lời gọi nào trên thẻ run và không model nào nghe; script của một lịch ở
+    agent ấy cũng không hỏi được model: run `error`, không tiền, không cuộc trò chuyện; cả hai khoá
+    không nằm trong danh sách khoá cần khởi động lại; sửa qua API thì agent trong đội mất
+    `tool_script` mà không cần khởi động lại và được trao lại khi đổi về `read_only`, tệp ghi đúng
+    chữ `none` chứ không phải `null` của YAML; tắt `script_llm` qua API thì lời mô tả của agent
+    trong đội đổi theo, gỡ khoá thì về mặc định và tệp không còn dòng ấy; lần lưu có hiệu lực từ
+    lượt kế tiếp: lượt đang chạy lúc lưu giữ `tool_script` và model nó đã có tới hết, script đang
+    chạy của nó xong êm và script sau đó của nó vẫn hỏi được model, còn lượt kế tiếp của cùng cuộc
+    trò chuyện nhận agent như đã lưu, không `tool_script`; lần chạy kế tiếp của một lịch cũng nhận
+    agent như đã lưu: trước lần lưu script của lịch hỏi được model, sau lần lưu run là `error` với
+    câu không hỏi được model; sửa một khoá khác giữ nguyên cả hai; tạo agent mới kèm cả hai được;
+    giá trị không phải boolean cho `script_llm`, và boolean cho `script_calls`, bị từ chối 422 trước
+    khi ghi tệp, câu lỗi của `script_calls` dặn chữ phải gửi).
 - **Script giữ lại giữa các lần chạy (`store` / `load`)**:
   - pytest: `tests/test_script_store.py` (script đọc lại được điều chính nó vừa ghi, và không gì
     vào bảng trước khi nó chạy xong; cái đã giữ còn đó cho script sau của cùng cuộc trò chuyện;
