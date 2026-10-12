@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from my_agent_crew.activity import ActivityHub
+from my_agent_crew.activity.step_previews import preview
 from my_agent_crew.agent.events import AssistantMessageEvent
 from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.types import Completion, Message
@@ -87,7 +88,7 @@ async def compile_wiki(deps: AgentDeps, hub: ActivityHub) -> MemoryProposal | No
         return await _compile(deps, hub, run)
     except Exception as exc:  # a failed compile leaves the vault exactly as it was
         logger.exception("wiki compile failed for agent %s", profile.id)
-        hub.finish(run, status=FAILED, summary=str(exc)[:160])
+        hub.finish(run, status=FAILED, summary=preview(str(exc)))
         raise
 
 

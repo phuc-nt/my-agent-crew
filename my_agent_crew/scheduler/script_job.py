@@ -33,6 +33,7 @@ import time
 
 from my_agent_crew import texts_script_job as words
 from my_agent_crew.activity import ActivityHub
+from my_agent_crew.activity.step_previews import preview
 from my_agent_crew.agent.events import NestedCallEvent, ToolCallEvent, ToolResultEvent
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.nested_calls import outside_a_turn
@@ -99,9 +100,11 @@ async def _carry_out(job: Job, deps: AgentDeps, hub: ActivityHub, run: RunRecord
         printed_chars=result.printed_chars,
     )
     hub.record(run, closing, time.monotonic())
-    hub.finish(
-        run, status=DONE if result.ok else FAILED, summary=ending(printed if result.ok else said)
-    )
+    # A script that failed is summed up by what ended it, from its start: the end of all it
+    # said opens in the middle of the sentence that says why. With nothing to say what ended
+    # it, by that end all the same.
+    summary = ending(printed) if result.ok else preview(ended_by) or ending(said)
+    hub.finish(run, status=DONE if result.ok else FAILED, summary=summary)
     return Ran(result, printed, ended_by)
 
 

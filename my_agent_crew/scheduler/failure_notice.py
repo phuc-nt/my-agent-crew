@@ -9,11 +9,12 @@ Why is what ended the script, as the one who ran it hands it on (`script_job.py`
 of its error, or the line that says none of what it stored could be kept. It is cut as a
 failed step is (`activity/step_previews.py`): one line, whole while it is short and by its
 head and its tail when it is not, so the sentence a refusal ends on is there. Nothing here
-is read off the run. Its step and its summary hold what the script printed before it failed,
-which is whatever its tools gave it; the step holds the script's text, which is the owner's
-file, and what each call was given. None of those is told. What is told may still repeat
-them in part: a tool that failed says why in its own words, and may name what it was asked
-for, and an error the script raised says what the script wrote it to say.
+is read off the run. Its step holds what the script printed before it failed, which is
+whatever its tools gave it, and so does its summary where nothing said what ended the
+script; the step holds the script's text, which is the owner's file, and what each call was
+given. None of those is told. What is told may still repeat them in part: a tool that
+failed says why in its own words, and may name what it was asked for, and an error the
+script raised says what the script wrote it to say.
 
 Only the run of the script itself is told. A turn it opened is a conversation's, and is sent
 on, failed or not, as a prompt job's is (`runner.py`). A job that runs a command is not told.

@@ -412,18 +412,20 @@ async def test_a_script_that_failed_is_a_failed_run_and_opens_no_turn(deps_facto
     [step] = run.steps
     assert (run.status, run.conversation_id) == (FAILED, None)
     assert (step["ok"], step["output"]) == (False, preview(unfinished("trước", error)))
-    # Summed up by the end of the error, where the line that went wrong is named.
-    assert run.summary.endswith(error)
+    # Summed up by what ended it, where the line that went wrong is named.
+    assert run.summary == error
     assert rig.model.requests == [] and rig.deps.store.list() == [] and rig.delivered == []
 
 
-async def test_a_long_error_is_summed_up_by_its_end(deps_factory):
+async def test_a_script_that_failed_is_summed_up_by_what_ended_it_and_nothing_it_printed(
+    deps_factory,
+):
     rig = crew(deps_factory, 'print("đầu " + "x" * 400)\nraise ValueError("hết hạn mức")', THEN)
 
     run = await rig.due()
 
-    assert run.status == FAILED and "đầu" not in run.summary
-    assert run.summary.endswith(erred(2, "ValueError: hết hạn mức"))
+    # Whole and unmarked: the line of the error, without the lines printed ahead of it.
+    assert (run.status, run.summary) == (FAILED, erred(2, "ValueError: hết hạn mức"))
 
 
 async def test_a_job_whose_script_could_not_be_run_at_all_fails_and_the_next_one_runs(

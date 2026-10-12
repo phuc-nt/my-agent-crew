@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
+from my_agent_crew.activity.step_previews import preview
 from my_agent_crew.agent.events import AssistantMessageEvent
 from my_agent_crew.agents.context import MAX_SECTION_CHARS
 from my_agent_crew.llm.metered_chain import MeteredChain
@@ -126,7 +127,7 @@ async def consolidate_memory(
         return await _consolidate(deps, hub, run)
     except Exception as exc:  # a failed rewrite leaves the file exactly as it was
         logger.exception("consolidation failed for agent %s", profile.id)
-        hub.finish(run, status=FAILED, summary=str(exc)[:160])
+        hub.finish(run, status=FAILED, summary=preview(str(exc)))
         raise
 
 

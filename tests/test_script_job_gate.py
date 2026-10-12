@@ -22,7 +22,7 @@ import pytest
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.activity import ActivityHub
-from my_agent_crew.activity.step_previews import failure_preview
+from my_agent_crew.activity.step_previews import failure_preview, preview
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.nested_calls import (
     NestedBudget,
@@ -121,12 +121,14 @@ async def test_a_command_the_gate_would_not_let_run_unasked_ends_the_jobs_script
     run = await sched.run_job(DUE)
 
     # Not a failure the script catches and carries on from: it ends where it asked.
-    said = unfinished("trước", halted(3, why.format(name=SHELL_TOOL_NAME, pattern=pattern)))
+    ended = halted(3, why.format(name=SHELL_TOOL_NAME, pattern=pattern))
+    said = unfinished("trước", ended)
     [step] = run.steps
     # Kept whole, to the last sentence, which says what to do about it.
     assert (run.status, step["ok"], step["output"]) == (FAILED, False, failure_preview(said))
     assert step["output"] == said.replace("\n", " ")
-    assert run.summary and said.endswith(run.summary)
+    # Summed up by the refusal from its start, where it says what was not run and why.
+    assert run.summary == preview(ended) and run.summary.startswith("Dừng ở dòng 3: ")
     assert shell.ran == [] and not step.get("calls")
     # Nothing waits: there is no conversation for a yes to arrive in.
     assert run.conversation_id is None and deps.store.list() == []

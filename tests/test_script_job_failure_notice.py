@@ -7,9 +7,10 @@ schedule, why, and where the run is. Why is what ended the script: the line of i
 the line that says nothing of it could be kept, to its last sentence, which is often what to
 do about it. Nothing the script printed before it failed is part of it, and neither is the
 script's text. What a call was given is in it only where the tool that failed said it back,
-and what an error the script raised says is in it as the script wrote it. The run keeps what
-it kept before: its step and its summary are not made from the message, nor the message from
-them. A job of another kind, and a script whose output opened a turn, are told as they were.
+and what an error the script raised says is in it as the script wrote it. The run's step keeps
+all the script said, and is not made from the message, nor the message from it; its summary
+is what ended the script too, cut shorter (`test_job_run_summary.py`). A job of another kind,
+and a script whose output opened a turn, are told as they were.
 Every script here runs in a real child process.
 """
 
@@ -30,7 +31,12 @@ from my_agent_crew import texts
 from my_agent_crew import texts_script as t
 from my_agent_crew import texts_script_job as words
 from my_agent_crew.activity import ActivityHub
-from my_agent_crew.activity.step_previews import CUT, FAILURE_HEAD, FAILURE_TAIL
+from my_agent_crew.activity.step_previews import (
+    CUT,
+    FAILURE_HEAD,
+    FAILURE_TAIL,
+    PREVIEW_CHARS,
+)
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.channels.telegram_api import TelegramError
@@ -137,12 +143,12 @@ async def test_what_a_script_printed_before_it_failed_is_not_told(deps_factory):
     [(_, text)] = rig.notices
     assert text == notice(ended)
     assert "đã đọc" not in text and "4471" not in text and "Kính gửi" not in text
-    # The run is as it was before a message was made of it: the step holds what was said,
-    # printed lines and all, and the summary its end.
+    # The run's step holds what was said, printed lines and all. Its summary is what ended
+    # the script, as the message is, and holds none of those lines either.
     said = unfinished("đã đọc 3 thư", mail.answer, ended)
     [step] = run.steps
     assert (step["ok"], step["output"]) == (False, said.replace("\n", " "))
-    assert (run.status, run.summary) == (FAILED, said[-160:])
+    assert (run.status, run.summary) == (FAILED, ended)
     assert rig.kept() == [run.to_dict()]
 
 
@@ -265,8 +271,10 @@ async def test_a_long_failure_is_told_by_its_head_and_its_tail(deps_factory):
     [(_, text)] = rig.notices
     whole = erred(2, "ValueError: mở đầu " + "x" * 700 + " việc cần làm")
     reason = whole[:FAILURE_HEAD] + CUT + whole[-FAILURE_TAIL:]
-    # Longer than the run's summary, and to the last thing the error said.
-    assert len(reason) == 601 and len(run.summary) == 160 and text == notice(reason)
+    # Longer than the run's summary, which is the start alone, and to the last thing the
+    # error said.
+    assert len(reason) == 601 and text == notice(reason)
+    assert run.summary == whole[:PREVIEW_CHARS] + CUT
     assert reason.startswith(erred(2, "ValueError: mở đầu xxx"))
     assert reason.endswith("xxx việc cần làm")
     # The step is cut the same way, of a text that begins with what was printed.
