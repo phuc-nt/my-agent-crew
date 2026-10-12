@@ -82,6 +82,11 @@ export const viConnections = {
     runsFreely: "chạy không hỏi",
     saysReadOnly: "máy chủ tự nhận chỉ đọc",
     saysReadOnlyTitle: "Lời máy chủ tự nói về công cụ này. Không quyết định việc hỏi duyệt: chỉ read_only trong config.yaml mới bỏ bước hỏi.",
+    // On a tool whose parameter schema was folded: the badge, then the schema's length as
+    // the server sent it and as the model reads it.
+    folded: "đã gộp tham số",
+    foldedSizes: (from: number, to: number) =>
+      `${from.toLocaleString("vi-VN")} → ${to.toLocaleString("vi-VN")} ký tự`,
     exposure: {
       direct: "khai sẵn",
       deferred: "nạp khi cần",

@@ -169,6 +169,40 @@ describe("the tools of a server", () => {
     expect(t.exposureTitle.codemode).toContain("tool_script");
   });
 
+  // A schema too long to hand a model whole is folded, and the model then knows less of the
+  // tool than the server said. The row says so and by how much, in text a phone can read.
+  it("say of one whose parameters were folded how long the schema was and is now", () => {
+    show([mcpServer({ tools: [...tools, mcpTool("notion", "query", { folded: { from: 83073, to: 21255 } })] })]);
+
+    const query = within(row().getByTestId("mcp-tool-query"));
+    expect(query.getByText("đã gộp tham số")).toHaveClass("badge");
+    const sizes = query.getByText("83.073 → 21.255 ký tự");
+    expect(sizes).toHaveClass("muted");
+    expect(sizes).not.toHaveAttribute("title");
+    // Only that tool: the three beside it went through whole.
+    expect(row().getAllByText(t.folded)).toHaveLength(1);
+    expect(row().getAllByText(/ký tự/)).toHaveLength(1);
+  });
+
+  it("say nothing of folding on a tool whose schema went through whole", () => {
+    show([mcpServer({ tools })]);
+
+    expect(tools.map((tool) => tool.folded)).toEqual([null, null, null]);
+    expect(row().getByTestId("mcp-tool-search")).toBeInTheDocument();
+    expect(row().queryByText(t.folded)).not.toBeInTheDocument();
+    expect(row().queryByText(/ký tự/)).not.toBeInTheDocument();
+  });
+
+  it("say nothing of folding when an older server leaves the key out", () => {
+    const { folded: _folded, ...older } = tools[0];
+    show([mcpServer({ tools: [older] })]);
+
+    expect("folded" in older).toBe(false);
+    expect(row().getByTestId("mcp-tool-search")).toBeInTheDocument();
+    expect(row().queryByText(t.folded)).not.toBeInTheDocument();
+    expect(row().queryByText(/ký tự/)).not.toBeInTheDocument();
+  });
+
   it("are left out for a server that offers none, and the ones passed over are named", () => {
     show([mcpServer({ skipped: ["search", "fetch"] })]);
 
