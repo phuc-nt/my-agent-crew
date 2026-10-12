@@ -358,3 +358,39 @@ def test_a_job_the_file_already_holds_does_not_hold_up_a_save_about_something_el
     # Changed, the row is the edit's, and is asked what any row an edit brings is.
     told = f"agent tay: schedule sang: {action} must be a non-empty string"
     assert (moved.status_code, moved.json()["detail"]) == (422, told)
+
+
+# --- a file a hand changed under the crew that runs, and the edit that comes next ---
+
+
+def changed_by_hand() -> Iterator[Any]:
+    """Every file holding one such value, with an edit that takes the key out and one that
+    is about something else."""
+    for where, profile in profiles():
+        (key,) = profile
+        other = "name" if key == "description" else "description"
+        yield pytest.param(profile, {key: None}, id=f"{where}, taken out")
+        yield pytest.param(profile, {other: "khác"}, id=f"{where}, beside an edit of {other}")
+
+
+@pytest.mark.parametrize(("written", "edit"), list(changed_by_hand()))
+def test_an_edit_over_a_file_changed_by_hand_is_taken_or_refused_with_422(crew, written, edit):
+    """The agent runs as it started; its file is what a person has since made of it. An edit
+    is laid over the file, so every reader on the way of a save meets what the file holds
+    now: a shape the start would refuse among them, and the start is not there to refuse."""
+    client, runtime, home = crew
+    file = home / "agents" / EDITED / "agent.yaml"
+    file.write_text(yaml.safe_dump(written, allow_unicode=True), encoding="utf-8")
+    files = manifests(home)
+    running = {agent_id: deps.agent for agent_id, deps in runtime.agents.items()}
+
+    answer = client.patch(EDIT, json={"profile": edit})
+
+    assert answer.status_code in (200, 422), answer.text
+    if answer.status_code == 422:
+        assert manifests(home) == files
+        assert {agent_id: deps.agent for agent_id, deps in runtime.agents.items()} == running
+        return
+    # Taken: the file it wrote is one the next start reads, and the crew can be listed.
+    assert [profile.id for profile in load_yaml_profiles(runtime.settings)]
+    assert client.get("/api/agents").status_code == 200
