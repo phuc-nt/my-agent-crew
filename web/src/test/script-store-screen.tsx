@@ -37,6 +37,19 @@ export function holdRequests(backend: FakeBackend, matches: RegExp): () => void 
   return release;
 }
 
+/** Keeps each request whose "<METHOD> <address>" matches waiting on its own, holding the
+ *  answer the backend gave at the moment it was asked. The list returned grows by one
+ *  function per request, in the order they were asked; calling one lets that answer land. */
+export function holdEach(backend: FakeBackend, matches: RegExp): Array<() => void> {
+  const land: Array<() => void> = [];
+  vitest.stubGlobal("fetch", async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const answered = backend.fetch(input, init);
+    if (matches.test(`${init.method ?? "GET"} ${String(input)}`)) await new Promise<void>((resolve) => land.push(resolve));
+    return answered;
+  });
+  return land;
+}
+
 /** The requests made to the store's routes, as "<METHOD> <path and query>". */
 export function storeRequests(backend: FakeBackend): string[] {
   return backend.requests.filter((asked) => asked.path.includes("/script-store")).map((asked) => `${asked.method} ${asked.path}`);
