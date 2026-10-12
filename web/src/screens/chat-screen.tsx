@@ -37,6 +37,7 @@ import { dockShowing } from "../lib/canvas-dock-state";
 import { runSummaryText } from "../lib/run-summary";
 import type { SendResult } from "../lib/send-result";
 import { conversationFamilyRuns, liveRuns, runningRuns, sortedRuns } from "../state/activity-reducer";
+import { conversationMoney } from "../state/conversation-money";
 import type { ThreadItem } from "../state/thread-reducer";
 
 interface Props {
@@ -244,6 +245,7 @@ export function ChatScreen({
   };
 
   const { state } = thread;
+  const money = active && conversationMoney(active, active !== thread.detail, state);
   // Why a question about a passage cannot go now, which the ask bar says in words. A turn that
   // is running comes first: the passage would be of a canvas the agent is still changing.
   const askDisabled: AskDisabled =
@@ -251,7 +253,7 @@ export function ChatScreen({
       ? "busy"
       : state.pending !== null
         ? "pending"
-        : active?.over_budget
+        : money?.overBudget
           ? "budget"
           : null;
   // One way to change the cap, shared by the budget card and both budget notices. A
@@ -264,8 +266,7 @@ export function ChatScreen({
   // One way out of a spent budget on screen at a time: the over-budget notice carries it
   // while it shows, and the halt's notice until then — only while the cap still stands at
   // what was spent, so a raise takes it away and the halt's notice says to send again.
-  const overBudget = Boolean(active?.over_budget) && !state.busy;
-  const capReached = active !== null && active.cost_cap_usd > 0 && state.spentUsd >= active.cost_cap_usd;
+  const overBudget = Boolean(money?.overBudget) && !state.busy;
   // Stop can reach three different things: this tab's own running turn, a message still
   // only sitting in the queue with nothing running yet, or a turn another chat tab or the
   // Telegram channel started. Only the last of those needs asking the server whether
@@ -321,7 +322,7 @@ export function ChatScreen({
       <Icon name={NOTICE_ICON[state.notice.kind] ?? "alert"} />
       {state.notice.kind === "halted"
         ? state.notice.text === "budget"
-          ? overBudget || capReached
+          ? overBudget || money?.capReached
             ? vi.haltedBudget
             : vi.haltedBudgetLifted
           : runSummaryText({ status: "halted", summary: state.notice.text })
@@ -336,7 +337,7 @@ export function ChatScreen({
                 : state.notice.kind === "elsewhere"
                   ? vi.stopElsewhere
                   : vi.errorPrefix + state.notice.text}
-      {state.notice.kind === "halted" && state.notice.text === "budget" && active && !overBudget && capReached && (
+      {state.notice.kind === "halted" && state.notice.text === "budget" && active && !overBudget && money?.capReached && (
         <RaiseCapButton capUsd={active.cost_cap_usd} onSave={raiseFromNotice} />
       )}
     </div>
@@ -391,7 +392,7 @@ export function ChatScreen({
       <ConversationActivity
         runs={conversationRuns}
         conversationId={active.id}
-        spentUsd={active.spent_usd}
+        spentUsd={money?.spentUsd ?? 0}
         capUsd={active.cost_cap_usd}
         agentName={crew.agentName}
         onOpenConversation={onSelectConversation}
@@ -441,7 +442,7 @@ export function ChatScreen({
             agentName={crew.agentName(active.agent_id)}
             agent={crew.agents.find((a) => a.id === active.agent_id)}
             childCount={runs.filter((r) => r.source === `delegate:${active.id}`).length}
-            spentUsd={state.spentUsd}
+            spentUsd={money?.spentUsd ?? 0}
             unknownCostCalls={state.unknownCostCalls}
             skills={settings?.skills ?? []}
             onRename={(title) => void list.patch(active.id, { title })}
@@ -548,7 +549,7 @@ export function ChatScreen({
           // new message while an approval waits, so an enabled box would only collect text
           // and then 409. The question card carries its own input for the reply. A spent
           // budget blocks it too: the server would halt the turn before it started.
-          disabled={state.pending !== null || Boolean(active?.over_budget)}
+          disabled={state.pending !== null || Boolean(money?.overBudget)}
           busy={state.busy || externalRun !== null}
           stoppable={stoppable}
           restore={restore}
