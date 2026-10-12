@@ -12,7 +12,7 @@ again (`scheduler/table.py`).
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts
@@ -51,14 +51,23 @@ def add_agents(rt: Runtime, profiles: Iterable[AgentProfile]) -> list[str]:
     return [profile.id for profile in fresh]
 
 
-def replace_agent(rt: Runtime, profile: AgentProfile) -> None:
+def replace_agent(
+    rt: Runtime, profile: AgentProfile, write: Callable[[], None] | None = None
+) -> None:
     """Swaps in an edited profile without a restart. The deps are rebuilt, not patched:
     routes, skills and tools all derive from the profile, so a patched agent would not
     match what it can do. The shared peer map shows the new name to everyone else, and the
-    clock goes by the schedules the profile states now."""
+    clock goes by the schedules the profile states now.
+
+    `write` puts the edit in the agent's file, and is called between the two halves. After
+    the agent is built, which is the last step that can refuse an edit: one refused there
+    is not on the disk. Before anything of the crew changes: a file that could not be
+    written leaves the crew, the clock and every job's pause switch as they were."""
     if rt.client is None:
         raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
     deps = build_agent_deps(profile, rt.providers, rt.client, rt.store, rt.settings.routes)
+    if write is not None:
+        write()
     peers = _peers(rt)
     deps.peers = peers
     rt.agents[profile.id] = deps

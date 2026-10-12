@@ -290,11 +290,14 @@ sau đọc ra một chuỗi, và một chuỗi không phải là đúng/sai.
 không đổi gì — không đổi tệp, không đổi agent đang chạy. `delegates` được đối chiếu với
 đội như nó sẽ là sau lần sửa, nên bạn không thể trỏ tới một agent không có mặt.
 
-Thứ tự là kiểm tra, rồi nối, rồi ghi. Dựng agent là bước cuối có thể
+Thứ tự là kiểm tra, rồi dựng, rồi ghi, rồi nối. Dựng agent là bước cuối có thể
 hỏng trên một profile đã parse sạch, và một tệp ghi trước điểm đó sẽ tuyên bố một
-thay đổi mà câu trả lời đã từ chối — rồi áp dụng nó ở lần khởi động lại kế tiếp. Ghi đến sau cùng để
-lời từ chối là toàn bộ câu chuyện. Lần ghi hỏng sau khi nối thành công để đội
-đi trước tệp trong chốc lát; tệp là thứ boot đọc, nên hướng đó tự sửa lấy.
+thay đổi mà câu trả lời đã từ chối — rồi áp dụng nó ở lần khởi động lại kế tiếp. Tệp được ghi
+khi agent đã dựng xong và trước khi đội đổi: lần ghi hỏng (đĩa đầy, tệp không thay được) là 422
+mang lý do của hệ điều hành, và đội, đồng hồ lẫn công tắc tạm dừng của từng job vẫn như trước
+lần lưu. Agent tạo mới mà tệp không ghi được thì không vào đội. Nối trước rồi mới ghi thì một
+lần ghi hỏng để lại đội đi trước tệp, và một dòng lịch đã bị bỏ sẽ trở lại ở lần khởi động sau
+mà không còn công tắc tạm dừng của nó.
 
 **Với lịch, đường sửa đòi hỏi nhiều hơn lúc boot.** Mỗi lịch mà lần sửa thêm vào hay thay
 đổi phải có `cron`/`every` mà đồng hồ đọc được, nếu không là 422. Boot không kiểm

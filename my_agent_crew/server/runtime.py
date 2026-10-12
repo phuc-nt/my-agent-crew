@@ -6,7 +6,7 @@ leaving a crew that runs is `runtime_crew`."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -138,10 +138,10 @@ class Runtime:
         the clock, and returns the ids that joined (`runtime_crew.py`)."""
         return runtime_crew.add_agents(self, profiles)
 
-    def replace_agent(self, profile: AgentProfile) -> None:
-        """Swaps in an edited profile, schedules and all, without a restart
-        (`runtime_crew.py`)."""
-        runtime_crew.replace_agent(self, profile)
+    def replace_agent(self, profile: AgentProfile, write: Callable[[], None] | None = None) -> None:
+        """Swaps in an edited profile, schedules and all, without a restart; `write` puts
+        the edit in its file once the agent is built (`runtime_crew.py`)."""
+        runtime_crew.replace_agent(self, profile, write)
 
     def remove_agent(self, agent_id: str) -> None:
         """Drops an agent from the running crew, and its jobs from the clock

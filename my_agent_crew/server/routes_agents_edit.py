@@ -1,9 +1,10 @@
 """Creating, editing and removing agents from the web.
 
-An edit is validated, then wired into the running crew, then written to `agent.yaml`.
-Building the agent is the last step that can fail, so doing it before the write is what
-keeps a refused edit off the disk — the alternative leaves a file claiming a change the
-answer said was rejected, which then takes effect at the next restart.
+An edit is validated, then built into an agent, then written to `agent.yaml`, then swapped
+into the running crew. Building the agent is the last step that can refuse an edit, so
+doing it before the write is what keeps a refused edit off the disk — the alternative
+leaves a file claiming a change the answer said was rejected, which then takes effect at
+the next restart. The crew changes only once the file holds the edit.
 
 Agents that came from a kit are read-only here. Their profile is a markdown file inside
 a project someone else maintains, and writing a `agent.yaml` beside it would shadow the
@@ -73,15 +74,16 @@ def save(
     *,
     edited: Mapping[str, Any],
 ) -> AgentProfile:
-    """Validate, then wire, then write — in that order, so a refused edit leaves both the
+    """Validate, build, write, then swap — in that order, so a refused edit leaves both the
     file and the running crew as they were. `before` is the agent as it runs now, which
     an edit's schedules and paths are measured against; a new agent has none. A path that
     passes is then judged by how the file to be spells it (`profile_edit_paths.py`).
 
-    Wiring before writing is what makes that true. Building the agent is the step that
+    Building before writing is what makes that true. Building the agent is the step that
     can still fail on a profile that parsed cleanly — an unusable route, a directory that
     cannot be made — and a file already written at that point would say the edit worked
-    while the answer said it did not, then take effect at the next restart.
+    while the answer said it did not, then take effect at the next restart. A file that
+    cannot be written is refused the same way, before the crew or the clock took the edit.
 
     `edited` is the edit: the keys it sets. The file to be is read as the next start will
     read it, and an edit that would be read as anything else is refused
@@ -117,12 +119,11 @@ def save(
         # The start's last step and this one's: what the agent's kits add to what its file
         # states. The checks above are about what the edit brings, and a kit is not that.
         running = with_kits(profile)
-        rt.replace_agent(running)
+        rt.replace_agent(running, lambda: write_raw(manifest, raw))
     except RuntimeError as exc:
         raise HTTPException(409, str(exc)) from exc
     except (ValueError, OSError) as exc:
         raise HTTPException(422, str(exc)) from exc
-    write_raw(manifest, raw)
     return running
 
 

@@ -46,13 +46,17 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   times in a row, and then when Telegram was told and when it will be told again, or "Đang báo
   qua Telegram." while the first message is on its way, or that no message got through yet.
 - The activity stream (`GET /api/activity/stream`) carries a new event, `jobs`, whose payload is
-  `{"type": "jobs"}` and nothing more. It says the job list is no longer what a page read when a
-  run ended: a failed run is counted into its job's streak, and the owner told of it, after the
-  run is over, and a send can take most of a minute. It is sent once the count of a run is
-  settled, whenever that changed the job's `failing`. The web reads the job list again on it, so
-  a row moves from "Đang báo qua Telegram." to when the owner was told with no other run ending;
-  of two reads of the list that are out at once, the page now shows the one it asked for last. A
-  page on an older bundle does not listen for the event and is not disturbed by it.
+  `{"type": "jobs"}` and nothing more. It says the job list is no longer what a page read. A
+  failed run is counted into its job's streak, and the owner told of it, after the run is over,
+  and a send can take most of a minute: the event is sent once the count of a run is settled,
+  whenever that changed the job's `failing`. It is also sent whenever the scheduler reads the
+  crew's schedules again (an agent saved, made, installed or brought in, a key or the shared
+  routes saved) and when an agent leaves the crew, whether or not a row changed. The web reads
+  the job list again on it, so a row moves from "Đang báo qua Telegram." to when the owner was
+  told with no other run ending, and a page open in another tab shows a schedule saved in this
+  one; of two reads of the list that are out at once, the page now shows the one it asked for
+  last. A job's pause switch and the removal of a schedule made in chat are not sent. A page on
+  an older bundle does not listen for the event and is not disturbed by it.
 
 ### Changed
 
@@ -91,6 +95,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   schedule. On the web, the "restart to apply" banner of the agent editor is gone: a save that
   changed the schedules says "Đã lưu. Thay đổi lịch chạy có hiệu lực ngay, không cần khởi động lại.",
   and Lịch chạy shows the new rows without a reload of the page.
+- A save whose file cannot be written changes nothing. The order of a save is now validate,
+  build, write, then swap: `agent.yaml` is written once the agent is built and before the
+  running crew takes it. A write the system refuses (a full disk, a file that cannot be
+  replaced) answers 422 with the system's reason and leaves the crew, the clock and every job's
+  pause switch as they were, and a new agent whose file could not be written does not join the
+  crew. 0.16.0 swapped first and answered 500, with the crew ahead of its file until the next
+  restart.
 - Every source file of the web is within the 200 lines the package's are held to, and
   `tests/test_file_size_budget.py` now holds `web/src` to it as well (`.ts`, `.tsx` and `.css`;
   tests and their helpers are not counted). Stylesheets and modules were split by concern, with

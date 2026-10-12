@@ -16,6 +16,7 @@ No command is run: `Shell` stands in for it and keeps what it was asked to run, 
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -29,6 +30,7 @@ from fastapi.testclient import TestClient
 from my_agent_crew.agents import templates_cli
 from my_agent_crew.config import Settings, load_settings
 from my_agent_crew.scheduler import jobs
+from my_agent_crew.server import routes_agents_edit, runtime_crew
 from my_agent_crew.server.app import create_app
 from my_agent_crew.server.credential_catalog import KNOWN
 from my_agent_crew.server.runtime import Runtime
@@ -533,3 +535,135 @@ def test_the_time_an_agents_memory_is_rewritten_at_follows_the_same_rules(house)
     assert (missed, after, at_its_time) == ([MEMORY_JOB], [], [MEMORY_JOB])
     assert house.rows() == {}
     assert house.switched(MEMORY_JOB) is None
+
+
+# --- the order of a save: built, written, then taken up by the crew ---
+
+
+def disk_full(manifest: Path, data: Any) -> None:
+    raise OSError(28, "No space left on device")
+
+
+async def test_a_save_its_file_did_not_take_changes_neither_the_crew_nor_the_clock(
+    house, monkeypatch
+) -> None:
+    """The agent is built before its file is written and swapped in after. The disk is the
+    last thing that can refuse an edit, and what it refuses has taken effect nowhere: the
+    row the edit took out is still on the clock, paused as the person left it."""
+    house.save(every("5m"), every("5m", "other", id="other"))
+    house.switch(False, "coder/other")
+    rows, running = house.rows(), house.runtime.deps_for("coder")
+    monkeypatch.setattr(routes_agents_edit, "write_raw", disk_full)
+
+    reply = house.client.patch("/api/agents/coder", json={"profile": {"schedules": [daily(7)]}})
+
+    assert reply.status_code == 422 and "No space left on device" in reply.json()["detail"]
+    assert house.runtime.deps_for("coder") is running
+    assert house.rows() == rows
+    assert house.switched("coder/other") is False
+    assert await house.tick("06:05") == ["sync"]
+
+
+def test_an_agent_whose_file_could_not_be_written_does_not_join_the_crew(
+    house, monkeypatch
+) -> None:
+    monkeypatch.setattr(routes_agents_edit, "write_raw", disk_full)
+    profile = {"schedules": [every("5m")]}
+
+    made = house.client.post("/api/agents", json={"agent_id": "helper", "profile": profile})
+
+    assert made.status_code == 422, made.text
+    assert "helper" not in house.runtime.agents
+    assert house.rows() == {}
+
+
+def test_an_edit_no_agent_could_be_built_from_is_not_written_to_its_file(
+    house, monkeypatch
+) -> None:
+    """The other half of the order: what building refuses never reaches the disk."""
+    manifest = house.home / "agents" / "coder" / "agent.yaml"
+    house.save(every("5m"))
+    written, rows = manifest.read_text(encoding="utf-8"), house.rows()
+
+    def unusable(*args: Any, **more: Any) -> None:
+        raise ValueError("no route this agent could use")
+
+    monkeypatch.setattr(runtime_crew, "build_agent_deps", unusable)
+    reply = house.client.patch("/api/agents/coder", json={"profile": {"schedules": [daily(7)]}})
+
+    assert reply.status_code == 422 and "no route" in reply.json()["detail"]
+    assert manifest.read_text(encoding="utf-8") == written
+    assert house.rows() == rows
+
+
+# --- a page that is open on the job list ---
+
+MARK = {"id": "read-up-to-here"}
+
+
+async def told(house: House, change: Callable[[House], object]) -> list[str]:
+    """What the activity stream carried to an open page while `change` was made, by type."""
+    hub = house.runtime.hub
+    stream = hub.subscribe()
+    assert (await anext(stream))["type"] == "snapshot"
+    change(house)
+    # The request ran on the server's own thread, which hands what it publishes to this
+    # loop; one turn of the loop takes it in, and the mark is put behind it.
+    await asyncio.sleep(0)
+    hub.publish_conversation(MARK)
+    carried = []
+    while (payload := await anext(stream)).get("conversation") != MARK:
+        carried.append(payload["type"])
+    await stream.aclose()
+    return carried
+
+
+def saved(house: House) -> None:
+    house.save(every("5m"))
+
+
+def made(house: House) -> None:
+    body = {"agent_id": "helper", "profile": {"schedules": [every("5m")]}}
+    assert house.client.post("/api/agents", json=body).status_code == 201
+
+
+def left(house: House) -> None:
+    assert house.client.delete("/api/agents/coder").status_code == 200
+
+
+def installed(house: House) -> None:
+    assert house.client.post("/api/agents/install", json={"template": "timed"}).status_code == 201
+
+
+def copied_in(house: House) -> None:
+    folder = house.home / "agents" / "helper"
+    folder.mkdir(parents=True)
+    (folder / "agent.yaml").write_text(BY_HAND, encoding="utf-8")
+    assert house.client.post("/api/agents/reload").json() == {"added": ["helper"]}
+
+
+def key_saved(house: House) -> None:
+    (house.home / "agents" / "coder" / "agent.yaml").write_text(BY_HAND, encoding="utf-8")
+    reply = house.client.put("/api/credentials/GOODREADS_ID", json={"value": "abc"})
+    assert reply.status_code == 200, reply.text
+
+
+@pytest.mark.parametrize("change", [saved, made, left, installed, copied_in, key_saved])
+async def test_a_change_of_which_jobs_there_are_has_every_open_page_read_the_list_again(
+    house, timed, environ, change
+) -> None:
+    """The page that made the change reads the list itself. One open in another tab, or on
+    another screen when a key was saved, showed the rows from before until some run ended."""
+    assert await told(house, change) == ["jobs"]
+
+
+async def test_a_save_that_was_refused_and_a_reading_that_found_no_one_tell_no_page(house) -> None:
+    def refused(house: House) -> None:
+        rows = {"profile": {"schedules": [{"id": "sync", "every": "never", "command": "x"}]}}
+        assert house.client.patch("/api/agents/coder", json=rows).status_code == 422
+
+    def nobody_new(house: House) -> None:
+        assert house.client.post("/api/agents/reload").json() == {"added": []}
+
+    assert await told(house, refused) == []
+    assert await told(house, nobody_new) == []
