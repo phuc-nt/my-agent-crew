@@ -96,7 +96,7 @@ test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
   test("the two script settings are set by touch and stay inside the page", async ({ page }) => {
-    const { calls, llm } = await setsBoth(page);
+    const { tools, calls, llm } = await setsBoth(page);
 
     // Safari zooms the page into any field under 16px when it takes focus.
     expect(await calls.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
@@ -105,9 +105,41 @@ test.describe("on a phone", () => {
     const line = (await llm.locator("xpath=..").boundingBox())!;
     expect(line.height).toBeGreaterThanOrEqual(40);
     // The longest of the lines under the select is on the page, wrapped inside it.
-    await expect(page.getByText(t.scriptCallsGatedAutonomous)).toBeVisible();
+    await expect(tools.getByText(t.scriptCallsGatedAutonomous)).toBeVisible();
     expect(await pageWidth(page)).toBeLessThanOrEqual(390);
     expect(await spills(page, '[data-testid="section-tools"]')).toEqual([]);
+  });
+
+  // The tick is at the top of the form and the script settings far below it: what the two
+  // mean together is said right under the tick that was tapped, inside the page's width.
+  test("ticking autonomy on an agent whose scripts may change things says under the tick that nobody is asked", async ({ page }) => {
+    await mockApi(page, { agents: [master, { ...coach, autonomous: false, script_calls: "gated" }] });
+    await page.goto("/#/manage/crew/coach");
+    const editor = page.getByTestId("agent-editor");
+    const identity = editor.getByTestId("section-identity");
+    const tick = identity.getByRole("checkbox", { name: t.autonomous });
+    const line = identity.getByText(t.scriptCallsGatedAutonomous);
+    await expect(tick).not.toBeChecked();
+    await expect(line).toHaveCount(0);
+
+    await tick.tap();
+    await expect(tick).toBeChecked();
+    await expect(tick).toHaveAccessibleDescription(t.scriptCallsGatedAutonomous);
+    await expect(line).toBeVisible();
+    await line.scrollIntoViewIfNeeded();
+    // Under the tick's own line, wrapped inside the page.
+    const [box, said] = [(await tick.locator("xpath=..").boundingBox())!, (await line.boundingBox())!];
+    expect(said.y).toBeGreaterThanOrEqual(box.y + box.height - 1);
+    expect(said.x).toBeGreaterThanOrEqual(0);
+    expect(said.x + said.width).toBeLessThanOrEqual(390);
+    expect(await pageWidth(page)).toBeLessThanOrEqual(390);
+    expect(await spills(page, '[data-testid="section-identity"]')).toEqual([]);
+    // The same words stand under the select, in the tools section.
+    await expect(editor.getByTestId("section-tools").getByRole("combobox", { name: t.scriptCalls })).toHaveAccessibleDescription(t.scriptCallsGatedAutonomous);
+
+    await tick.tap();
+    await expect(line).toHaveCount(0);
+    await expect(tick).not.toHaveAccessibleDescription(t.scriptCallsGatedAutonomous);
   });
 
   test("the link under the script settings is tall enough to tap, opens this agent's store, and Back returns", async ({ page }) => {
