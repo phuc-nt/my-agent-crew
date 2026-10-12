@@ -28,6 +28,25 @@ def names(raw: dict[str, Any], key: str, agent_id: str) -> tuple[str, ...]:
     return tuple(v.strip() for v in value)
 
 
+def listed(
+    raw: dict[str, Any], key: str, where: str, of: str = "names", each: type | None = None
+) -> tuple[Any, ...]:
+    """What a key that holds a list holds, and nothing where the file leaves it out.
+
+    A value with nothing to go through (a number, a switch) is a bad profile and is told as
+    one here: gone through as a list, it raised an error nobody reads as a bad profile, and
+    a start or an edit died on it. So is an entry that is not `each`, where the reader can
+    do nothing with any other: kept, it failed whoever listed the agent next."""
+    refusal = ValueError(f"{where}: {key} must be a list of {of}")
+    try:
+        entries = tuple(raw.get(key) or ())
+    except TypeError:
+        raise refusal from None
+    if each is not None and not all(isinstance(entry, each) for entry in entries):
+        raise refusal
+    return entries
+
+
 def settings_from(
     raw: dict[str, Any], agent_id: str, base: Settings, defaults: dict[str, Any]
 ) -> Settings:
