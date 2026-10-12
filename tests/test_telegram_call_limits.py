@@ -98,4 +98,3 @@ async def test_an_upload_from_memory_keeps_the_limit_it_names(api, wire):
     await api.send_bytes(CHAT, "chart.png", b"\x89PNG")
 
     assert wire.limits == [("sendDocument", httpx.Timeout(SEND_TIMEOUT_SECONDS).as_dict())]
-
