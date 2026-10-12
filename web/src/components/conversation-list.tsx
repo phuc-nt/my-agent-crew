@@ -1,17 +1,16 @@
 import { useState, type ReactNode, type RefObject } from "react";
-import type { Conversation, RunInfo } from "../api/types";
+import type { Conversation } from "../api/types";
 import { useContentSearch } from "../hooks/use-content-search";
 import { useLastSeen } from "../hooks/use-last-seen";
 import { useNow } from "../hooks/use-now";
 import { vi } from "../i18n/vi";
-import { dayGroup, type DayGroup } from "../lib/relative-time";
 import { ContentHits } from "./content-hits";
-import { ConversationRow, type LiveStatus } from "./conversation-row";
+import { byDay, liveByConversation, type LiveRun } from "./conversation-list-groups";
+import { ConversationRow } from "./conversation-row";
 import { ConversationSearch, matching } from "./conversation-search";
 import { Brand } from "./ui/brand-mark";
 import { Icon } from "./ui/icon";
 
-type LiveRun = Pick<RunInfo, "conversation_id" | "status">;
 
 interface Props {
   conversations: Conversation[];
@@ -40,46 +39,8 @@ interface Props {
 /** How many threads it takes before scanning the list beats reading it. */
 const SEARCH_FROM = 8;
 
-/**
- * Conversations the user started, then the ones an agent opened on their behalf. A
- * delegated conversation is a record of work, not somewhere the user is talking, so it
- * stays reachable without pushing the real threads down the list.
- */
-function ownFirst(conversations: Conversation[]): Conversation[] {
-  return [
-    ...conversations.filter((c) => !c.parent_call_id),
-    ...conversations.filter((c) => c.parent_call_id),
-  ];
-}
-
-/**
- * Each conversation's live state. Two runs can be open in one conversation (an earlier
- * turn left waiting); waiting on the owner wins, since that is the one he has to act on.
- */
-function liveByConversation(runs: LiveRun[]): Map<string, LiveStatus> {
-  const live = new Map<string, LiveStatus>();
-  for (const { conversation_id: id, status } of runs) {
-    if (!id || (status !== "running" && status !== "awaiting_approval")) continue;
-    if (live.get(id) !== "awaiting_approval") live.set(id, status);
-  }
-  return live;
-}
-
-const GROUPS: DayGroup[] = ["today", "yesterday", "older"];
-
 /** Relative times count in minutes, so the labels are re-read once a minute. */
 const TICK_MS = 60_000;
-
-/**
- * Rows under the viewer's own day they last changed on. The server already sends them
- * newest first, so each group keeps that order and only the headers are added.
- */
-function byDay(conversations: Conversation[], now: Date): [DayGroup, Conversation[]][] {
-  return GROUPS.map((group): [DayGroup, Conversation[]] => [
-    group,
-    ownFirst(conversations.filter((c) => dayGroup(c.updated_at, now) === group)),
-  ]).filter(([, rows]) => rows.length > 0);
-}
 
 export function ConversationList({
   conversations,
