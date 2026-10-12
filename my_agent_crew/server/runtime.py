@@ -58,7 +58,7 @@ class Runtime:
 
     def __post_init__(self) -> None:
         self.scheduler = Scheduler(
-            self.agents, self.hub, clock=self.settings.now, deliver=self.deliver
+            self.agents, self.hub, clock=self.settings.now, deliver=self.deliver, notify=self.notify
         )
         self.inbound = Inbound(
             self.agents, self.hub, self.summarize_replaced, keep=self.scheduler.keep
@@ -77,9 +77,12 @@ class Runtime:
         """Pushes a conversation's last reply to the chat: any agent's scheduled brief goes
         out through the master's bot, under that agent's name. False when there is no
         channel or it found nothing to send."""
-        if self.channel is None:
-            return False
-        return await self.channel.deliver(conv_id)
+        return self.channel is not None and await self.channel.deliver(conv_id)
+
+    async def notify(self, agent_id: str, text: str) -> bool:
+        """Says a sentence of the runtime's about an agent's work to the chat, under that
+        agent's name. False when there is no channel to say it to."""
+        return self.channel is not None and await self.channel.notify(agent_id, text)
 
     def start_channel(self) -> None:
         self.channel_live = True
@@ -191,9 +194,7 @@ class Runtime:
     @classmethod
     def single(cls, deps: AgentDeps) -> Runtime:
         """A runtime around one already-built default agent; what tests hand to the app."""
-        hub = ActivityHub(deps.store)
-        runtime = cls(
-            settings=deps.settings, store=deps.store, agents={deps.agent.id: deps}, hub=hub
-        )
+        agents, hub = {deps.agent.id: deps}, ActivityHub(deps.store)
+        runtime = cls(settings=deps.settings, store=deps.store, agents=agents, hub=hub)
         runtime.wire_delegation()
         return runtime

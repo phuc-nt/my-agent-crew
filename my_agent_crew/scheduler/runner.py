@@ -1,5 +1,6 @@
 """The clock over each agent's schedules: which job is due, what ran last, what runs
-next. Carrying a job out is `scheduler/jobs.py`; this module only decides when."""
+next. Carrying a job out is `scheduler/jobs.py`; this module only decides when, and has the
+person told of what a job came to."""
 
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ from my_agent_crew.scheduler.created import chat_jobs
 from my_agent_crew.scheduler.cron import due_between
 from my_agent_crew.scheduler.describe import describe_job
 from my_agent_crew.scheduler.execute import dispatch
+from my_agent_crew.scheduler.failure_notice import Notify, notify_failure
 from my_agent_crew.scheduler.jobs import JOB_SOURCE, Job, nothing_to_report
 from my_agent_crew.store.db import now_iso
 from my_agent_crew.store.runs import RunRecord
@@ -33,11 +35,12 @@ class Scheduler:
         hub: ActivityHub,
         clock: Callable[[], datetime] = datetime.now,
         deliver: Callable[[str, str], Awaitable[bool]] | None = None,
+        notify: Notify | None = None,
     ):
         self._agents = agents
         self._hub = hub
         self._clock = clock
-        self._deliver = deliver
+        self._deliver, self._notify = deliver, notify
         self._store = next(iter(agents.values())).store if agents else None
         # Profile schedules only: `agent.yaml` cannot change without a restart, so these
         # never need rebuilding. Chat-created jobs are never kept here — `_table` reads
@@ -171,6 +174,7 @@ class Scheduler:
             run = await dispatch(job, deps, self._hub, self._clock)
             if job.schedule.kind in DELIVERED:
                 await self.deliver_run(job, run)
+            await notify_failure(job, run, self._notify)
             return run
         finally:
             self._running.discard(job.id)
@@ -190,10 +194,5 @@ class Scheduler:
         else:
             # Without this line a job that answered and a job that stayed silent look
             # identical in the log.
-            logger.info(
-                "job %s: delivered=%s conv=%s status=%s",
-                job.id,
-                delivered,
-                run.conversation_id,
-                run.status,
-            )
+            conv, status = run.conversation_id, run.status
+            logger.info("job %s: delivered=%s conv=%s status=%s", job.id, delivered, conv, status)

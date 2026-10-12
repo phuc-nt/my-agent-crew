@@ -133,6 +133,12 @@ class TelegramOutbound:
             await tell(self._api, self._chat_id, texts.TELEGRAM_CANVAS_NOTICE_FAILED)
         return True
 
+    async def notify(self, text: str) -> None:
+        """A sentence of the runtime's about the agent's work, said under its name as it
+        stands: it may quote what a script said, and a line of that shaped like an
+        attachment line names no file."""
+        await self._say(text)
+
     async def _say(self, prose: str) -> None:
         if self._prefix:
             prose = f"{self._prefix}\n{prose}"
