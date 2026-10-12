@@ -31,7 +31,8 @@ const STATUS_TONE: Record<McpStatus, string> = { connected: "ok", idle: "warn", 
  *
  * A name the list holds that the server does not report keeps a row of its own, ticked and
  * said to bring nothing, because only the person takes a name off a list: the form writes
- * exactly what is ticked. And since the rows follow the agent as saved, a change to its
+ * exactly what is ticked, each name where the file's list has it and a name new to that
+ * list after the file's. And since the rows follow the agent as saved, a change to its
  * mode or to whom it hands work is to be saved before the tools are chosen: a line under
  * the picker says so while the form holds one.
  *
@@ -61,7 +62,7 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
   const gone = servers.filter((name) => !mcpServers.some((server) => server.name === name));
 
   const toggle = (name: string) =>
-    form.set("tools", picked.includes(name) ? picked.filter((t) => t !== name) : [...picked, name]);
+    form.set("tools", picked.includes(name) ? picked.filter((t) => t !== name) : list.ticked(picked, name));
   const toggleServer = (name: string) =>
     form.set("mcp", servers.includes(name) ? servers.filter((s) => s !== name) : [...servers, name]);
 
