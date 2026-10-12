@@ -9,7 +9,8 @@ the scripts of the turn may make between them, is listed on the run card with wh
 and is told to the turn the moment it ends, which is where its cost reaches the run and the
 conversation (`agent/nested_calls.py`). The ledger hears of it as a side call made for a
 script (`llm/metered_chain.py`). It is never one the approval gate is asked about: it changes
-nothing.
+nothing. It is a call of a model all the same, so none is made once the conversation has spent
+the most it may: the script ends there, as the turn does before a call of its own.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from my_agent_crew import texts_script as t
 from my_agent_crew import texts_script_llm as words
 from my_agent_crew.activity.step_previews import argument_preview, failure_preview, preview
 from my_agent_crew.agent.nested_calls import nested_budget, note_nested_call
+from my_agent_crew.agent.turn_context import turn_conversation_id
 from my_agent_crew.agents.profile_settings import REASONING_EFFORTS
 from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.provider import ProviderChain, ProviderError
@@ -33,6 +35,7 @@ from my_agent_crew.script.limits import Halt, ScriptError
 from my_agent_crew.script.llm_calls import LLM, checked
 from my_agent_crew.script.model_answers import messages, taken
 from my_agent_crew.script.nested import ScriptRun
+from my_agent_crew.texts import HALT_REASONS
 from my_agent_crew.tools.result import NestedCall
 
 if TYPE_CHECKING:
@@ -47,13 +50,27 @@ LEAST_EFFORT = REASONING_EFFORTS[0]
 Ask = Callable[[Sequence[Message]], Awaitable[tuple[str, float | None]]]
 
 
-def agents_model(deps: AgentDeps) -> Ask:
+@dataclass(frozen=True)
+class AgentsModel:
     """The agent's own model as its scripts may ask it. The first route alone: a call a
     script makes is not moved to the next model when this one fails, nor to the dearer one
     the agent itself may step up to. A route told how hard to think is told the least; one
     told nothing is told nothing, since not every model takes the word."""
 
-    async def ask(asked: Sequence[Message]) -> tuple[str, float | None]:
+    deps: AgentDeps
+
+    def out_of_money(self) -> bool:
+        """Whether the conversation the script runs in has spent the most it may, read as
+        the turn reads it before each call of its own (`agent/loop.py`). The script of a
+        schedule runs in none, and a conversation deleted meanwhile holds nobody to it."""
+        conv_id = turn_conversation_id()
+        try:
+            return bool(conv_id) and self.deps.store.get(conv_id).over_budget
+        except KeyError:
+            return False
+
+    async def __call__(self, asked: Sequence[Message]) -> tuple[str, float | None]:
+        deps = self.deps
         # Read when a script asks, not when the tool was handed out: the agent's routes are
         # replaced when its file is read again.
         first = [
@@ -71,7 +88,8 @@ def agents_model(deps: AgentDeps) -> Ask:
                 said, cost = item.message.content, item.usage.cost_usd
         return said, cost
 
-    return ask
+
+agents_model = AgentsModel
 
 
 def scripts_model(deps: AgentDeps) -> Ask | None:
@@ -99,13 +117,16 @@ class ModelCalls:
 
     async def answer(self, arguments: dict[str, Any]) -> str:
         """The text the script is handed. A call written wrongly was never made and is not
-        counted; one past a count ends the script; one that was made and came to nothing is
-        a failed call of the script and a mistake it may catch."""
+        counted; one past a count, or past what the conversation may spend, ends the script
+        and is not counted either; one that was made and came to nothing is a failed call of
+        the script and a mistake it may catch."""
         name, asked = checked(arguments)
         if self.ask is None:
             raise ScriptError(words.LLM_NOT_HERE)
         if self.asked >= limits.MAX_LLM_CALLS:
             raise Halt(words.LLM_TOO_MANY_CALLS.format(most=limits.MAX_LLM_CALLS))
+        if isinstance(self.ask, AgentsModel) and self.ask.out_of_money():
+            raise Halt(words.LLM_OVER_BUDGET.format(reason=HALT_REASONS["budget"]))
         budget = nested_budget()
         if budget is not None and not budget.take(1):
             raise Halt(t.SCRIPT_TURN_CALLS_SPENT.format(most=budget.limit))

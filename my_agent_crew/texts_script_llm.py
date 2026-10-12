@@ -32,6 +32,9 @@ LLM_BAD_MAX_CHARS = "`max_chars` phải là số nguyên từ 1 đến {most}."
 LLM_NO_SUCH = "llm chỉ có `classify` và `summarise`."
 # Ends the script, as one call too many of any kind does.
 LLM_TOO_MANY_CALLS = "Script đã hỏi model quá {most} lần. Gộp việc lại hoặc chia nhiều script."
+# So does one asked when the conversation has spent the most it may. `reason` is what the
+# person is told the turn stopped on (`texts_halt.HALT_REASONS`), which it then does.
+LLM_OVER_BUDGET = "cuộc trò chuyện đã {reason}, script không hỏi model thêm được."
 
 # A call that was made and came to nothing: each is a mistake the script may catch. What the
 # script hears is one of these as written. It names no route and repeats nothing the upstream
