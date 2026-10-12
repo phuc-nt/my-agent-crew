@@ -352,6 +352,29 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Playwright: `chat-smoke.spec.ts`
     "a spent cap is raised from the budget pill's card and the composer writes again";
     `chat-state-phone.spec.ts` "a spent budget's notice keeps its raise on one line"
+- **Số đã tiêu của một cuộc trò chuyện là một con số cho đầu trang và thẻ tổng quan, kể cả khi cuộc
+  trò chuyện nằm ngoài danh sách**
+  - vitest: `state/conversation-money.test.ts` (số đã tiêu là số khung chat vừa nghe khi dòng của
+    cuộc trò chuyện chưa được đọc lại, là số của dòng khi dòng được đọc sau đó, và là số của dòng
+    khi khung chat đang hiện không phải của cuộc trò chuyện này; chạm trần theo đúng luật của server
+    trên một con số ấy: trần lớn hơn không mà số đã tiêu đã tới; với dòng có trong danh sách thì
+    theo lời server, vốn được đọc lại khi một run xong; với cuộc trò chuyện ngoài danh sách thì tự
+    tính, vì không gì đọc lại dòng của nó; không có trần thì không bao giờ là quá trần; giữ lời
+    server cho cuộc trò chuyện ngoài danh sách được tải lên khi đã quá trần, và buông khi một trần
+    đã nâng được tải về); `app-unlisted-spend.test.tsx` (một con số ở cả hai nơi cho cuộc trò chuyện
+    ngoài danh sách khi lượt của nó xong, và cho cuộc trò chuyện trong danh sách trước khi dòng của
+    nó được đọc lại; lượt kết thúc bằng lỗi, bằng một câu hỏi người dùng, hay do người dùng dừng thì
+    số được đọc lại cho cả hai nơi; trần đã hết ở cuộc trò chuyện ngoài danh sách khoá ô soạn và mời
+    một lần nâng khi lượt dừng, nâng thì ô soạn mở lại);
+    `hooks/use-external-run-refresh-own-run.test.ts` (run do chính tab này đọc, ở cuộc trò chuyện
+    ngoài danh sách: kết thúc `error` hay `awaiting_approval`, vốn không nói gì về tiền, thì nợ một
+    lần tải; kết thúc `done` hay `halted` thì không, vì sự kiện cuối của lượt đã nói số tiền; run
+    còn chạy thì không; lần tải ấy chỉ một lần dù run đã xong được nhìn lại bao nhiêu lần; ở cuộc
+    trò chuyện trong danh sách thì không kết thúc nào nợ lần tải nào);
+    `hooks/use-external-run-refresh.test.ts` (các ca có từ trước nay nói rõ cuộc trò chuyện có trong
+    danh sách)
+  - Kiểm chứng đột biến ở phần đọc lại sau một lượt không nói số tiền: mười ba sửa đổi, đều bị test
+    bắt.
 - **Lỗi request nói bằng lời: giữ câu server viết, dịch dump kiểm tra, 404 soạn sẵn, lỗi 5xx và
   lỗi mạng**
   - vitest: `lib/error-text.test.ts`; `hooks/use-thread.test.ts` nhóm "a request of the thread that
@@ -415,9 +438,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "sends an emptied consolidation cron as null, which takes the key out of the file"). Fake server
     của vitest và mock của Playwright cùng kiểm lịch theo luật của server, lấy từ
     `test/schedule-contract.ts`
-  - Playwright: `schedule-editor-smoke.spec.ts`; `jobs-list-smoke.spec.ts` (Sửa lịch mở đúng phần
-    lịch, tiêu đề dừng ngay dưới thanh của trình sửa chứ không thấp hơn, thanh dính sát mép trên);
-    `manage-smoke.spec.ts`
+  - Playwright: `schedule-editor-smoke.spec.ts`; `jobs-list-smoke.spec.ts` (Sửa lịch mở trình sửa ở
+    đúng dòng của job ấy, còn job gom ghi nhớ, vốn không có dòng, thì ở tiêu đề phần lịch; chỗ dừng
+    nằm ngay dưới thanh của trình sửa chứ không thấp hơn, ở 390px và 1280px; thanh dính sát mép
+    trên); `manage-smoke.spec.ts`
     "a schedule is added from the jobs list through the agent's editor"
   - pytest: `tests/test_api_agents_edit.py::test_a_schedule_carrying_its_derived_kind_is_refused`,
     `tests/test_api_agents_edit.py::test_a_timing_the_clock_cannot_read_is_refused_before_it_is_written`,
@@ -506,6 +530,71 @@ tên một test thì sửa dòng của nó trong cùng commit.
     lần lưu đổi `mode`, rồi một lần đổi `delegates`, trả danh sách mới ngay trong câu trả lời và
     ở lần đọc kế tiếp, không đụng tới agent khác, đổi lại thì danh sách về như cũ; tool được
     trao sau chỉ được kể khi phép xét của cảnh báo nói danh sách được tôn trọng)
+- **Trình sửa agent mời đúng những tên `listable_tools` kể, giữ tên lạc cho tới khi người sửa bỏ, và
+  đặt tên được đánh dấu lại về đúng chỗ của nó**
+  - vitest: `components/agent-editor/tool-allow-list.test.tsx` (các dòng là những tên server kể cho
+    agent này, không phải những gì cả đội giữ; `delegate` còn dòng, với lời riêng, khi không agent
+    nào giữ nó nữa, để đánh dấu lại được; bật danh sách thì nó bắt đầu từ những gì agent giữ trong
+    số các tên ấy, theo thứ tự các dòng, có `delegate` ở agent giữ nó, và từ mọi dòng khi agent
+    không giữ dòng nào; sau một vòng qua "mọi công cụ" thì về đúng danh sách tệp viết; tên danh sách
+    có mà server không kể mở ra đã đánh dấu ở một dòng riêng sau các dòng kia, được nói là không đem
+    lại gì, và không có gì để lưu; đánh dấu dòng khác không làm nó rơi; bỏ chọn thì nó rời danh sách
+    và dòng đi theo; nó là tên cuối thì bàn phím sang "mọi công cụ"; bàn phím không ở dòng ấy thì
+    đứng yên; tệp viết nó hai lần thì có một dòng và cả hai cùng đi; không bỏ chọn được ở agent
+    không sửa được ở đây; đổi trường khác thì không gửi danh sách nào; `delegate` ở agent được
+    server kể là một dòng như mọi dòng; một tên như thế tự làm thành danh sách, và dòng đánh dấu sau
+    được ghi sau nó); `components/agent-editor/tool-allow-list-order.test.tsx` (bỏ chọn rồi đánh dấu
+    lại thì không còn gì để lưu: tên về đúng chỗ danh sách của tệp viết nó, cả khi mọi dòng đi rồi
+    về theo thứ tự khác, cả quanh một tên server không kể vốn giữ chỗ của nó, và tên tệp viết hai
+    lần về cả hai chỗ; tên danh sách của tệp chưa từng có được ghi sau các tên của tệp, vẫn sau
+    chúng khi một tên của tệp được đánh dấu lại muộn hơn, giữa các tên mới thì theo thứ tự các dòng
+    dù dòng nào được đánh dấu trước, và danh sách bật lên trong phiên này cũng ghi theo thứ tự các
+    dòng); `components/agent-editor/tool-allow-list-unsaved.test.tsx` (thay đổi chưa lưu ở chế độ
+    hay ở những agent được giao việc: dưới danh sách có dòng nhắc lưu trước, và các dòng vẫn theo
+    agent như đã lưu); `components/agent-editor/editor-on-older-server.test.tsx` (server không trả
+    khoá nào của bản này: trình sửa mở trọn vẹn, ở "mọi công cụ", với hai thiết lập script như đội
+    đang chạy agent; bật danh sách thì bắt đầu từ những gì agent giữ trong số các dòng của bảng công
+    cụ, và chỉ danh sách ấy được lưu; dòng đánh dấu sau đó được ghi cùng; agent không giữ dòng nào
+    thì bắt đầu từ mọi dòng; agent có danh sách thì mở đúng danh sách ấy, và quay lại nó sau "mọi
+    công cụ" không để lại gì để lưu; bảng công cụ chưa đọc xong thì không có dòng nào và "chọn"
+    không bật danh sách nào); `components/agent-editor/mcp-gone-server-focus.test.tsx` (bỏ chọn một
+    máy chủ MCP mà tệp không còn khai: bàn phím sang dòng thế chỗ nó, sang dòng cuối khi nó đứng
+    cuối, sang máy chủ cuối mà tệp còn khai khi không còn dòng nào như thế, sang ô đang bật trong
+    hai ô chọn khi cả danh sách máy chủ đi theo; bàn phím không ở dòng ấy thì đứng yên, và ở ô của
+    một máy chủ tệp còn khai thì ở lại vì dòng không đi);
+    `components/agent-editor/tools-section.test.tsx` (các ca có từ trước nay dựng agent mang
+    `listable_tools`); `test/schedule-contract.test.ts` (nhóm
+    "the delegates and the names a list has a say over, as the double answers a save": máy chủ giả
+    của test ghi `delegates` ở chỗ form đọc lại, khoá bị xoá là không ai; kể `delegate`, đúng chỗ
+    theo thứ tự tên, khi một lần lưu làm agent có giao việc, thôi kể khi lần lưu để agent không giao
+    cho ai, không bao giờ kể hai lần; giữ nó cho master và agent work dù họ nêu ai; lần lưu khoá
+    khác không đụng tới các tên)
+  - Playwright: `tool-allow-list.spec.ts` (bốn luồng, mỗi luồng chạy trên màn rộng và trên điện
+    thoại 390px cảm ứng, nơi còn kiểm trang không tràn ngang: danh sách bật lên bắt đầu từ những gì
+    agent giữ và còn đó sau khi tải lại; danh sách của một tệp viết tay giữ mọi tên cho tới khi
+    người sửa bỏ chọn; master được mời `delegate` khi không agent nào giữ nó, và đánh dấu thì nó
+    được ghi; danh sách theo agent như đã lưu: lưu một agent được giao việc trước, rồi mới chọn được
+    `delegate`); `older-server.spec.ts` (mock trả agent như bản phát hành trước, thiếu cả
+    `script_calls`, `script_llm` và `listable_tools`: trình sửa của một agent mở được, danh sách
+    công cụ chọn và lưu được; màn Đội và bảng Công cụ mở được); `mcp-servers.spec.ts` (ca trao máy
+    chủ cho agent trong trình sửa nay còn kiểm bàn phím nằm ở dòng cuối còn lại sau khi dòng của máy
+    chủ bị bỏ đi theo dấu tích của nó)
+  - Kiểm chứng đột biến: tám mươi bảy sửa đổi, tám mươi sáu bị test bắt. Hai mươi bảy ở
+    `components/agent-editor/tool-allow-list.ts` (một sửa đổi sống ở lần chạy đầu, danh sách khởi
+    đầu của agent mới mang tên không dòng nào hiện, và một phép kiểm được thêm để bắt nó); hai mươi
+    lăm ở `components/agent-editor/tools-section.tsx`, hai mươi bốn bị bắt và một tương đương (khoá
+    dòng của một tên lạc trong lúc "mọi công cụ" đang chọn: lúc ấy không có dòng nào như thế); mười
+    hai ở phần máy chủ giả của test trả lời một lần lưu (`applyAgentPatch` trong
+    `test/schedule-contract.ts`); tám ở chỗ đọc câu trả lời của server bản trước; bảy ở thứ tự của
+    tên được đánh dấu lại; tám ở chỗ bàn phím sau khi một máy chủ bị bỏ được bỏ chọn.
+- **Lưu ở màn Kết nối thì đội được đọc lại, nên trình sửa mở sau đó thấy đúng những gì vừa đổi**
+  - vitest: `app-connections-reload-crew.test.tsx` (trình sửa mở sau một lần lưu ở Kết nối mời tool
+    mà khoá vừa lưu dựng nên, và danh sách của agent bật lên có nó; không còn dòng cho tool đi theo
+    một khoá vừa bị gỡ; tuyến vừa lưu cho mọi agent hiện ở agent không nêu tuyến riêng);
+    `screens/manage-screen.test.tsx` (nhóm "the keys, on the manage screen": các khoá chỉ được đọc
+    một lần dù trang quanh màn hình vẽ lại bao nhiêu lần)
+  - Kiểm chứng đột biến: năm sửa đổi, bốn bị test bắt. Sửa đổi còn sống là bỏ việc chờ lần đọc lại
+    đội xong; không có gì để giữ nó, vì dòng "đã lưu" của khoá không chờ lần đọc ấy.
 - **Toàn bộ tham số của một tool call**
   - vitest: `components/tool-args-detail.test.tsx`; `components/components.test.tsx`
     "opens a tool row's full arguments from under its summary"
@@ -6098,9 +6187,9 @@ khi chạy; phần đó có mục riêng ở dưới.
     job lệnh và job prompt vẫn được gọi tên như trước; dòng vẽ ra như nhau dù hai khoá script tới
     là `null` hay không tới), `components/agent-editor/schedule-script-row.test.tsx` (dòng script
     trong trình sửa: sửa dòng khác thì nó được gửi lại nguyên vẹn; đổi tên, giờ chạy và công tắc
-    của nó thì script vẫn còn; không bị coi là dòng chưa có việc; nói rõ nó thuộc loại nào, sửa
-    script ở đâu và hiện cả script; không có cách đổi nó thành prompt hay lệnh, không có ô gõ
-    script; dòng do form tạo chỉ là prompt hoặc lệnh; script không có prompt nối tiếp thì không
+    của nó thì script vẫn còn; không bị coi là dòng chưa có việc; hiện loại đang chọn trong ba loại,
+    cả script và prompt nối tiếp; script gõ được tại dòng, gõ gì lưu nấy; dòng nào cũng chọn được
+    script, dòng form thêm bắt đầu là lời nhắc; script không có prompt nối tiếp thì không
     gửi prompt nào; xoá được như mọi dòng), `hooks/schedule-row-shape.test.ts` (dòng script là
     dòng tệp khai có `script`, không gì khác; thiếu prompt không làm nó thành dòng lệnh; gửi đi
     script và prompt nối tiếp đúng như đã nhận, từng ký tự, không kèm prompt hay lệnh dù dòng lỡ
@@ -6122,10 +6211,10 @@ khi chạy; phần đó có mục riêng ở dưới.
     thì không liệt kê; dấu có trên bước của script trong run và trên dòng của lời gọi trong bản
     xuất Markdown; vẫn là một lời gọi dù lần nghe nào mang dấu), `hooks/use-agent-draft.test.ts`
     (dòng lịch đọc về mang cả hai khoá script).
-  - Playwright: `script-jobs-phone.spec.ts` (điện thoại 390px, màn cảm ứng: dòng của job script
-    hiện phần đầu script và không tràn trang; dòng script trong trình sửa chỉ để đọc, không gõ
-    được, và được gửi lại như đã nhận; lời gọi qua cổng duyệt nói điều đó trên dòng riêng của nó
-    trong run, cạnh thời gian).
+  - Playwright: `script-jobs-phone.spec.ts` (điện thoại 390px, màn cảm ứng: dòng của job script hiện
+    phần đầu script và không tràn trang; dòng script trong trình sửa được gõ ngay tại chỗ, và cái
+    được gõ là cái được lưu; lời gọi qua cổng duyệt nói điều đó trên dòng riêng của nó trong run,
+    cạnh thời gian).
 - **web: lời gọi model, việc giao cho agent khác và canvas do script ghi**:
   - vitest: `components/script-model-call.test.tsx` (lời gọi model nằm chung danh sách với các lời
     gọi khác của script, bằng chữ nói nó là gì, kèm giá; không bao giờ được đọc bằng cái tên nó
@@ -6201,6 +6290,256 @@ khi chạy; phần đó có mục riêng ở dưới.
     đọc bằng tool của chính nó, không máy chủ nào, cũng có dòng `tool_script` với nhãn của nó,
     chú giải khi đó không nói gì về máy chủ, và trang của agent không đưa `tool_script` vào danh
     sách để tích; trên điện thoại 390px nhãn của dòng `tool_script` không bị ép).
+- **web: mục "Script" của trình sửa agent, câu dưới ô "Tự chủ", và dấu `⊘` ở bảng Công cụ**:
+  - vitest: `components/agent-editor/script-controls.test.tsx` (ô chọn script gọi được gì mời ba giá
+    trị tệp nhận, mỗi giá trị bằng lời riêng; mở ở điều tệp viết, và ở mức đội đang chạy agent khi
+    server không trả khoá nào trong hai khoá; lưu từng giá trị thì gửi đúng một khoá đã đổi, không
+    đòi khởi động lại; mở lại agent vẫn thấy giá trị ấy; chọn lại như cũ thì không còn gì để lưu;
+    không đổi được ở agent không sửa được ở đây; dòng dưới ô chọn là lời mô tả của ô và đổi theo lựa
+    chọn; với `gated` nó nói trước tự chủ sẽ làm gì khi agent chưa tự chủ, và nói thẳng về agent
+    này, như một cảnh báo, khi form đang bật cả hai; ô cho script hỏi model tắt bằng một lần bỏ chọn
+    và một lần lưu, không gửi gì khác; lời mô tả của nó nói cái giá và rằng script của một lịch cũng
+    thuộc về nó; ô vẫn có ở agent không được trao tool script nào, vì script của lịch vẫn chạy),
+    `components/agent-editor/script-controls-undo.test.tsx` (ở agent mà đội không trả thiết lập nào:
+    chọn rồi chọn lại, qua `gated` hay qua `none`, không để lại gì để lưu; ô hỏi model cũng vậy),
+    `components/agent-editor/script-controls-store-link.test.tsx` (sau hai thiết lập có một liên kết
+    tới màn "Script giữ lại" với agent này đã chọn; có cả ở agent không sửa được ở đây),
+    `components/agent-editor/autonomy-unasked-scripts.test.tsx` (dòng dưới ô "Tự chủ" nói không ai
+    được hỏi: hiện khi bật tự chủ ở agent mà script đã được đổi dữ liệu, khi cho script đổi dữ liệu
+    ở agent đã tự chủ, có sẵn ở agent được lưu với cả hai, có ở agent form không sửa được, và không
+    có ở agent tự chủ mà đội không trả thiết lập script nào),
+    `components/tools-matrix-script-off.test.tsx` (ô `tool_script` của agent mà tệp tắt script mang
+    dấu đã tắt, không phải dấu của agent không có gì cho script gọi; lý do ấy được nêu cả khi agent
+    không giữ gì script gọi được; vẫn là ô có khi server nói agent giữ tool; chú giải chỉ có dòng
+    cho dấu này ở đội có agent được đặt như thế; agent của một server không trả khoá ấy được đọc là
+    chưa từng tắt), `components/tools-matrix.test.tsx` (lời giải thích của nhãn `tool_script` nay
+    kết bằng ngoại lệ của agent được đặt "Không dùng script"), `hooks/use-agent-draft.test.ts`
+    (agent mẫu nay mang hai khoá script), `test/schedule-contract.test.ts` (nhóm
+    "the two script switches, as the double reads them": máy chủ giả của test nhận từng giá trị tệp
+    nhận và trả lại nó; từ chối mọi thứ khác: một nhãn, chữ hoa chữ thường khác, một chuỗi thay cho
+    đúng/sai; khoá bị xoá đọc lại là mức đội đang chạy agent).
+  - Playwright: `script-controls.spec.ts` (hai thiết lập được đặt, lưu, và còn đó sau khi tải lại;
+    màn rộng 1440px: liên kết dưới hai thiết lập mở những gì script của agent này giữ, và Back về
+    lại trình sửa; điện thoại 390px cảm ứng: hai thiết lập đặt được bằng ngón tay và không tràn
+    trang; bật tự chủ ở agent mà script được đổi dữ liệu thì ngay dưới ô có câu nói không ai được
+    hỏi; liên kết đủ cao để chạm, mở kho của đúng agent này, và Back quay về).
+- **web: viết script của một lịch trong trình sửa, dòng script phải có mã, và "Sửa lịch" tới đúng
+  dòng**:
+  - vitest: `components/agent-editor/schedule-script-edit.test.tsx` (dòng mới chạy script được gửi
+    đi đúng như bộ đọc của server nhận; dấu tab dán vào, dấu cách đầu dòng và dấu xuống dòng cuối
+    còn nguyên qua một lần lưu và một lần mở lại; phím Tab rời ô script theo cả hai chiều và không
+    để lại dấu tab nào; mỗi ô gắn với dòng gợi ý của nó, ô script gắn với điều đang sai ở nó; script
+    vượt giới hạn giữ lần lưu lại ngay, cắt bớt thì lưu được; xoá trắng ô prompt nối tiếp thì khoá
+    được lấy ra khỏi tệp; server từ chối script thì lời của server hiện ra và chữ đã gõ còn đó; ở
+    agent form không sửa được thì script chỉ để đọc),
+    `components/agent-editor/schedule-kind-switch.test.tsx` (đổi việc của một dòng không mang chữ
+    của loại này sang ô của loại kia; mỗi loại nhận lại phần của nó: chữ, prompt nối tiếp, kỹ năng;
+    lúc lưu chỉ loại đang chọn được ghi; script đổi thành lời nhắc được lưu là lời nhắc, không kèm
+    prompt nối tiếp; script được mời chọn kỹ năng khi đã có prompt nối tiếp, và gửi chúng; dòng
+    thành lệnh thì bỏ kỹ năng, vì lệnh không mở lượt nào),
+    `components/agent-editor/schedule-command-skills.test.tsx` (kỹ năng mà tệp ghi ở một dòng lệnh:
+    được ghi lại như tệp có khi chữ của lệnh đổi sau một vòng đổi loại; đi cùng dòng sang lời nhắc,
+    nơi bỏ một kỹ năng thì nó được lưu là đã bỏ; về lại lệnh thì là danh sách của lệnh như cũ),
+    `components/agent-editor/schedule-then-prompt-undo.test.tsx` (prompt nối tiếp được gõ rồi lấy
+    lại: không ở lại trên một dòng lời nhắc từng là script trong chốc lát; xoá trắng ô ở script vốn
+    không có thì là không có prompt nào), `components/agent-editor/schedule-landing.test.tsx` (trình
+    sửa mở từ "Sửa lịch" của một job: dừng ở dòng của job ấy giữa các dòng khác; liên kết quay lại
+    nói về danh sách lịch; không job nào dẫn tới thì dừng ở tiêu đề và liên kết quay lại như thường;
+    vẫn ở dòng đã dừng khi danh sách quanh nó đổi),
+    `components/agent-editor/schedule-script-id.test.tsx` (dòng script không có mã không lưu được:
+    lần lưu bị giữ lại, và ô mã nói lý do khi đã thử lưu; ô mã chỉ có dấu cách cũng là không có mã;
+    dưới ô mã của nó là lời nói mã dùng để làm gì, nơi dòng loại khác được bảo là có thể để trống;
+    dòng thôi là script thì lại để trống mã được),
+    `components/agent-editor/schedule-placed-id.test.tsx` (dòng script mà server đánh số theo vị
+    trí: mở agent thì không có gì để lưu và không có gì phải điền; lần lưu lịch kế tiếp gửi lại đúng
+    mã ấy dù không ai gõ gì vào dòng; dòng giữ mã ấy khi một dòng phía trên bị xoá, qua từng lần
+    lưu), `hooks/schedule-action-kind.test.ts` (việc của một dòng là việc duy nhất nó mang; dòng vừa
+    đổi sang script là script trước khi gõ gì; script rỗng bên cạnh một lời nhắc hay một lệnh thì
+    không phải script; script rỗng giữ lần lưu lại, lặng lẽ lúc đầu và được nêu tên khi đã thử lưu,
+    ở đúng ô của loại dòng ấy; script vượt giới hạn được nêu ngay, kèm con số, đếm theo ký tự như bộ
+    đọc của server; prompt nối tiếp để trống không giữ lần lưu nào và được gửi như không có; dòng
+    đổi loại gửi đi đúng một việc nó đang làm dù các khoá khác còn giữ gì; hai khoá script là `null`
+    ở nơi tệp không có thì không tính là đã đổi, còn script hay prompt nối tiếp có thật thì tính, và
+    ở mọi khoá khác `null` vẫn khác một giá trị), `hooks/agent-draft-checks.test.ts` (nhóm
+    "a row that runs a script and has no id": giữ lần lưu lại, chưa nêu tên, cho tới khi thử lưu;
+    được nêu ở ô mã khi đã thử lưu; không áp cho script có mã, cho lời nhắc hay lệnh không mã; không
+    đụng tới form mà lịch không ai đổi).
+  - Playwright: `schedule-script-editor.spec.ts` (ở 1280px và 390px: một lịch chạy script được viết,
+    lưu và đọc lại; "Sửa lịch" của một job script dừng ở dòng của job ấy chứ không ở dòng đầu, khi
+    tới bằng liên kết lẫn khi tải lại; ngoài ra: script bị server từ chối được nói bằng lời của
+    server và không mất chữ nào đã gõ; script để trống hay dài quá giới hạn giữ lần lưu lại và nói
+    lý do; ở 390px, dòng script không có mã không lưu được và ô mã nói lý do),
+    `manage-smoke.spec.ts` (ca thêm lịch từ danh sách lịch nay kiểm bàn phím nằm ở dòng của job vừa
+    bấm, không ở tiêu đề).
+- **web: màn "Script giữ lại", xem một giá trị, xoá một khoá hay cả một kho, và tên được viết ra như
+  nhau ở mọi chỗ**:
+  - vitest: `api/script-store.test.ts` (liệt kê kho của một agent dù id của nó chứa gì; đọc một giá
+    trị theo tên kho và khoá, mỗi cái gửi trọn; xoá một khoá theo tên kho và khoá; chỉ xoá cả kho
+    khi không khoá nào được nêu; khoá rỗng vẫn được nêu, nên một dòng được hỏi tới chứ không bao giờ
+    là tất cả; lỗi mang mã và lời của server), `hooks/use-script-store.test.ts` (chưa có gì, cũng
+    chưa có lỗi nào, cho tới khi lần đọc đầu được trả lời; chỉ nhận câu trả lời của lần đọc sau
+    cùng, dù cái nào về sau; không báo lỗi của lần đọc đã bị lần sau thay; giữ danh sách đang có khi
+    lần đọc sau hỏng, và buông lỗi khi một lần đọc được; được báo là đã mất thì bỏ dòng ngay, bỏ cả
+    kho khi đó là khoá cuối, rồi đọc lại; khoá được báo mất mà chưa từng có thì danh sách như cũ;
+    server từ chối một lần xoá thì không gì đổi và lời từ chối về tay nơi đã hỏi; đọc một giá trị
+    trả về chữ kèm độ dài và giờ ghi, và không đọc thêm gì khi danh sách nói y như vậy; không đọc
+    thêm cho khoá danh sách không có, hay cho câu trả lời về sau khi màn đã đóng),
+    `components/script-store-section.test.tsx` (mỗi kho được gọi bằng lời, có lối tới nơi dùng nó,
+    và tên như bảng lưu vẫn trong tầm mắt; các khoá của một kho xếp theo thứ tự, mỗi khoá kèm phần
+    đầu giá trị, độ dài và giờ ghi; kho được đo với mức tối đa của một kho, bằng con số và bằng một
+    thanh; kho không còn gì đọc nữa thì được đánh dấu, được nói là xoá được, và không có lối tới nơi
+    dùng đã mất; kho không của lịch cũng không của cuộc trò chuyện mang tên như bảng lưu, một lần;
+    cái một server cũ gửi thì hiện thành tên như bảng lưu, độ dài không có mức tối đa, không dấu,
+    không thanh; script chưa giữ gì thì một câu nói màn này là gì; đang đọc thì nói đang đọc chứ
+    không nói chưa có gì; đọc hỏng thì hiện lỗi thường lệ và đọc lại khi được bảo; mời các agent của
+    đội và báo cho nơi chứa nó agent nào được chọn; không bao giờ hiện khoá của agent này dưới tên
+    agent kế), `components/script-store-value.test.tsx` (giá trị chỉ được đọc khi được hỏi, bày
+    thành JSON trong một ô riêng, và cất đi được; hiện trọn, quá chỗ danh sách đã cắt; không phải
+    JSON thì hiện như được giữ, kèm một dòng nói vậy; ký tự không ai thấy được viết ra, ở khoá lẫn ở
+    giá trị, còn lời hỏi server dùng khoá như được giữ; nói đang đọc trong lúc server trả lời; về
+    sau khi người dùng đã đóng thì vẫn cất; khoá đã mất: nói vậy, bỏ dòng, đọc lại danh sách và đưa
+    bàn phím sang khoá kế; không đọc được: hiện lỗi thường lệ ngay tại dòng, giữ dòng, đọc lại khi
+    được bảo; khoá được ghi lại thì giá trị được cất, để giá trị cũ không bao giờ bị đọc là của
+    khoá), `components/script-store-value-rewritten.test.tsx` (giá trị đã được ghi lại từ lúc danh
+    sách được đọc: danh sách được đọc lại, đúng một lần, để giá trị đứng cạnh độ dài và giờ ghi của
+    chính nó; giá trị ở yên trong ô trong lúc danh sách được đọc lại; nó được cất khi danh sách đọc
+    lại cho thấy một lần ghi muộn hơn lần ghi của giá trị; giá trị đúng như danh sách nói thì danh
+    sách không được đọc lần hai), `components/script-store-value-overlap.test.tsx` (hai lần đọc giá
+    trị của một khoá cùng lúc: lần trước về trước thì ô vẫn chờ, rồi nhận giá trị của lần sau; lần
+    trước về sau thì ô giữ giá trị của lần sau; lời từ chối của lần trước không hiện trong lúc chờ
+    lần sau; hiện lời từ chối của lần sau chứ không phải giá trị của lần trước; lần trước thấy khoá
+    đã mất thì khoá không bị bỏ, lần sau thấy vậy thì bị bỏ dù lần trước đọc được gì; người dùng đã
+    đóng ô thì không lần nào điền gì; một lần đọc bị đóng trước khi về vẫn bỏ khoá khi server nói
+    khoá đã mất), `components/script-store-delete.test.tsx` (xoá một khoá: hỏi trước, xoá đúng khoá
+    ấy, nói cái gì đã đi và đọc lại danh sách; nói không thì server không được hỏi gì; bàn phím sang
+    khoá thế chỗ, không có thì sang khoá cuối; khoá cuối đi thì kho đi theo và bàn phím sang tiêu đề
+    của kho thế chỗ; server từ chối thì lý do hiện ngay tại dòng được hỏi và không gì bị dời; server
+    không còn khoá ấy thì nói không còn gì để xoá và vẫn bỏ dòng; bấm xoá lần nữa trước khi có trả
+    lời thì người dùng và server chỉ được hỏi một lần; khoá khác vẫn xoá được trong lúc lần xoá đầu
+    chưa có trả lời; bàn phím ở lại nơi người dùng đã đưa nó tới trong lúc server trả lời; đọc lại
+    danh sách hỏng thì màn giữ cái đang có, trừ khoá vừa xoá),
+    `components/script-store-delete-all.test.tsx` (xoá cả một kho: hỏi trước và nêu bao nhiêu khoá
+    sẽ đi, xoá hết, đưa bàn phím sang kho thế chỗ; đó là kho cuối thì còn lại trạng thái trống và
+    bàn phím về ô chọn agent; không hỏi về khoá nào của một kho đang đi cả; nói không thì server
+    không được hỏi gì; server từ chối thì lời của nó hiện dưới kho, không ở dòng nào, và không gì bị
+    dời), `components/script-store-delete-all-recount.test.tsx` (câu hỏi trước khi xoá cả kho nêu số
+    khoá server đang có, không phải số danh sách đã hiện; nói không thì trên màn là danh sách vừa
+    đọc; kho được gọi bằng tên nó đang mang; xoá một khoá thì không đọc lại trước khi hỏi, câu hỏi
+    ấy không nêu con số nào; kho đã mất lúc bấm xoá thì được nói là không còn gì và không ai bị hỏi,
+    và nếu là kho cuối thì còn trạng thái trống, bàn phím ở ô chọn agent; trong lúc đọc lại: bấm lần
+    nữa, hay bấm xoá một khoá của kho ấy, không hỏi thêm gì; người dùng sang agent khác được và sau
+    đó không bị hỏi gì; server từ chối lần đọc thì điều đó được nói dưới kho, không ai bị hỏi, và
+    lần bấm sau lại hỏi), `components/script-store-delete-names.test.tsx` (khoá trong câu hỏi xoá và
+    dòng báo sau đó: nằm trên một dòng giữa hai dấu ngoặc kép, dấu ngoặc kép và dấu xuống dòng của
+    chính nó được viết thành chuỗi thoát; cắt ở tám mươi ký tự mà vẫn bị xoá trọn; dấu cách ở cuối
+    và ký tự không ai thấy được viết ra giữa hai dấu ngoặc; dòng báo đã xoá gọi nó y như thế; lịch
+    hay cuộc trò chuyện được gọi bằng tiêu đề, bỏ dấu cách ở cuối tiêu đề; dấu ngoặc kép và dấu
+    xuống dòng của tiêu đề được viết thành chuỗi thoát, cả trong câu hỏi về một khoá; tiêu đề dài
+    thì cắt ở tám mươi ký tự; kho không thuộc hai loại ấy là tên như bảng lưu giữa hai dấu ngoặc,
+    được viết ra), `components/script-store-written-names.test.tsx` (những khoá chỉ khác nhau ở thứ
+    trang web gộp lại hay vẽ thành không gì: mỗi khoá được viết theo cách riêng ở dòng của nó, ở tên
+    của nút xem giá trị, ở tên của nút xoá, trên một giá trị đang mở và ở nút đóng nó; được hỏi tới,
+    và được báo là đã đi hay đã mất, theo đúng cách viết ở dòng; tên kho cũng vậy ở tiêu đề, dưới
+    tiêu đề, ở tên của thanh và của nút, trong câu hỏi và dòng báo đã xoá hết),
+    `components/memory-panel-script-store.test.tsx` (kho của script có tab riêng, sau wiki; mở ở
+    agent màn đang xem và ghi agent ấy vào địa chỉ; địa chỉ nêu nó thì mở nó, ở agent địa chỉ nêu,
+    không nêu agent thì ở agent của màn; agent đội không có thì về agent của màn mà không hỏi server
+    gì về nó; đội chưa đọc xong thì tin lời địa chỉ; chọn agent khác trong tab thì địa chỉ nêu agent
+    ấy và khoá của nó thay khoá kia; rời tab bằng tab khác thì địa chỉ thôi nêu nó và tab kế hiện
+    agent vừa xem; Back của trình duyệt về tab người dùng đã ở trước đó),
+    `lib/script-store-namespace.test.ts` (kho của lịch được gọi bằng tên lịch, có lối tới dòng của
+    nó trong Lịch chạy; kho của cuộc trò chuyện được gọi bằng tiêu đề, có lối tới cuộc ấy; không có
+    tiêu đề thì gọi bằng id; nơi dùng đã mất thì không có lối và nói đó là loại nơi dùng nào; không
+    thuộc hai loại, hay thuộc loại không biết, thì chỉ là tên như bảng lưu; server không gửi gì thêm
+    thì là tên như bảng lưu, không có chữ nào cho loại; thiếu id thì không có lối nào; ký tự không
+    ai thấy trong tên được viết ra, còn id trong địa chỉ thì giữ nguyên; câu nhắc tới một kho viết
+    dấu ngoặc kép và dấu xuống dòng của tiêu đề thành chuỗi thoát, ở tiêu đề cũng như trong câu; bỏ
+    dấu cách đầu và cuối của tiêu đề; cắt tiêu đề ở tám mươi ký tự trong câu và giữ trọn ở tiêu đề;
+    tên như bảng lưu nằm giữa hai dấu ngoặc với dấu cách cuối được viết ra; độ đầy là khoá và giá
+    trị trên mức tối đa của một kho, sắp đầy từ bốn phần năm và đầy khi chạm mức; không đo khi không
+    có mức tối đa), `lib/quoted-name.test.ts` (tên được viết ra: giữ nguyên khi không có gì trong nó
+    không ai thấy; dấu ngoặc kép và dấu `\` của chính nó thành chuỗi thoát, để một chuỗi thoát không
+    bị đọc thành hai ký tự viết nên nó; LF, CR, tab và các ký tự cùng lớp thành chuỗi thoát của
+    chúng; không ký tự điều khiển, dấu ngắt dòng hay dấu cách loại khác nào còn nguyên; một dấu cách
+    giữa hai chữ thì để nguyên; tên dài mấy cũng còn trọn; tên trong một câu: nằm giữa hai dấu ngoặc
+    kép, dấu ngoặc đóng là dấu cuối cùng; ở trên một dòng; dấu cách đầu và cuối được viết ra từng
+    cái để đếm được; trọn tới tám mươi ký tự, quá thì cắt ở đó với dấu cắt trước dấu ngoặc đóng; đếm
+    theo ký tự, không theo nửa ký tự; không cắt đôi một chuỗi thoát; một dấu cách được viết như cả
+    tên viết nó, dù chỗ cắt rơi vào đâu), `lib/pretty-json.test.ts` (JSON được bày mỗi phần tử một
+    dòng, thụt hai dấu cách mỗi mức, và đọc lại vẫn là đúng giá trị ấy; list rỗng và object rỗng nằm
+    trên một dòng; mỗi con số được chép như nó được viết; những gì một chuỗi chứa thì để nguyên; chữ
+    tới đã có dấu cách riêng được bày cùng một cách; giá trị không phải list hay object thì để
+    nguyên; chữ không phải JSON thì không có cách bày nào), `test/fake-script-store.test.ts` (máy
+    chủ giả mà vitest và Playwright dùng chung trả lời các route của kho: liệt kê kho theo tên và
+    khoá theo khoá, mỗi giá trị là JSON viết gọn; dòng của agent nào chỉ thuộc agent ấy; `preview`
+    cắt ở 200 ký tự có dấu cắt, còn độ dài đo trên cả giá trị; nói kho của ai từ đội và các cuộc trò
+    chuyện nó được trỏ tới; trả lời được như server trước khi nó nói một kho là gì; đọc trọn một giá
+    trị, 404 cho khoá hay kho nó không giữ; xoá một khoá, và thôi liệt kê kho khi khoá cuối đã đi;
+    xoá cả kho khi không khoá nào được nêu, và chỉ kho ấy; khoá rỗng vẫn là nêu một khoá; 200 với
+    không gì bị xoá khi không gì khớp; 404 cho agent đội không có, ở mọi route; từ chối một loại
+    request chừng nào còn được bảo vậy và không đổi gì trong lúc ấy; không nhận request không nói
+    kho nào hay khoá nào; mọi đường dẫn khác để lại cho máy chủ giả chứa nó, còn phương thức khác
+    thì không ai nhận).
+  - Playwright: `script-store.spec.ts` (ở 1440px, 1000px và 390px: khoá dài, tiêu đề dài và nhiều
+    khoá đều nằm trong màn; một giá trị dài cuộn trong ô của nó, cả bằng bàn phím; script chưa giữ
+    gì thì màn nói nó là gì; nói đang tải cho tới khi server trả lời; đọc hỏng thì hiện lỗi thường
+    lệ kèm lối đọc lại), `script-store-actions.spec.ts` (ở 1440px và 390px: xoá một khoá thì hỏi
+    trước, bỏ dòng và đưa bàn phím sang khoá kế; nói không thì không gì bị xoá; xoá một kho nêu bao
+    nhiêu khoá sẽ đi, và bàn phím dừng ở tiêu đề của kho thế chỗ; khoá đã mất lúc giá trị của nó
+    được hỏi thì rời danh sách và bàn phím sang khoá kế; kho của một lịch dẫn tới dòng của job, kho
+    của một cuộc trò chuyện dẫn tới cuộc ấy; màn được mở từ Ghi nhớ bằng bàn phím, đi theo agent
+    được chọn, và Back lùi từng tab), `script-store-written-names.spec.ts` (ở 1440px và 390px, với
+    những khoá mà trang web vẽ giống nhau: mỗi khoá được vẽ theo cách riêng, trong bề ngang của
+    trang; mỗi khoá có nút riêng theo tên mà trình đọc màn hình nhận; câu hỏi xoá dùng đúng cách
+    viết ở dòng, và chỉ khoá được hỏi tới bị xoá).
+- **web: lý do của một bước hỏng hiện ngay, trọn vẹn, không cần bấm**:
+  - vitest: `components/failed-step-output.test.tsx` (ở thẻ run: cái một bước hỏng trả về nằm ngay
+    trên dòng, không cần bấm, trọn vẹn, trong một ô không cuộn; gấp lại khi được bảo và mở lại được;
+    mở ra khi một bước đang chạy kết thúc bằng lỗi; bước đi qua thì vẫn gấp, trong ô có cuộn; trọn
+    vẹn ở lời gọi của một script khi các lời gọi của script được mở; ở thẻ tool trong khung chat: có
+    ngay trên thẻ của lời gọi lỗi và lời gọi bị từ chối, trọn vẹn; dài hơn mức một bước giữ thì mở
+    sẵn trong ô có cuộn; là câu trả lời của một việc được giao đã hỏng, không cần bấm; thẻ đi qua
+    thì vẫn gấp), `lib/step-preview.test.ts` (cái một bước giữ của một đoạn chữ là cả đoạn khi ngắn,
+    và 160 ký tự đầu kèm dấu cắt khi dài; lời gọi đi qua vẫn giữ đúng phần đầu ấy như trước; lời gọi
+    hỏng giữ trọn lý do khi nó vừa 600 ký tự, dài hơn thì 200 ký tự đầu, dấu cắt và 400 ký tự cuối,
+    nên lời khuyên ở cuối một lời từ chối còn đó; lý do được đo như server đo, khoảng trắng của nó
+    thành từng dấu cách đơn; đếm theo ký tự, không theo nửa ký tự; khoảng trắng là đúng những ký tự
+    mà phép tách của server tách, không hơn: U+FEFF là một phần của chữ; lý do chỉ vừa sau khi
+    khoảng trắng của server thành một dấu cách thì còn trọn, và lý do chỉ vừa nếu U+FEFF là khoảng
+    trắng thì bị cắt), `state/activity-reducer-failed-output.test.ts` (bước tool nghe trực tiếp giữ
+    trọn lý do của lời gọi hỏng; giữ đầu và cuối của một lý do quá dài; lời gọi đi qua vẫn chỉ giữ
+    phần đầu như trước), `components/activity-cards.test.tsx` (bước hỏng của thẻ run nay mở sẵn, nút
+    là "Ẩn kết quả"), `components/tool-call-card-canvas.test.tsx` (thẻ thường của một lần ghi canvas
+    hỏng nay hiện sẵn lý do, nút là "Ẩn kết quả").
+  - Playwright: `failed-step-output.spec.ts` (ở 1440px, 1000px và 390px: trang của run nói lý do
+    không cần bấm, trọn vẹn, còn bước đi qua thì vẫn gấp; thẻ trong khung chat và phần Hoạt động của
+    chính khung chat cũng nói trọn lý do).
+- **web: tin mở lượt của một job script hiện thành prompt của lịch và khối "Script in ra"**:
+  - pytest: `tests/test_script_handoff_words.py` (ba phép so chữ giữa web và server: web giữ hai
+    dòng đánh dấu đúng như server viết; giữ câu đứng trên cái script in ra, từng chữ; và điền câu ấy
+    vào đúng dòng server viết).
+  - vitest: `lib/script-handoff.test.ts` (tin của job script được đọc thành prompt và cái script in
+    ra; prompt nhiều dòng, nhiều đoạn còn trọn; cái được in giữ đúng từng dòng trống, chỗ thụt lề và
+    dòng nó kết thúc; dòng giống dấu đánh dấu mà script in ra là một phần của cái nó in; dòng mở đầu
+    tiên được lấy, nên dòng mở thứ hai thuộc về cái được in; tin chỉ giống thì để nguyên như được
+    viết: không xét theo hai dấu mà một dòng nêu, dòng ấy phải là đúng câu của server; không nhận
+    câu của server có thêm một dòng của người viết, không nhận câu lệch một ký tự, và phân biệt được
+    với tin thật có cùng con số; cái script in được đếm theo dòng, bỏ những dòng trống ở cuối, và là
+    dài khi quá mười hai dòng hay tám trăm ký tự),
+    `components/message-thread-script-handoff.test.tsx` (bong bóng chỉ mang prompt của lịch, không
+    dấu đánh dấu, không chữ nào của câu dành cho model; cái script in ra nằm ngay dưới bong bóng, có
+    nhãn, đúng như được in; ngắn thì mở sẵn, nói nó dài bao nhiêu, gấp và mở khi bấm; dài thì gấp
+    cho tới khi được hỏi, rồi có đủ; mở rồi thì tới được và cuộn được bằng bàn phím; prompt nhiều
+    đoạn và các tệp một kênh lưu kèm vẫn như ở mọi tin; đứng trên ghi chú canvas của tin cũng mang
+    một cái; ký tự không ai thấy trong cái script in được viết thành mã của nó khi khối mở, và lại
+    như thế mỗi lần mở; khối dài còn gấp thì không vẽ chúng ở đâu; chỗ các mã ấy chiếm không làm một
+    đoạn thành dài; tin không đúng hẳn là tin chuyển tiếp, như câu trả lời mà agent viết y hệt, được
+    vẽ như chính nó; gửi lại hay chép một tin chuyển tiếp thì dùng tin như được lưu: nhánh mới nhận
+    cả tin, và bản xuất cuộc trò chuyện có mọi dòng của nó).
+  - Playwright: `script-handoff.spec.ts` (ở 1440px và 390px: prompt nằm trong bong bóng và cái
+    script in ra nằm dưới nó, không dấu đánh dấu nào trên màn; đoạn dài được giữ gấp, mở ra thì cuộn
+    trong ô của nó và xuống dòng; ngoài ra: gửi lại tin của job script bắt đầu từ tin như được lưu;
+    tin chỉ trích hai dấu đánh dấu vẫn là tin thường).
 - Kiểm chứng đột biến: sáu trăm bốn mươi sáu sửa đổi ở server. Chín mươi ở chính tool (mở cho
   script một tool hỏi trước, có lý do hỏi, không gọi lại được, hay một trong bốn tool nói thay
   agent; mở tool của máy chủ thiếu `read_only` hay thiếu `codemode`; lời gọi không được phép không
@@ -6396,6 +6735,15 @@ khi chạy; phần đó có mục riêng ở dưới.
   (máy chủ giả đánh dấu sai, không biết agent đọc bằng tool của mình, coi mọi agent hay mọi tool
   là đọc, đòi mọi tool đều đọc, quên agent đọc qua máy chủ, đổi thứ tự hai dòng, không xếp tên
   agent) và một ở `i18n/vi.ts` (chữ của dòng chú giải).
+- Kiểm chứng đột biến ở các phần web nêu trên: một trăm ba mươi bảy sửa đổi, qua vitest, đều bị test
+  bắt. Ở tin của job script: mười hai ở chỗ nhận ra tin theo đúng câu của server, hai ở chỗ viết ra
+  ký tự không ai thấy trong cái script in. Ở màn "Script giữ lại": chín ở giá trị đã được ghi lại,
+  mười bốn ở tên trong câu hỏi xoá, mười hai ở lần đếm lại trước "Xoá tất cả", sáu ở hai lần đọc
+  chồng nhau, hai mươi tám ở cách viết ra một khoá và một tên kho ở mọi chỗ màn có nó. Ở bước hỏng:
+  bảy ở khoảng trắng của lý do. Ở trình sửa agent: năm ở thiết lập script và prompt nối tiếp được
+  lấy lại, bốn ở kỹ năng của dòng lệnh, chín ở câu dưới ô "Tự chủ", hai mươi chín ở luật dòng script
+  phải có mã. Lần dựng đầu của các phần này (mục "Script", ô gõ script, màn kho, bước hỏng mở sẵn,
+  khối "Script in ra") không có con số nào được ghi lại.
 
 ## Master được kể mỗi agent đang có gì
 
