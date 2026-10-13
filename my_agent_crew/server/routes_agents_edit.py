@@ -160,8 +160,9 @@ async def patch_agent(agent_id: str, body: PatchRequest, rt: Rt) -> dict[str, An
         # hands the running bot the rebuilt agent, without cutting off its poll.
         await sync_channel(rt, before)
         if not profile.settings.browser.reads:
-            # Taken off the browser: the one it left running is still signed in.
-            await rt.browsers.stop(agent_id)
+            # Taken off the browser: the one it left running is still signed in, and a turn
+            # of its that is going on would start it again at its next call.
+            await rt.browsers.retire(agent_id)
     return {
         "profile": describe_listed(rt, rt.deps_for(profile.id)),
         "restart_required": nothing_to_restart_for(),

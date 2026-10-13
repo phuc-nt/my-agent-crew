@@ -82,6 +82,10 @@ async def commit(rt: Runtime, prepared: Prepared, before: ChannelKey) -> None:
     rt.scheduler.reload_profiles()
     # A key that changed may be the one a server that is down was waiting for.
     rt.mcp.wake.set()
+    # An agent whose file took it off the browser since leaves none running.
+    for agent_id, deps in prepared.agents.items():
+        if not deps.profile.settings.browser.reads:
+            await rt.browsers.retire(agent_id)
     await sync_channel(rt, before)
 
 

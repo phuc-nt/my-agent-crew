@@ -12,6 +12,7 @@ import asyncio
 import contextlib
 import logging
 import time
+from collections import Counter
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -62,6 +63,8 @@ class BrowserPool:
         self.driver = Driver(self._lost)
         self._sessions: dict[str, asyncio.Future[Session]] = {}
         self._closing: dict[str, asyncio.Future[bool]] = {}
+        # Times an agent was taken off the browser: tools made before the last start none.
+        self.left: Counter[str] = Counter()
 
     async def session(self, agent_id: str) -> Session:
         """The agent's browser, started now if it is not up. The place is taken before the
@@ -74,10 +77,9 @@ class BrowserPool:
         return await asyncio.shield(task)
 
     @contextlib.asynccontextmanager
-    async def hold(self, agent_id: str) -> AsyncIterator[Session]:
-        """The agent's browser for the length of one call: it is not stopped for being idle
-        while a call is using it."""
-        session = await self.session(agent_id)
+    async def hold(self, session: Session) -> AsyncIterator[Session]:
+        """A browser for the length of one call: it is not stopped for being idle while a
+        call is using it. The caller asked for it once; asking again here would start one."""
         session.busy += 1
         try:
             yield session

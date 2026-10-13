@@ -8,6 +8,7 @@ import asyncio
 import importlib
 import logging
 import shutil
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -294,7 +295,7 @@ class Up:
     """A pool that says whose browser is up and keeps what it was asked to stop."""
 
     def __init__(self, *running: str) -> None:
-        self.up, self.stopped = set(running), []
+        self.up, self.stopped, self.left = set(running), [], Counter()
 
     def running(self, agent_id: str) -> object | None:
         return object() if agent_id in self.up else None

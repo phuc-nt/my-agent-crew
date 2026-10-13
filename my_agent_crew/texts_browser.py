@@ -101,6 +101,10 @@ TAB_NOT_OPEN = "Không có tab «{label}» để đóng."
 # the browser wrote, the hosts a page led to and the address it ended at go inside a fence.
 BROWSER_DOWN = "Không khởi động được trình duyệt: {error}"
 BROWSER_FAILED = "Trình duyệt báo lỗi: {error}"
+BROWSER_GONE = (
+    "Agent này đã bị gỡ khỏi đội hoặc bị tắt quyền dùng trình duyệt trong lúc lượt này đang "
+    "chạy. Đừng gọi thêm công cụ browser_* nào; hãy báo cho người dùng biết."
+)
 PAGE_STUCK = (
     "Trang không phản hồi sau {seconds} giây. Thử lại, mở lại trang bằng browser_navigate, hoặc "
     "đóng tab bằng browser_tabs(close=…)."

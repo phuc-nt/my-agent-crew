@@ -7420,10 +7420,19 @@ dựng một đội có agent giữ trình duyệt.
     đúng phần ấy; lời gọi đang chạy được kể là bận và kết thúc khi người đóng tab của nó; dừng thì
     kết thúc lời gọi đang chạy, giữ đăng nhập và để lời gọi sau khởi động lại; agent bị đưa về `off`
     thì trình duyệt nó để chạy bị dừng; gỡ agent thì mất cả trình duyệt lẫn những gì nó đã đăng nhập,
-    của agent khác còn nguyên; agent thêm vào hay dựng lại lúc server đang chạy dùng cùng một pool;
+    của agent khác còn nguyên; lượt đang chạy lúc agent bị đưa về `off` hay bị gỡ không duyệt thêm
+    được, còn bộ tool mới của agent được bật lại thì duyệt được; agent bị tệp của nó đưa về `off`
+    thì bị dừng trình duyệt ở lần đội được dựng lại, hồ sơ còn nguyên, agent khác không bị đụng;
+    agent thêm vào hay dựng lại lúc server đang chạy dùng cùng một pool;
     bảng tool của đội đánh dấu `with_browser` cho đúng sáu tool; dòng đầu của `browser_screenshot`
     nêu một đường dẫn mà `GET /api/agents/{id}/files` trả về như một ảnh, cả khi dòng ấy đã bị rút
     thành bản xem trước của step).
+- **agent bị gỡ hay bị tắt trình duyệt giữa lượt**:
+  - pytest: `tests/test_browser_retire.py` (bộ tool có từ trước khi agent bị gỡ không khởi động
+    lại trình duyệt và không để lại hồ sơ, còn agent mới cùng mã và agent khác thì dùng được;
+    dừng thường để chính lượt ấy khởi động lại, còn tắt hẳn thì không và đăng nhập được giữ; lời
+    gọi đang khởi động trình duyệt lúc agent bị gỡ chỉ khởi động đúng một lần và không để lại
+    gì; lời gọi đến lúc trình duyệt của agent bị gỡ còn đang đóng thì bị từ chối ngay).
 - **web: thẻ của máy ở mục Kết nối**:
   - vitest: `web/src/components/connections-browser-card.test.tsx` (server không nói gì về trình
     duyệt thì không vẽ thẻ; máy tắt thì thẻ nói chỗ bật; máy bật nói kênh và phiên bản, không có

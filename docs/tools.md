@@ -528,7 +528,12 @@ là `null` ở tab do một lượt chạy theo lịch mở. `stop` tắt trình
 đang dùng nó (lời gọi ấy kết thúc bằng một lỗi agent đọc được); đăng nhập còn nguyên và lời gọi
 kế tiếp khởi động lại. `PATCH /api/agents/{id}` nhận `browser` và `browser_hosts`; lần sửa để
 agent về `off` tắt luôn trình duyệt đang chạy của nó, và gỡ một agent thì xoá cả hồ sơ trình
-duyệt của nó.
+duyệt của nó. Lượt đang chạy lúc đó vẫn giữ bộ tool nó bắt đầu với, nhưng các tool `browser_*`
+trong đó không mở lại trình duyệt: lời gọi kế tiếp kết thúc bằng một lỗi nói agent đã bị gỡ hoặc
+bị tắt trình duyệt giữa lượt, và không có gì được ghi lại vào thư mục hồ sơ. Lời gọi đang dở lúc
+đó kết thúc bằng lỗi của trình duyệt bị đóng. Agent được bật lại, hay agent mới mang cùng id,
+nhận bộ tool mới ở lượt kế tiếp; lượt cũ vẫn bị từ chối. `stop` thì khác: nó chỉ tắt trình
+duyệt, và chính lượt đang chạy mở lại được.
 
 - **Kết nối.** Thẻ **Trình duyệt** nói máy đang bật hay tắt, kênh và phiên bản, hoặc thứ đang
   thiếu kèm lệnh cài, và agent nào đang có trình duyệt chạy. Riêng dòng cuối ấy đổi mà không ai
@@ -572,9 +577,11 @@ duyệt của nó.
 - Trang rời đi muộn hơn lúc tool đọc lại được kể như trang cũ; `browser_act` kế tiếp đọc lại
   trang và từ chối khi địa chỉ đã đổi.
 - Các job script theo lịch của một agent dùng chung một chủ tab.
-- Agent bị tắt trình duyệt bằng cách sửa tay tệp rồi nạp lại (không qua `PATCH`) giữ trình duyệt
-  đang chạy cho tới khi nó hết hạn rảnh; lượt đang chạy lúc agent bị sửa hay gỡ giữ bộ tool của
-  nó tới hết lượt.
+- Agent bị tắt trình duyệt bằng cách sửa tay tệp (không qua `PATCH`) giữ trình duyệt đang chạy
+  cho tới lần đội được dựng lại kế tiếp (lưu một khoá hay một tuyến model, hoặc khởi động lại)
+  hoặc tới khi nó hết hạn rảnh. Lượt đang chạy lúc agent bị sửa giữ bộ tool của nó tới hết
+  lượt: đưa agent từ `act` về `read` không lấy `browser_act` khỏi lượt ấy. Chỉ lần đưa về `off`
+  và lần gỡ mới chặn các tool `browser_*` của lượt đang chạy.
 - Thứ máy đã cài được đọc một lần lúc server khởi động: cài trình duyệt xong phải khởi động lại.
 - Trang nhận ra được đây là trình duyệt tự động (`navigator.webdriver` là `true`, user agent ghi
   HeadlessChrome), nên có site sẽ từ chối.
