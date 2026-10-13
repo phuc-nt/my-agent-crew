@@ -38,3 +38,11 @@ DEFAULT_ASK_WORDS = (
     "logout",
     "sign out",
 )
+
+# Refusals of a page address, before any tab is opened.
+URL_SCHEME = "Trình duyệt chỉ mở địa chỉ http và https đầy đủ, ví dụ https://shop.example/don-hang."
+URL_UNREACHABLE = "Không phân giải được tên máy chủ {host}: {error}"
+URL_PRIVATE = (
+    "Từ chối mở {host}: đó là địa chỉ nội bộ (máy này, mạng riêng hoặc mạng nội bộ). Trình duyệt "
+    "của đội chỉ tới địa chỉ công khai, và không cấu hình nào bật được việc này."
+)
