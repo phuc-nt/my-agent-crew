@@ -100,6 +100,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   small, as a link to the whole of it. On a server from before this release the web draws none of
   it.
 
+### Fixed
+
+- A sandboxed `shell_run` command that keeps the network (an agent with `shell_write_paths`) could
+  reach the server it runs under. The API asks for no login, so one request saved any agent's
+  file, the command's own `shell_write_paths` among them, and the sandbox was gone at the next
+  turn. The server now names its own port as it starts, and every sandbox profile refuses a TCP
+  connection to that port on every address; the rest of the network is the command's as before. A
+  shell that was never sandboxed, a `command` job and another local service that would pass a
+  request on are not covered.
+
 ## [0.17.0] — 2026-10-13
 
 ### Added

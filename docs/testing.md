@@ -7421,6 +7421,14 @@ dựng một đội có agent giữ trình duyệt.
     nằm; lời từ chối nói cả hai quy tắc; shell chưa từng bị giữ thì không vì thư mục riêng mà bị
     giữ). `tests/test_browser_runtime.py` giữ phần của server: thư mục đóng dù trình duyệt bật hay
     tắt, và được đóng trước khi server tìm trình duyệt.
+- **shell trong sandbox không gọi được API của chính server**:
+  - pytest: `tests/test_shell_server_port.py` (profile không đóng cổng nào cho tới khi server
+    nêu cổng của nó, rồi đóng cổng ấy ở cuối profile, có mạng hay không; cổng nêu hai lần được
+    đóng một lần và profile luôn là cùng một dòng chữ; lệnh trong sandbox còn mạng không tới được
+    cổng ấy qua `127.0.0.1`, `::1` hay `localhost`, với lời từ chối của sandbox, còn cổng khác
+    thì vẫn tới; server nêu đúng cổng `--port` trước khi dựng đội). Server giữ cổng đã nêu suốt
+    đời tiến trình, nên một fixture trong `tests/conftest.py` cho mỗi test bắt đầu khi chưa cổng
+    nào bị đóng.
 - **API: xem, dừng, đóng tab**:
   - pytest: `tests/test_browser_routes.py` (hỏi trạng thái không khởi động gì; agent không có trong
     đội là 404; tab được kể theo thứ tự dùng gần nhất, theo host và tiêu đề, không bao giờ theo địa
