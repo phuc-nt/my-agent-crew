@@ -99,12 +99,18 @@ class Kit:
 
     @contextlib.asynccontextmanager
     async def tab(
-        self, label: str = "", *, seconds: float = CALL_SECONDS, make: bool = False
+        self,
+        label: str = "",
+        *,
+        seconds: float = CALL_SECONDS,
+        make: bool = False,
+        last: bool = False,
     ) -> AsyncIterator[tuple[Session, Tab]]:
         """The caller's tab for the length of one call, alone on it, with the browser kept
-        up meanwhile. `make` opens the tab when the caller has none of that label. Whatever
-        the browser raises leaves as words the model can act on; a call that outlasts
-        `seconds` is given up."""
+        up meanwhile. `make` opens the tab when the caller has none of that label; `last`
+        takes no label to mean the tab of the caller's last call and no other. Whatever the
+        browser raises leaves as words the model can act on; a call that outlasts `seconds`
+        is given up."""
         owner = self.owner()
         try:
             async with asyncio.timeout(seconds):
@@ -117,7 +123,7 @@ class Kit:
                     if make:
                         tab = tabs.find(owner, label) or await tabs.open(owner, label)
                     else:
-                        tab = tabs.get(owner, label)
+                        tab = tabs.get(owner, label, last=last)
                     async with tab.lock:
                         tabs.touch(tab)
                         yield session, tab

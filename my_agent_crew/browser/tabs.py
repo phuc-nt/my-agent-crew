@@ -45,6 +45,7 @@ class Tabs:
         self._clock = clock
         self._tabs: dict[int, Tab] = {}
         self._ids = 0
+        self._last: dict[str, int] = {}
         self._opening = asyncio.Lock()
         self._answers: set[asyncio.Future[Any]] = set()
 
@@ -64,17 +65,28 @@ class Tabs:
         wanted = label.strip().casefold()
         return next((tab for tab in mine if tab.label == wanted), None)
 
-    def get(self, owner: str, label: str = "") -> Tab:
-        tab = self.find(owner, label)
+    def last(self, owner: str) -> Tab | None:
+        """The tab the owner's last call was on, None once it is gone: no other tab stands in
+        for it."""
+        return self._tabs.get(self._last.get(owner, 0))
+
+    def get(self, owner: str, label: str = "", *, last: bool = False) -> Tab:
+        """The owner's tab of that label. With no label it is the one used last, or with
+        `last` the one the owner's last call was on and no other."""
+        bound = last and not label
+        tab = self.last(owner) if bound else self.find(owner, label)
         if tab is not None:
             return tab
         mine = ", ".join(tab.label for tab in self.of(owner))
         if not mine:
             raise ToolError(t.NO_TAB)
+        if bound:
+            raise ToolError(t.TAB_GONE.format(labels=mine))
         raise ToolError(t.UNKNOWN_TAB.format(label=label, labels=mine))
 
     def touch(self, tab: Tab) -> None:
         tab.used = self._clock()
+        self._last[tab.owner] = tab.id
 
     async def open(self, owner: str, label: str = "") -> Tab:
         wanted = label.strip().casefold()
