@@ -35,10 +35,88 @@ from my_agent_crew.texts_browser import DEFAULT_ASK_WORDS
         ("https://[not-an-address/", ""),
         ("https://a..b.example/", ""),
         ("https://" + "a" * 64 + ".example/", ""),
+        # A name with a number in it that does not end in one stays the name it is.
+        ("http://123.example/", "123.example"),
+        ("http://1e3/", "1e3"),
+        ("http://0x1g/", "0x1g"),
+        ("http://1_0/", "1_0"),
+        ("http://shop.example.123a/", "shop.example.123a"),
     ],
 )
 def test_the_host_of_an_address_is_read_the_way_a_certificate_spells_it(url, host):
     assert host_of(url) == host
+
+
+@pytest.mark.parametrize(
+    "url, host",
+    [
+        ("http://2130706433/", "127.0.0.1"),
+        ("http://0x7f000001/", "127.0.0.1"),
+        ("http://0X7F000001/", "127.0.0.1"),
+        ("http://017700000001/", "127.0.0.1"),
+        ("http://0177.0.0.1/", "127.0.0.1"),
+        ("http://127.000.000.001/", "127.0.0.1"),
+        ("http://127.1/", "127.0.0.1"),
+        ("http://0x7f.1/", "127.0.0.1"),
+        ("http://127.0.0.0x1./", "127.0.0.1"),
+        ("http://\uff11\uff12\uff17.0.0.1/", "127.0.0.1"),  # full-width digits fold into plain
+        ("http://127\u30020\u30020\u30021/", "127.0.0.1"),  # and so does an ideographic stop
+        ("http://0/", "0.0.0.0"),
+        ("http://0x/", "0.0.0.0"),
+        ("http://0300.0250.0.1/", "192.168.0.1"),
+        ("http://0xa9fea9fe/", "169.254.169.254"),
+        ("http://10.1/", "10.0.0.1"),
+        ("http://1.2.3/", "1.2.0.3"),
+        ("http://1.2.65535/", "1.2.255.255"),
+        ("http://1.256/", "1.0.1.0"),  # only the last part is wider than a byte
+        ("http://1.16777215/", "1.255.255.255"),
+        ("http://4294967295/", "255.255.255.255"),
+        # A leading zero is octal to a browser: this is not the private 10.0.0.1 it looks like.
+        ("http://010.0.0.1/", "8.0.0.1"),
+        ("http://0127.0.0.1/", "87.0.0.1"),
+        ("http://134744072:8080/a?b=1#c", "8.8.8.8"),
+    ],
+)
+def test_a_host_written_in_numbers_is_the_address_a_browser_makes_of_it(url, host):
+    """Chromium reads every one of these so (the pinned one was asked). The browser is given
+    the plain spelling, so what was judged is what is opened."""
+    address = read_address(url)
+
+    assert address.host == host and host_of(address.url) == host
+    assert address.url.startswith(f"http://{host}") and read_address(address.url) == address
+    assert address.url.endswith("/a?b=1#c") == url.endswith("/a?b=1#c")
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "1.2.3.4.5",
+        "shop.123",
+        "shop.example.0x10",
+        "shop.example.010",
+        "shop.example.09",
+        "shop.0x",
+        "x.0",
+        "08",
+        "09.1",
+        "1.2.3.08",
+        "256.1.1.1",
+        "0x100.1.1.1",
+        "1.1.1.256",
+        # A part over 255 does not carry into the next, and a fifth part is not dropped.
+        "1.256.1.1",
+        "1.1.256.1",
+        "1.2.3.4.0",
+        "0.0.0.0.0",
+        "1.2.0x10000",
+        "1.16777216",
+        "4294967296",
+        "0x1ffffffff",
+    ],
+)
+def test_a_host_that_ends_in_a_number_and_is_no_address_is_no_host(host):
+    """A browser opens none of them, so none is a name a rule could be met by."""
+    assert read_address(f"https://{host}/") is None and host_of(f"http://{host}:80/x") == ""
 
 
 @pytest.mark.parametrize(

@@ -112,6 +112,21 @@ async def test_a_public_page_is_let_through_spelled_as_the_browser_is_given_it(u
     assert await check_url(url, PUBLIC.__getitem__) == given
 
 
+async def test_a_public_address_written_in_numbers_is_given_to_the_browser_spelled_plainly():
+    """And it is the plain address that is looked up: a resolver is not left to read the
+    numbers its own way."""
+    asked: list[str] = []
+
+    def resolver(host: str) -> list[str]:
+        asked.append(host)
+        return [host]
+
+    assert await check_url("http://134744072:8080/x?y=1", resolver) == "http://8.8.8.8:8080/x?y=1"
+    assert await check_url("https://010.0.0.1/", resolver) == "https://8.0.0.1/"
+    assert asked == ["8.8.8.8", "8.0.0.1"]
+    assert not always_refused("http://134744072/")
+
+
 @pytest.mark.parametrize(
     "url",
     [
@@ -132,6 +147,10 @@ async def test_a_public_page_is_let_through_spelled_as_the_browser_is_given_it(u
         "https://evil.test\\@shop.test/",
         "https://shop.test%2eevil.test/",
         "https://shop.test /",
+        "http://1.2.3.4.5/",
+        "https://shop.123/",
+        "http://256.0.0.1/",
+        "http://08/",
         "",
     ],
 )
@@ -162,6 +181,16 @@ async def test_only_a_full_http_address_is_opened(url):
         ("http://localhost:8765/", "localhost"),
         ("http://LOCALHOST./", "localhost"),
         ("http://shop.localhost:3000/", "shop.localhost"),
+        # This machine and its network, written in the numbers a browser also reads.
+        ("http://2130706433:8765/api/agents", "127.0.0.1"),
+        ("http://0x7f000001/", "127.0.0.1"),
+        ("http://0177.0.0.1/", "127.0.0.1"),
+        ("http://127.1/", "127.0.0.1"),
+        ("http://127.0.0.1./", "127.0.0.1"),
+        ("http://0/", "0.0.0.0"),
+        ("http://0300.0250.0.1/", "192.168.0.1"),
+        ("http://0xa9fea9fe/latest/meta-data/", "169.254.169.254"),
+        ("http://10.1/", "10.0.0.1"),
     ],
 )
 async def test_a_private_address_written_out_is_refused_with_no_name_resolved(url, host):

@@ -388,7 +388,8 @@ duyệt.
   lời gì thì không ai bị hỏi, ở hội thoại nào cũng vậy: lời gọi chạy thẳng tới lời từ chối, vì câu
   đồng ý không đổi được gì. Đó là địa chỉ không đọc được, địa chỉ không phải `http`/`https`, và địa
   chỉ nội bộ viết thẳng ra (`127.0.0.1`, `10.0.0.5`, `[::1]`, `localhost` và mọi tên dưới
-  `localhost`). Tên miền chỉ lộ ra là nội bộ khi phân giải thì vẫn theo thứ tự trên: hỏi trước nếu
+  `localhost`), kể cả khi viết bằng số theo kiểu khác (`2130706433`, `0x7f000001`, `0177.0.0.1`,
+  `127.1`). Tên miền chỉ lộ ra là nội bộ khi phân giải thì vẫn theo thứ tự trên: hỏi trước nếu
   phải hỏi, rồi mới bị từ chối.
 - `browser_act` luôn hỏi, kể cả trong hội thoại autonomous, khi `kind` là `upload` (thẻ duyệt
   nêu tệp nào, lên trang nào); khi agent có `browser_hosts` và trang đang hiện nằm ngoài danh
@@ -461,11 +462,16 @@ gắn từ ngoài; nút mà Enter bấm là nút đứng đầu, luôn nằm tro
 **Chỉ tới địa chỉ công khai.** Đây là từ chối cứng: không cấu hình và không lần duyệt nào bật được.
 `browser_navigate` chỉ nhận địa chỉ `http`/`https` đầy đủ; nó từ chối địa chỉ có `user@`, dấu `\`,
 ký tự mã hoá `%` trong tên máy chủ hay ký tự không in được. Tên miền quốc tế được đổi sang dạng
-ASCII (punycode) và trình duyệt được trao đúng cách viết đã xét. Địa chỉ nội bộ viết thẳng ra,
-`localhost` và mọi tên dưới `localhost` bị từ chối ngay, không phân giải tên nào: trình duyệt cũng
-không hỏi ai về `localhost`. Mọi tên khác được phân giải trước, và *mọi* địa chỉ nó trỏ tới phải
-công khai: loopback, mạng riêng, link-local, CGNAT, dải dành riêng và địa chỉ IPv4 bọc trong IPv6
-đều bị từ chối. Rào này chặt hơn rào của `fetch_url`.
+ASCII (punycode) và trình duyệt được trao đúng cách viết đã xét. Tên máy chủ kết thúc bằng một
+con số là một địa chỉ IPv4 đối với trình duyệt, viết bằng hệ nào và mấy phần cũng vậy:
+`2130706433`, `0x7f000001`, `0177.0.0.1` và `127.1` đều là `127.0.0.1`, còn `010.0.0.1` là
+`8.0.0.1` vì số 0 đứng đầu nghĩa là hệ tám. Tool đọc đúng như Chromium đọc, xét địa chỉ ấy và trao
+cho trình duyệt cách viết thường của nó; tên kết thúc bằng số mà không thành địa chỉ (`1.2.3.4.5`,
+`shop.123`) thì không trình duyệt nào mở, nên bị coi là địa chỉ không đọc được. Địa chỉ nội bộ
+viết thẳng ra, `localhost` và mọi tên dưới `localhost` bị từ chối ngay, không phân giải tên nào:
+trình duyệt cũng không hỏi ai về `localhost`. Mọi tên khác được phân giải trước, và *mọi* địa chỉ
+nó trỏ tới phải công khai: loopback, mạng riêng, link-local, CGNAT, dải dành riêng và địa chỉ IPv4
+bọc trong IPv6 đều bị từ chối. Rào này chặt hơn rào của `fetch_url`.
 
 Rào ấy mới xét địa chỉ đầu. Phần còn lại do một proxy trong chính tiến trình server lo: mỗi
 trình duyệt chỉ ra mạng qua proxy riêng của nó (lắng nghe trên loopback, mật khẩu sinh mới mỗi
