@@ -485,7 +485,9 @@ duyệt của nó.
   là tệp của máy, đọc lúc khởi động.
 - **Trình sửa agent.** Mục Công cụ có phần "Trình duyệt": Tắt, Đọc hoặc Thao tác, và danh sách
   host. Sáu tool `browser_*` không nằm trong danh sách cho phép, vì danh sách không quyết định
-  chúng.
+  chúng. Chọn một mức trên máy đang tắt trình duyệt hay chưa cài thì form nói ngay điều đó; một
+  dòng host không phải tên host được nêu tên dưới ô và giữ lần lưu lại. Chi tiết ở
+  [agents.md](agents.md#trình-sửa-trên-web).
 - **Trang agent.** Thẻ **Trình duyệt** cho thấy trình duyệt đang dừng hay chạy và từng tab (nhãn,
   tiêu đề, host, hội thoại, đang bận hay rảnh), với nút "Dừng trình duyệt" và "Đóng tab". Thẻ tự
   đọc lại mỗi 5 giây khi đang hiện.
@@ -495,7 +497,11 @@ duyệt của nó.
   "Bấm «Đặt hàng»", "Điền «…» vào «Mã giảm giá»") phía trên phần tham số thô, cùng lý do của
   server khi lời gọi dừng vì host, từ dừng hay tải tệp lên.
 - **Dòng thời gian của run và thẻ tool.** Bước `browser_screenshot` hiện ảnh nhỏ, đọc qua
-  `GET /api/agents/{id}/files?path=` (xem [Media và tệp](#media-và-tệp)); bấm vào mở tệp.
+  `GET /api/agents/{id}/files?path=` (xem [Media và tệp](#media-và-tệp)); bấm vào mở tệp trong
+  một tab riêng. Chỉ bước đã xong mới có ảnh, và ảnh không tải được (tệp đã bị dọn) thì không
+  để lại gì trên dòng.
+- **Server của bản trước.** Web đọc bundle mới trước lần khởi động lại; server chưa biết trình
+  duyệt không trả khoá `browser`, và web khi đó không vẽ mục, thẻ hay nhãn nào ở trên.
 
 **Giới hạn đã biết.**
 

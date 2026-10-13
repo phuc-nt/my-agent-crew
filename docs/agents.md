@@ -453,11 +453,52 @@ vừa bấm. Lời cảnh báo xét theo form đang hiện, chưa cần lưu, v�
 Cuối mục là liên kết "Xem những gì script của agent này giữ lại", mở màn "Script giữ lại" với đúng
 agent đó ([tools.md](tools.md#gọi-tool-từ-script), bullet "Trên web").
 
+**Mục "Trình duyệt"** đứng ngay sau mục Script và ghi hai khoá của `agent.yaml`; các tool và các rào
+ở [tools.md](tools.md#trình-duyệt):
+
+- "Mức dùng trình duyệt" là `browser`, một trong ba: "Tắt" (`off`), "Đọc" (`read`), "Thao tác"
+  (`act`). Dưới ô chọn là một dòng nói mức đang chọn đem tới tool nào và lời gọi nào phải hỏi.
+- "Máy chủ mở không cần hỏi" là `browser_hosts`, mỗi dòng một host (`shop.example`,
+  `*.shop.example`). Ô này hiện khi mức khác "Tắt". Đặt về "Tắt" thì danh sách vẫn nằm trong form
+  như cũ, nên chọn lại một mức là gặp lại nó.
+
+Form đọc ô host theo từng dòng: bỏ khoảng trắng hai đầu, viết thường, bỏ dòng trống. Dòng không phải
+tên host (một địa chỉ dán vào, có `https://`, cổng hay đường dẫn) được nêu tên ngay dưới ô, "«…»
+không phải tên máy chủ: bỏ https://, cổng và đường dẫn.", và lần lưu bị giữ lại cho tới khi dòng ấy
+được sửa. Form chỉ xét danh sách khi người sửa đã đổi nó, theo đúng luật của server; ô vẫn hiện
+chừng nào còn một dòng bị nêu, dù mức đang là gì.
+
+Chọn "Đọc" hay "Thao tác" trên máy không trao được trình duyệt thì dưới dòng gợi ý có thêm một lời
+cảnh báo: máy đang tắt trình duyệt (`browser_enabled` trong `config.yaml`), hoặc máy chưa cài trình
+duyệt (xem mục Kết nối). Công tắc của máy được nêu trước, vì khi nó tắt thì đã cài hay chưa không
+đổi gì. Lời cảnh báo không giữ lần lưu: khoá vẫn được ghi và có tác dụng khi máy được bật.
+
+Như mọi lần lưu, hai khoá có hiệu lực từ lượt kế tiếp, không cần khởi động lại; lần lưu đưa agent về
+"Tắt" thì trình duyệt đang chạy của nó dừng ngay. Sáu tool `browser_*` không có ô chọn trong danh
+sách công cụ, và dưới danh sách có một dòng nói vì sao: chúng đi kèm mục này, không kèm `tools:`.
+
+**Thẻ "Trình duyệt"** nằm dưới phần Công cụ, ngoài form: nó không lưu gì mà tác động ngay lên trình
+duyệt đang chạy. Thẻ hiện ở agent có mức khác "Tắt", và ở agent đã về "Tắt" mà trình duyệt cũ còn
+chạy.
+
+- Dòng trạng thái nói một trong bốn điều, theo thứ tự này: "Đang chạy · N tab" (kèm "đang làm việc"
+  hay "rảnh N giây"), máy đang tắt trình duyệt, máy chưa cài trình duyệt, hoặc "Chưa chạy. Trình
+  duyệt tự mở khi agent gọi một công cụ trình duyệt, và tự tắt sau một lúc không dùng."
+- Mỗi tab là một dòng: nhãn agent đặt, tiêu đề trang (hoặc "(chưa có tiêu đề)"), host (hoặc "(trang
+  trống)"), không bao giờ là địa chỉ đầy đủ; rồi "Mở cuộc trò chuyện" dẫn tới cuộc đã mở tab, hoặc
+  "Việc theo lịch" ở tab của một lượt chạy theo lịch; rồi "đang dùng" hay "rảnh N giây".
+- "Đóng tab" đóng một tab, "Dừng trình duyệt" tắt cả trình duyệt, kể cả khi một lời gọi đang dùng
+  nó. Không nút nào hỏi lại: đăng nhập vẫn được giữ, và lời gọi kế tiếp của agent mở lại trình
+  duyệt. Trong lúc một yêu cầu đang đi, mọi nút của thẻ chờ. Tab đã mất trước khi bấm thì thẻ nêu
+  câu của server và đọc lại danh sách.
+- Thẻ tự đọc lại mỗi 5 giây khi trang đang được xem, và đọc ngay khi trang được xem lại; trang bị
+  che thì không hỏi gì.
+
 **Danh sách công cụ đọc `listable_tools`.** Dưới "Chỉ dùng các công cụ được chọn", mỗi tên trong
 `listable_tools` của agent là một dòng, kèm mô tả của tool khi bảng công cụ có nó; form không giữ
 luật riêng nào về việc một danh sách `tools:` có tác dụng với tên nào. Vì vậy không có dòng cho tool
-MCP, `tool_search` hay `tool_script`, còn `delegate` có dòng ở agent có giao việc, kể cả lúc không
-agent nào còn giữ nó, để đánh dấu lại được.
+MCP, `tool_search`, `tool_script` hay các tool `browser_*`, còn `delegate` có dòng ở agent có giao
+việc, kể cả lúc không agent nào còn giữ nó, để đánh dấu lại được.
 
 - Agent không viết danh sách mở ở "Dùng tất cả công cụ hợp lệ". Bật danh sách lên thì nó bắt đầu từ
   những tool agent đang giữ trong số các dòng ấy, theo thứ tự các dòng; agent không giữ dòng nào thì
@@ -530,6 +571,11 @@ trên một server như thế: khoá nào vắng trong câu trả lời thì for
 là "Chỉ công cụ đọc", `script_llm` là có đánh dấu), và danh sách công cụ rơi về bảng công cụ như nêu
 ở trên. Màn "Script giữ lại" trong khoảng ấy thì có giới hạn riêng
 ([tools.md](tools.md#gọi-tool-từ-script), bullet "Trên web").
+
+Server trước 0.18.0 không trả khoá `browser` và sẽ từ chối một lần lưu có nó. Trên server như thế
+web không vẽ gì của trình duyệt: trình sửa không có mục "Trình duyệt", không có thẻ, không có dòng
+dưới danh sách công cụ, và lần lưu không gửi `browser` hay `browser_hosts`; mục Kết nối không có thẻ
+"Trình duyệt"; bảng công cụ không có nhãn nào.
 
 ## Agent master
 

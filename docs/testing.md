@@ -7417,3 +7417,84 @@ dựng một đội có agent giữ trình duyệt.
     bảng tool của đội đánh dấu `with_browser` cho đúng sáu tool; dòng đầu của `browser_screenshot`
     nêu một đường dẫn mà `GET /api/agents/{id}/files` trả về như một ảnh, cả khi dòng ấy đã bị rút
     thành bản xem trước của step).
+- **web: thẻ của máy ở mục Kết nối**:
+  - vitest: `web/src/components/connections-browser-card.test.tsx` (server không nói gì về trình
+    duyệt thì không vẽ thẻ; máy tắt thì thẻ nói chỗ bật; máy bật nói kênh và phiên bản, không có
+    phiên bản thì bỏ; thiếu gói hay thiếu Chromium nói đúng phần thiếu kèm lệnh cài, thiếu Chrome
+    thì không có lệnh nào để đưa; phần thiếu được nói cả khi máy đang tắt; agent nào đang có trình
+    duyệt chạy được kể bằng tên, không có tên thì bằng mã; thẻ không có gì để bấm, gõ hay mở).
+  - Playwright: `web/e2e/browser.spec.ts` (thẻ khi máy bật và có trình duyệt đang chạy; thẻ khi máy
+    tắt và khi thiếu trình duyệt, kèm lệnh cài; ở 390px thẻ không làm trang tràn ngang).
+- **web: mức dùng và danh sách host trong trình sửa agent**:
+  - vitest: `web/src/components/agent-editor/browser-controls.test.tsx` (ba mức, mỗi mức một dòng
+    gợi ý; lần lưu chỉ gửi khoá đã đổi, và về Tắt chỉ gửi mức, để nguyên danh sách đã lưu; ô host
+    hiện ở hai mức khác Tắt, danh sách còn nguyên như đã lưu và như đã gõ khi về Tắt rồi quay lại;
+    host được gửi viết thường và trần, ô xoá trắng là danh sách rỗng; dòng không phải host được
+    nêu tên dưới ô và giữ lần lưu, sửa xong thì lưu được, và ô vẫn hiện khi mức về Tắt; dòng sai
+    đã có sẵn trong tệp không giữ lần lưu của thứ khác; máy tắt hay chưa cài được nói ngay khi
+    chọn mức, trước mọi lần lưu, máy tắt nêu trước, và không nói gì khi máy chưa được đọc; agent
+    không sửa được ở đây thì chỉ xem; server chưa có khoá thì không vẽ gì và không gửi khoá nào),
+    `web/src/hooks/browser-hosts.test.ts` (một dòng một host, viết thường, bỏ dòng trống; luật của
+    server cho một tên host, một địa chỉ dán vào bị từ chối trọn),
+    `web/src/hooks/agent-draft-browser.test.ts` (hai khoá đọc từ tệp, server không biết trình
+    duyệt thì bản nháp không giữ khoá nào; dòng sai đầu tiên được nêu tên; danh sách chưa đổi thì
+    không bị xét; lần lưu là mức, danh sách, cả hai hoặc không gì).
+  - vitest: `web/src/components/agent-editor/tool-picker-browser.test.tsx` (sáu tool `browser_*`
+    không có ô chọn trong danh sách công cụ, dù server có trả `listable_tools` hay không; dưới
+    danh sách có dòng nói vì sao, agent ở mức nào cũng vậy).
+  - Playwright: `web/e2e/browser.spec.ts` (chọn mức và gõ host thì lần lưu gửi đúng `browser` và
+    `browser_hosts`, tải lại trang vẫn còn; ở 390px ô chọn và ô host đủ lớn cho ngón tay, lời cảnh
+    báo của máy và dòng nêu host sai xuống dòng trong trang).
+- **web: thẻ trình duyệt trên trang agent**:
+  - vitest: `web/src/components/agent-editor/browser-card.test.tsx` (agent ở Tắt và không có gì
+    chạy thì không có thẻ, còn agent đã về Tắt mà trình duyệt còn chạy thì vẫn có thẻ để dừng;
+    dòng trạng thái theo thứ tự đang chạy, máy tắt, chưa cài, chưa chạy; tab theo thứ tự của
+    server, mỗi tab kể nhãn, tiêu đề, host, cuộc trò chuyện hay việc theo lịch, đang dùng hay rảnh;
+    đóng tab và dừng làm ngay rồi đọc lại; trong lúc một yêu cầu đang đi mọi nút chờ; tab đã mất
+    được nêu bằng câu của server; câu trả lời tới lệch thứ tự không ghi đè cái mới hơn; lần đọc
+    hỏng giữ điều đang hiện và nói vậy; đọc lại mỗi 5 giây, cả với agent chưa có thẻ, trang bị
+    che thì thôi và đọc ngay khi được xem lại; lần lưu đổi mức thì đọc lại ngay; server chưa có
+    route thì không có thẻ và không hỏi nữa).
+  - Playwright: `web/e2e/browser.spec.ts` (các tab được liệt kê; "Đóng tab" gửi `DELETE` tới đúng
+    tab và "Dừng trình duyệt" gửi `POST …/browser/stop`; ở 390px mục và thẻ nằm trong trang, mọi
+    nút đủ lớn cho ngón tay).
+- **web: bảng công cụ**:
+  - vitest: `web/src/components/tools-matrix-browser.test.tsx` (sáu dòng mang nhãn "đi kèm trình
+    duyệt"; ô của agent đặt Tắt và ô `browser_act` của agent chỉ đọc nói lý do bằng khoá `browser`,
+    không bằng danh sách cho phép hay chế độ; agent của server bản trước đọc là không có trình
+    duyệt; đội không có tool trình duyệt nào thì không có dòng; chú thích chỉ có dòng cho dấu
+    đang dùng).
+- **web: lời gọi chờ duyệt đọc thành một câu**:
+  - vitest: `web/src/lib/browser-call.test.ts` (mỗi `kind` của `browser_act` và `browser_navigate`
+    thành một câu; địa chỉ chỉ được kể bằng host; mỗi phần trên một dòng và cắt ở 80 ký tự; ký tự
+    đảo chiều hay giấu chữ được viết bằng mã của nó; tham số thiếu hay sai kiểu thì không có câu
+    nào), `web/src/components/approval-bar-browser.test.tsx` (câu ấy đứng dưới lý do của server và
+    trên phần tham số thô, ở thanh duyệt của khung chat, kể cả khi cuộc trò chuyện mở lên từ một
+    yêu cầu đã lưu, lẫn ở dòng của thẻ "Cần bạn xử lý"; tool khác không có dòng này).
+  - Playwright: `web/e2e/browser.spec.ts` ("Bấm «Thanh toán»" phía trên tham số thô ở thanh duyệt;
+    "Mở trang shop.example" dưới lý do của server ở mục Duyệt; ở 390px câu dài xuống dòng).
+- **web: ảnh nhỏ của một lần chụp**:
+  - vitest: `web/src/lib/screenshot-path.test.ts` (đường dẫn đọc từ dòng đầu của
+    `browser_screenshot`, cả khi dòng đã bị rút; tool khác hay dòng khác thì không có gì),
+    `web/src/components/screenshot-thumb.test.tsx` (ảnh là liên kết tới tệp trong workspace của
+    agent đã chạy, mở tab riêng; chỉ lời gọi đã xong mới có ảnh, trên dòng step của run và thẻ
+    tool trong khung chat; ảnh không tải được thì không để lại gì, và dòng sang ảnh khác thì thử
+    ảnh ấy; không ai nói workspace của ai thì không có ảnh).
+  - Playwright: `web/e2e/browser.spec.ts` (ảnh nhỏ ở bước của run là liên kết tới
+    `/api/agents/{id}/files?path=…`, không lớn quá khung của nó; tệp không còn thì không có gì; ở
+    390px ảnh chụp cả trang dài vẫn nằm trong khung và đủ lớn cho ngón tay).
+- **web: nối các mảnh, và server của bản trước**:
+  - vitest: `web/src/app-browser-surfaces.test.tsx` (mục Kết nối kể tên agent đang có trình duyệt
+    chạy; trạng thái của máy tới được trình sửa từ lần đọc Kết nối đã có, chỉ hỏi một lần; thẻ của
+    trang agent mở đúng cuộc trò chuyện của một tab; lần lưu về Tắt dừng trình duyệt và thẻ đi
+    mất; ảnh nhỏ được hỏi ở agent của cuộc trò chuyện hay agent đã chạy; trên server bản trước
+    không có thẻ ở Kết nối, không có mục và thẻ ở agent, không có dòng, nhãn hay chú thích ở bảng
+    công cụ), `web/src/components/agent-editor/editor-on-older-server.test.tsx` (server không trả
+    `browser` thì trình sửa không có mục, không có thẻ, không có dòng dưới danh sách công cụ, và
+    lần lưu thứ khác không gửi khoá nào của trình duyệt).
+  - Playwright: `web/e2e/older-server.spec.ts` (trên server của bản trước không gì của trình
+    duyệt được vẽ: không ô đặt, không thẻ, không nhãn, và lần lưu không mang khoá nào của nó).
+  - vitest: `web/src/test/fake-browser.test.ts`, `web/src/test/schedule-contract.test.ts` (server
+    giả của test và của Playwright trả lời như server thật: tab mới dùng đứng trước, tab đã mất là
+    404 bằng câu của server, mã tab không phải số là 422, `browser: true` trần bị từ chối, host sai
+    bị từ chối).
