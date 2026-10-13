@@ -159,6 +159,9 @@ async def patch_agent(agent_id: str, body: PatchRequest, rt: Rt) -> dict[str, An
         # now rather than after a restart nobody remembers to do. Any other edit only
         # hands the running bot the rebuilt agent, without cutting off its poll.
         await sync_channel(rt, before)
+        if not profile.settings.browser.reads:
+            # Taken off the browser: the one it left running is still signed in.
+            await rt.browsers.stop(agent_id)
     return {
         "profile": describe_listed(rt, rt.deps_for(profile.id)),
         "restart_required": nothing_to_restart_for(),
@@ -185,9 +188,11 @@ async def delete_agent(agent_id: str, rt: Rt) -> dict[str, Any]:
         except OSError as exc:
             raise HTTPException(409, str(exc)) from exc
         rt.remove_agent(agent_id)
-        # What its scripts kept goes with it. Nobody is shown it once the agent is gone, and
-        # an agent later given this id would read it as its own.
+        # What its scripts kept and what its browser was signed in to go with it. Nobody is
+        # shown either once the agent is gone, and an agent later given this id would take
+        # them for its own.
         rt.store.script_store.forget_agent(agent_id)
+        await rt.browsers.forget(agent_id)
         if rt.channel is not None:
             rt.channel.use_agents(rt.agents)
     return {"removed": agent_id, "kept_at": str(trashed)}

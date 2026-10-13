@@ -114,4 +114,6 @@ def list_connections(rt: Rt) -> dict[str, Any]:
         # where it is being looked for — that separates "not running" from "wrong host".
         "ollama_base_url": ollama_base_url(),
         "telegram": _telegram(rt),
+        # What the machine has to start a browser with, and whose is up now.
+        "browser": rt.browsers.status(rt.agents),
     }

@@ -20,12 +20,20 @@ from my_agent_crew.agents import AgentProfile
 from my_agent_crew.server.agent_assembly import build_agent_deps
 
 if TYPE_CHECKING:
+    from my_agent_crew.agent.loop import AgentDeps
     from my_agent_crew.server.runtime import Runtime
 
 
 def _peers(rt: Runtime) -> dict[str, Any]:
     """The map every agent reads its peers from, reached through the default agent."""
     return rt.default.peers if isinstance(rt.default.peers, dict) else {}
+
+
+def _built(rt: Runtime, profile: AgentProfile) -> AgentDeps:
+    """An agent built as at startup: from what the runtime holds now, its browsers too."""
+    return build_agent_deps(
+        profile, rt.providers, rt.client, rt.store, rt.settings.routes, browser=rt.browsers.pool
+    )
 
 
 def add_agents(rt: Runtime, profiles: Iterable[AgentProfile]) -> list[str]:
@@ -38,9 +46,7 @@ def add_agents(rt: Runtime, profiles: Iterable[AgentProfile]) -> list[str]:
         raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
     peers = _peers(rt)
     fresh = [profile for profile in profiles if profile.id not in rt.agents]
-    built = [
-        build_agent_deps(p, rt.providers, rt.client, rt.store, rt.settings.routes) for p in fresh
-    ]
+    built = [_built(rt, profile) for profile in fresh]
     for profile, deps in zip(fresh, built, strict=True):
         deps.peers = peers
         rt.agents[profile.id] = deps
@@ -65,7 +71,7 @@ def replace_agent(
     written leaves the crew, the clock and every job's pause switch as they were."""
     if rt.client is None:
         raise RuntimeError(texts.RUNTIME_CANNOT_GROW)
-    deps = build_agent_deps(profile, rt.providers, rt.client, rt.store, rt.settings.routes)
+    deps = _built(rt, profile)
     if write is not None:
         write()
     peers = _peers(rt)

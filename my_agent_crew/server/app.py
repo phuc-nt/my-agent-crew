@@ -27,6 +27,7 @@ from my_agent_crew.server import (
     routes_artifact_import,
     routes_artifact_render,
     routes_artifacts,
+    routes_browser,
     routes_canvas_focus,
     routes_chat,
     routes_conversations,
@@ -46,6 +47,7 @@ from my_agent_crew.server import (
     routes_turn,
 )
 from my_agent_crew.server.agent_assembly import build_providers
+from my_agent_crew.server.browser_runtime import reap_loop
 from my_agent_crew.server.housekeeping import sweep_loop
 from my_agent_crew.server.local_guard import allowed_hosts, install_local_guard
 from my_agent_crew.server.mcp_lifecycle import connect_at_start, retry_loop
@@ -75,6 +77,7 @@ ROUTERS = (
     routes_agents.router,
     routes_agents_edit.router,
     routes_agents_files.router,
+    routes_browser.router,
     routes_script_store.router,
     routes_registry.router,
     routes_credentials.router,
@@ -116,6 +119,9 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         sweeper: asyncio.Task[None] | None = None
         servers: asyncio.Task[None] | None = None
+        # Whether or not anything is scheduled: a call may start a browser all the same.
+        pool = runtime.browsers.pool
+        reaper = asyncio.create_task(reap_loop(pool)) if pool is not None else None
         if schedule:
             runtime.scheduler.start()
             runtime.start_channel()
@@ -141,6 +147,11 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
             await runtime.inbound.host.stop()
             await runtime.stop_channel()
             await runtime.scheduler.stop()
+            if reaper is not None:
+                reaper.cancel()
+            if pool is not None:
+                # Last of what runs: no turn or job is left to start one again.
+                await pool.stop_all()
             runtime.hub.close()
 
     app = SecuredApp(title="my-agent-crew", version=__version__, lifespan=lifespan)

@@ -19,7 +19,7 @@ from typing import Any
 from my_agent_crew.browser.network import Allow
 from my_agent_crew.browser.proxy import FilteringProxy
 from my_agent_crew.browser.tabs import Tab, Tabs
-from my_agent_crew.config_browser import BrowserSettings
+from my_agent_crew.config_browser import BrowserSettings, profile_dir
 from my_agent_crew.tools.web import Resolver, resolve_host
 
 log = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class BrowserPool:
     ) -> None:
         self.root = root
         self.settings = settings
-        self._clock = clock
+        self.clock = clock
         self.resolver = resolver
         self.allow = allow
         self._driver: asyncio.Future[Any] | None = None
@@ -94,7 +94,7 @@ class BrowserPool:
             yield session
         finally:
             session.busy -= 1
-            session.used = self._clock()
+            session.used = self.clock()
 
     def running(self, agent_id: str) -> Session | None:
         task = self._sessions.get(agent_id)
@@ -108,8 +108,11 @@ class BrowserPool:
         return session.tabs.find(owner, label) if session else None
 
     async def stop(self, agent_id: str) -> bool:
+        """Whether this call stopped it; a stop someone else began is waited for all the same."""
         task = self._sessions.pop(agent_id, None)
         if task is None:
+            if agent_id in self._closing:
+                await asyncio.wait({self._closing[agent_id]})
             return False
         closing = self._closing[agent_id] = asyncio.ensure_future(self._close(task))
         closing.add_done_callback(
@@ -137,7 +140,7 @@ class BrowserPool:
     async def reap(self) -> list[str]:
         """Stop the browsers nobody used for `idle_minutes` and close the cold tabs of the
         others; the agents whose browser was stopped."""
-        now, stopped = self._clock(), []
+        now, stopped = self.clock(), []
         for agent_id in list(self._sessions):
             session = self.running(agent_id)
             if session is None or session.busy:
@@ -149,8 +152,7 @@ class BrowserPool:
         return stopped
 
     async def _launch(self, agent_id: str) -> Session:
-        if Path(agent_id).name != agent_id or agent_id in ("", ".", ".."):
-            raise ValueError(f"not an agent id: {agent_id!r}")
+        profile = profile_dir(self.root, agent_id)
         if agent_id in self._closing:  # a profile is one browser's at a time
             await asyncio.wait({self._closing[agent_id]})
         if self._driver is None:
@@ -161,7 +163,6 @@ class BrowserPool:
         proxy = FilteringProxy(self.resolver, self.allow)
         await proxy.start()
         try:
-            profile = self.root / agent_id
             profile.mkdir(mode=0o700, parents=True, exist_ok=True)
             context = await driver.chromium.launch_persistent_context(
                 str(profile),
@@ -177,8 +178,8 @@ class BrowserPool:
             raise
         context.set_default_timeout(ACTION_MS)
         context.set_default_navigation_timeout(NAVIGATION_MS)
-        tabs = Tabs(context, self.settings.max_tabs, self._clock)
-        session = Session(agent_id, context, proxy, tabs, self._clock())
+        tabs = Tabs(context, self.settings.max_tabs, self.clock)
+        session = Session(agent_id, context, proxy, tabs, self.clock())
         context.on("close", lambda _context: self._closed(session))
         log.info("browser started for agent %s (%s)", agent_id, self.settings.channel)
         return session

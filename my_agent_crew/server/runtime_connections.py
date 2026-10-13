@@ -57,7 +57,9 @@ def prepare(rt: Runtime, env: Mapping[str, str], routes: Sequence[Route] | None 
         settings = replace(settings, routes=tuple(routes))
     providers = build_providers(settings, rt.client, env)
     agents = {
-        profile.id: build_agent_deps(profile, providers, rt.client, rt.store, settings.routes)
+        profile.id: build_agent_deps(
+            profile, providers, rt.client, rt.store, settings.routes, browser=rt.browsers.pool
+        )
         for profile in load_profiles(settings)
         if profile.id in rt.agents
     }

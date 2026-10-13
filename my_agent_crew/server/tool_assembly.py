@@ -10,8 +10,11 @@ from collections.abc import Sequence
 import httpx
 
 from my_agent_crew.agents import AgentProfile
+from my_agent_crew.browser.pool import BrowserPool
+from my_agent_crew.config_browser import browser_root
 from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.provider import ProviderChain
+from my_agent_crew.server.browser_runtime import browser_tools_of
 from my_agent_crew.server.tool_list_names import Reason, listable, listed_elsewhere
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Store
@@ -90,6 +93,7 @@ def assemble(
     extra: Sequence[Tool] = (),
     vision: ProviderChain | None = None,
     chain: ProviderChain | None = None,
+    browser: BrowserPool | None = None,
 ) -> tuple[ToolRegistry, tuple[str, ...]]:
     """The agent's tools, and the names a `tools:` list can bring it (`listable`).
 
@@ -98,7 +102,10 @@ def assemble(
     `chain` is the agent's own route chain, used to summarise the middle of an over-cap
     text output. Without one the output is cut instead, which is what every caller that
     does not pass a chain gets. Every call either chain makes here lands in the usage
-    ledger under what it was for."""
+    ledger under what it was for.
+
+    `browser` is where the agent's browser is started; without it no agent gets a
+    browser tool."""
     pictures = MeteredChain(vision, store, profile.id, "image") if vision is not None else None
     pages = MeteredChain(vision, store, profile.id, "pdf") if vision is not None else None
     tools: list[Tool] = [
@@ -121,6 +128,8 @@ def assemble(
             network=profile.settings.shell_network,
             write_paths=profile.shell_write_dirs,
             deny_patterns=profile.settings.shell_deny_patterns,
+            # What the browsers are signed in to: no sandboxed command reads it.
+            private=(browser_root(profile.settings.home),),
         ),
         *build_skill_tools(skills),
         # Asking is not a capability an agent should have to be granted: an agent that may
@@ -178,6 +187,9 @@ def assemble(
     tools.append(build_output_read_tool(store, spill, limit))
     why = listed_elsewhere(profile, {tool.name for tool in work_only})
     kept = allowed(tools, profile.tools, profile.id, why)
+    # The agent's `browser` key alone brings these and alone keeps them away: a list
+    # written before the key was set would otherwise quietly leave the browser out.
+    kept += browser_tools_of(browser, profile, limit, pictures)
     can_reread = any(tool.name == READ_TOOL for tool in kept)
     hooks = HookRunner(profile.hooks, profile.id) if profile.hooks else None
     summariser = None
