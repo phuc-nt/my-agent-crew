@@ -7308,6 +7308,15 @@ dựng một đội có agent giữ trình duyệt.
     duyệt không tự chạy việc riêng nào ra mạng; pool đã bị đánh dấu đóng thì không khởi động trình
     duyệt nào và không để lại hồ sơ, trình duyệt đang chạy vẫn là của agent cho tới khi mọi thứ
     dừng; dừng mọi thứ chưa phải là đóng).
+  - pytest: `tests/test_browser_launch.py` (trang không gửi được gói UDP nào vòng qua proxy, kể cả
+    trên hồ sơ đã dùng trước đó; địa chỉ viết `http` được hỏi ở đúng cổng của nó, không thử cổng
+    https trước; trình duyệt nhận đúng một danh sách tính năng bị tắt, gồm của driver và của đội;
+    những tên chép lại từ driver đúng là thứ driver đang cài tắt; sandbox của chính Chromium được
+    giữ trên macOS và để như driver đặt ở nơi khác; hồ sơ mới là riêng tư và mở đầu bằng thiết lập
+    của đội, thứ trình duyệt đã ghi được giữ còn thiết lập của đội được ghi đè lên, tệp thiết lập
+    không đọc được thì được thay, tệp đã đúng thì không ghi lại; driver không khởi động được thì
+    không bị giữ và lần sau khởi động cái khác; driver biến mất kéo theo các trình duyệt của nó và
+    lời gọi sau bắt đầu lại từ đầu).
 - **chỉ tới địa chỉ công khai**:
   - pytest: `tests/test_browser_network.py` (địa chỉ không công khai là nội bộ, kể cả địa chỉ riêng
     viết trong IPv6; dải mà `fetch_url` cho qua thì trình duyệt vẫn chặn; một tên chỉ tới được khi
@@ -7342,10 +7351,12 @@ dựng một đội có agent giữ trình duyệt.
     nửa giờ bị đóng; cửa sổ trang tự mở là tab kế tiếp của cùng cuộc; hộp thoại bị gạt đi và được giữ
     lại để kể; trang hỏi có rời đi không thì được rời).
   - pytest: `tests/test_browser_kit.py` (lời gọi ngoài mọi cuộc trò chuyện dùng tab của job; `ref`
-    là thứ model đã được thấy hoặc không tìm ra gì; rào được tạo mới cho mỗi câu trả lời; chỗ dành
-    cho trang là phần trần còn lại và không bao giờ quá ít để đọc; trang đứng yên được vẽ một lần,
-    trang chuyển đi lúc đang vẽ được vẽ lại, chuyển trong cùng trang không tính, trang không ngừng
-    chuyển được kể ở địa chỉ nó vừa rời; lỗi của trình duyệt chỉ kể dòng đầu).
+    là thứ model đã được thấy hoặc không tìm ra gì; trang đứng yên được vẽ một lần, trang chuyển đi
+    lúc đang vẽ được vẽ lại, chuyển trong cùng trang không tính, trang không ngừng chuyển được kể ở
+    địa chỉ nó vừa rời; bản vẽ trình duyệt đánh mất được vẽ lại khi trang đã yên, bản vẽ quá giờ
+    hay hỏng ở phía server thì không, lần vẽ cuối bị mất là một lỗi; lỗi của trình duyệt được nhận
+    ra theo nơi lớp của nó sống; tham số được đọc đúng kiểu tool nhận; schema nêu thứ bắt buộc; tên
+    host được kể mỗi tên một lần, và chỉ vài tên).
 - **trang được kể thành dàn ý, giữa hai dòng rào**:
   - pytest: `tests/test_browser_snapshot.py` (mỗi phần tử có `ref` được đọc cùng vai trò và tên;
     `ref` viết trong tên hay trong giá trị không phải là `ref`; phần tử mang từ dừng của chính tên
@@ -7354,6 +7365,20 @@ dựng một đội có agent giữ trình duyệt.
     quá trần thì rút về những gì thao tác được; tìm kiếm trả những dòng chứa từ, dưới các dòng cha
     của chúng, xét cả giá trị, địa chỉ và hai cách viết dấu; mọi khung nhìn bị cắt đều kết ở một dòng
     trọn và nói còn bao nhiêu).
+  - pytest: `tests/test_browser_fence.py` (rào được tạo mới cho mỗi câu trả lời; chỗ dành cho trang
+    là phần trần còn lại, và là không khi trần quá nhỏ; chỗ để dành đủ cho thứ registry và các tool
+    viết thêm sau đó; dòng được giữ trọn và mỗi dòng tính cả dấu xuống dòng; câu trả lời là các dòng
+    của tool rồi tới trang trong rào; không còn chỗ cho trang thì câu trả lời nói vậy thay cho
+    trang; ghi chú registry thêm vào không bao giờ làm mất dòng đóng rào; lời từ chối giữ trọn chi
+    tiết của nó hoặc bỏ hẳn; lỗi chỉ kể dòng đầu; ngoài rào, lỗi được kể bằng mã của trình duyệt
+    hoặc tên loại lỗi; dòng lỗi của trình duyệt nằm trong rào).
+  - pytest: `tests/test_browser_answer_caps.py` (qua registry thật, với hook thêm ghi chú, model
+    tóm tắt và thư mục cất bản đầy đủ, ở bảy mức trần từ 300 tới 8.000 ký tự: không câu trả lời nào
+    bị cắt, cất hay tóm tắt, rào đã mở thì đóng, không chữ nào của trang đứng ngoài rào; trang dài
+    được đưa tới chỗ trần còn chứa và nói đã đưa tới đâu; trần không đủ cho một cái rào thì tool
+    nói vậy và không rào gì; tab được liệt kê theo dòng trọn; tên host mà trang đẩy trình duyệt tới
+    được kể trong rào hoặc không kể; ảnh chỉ được đọc khi trần còn chỗ cho lời đọc; script nhận câu
+    trả lời trọn vẹn dù trần của agent cao tới đâu).
   - pytest: `tests/test_browser_navigate.py` (trang được kể giữa hai dòng rào và được giữ làm thứ đã
     cho xem; lời gọi tiếp tục ở tab vừa dùng trừ khi nêu tab khác; địa chỉ bị từ chối không khởi
     động trình duyệt; trang dẫn tới địa chỉ riêng bị từ chối và để lại tab trắng; lời từ chối của
