@@ -1,8 +1,10 @@
-"""How a Chromium of the crew is started (`pool.py` calls it).
+"""How a Chromium of the crew is started, whoever starts it: an agent's own, which nobody
+sees (`pool.py`), and the window a person signs in through (`login.py`).
 
-It runs on the agent's profile and behind a proxy that refuses private addresses
+Either one runs on the agent's profile and behind a proxy that refuses private addresses
 (`proxy.py`). The switches and the preferences below are what keeps anything from leaving it
-beside that proxy, and keep the browser from running errands of its own."""
+beside that proxy, and keep the browser from running errands of its own, so they are given
+to both."""
 
 from __future__ import annotations
 
@@ -127,23 +129,38 @@ def prepare(profile: Path) -> None:
         os.replace(fresh, path)
 
 
-async def launch(driver: Any, profile: Path, channel: str, proxy: dict[str, str]) -> Any:
+async def launch(
+    driver: Any,
+    profile: Path,
+    channel: str,
+    proxy: dict[str, str],
+    *,
+    headed: bool = False,
+    downloads: Path | None = None,
+) -> Any:
     """A Chromium on `profile` whose every request goes to `proxy`.
+
+    `headed` opens it as a window on the screen, sized by whoever uses it. A file a page
+    sends is kept only where `downloads` names a folder for it; without one the browser
+    drops every file it is sent.
 
     On macOS it keeps Chromium's own sandbox, which the driver would switch off: a page that
     breaks out of its renderer is still not the server's user. Elsewhere that sandbox needs a
     set-up the crew cannot count on, so it stays as the driver leaves it."""
     await asyncio.to_thread(prepare, profile)
+    own: dict[str, Any] = {"no_viewport": True} if headed else {"viewport": VIEWPORT}
+    if downloads is not None:
+        own["downloads_path"] = str(downloads)
     context = await driver.chromium.launch_persistent_context(
         str(profile),
-        headless=True,
+        headless=not headed,
         channel=channel,
         proxy=proxy,
-        accept_downloads=False,
-        viewport=VIEWPORT,
+        accept_downloads=downloads is not None,
         args=list(ARGS),
         ignore_default_args=[DRIVER_SWITCH],
         chromium_sandbox=sys.platform == "darwin",
+        **own,
     )
     context.set_default_timeout(ACTION_MS)
     context.set_default_navigation_timeout(NAVIGATION_MS)
