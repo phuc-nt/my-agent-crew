@@ -33,6 +33,8 @@ from my_agent_crew.browser.kit import (
     SCREENSHOT,
     SNAPSHOT,
 )
+from my_agent_crew.browser.launch import launch
+from my_agent_crew.browser.login import LoginWindows
 from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.config_browser import browser_root
 from my_agent_crew.server import browser_runtime, routes_browser
@@ -40,7 +42,7 @@ from my_agent_crew.server.app import create_app
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_connections import channel_key, commit, prepare
 from my_agent_crew.tools.registry import ToolError
-from tests.browser_crew import HERE, ON, browser_tools, built, crew_home
+from tests.browser_crew import HERE, ON, Screen, browser_tools, built, crew_home
 from tests.browser_servers import Clock, Site, local_names, only
 
 LONG_TITLE = "Tên trang rất dài " * 20
@@ -57,6 +59,11 @@ PAGES = {
 SHOT_LINE = re.compile(
     r"^Đã lưu ảnh chụp tab [a-z0-9_-]+ vào (.*?\d{8}T\d{6}Z-[a-z0-9_-]+\.(?:png|jpg))\."
 )
+# No window a person signs in through is open, and one can be opened now.
+NO_WINDOW = {"open": False, "until": None, "available": True, "why": ""}
+# An agent with no browser has no profile to sign in on.
+NO_PROFILE = {"open": False, "until": None, "available": False, "why": "off"}
+# A browser that is down, on a profile no browser ever closed on.
 DOWN = {
     "enabled": True,
     "installed": True,
@@ -64,6 +71,8 @@ DOWN = {
     "busy": False,
     "idle_seconds": None,
     "tabs": [],
+    "login": NO_WINDOW,
+    "logins": None,
 }
 
 
@@ -75,10 +84,15 @@ class Crew:
     home: Path
     clock: Clock
     env: dict[str, str]
+    screen: Screen
 
     @property
     def pool(self) -> BrowserPool:
         return self.rt.browsers.pool
+
+    @property
+    def windows(self) -> LoginWindows:
+        return self.rt.browsers.windows
 
     async def call(self, agent_id: str, tool: str, conversation: str = "", **args: Any) -> str:
         """One call of an agent's own tool, as a turn of that conversation makes it; as a
@@ -105,11 +119,14 @@ async def serving(
     root: Path, monkeypatch, eyes: bool = False, **agents: str
 ) -> AsyncIterator[Crew]:
     """A crew served on the test's own loop, whose browsers reach one local server. With
-    `eyes` the crew has a model that reads pictures."""
-    site, clock = Site(PAGES), Clock()
+    `eyes` the crew has a model that reads pictures. Its screen is what the test says it is,
+    and the window a person would sign in through is a Chromium nobody sees."""
+    site, clock, screen = Site(PAGES), Clock(), Screen()
     monkeypatch.setattr(browser_runtime, "installed", lambda channel, env: HERE)
     reaching = functools.partial(BrowserPool, resolver=local_names, allow=only(site), clock=clock)
     monkeypatch.setattr(browser_runtime, "BrowserPool", reaching)
+    unseen = functools.partial(LoginWindows, console=screen, opener=launch)
+    monkeypatch.setattr(browser_runtime, "LoginWindows", unseen)
     env = crew_home(root, **agents) | ({"MY_AGENT_VISION_ROUTES": "fake:echo"} if eyes else {})
     rt = built(env)
     app = create_app(rt, schedule=False)
@@ -117,9 +134,11 @@ async def serving(
         async with app.router.lifespan_context(app):
             transport = httpx.ASGITransport(app=app)
             async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1") as web:
-                yield Crew(web, rt, site, root / "home", clock, env)
+                yield Crew(web, rt, site, root / "home", clock, env, screen)
     finally:
-        await rt.browsers.pool.stop_all()
+        # Browsers that never stop are a failed test, not a run that never ends.
+        async with asyncio.timeout(60):
+            await rt.browsers.stop_all()
         site.close()
 
 
@@ -145,7 +164,7 @@ async def test_a_browser_that_is_down_is_told_so_and_asking_starts_nothing(crew:
     assert await crew.told("coach") == {"mode": "act", **DOWN}
     assert await crew.told("reader") == {"mode": "read", **DOWN}
     for without in ("plain", "default"):
-        assert await crew.told(without) == {"mode": "off", **DOWN}, without
+        assert await crew.told(without) == {"mode": "off", **DOWN, "login": NO_PROFILE}, without
 
     # Nor does stopping one that is down, or closing a tab of it.
     reply = await crew.client.post("/api/agents/coach/browser/stop")
@@ -251,6 +270,9 @@ async def test_a_running_browser_is_told_by_its_tabs_last_used_first(crew: Crew)
                 "busy": False,
             },
         ],
+        "login": NO_WINDOW,
+        # It can be asked now, and holds nothing a site would know a person by.
+        "logins": [],
     }
     # One agent's browser is not another's: asking after it did not start theirs either.
     assert await crew.told("reader") == {"mode": "read", **DOWN}
@@ -320,7 +342,13 @@ async def test_an_agent_whose_machine_has_no_browser_to_start_is_told_which_part
             closed = await web.delete("/api/agents/coach/browser/tabs/1")
 
     # Its own file still asks for one: the mode is the agent's, the reason is the machine's.
-    assert told.json() == {"mode": "act", **DOWN, "enabled": enabled, "installed": installed}
+    assert told.json() == {
+        "mode": "act",
+        **DOWN,
+        "enabled": enabled,
+        "installed": installed,
+        "login": NO_PROFILE,
+    }
     assert (stopped.status_code, stopped.json()) == (200, {"stopped": False})
     assert (closed.status_code, closed.json()) == (404, {"detail": told_to_the_web.TAB_UNKNOWN})
     assert rt.browsers.pool is None and browser_tools(rt, "coach") == []
@@ -393,7 +421,8 @@ async def test_stopping_ends_the_call_in_flight_keeps_the_logins_and_lets_the_ne
         await asyncio.wait_for(slow, 5)
     assert str(refusal.value).startswith(failed_words())
     assert crew.pool.running("coach") is None
-    assert await crew.told("coach") == {"mode": "act", **DOWN}
+    # A browser closed on the profile, so what it held is known: nothing a person is known by.
+    assert await crew.told("coach") == {"mode": "act", **DOWN, "logins": []}
     # What it was signed in to is still in its folder, and nobody else's browser went.
     assert profile.is_dir() and any(profile.iterdir())
     assert crew.pool.running("reader") is other and (await crew.told("reader"))["running"]
@@ -426,7 +455,7 @@ async def test_an_agent_taken_off_the_browser_has_the_one_it_left_running_stoppe
     assert reply.status_code == 200, reply.text
     assert crew.pool.running("coach") is None
     assert browser_tools(crew.rt, "coach") == []
-    assert await crew.told("coach") == {"mode": "off", **DOWN}
+    assert await crew.told("coach") == {"mode": "off", **DOWN, "login": NO_PROFILE}
     # Its logins wait for the day it is given the browser back; the others' browsers stay up.
     assert (browser_root(crew.home) / "coach").is_dir()
     assert crew.pool.running("reader") is other
@@ -469,7 +498,7 @@ async def test_a_turn_still_running_when_its_agent_loses_the_browser_browses_no_
     assert reply.status_code == 200, reply.text
     assert await refused("coach") == told_to_a_model.BROWSER_GONE
     assert crew.pool.running("coach") is None
-    assert await crew.told("coach") == {"mode": "off", **DOWN}
+    assert await crew.told("coach") == {"mode": "off", **DOWN, "login": NO_PROFILE}
     # Given the browser back, the agent's next turn browses, signed in as before. The turn
     # that was running when it lost the browser is not given it back.
     reply = await crew.client.patch("/api/agents/coach", json={"profile": {"browser": "act"}})

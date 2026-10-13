@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew.browser.install import NO_BROWSER, NO_PACKAGE, Installed, installed
+from my_agent_crew.browser.login import LoginWindows
 from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.browser.tools import build_browser_tools
 from my_agent_crew.config_browser import CHANNELS, BrowserSettings, browser_root, profile_dir
@@ -47,6 +48,8 @@ class Browsers:
     # None where the machine's file leaves the browser off, or where there is none to start:
     # no agent is given a browser tool then, whatever its own file asks for.
     pool: BrowserPool | None = None
+    # The windows people sign in through, on the profiles the pool's browsers run on.
+    windows: LoginWindows | None = None
 
     @property
     def install_command(self) -> str:
@@ -69,18 +72,32 @@ class Browsers:
         }
 
     async def stop(self, agent_id: str) -> bool:
-        """Stop the agent's browser now. What it is signed in to stays in its profile, and
-        its next call starts it again. Whether there was one for this call to stop."""
-        return self.pool is not None and await self.pool.stop(agent_id)
+        """Stop the agent's browser now, and the window a person has open on its profile.
+        What it is signed in to stays in its profile, and its next call starts it again.
+        Whether there was either for this call to stop."""
+        closed = self.windows is not None and await self.windows.done(agent_id)
+        stopped = self.pool is not None and await self.pool.stop(agent_id)
+        return closed or stopped
+
+    async def stop_all(self) -> None:
+        """The server is stopping: no Chromium of the crew outlives it, seen or unseen, and
+        none is started from here on by a turn that is still on its way out."""
+        if self.pool is not None:
+            self.pool.shut = True
+        if self.windows is not None:
+            await self.windows.close_all()
+        if self.pool is not None:
+            await self.pool.stop_all()
 
     async def retire(self, agent_id: str) -> bool:
-        """Stop the browser of an agent that is removed or taken off the browser, for good.
-        A turn of its that is still running holds the tools it began with: they are told
-        before the stop takes its first step, so no call of theirs starts it again."""
+        """Stop the browser of an agent that is removed or taken off the browser, for good,
+        and the window a person has open on its profile. A turn of its that is still running
+        holds the tools it began with: they are told before the stop takes its first step, so
+        no call of theirs starts it again."""
         if self.pool is None:
             return False
         self.pool.left[agent_id] += 1
-        return await self.pool.stop(agent_id)
+        return await self.stop(agent_id)
 
     async def forget(self, agent_id: str) -> None:
         """An agent left the crew: its browser is stopped and the folder its logins were kept
@@ -105,6 +122,7 @@ def build_browsers(settings: Settings, env: Mapping[str, str]) -> Browsers:
     browsers = Browsers(root, own, installed(own.channel, env))
     if own.enabled and browsers.found.ok:
         browsers.pool = BrowserPool(root, own)
+        browsers.windows = LoginWindows(browsers.pool)
     elif own.enabled:
         command = browsers.install_command
         logger.warning(
