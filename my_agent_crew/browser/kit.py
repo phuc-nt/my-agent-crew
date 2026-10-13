@@ -18,10 +18,11 @@ from my_agent_crew import texts_browser as t
 from my_agent_crew.agent.turn_context import turn_conversation_id
 from my_agent_crew.browser.fence import driver_error, first_line
 from my_agent_crew.browser.policy import AskWords
-from my_agent_crew.browser.pool import BrowserPool, Session
+from my_agent_crew.browser.pool import BrowserPool, Reserved, Session
 from my_agent_crew.browser.snapshot import Node, Shown, Snapshot, address, read, traits
 from my_agent_crew.browser.tabs import JOB_OWNER, Tab
 from my_agent_crew.config_browser import BrowserSettings
+from my_agent_crew.texts_browser_login import LOGIN_OPEN
 from my_agent_crew.tools.registry import Tool, ToolError
 
 NAVIGATE, SNAPSHOT, TEXT = "browser_navigate", "browser_snapshot", "browser_text"
@@ -126,6 +127,8 @@ class Kit:
                     raise ToolError(t.BROWSER_GONE)
                 try:
                     session = await self.pool.session(self.agent_id)
+                except Reserved as exc:  # a person is signing in on the agent's profile
+                    raise ToolError(LOGIN_OPEN) from exc
                 except Exception as exc:  # noqa: BLE001 - whatever kept the browser from starting
                     raise ToolError(t.BROWSER_DOWN.format(error=first_line(exc))) from exc
                 async with self.pool.hold(session):

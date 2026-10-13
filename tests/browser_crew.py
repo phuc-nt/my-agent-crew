@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from my_agent_crew.browser.console import OPEN
 from my_agent_crew.browser.install import Installed
 from my_agent_crew.config import load_settings
 from my_agent_crew.server.runtime import Runtime
@@ -13,6 +14,17 @@ from my_agent_crew.server.runtime_build import build_runtime
 # A machine that has the pinned Chromium.
 HERE = Installed(True, "153.0.8010.12")
 ON = "browser_enabled: true\n"
+
+
+class Screen:
+    """The machine's screen as a test says it is, in place of asking the machine: a test that
+    asked would pass at one desk and fail where nobody is signed in."""
+
+    def __init__(self, state: str = OPEN) -> None:
+        self.state = state
+
+    def __call__(self) -> str:
+        return self.state
 
 
 def crew_home(root: Path, config: str = ON, master: str = "", **agents: str) -> dict[str, str]:

@@ -1,5 +1,7 @@
 """How a Chromium of the crew is started: nothing leaves it beside its proxy, what the driver
-turns off stays off, and a driver that did not start or went away is replaced."""
+turns off stays off, and a driver that did not start or went away is replaced. The one nobody
+sees and the window a person signs in through get the same profile, the same proxy and the
+same switches, and differ only in being shown."""
 
 from __future__ import annotations
 
@@ -22,10 +24,14 @@ import pytest
 
 from my_agent_crew.browser import launch as launch_module
 from my_agent_crew.browser.launch import (
+    ACTION_MS,
+    ARGS,
     DRIVER_OFF,
     DRIVER_SWITCH,
+    NAVIGATION_MS,
     OWN_OFF,
     PREFERENCES,
+    VIEWPORT,
     Driver,
     launch,
     prepare,
@@ -34,6 +40,7 @@ from tests.browser_servers import browsers, sites
 
 COOKIE = 0x2112A442
 POLICY = "disable_non_proxied_udp"
+PROXY = {"server": "http://127.0.0.1:9"}
 
 
 class Stun:
@@ -163,11 +170,14 @@ def test_the_names_repeated_from_the_driver_are_the_ones_the_installed_driver_tu
 
 
 class Context:
-    def set_default_timeout(self, _ms: int) -> None:
-        pass
+    def __init__(self) -> None:
+        self.timeouts: dict[str, int] = {}
 
-    def set_default_navigation_timeout(self, _ms: int) -> None:
-        pass
+    def set_default_timeout(self, ms: int) -> None:
+        self.timeouts["action"] = ms
+
+    def set_default_navigation_timeout(self, ms: int) -> None:
+        self.timeouts["navigation"] = ms
 
 
 class Chromium:
@@ -197,6 +207,60 @@ async def test_chromiums_own_sandbox_is_kept_where_it_needs_no_set_up(
 
 def kept_in(profile: Path) -> object:
     return json.loads((profile / "Default" / "Preferences").read_text(encoding="utf-8"))
+
+
+async def test_an_agents_own_browser_is_started_unseen_with_a_page_of_one_size(tmp_path):
+    chromium, profile = Chromium(), tmp_path / "browser" / "coach"
+
+    context = await launch(SimpleNamespace(chromium=chromium), profile, "chromium", PROXY)
+
+    assert chromium.asked == {
+        "profile": str(profile),
+        "headless": True,
+        "channel": "chromium",
+        "proxy": PROXY,
+        "accept_downloads": False,
+        "args": list(ARGS),
+        "ignore_default_args": [DRIVER_SWITCH],
+        "chromium_sandbox": sys.platform == "darwin",
+        "viewport": VIEWPORT,
+    }
+    assert context.timeouts == {"action": ACTION_MS, "navigation": NAVIGATION_MS}
+    # The folder that will hold what the agent is signed in to is its owner's alone.
+    assert profile.is_dir() and profile.stat().st_mode & 0o777 == 0o700
+
+
+async def test_a_window_is_started_shown_sized_by_the_person_and_behind_the_same_proxy(tmp_path):
+    chromium, profile = Chromium(), tmp_path / "browser" / "coach"
+
+    await launch(SimpleNamespace(chromium=chromium), profile, "chrome", PROXY, headed=True)
+
+    assert chromium.asked == {
+        "profile": str(profile),
+        "headless": False,
+        "channel": "chrome",
+        "proxy": PROXY,
+        "accept_downloads": False,
+        # What keeps anything from leaving beside the proxy is the window's too: the switches,
+        # the driver's list folded into the crew's, and the preferences in the profile.
+        "args": list(ARGS),
+        "ignore_default_args": [DRIVER_SWITCH],
+        "chromium_sandbox": sys.platform == "darwin",
+        "no_viewport": True,
+    }
+    assert kept_in(profile) == PREFERENCES
+
+
+async def test_a_file_a_page_sends_is_kept_only_where_a_folder_is_named_for_it(tmp_path):
+    chromium, held = Chromium(), tmp_path / "held"
+    driver = SimpleNamespace(chromium=chromium)
+
+    await launch(driver, tmp_path / "coach", "chromium", PROXY, downloads=held)
+
+    assert (chromium.asked["accept_downloads"], chromium.asked["downloads_path"]) == (
+        True,
+        str(held),
+    )
 
 
 def test_a_new_profile_is_private_and_starts_with_the_crews_preferences(tmp_path):
