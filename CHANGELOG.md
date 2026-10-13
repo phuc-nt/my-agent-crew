@@ -53,7 +53,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the server that lets it reach public addresses only, judged by the address a name resolves to
   and connected to that same address; a page that leads to a private one is refused by name, and
   what a page reached for and was refused is told with the page. An address is read one way, the
-  way the browser reads it too, and only a full `http` or `https` address is opened. The folder
+  way the browser reads it too, and only a full `http` or `https` address is opened; a private
+  address written out, `localhost` and every name under it are refused with no name resolved. The
+  folder
   that holds the profiles, `<home>/browser/`, is closed to every file tool of every agent (read,
   list, write, search, through a link as well) and to every sandboxed shell, with the browser on
   or off. A shell that was never sandboxed is not sandboxed by this: `docs/deployment-guide.md`
@@ -69,7 +71,9 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   default words such as mua, thanh toán, đặt hàng, gửi, xoá, pay, buy, order, submit, delete,
   confirm, as whole words in any case, an accented word also matching a name written without
   accents; an emptied list turns this guard off). The request carries the reason as a line a person
-  reads. From a script, the tools that only look are called like any reading tool;
+  reads. Nobody is asked about an address `browser_navigate` refuses whatever the answer (one it
+  cannot read, one that is not `http` or `https`, a private one written out): the call goes
+  straight to its refusal. From a script, the tools that only look are called like any reading tool;
   `browser_navigate` and `browser_act` only by an agent with `script_calls: gated`, through the same
   gate.
 - `GET /api/agents/{id}/browser` tells what an agent's browser has open (each tab by number, label,

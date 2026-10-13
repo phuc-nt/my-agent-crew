@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from my_agent_crew import texts_browser as t
-from my_agent_crew.browser.network import check_url, is_local, reachable
+from my_agent_crew.browser.network import always_refused, check_url, is_local, reachable
 from my_agent_crew.tools.registry import ToolError
 from my_agent_crew.tools.web import is_private
 
@@ -147,6 +147,54 @@ async def test_only_a_full_http_address_is_opened(url):
 
     assert str(refused.value) == t.URL_SCHEME
     assert asked == []
+    assert always_refused(url)
+
+
+@pytest.mark.parametrize(
+    ("url", "host"),
+    [
+        ("http://127.0.0.1:8765/api/agents", "127.0.0.1"),
+        ("http://10.0.0.5/", "10.0.0.5"),
+        ("https://169.254.169.254/latest/meta-data/", "169.254.169.254"),
+        ("http://100.64.0.1/", "100.64.0.1"),
+        ("http://[::1]:8765/", "::1"),
+        ("http://[fd00::1]/", "fd00::1"),
+        ("http://localhost:8765/", "localhost"),
+        ("http://LOCALHOST./", "localhost"),
+        ("http://shop.localhost:3000/", "shop.localhost"),
+    ],
+)
+async def test_a_private_address_written_out_is_refused_with_no_name_resolved(url, host):
+    """It is this machine or its network whatever a resolver says of it, one that lies
+    included, and is known to be refused before the call is made."""
+    asked: list[str] = []
+
+    def resolver(name: str) -> list[str]:
+        asked.append(name)
+        return ["8.8.8.8"]
+
+    with pytest.raises(ToolError) as refused:
+        await check_url(url, resolver)
+
+    assert str(refused.value) == t.URL_PRIVATE.format(host=host)
+    assert asked == []
+    assert always_refused(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://shop.test/",
+        "https://router.test/admin",  # private, but only resolving its name says so
+        "https://nowhere.test/",
+        "http://8.8.8.8/",
+        "http://[2001:4860:4860::8888]/",
+        "http://notlocalhost/",
+        "http://localhost.evil.test/",
+    ],
+)
+def test_an_address_only_resolving_can_refuse_is_not_called_refused_beforehand(url):
+    assert not always_refused(url)
 
 
 @pytest.mark.parametrize(
@@ -197,3 +245,10 @@ async def test_a_test_server_is_let_through_only_on_the_port_it_was_given():
         await check_url("http://shop.test:8081/", local, shop)
     with pytest.raises(ToolError):
         await check_url("http://shop.test/", local, shop)  # port 80
+    # Written out, it is known beforehand to be refused on any other port and on no other.
+    assert not always_refused("http://127.0.0.1:8080/", shop)
+    assert not always_refused("http://localhost:8080/", shop)
+    assert await check_url("http://localhost:8080/", local, shop) == "http://localhost:8080/"
+    assert always_refused("http://127.0.0.1:8081/", shop)
+    assert always_refused("http://localhost/", shop)
+    assert always_refused("http://127.0.0.1:8080/")

@@ -116,7 +116,7 @@ nào trong số này tới và cũng không lấy đi tool nào, xem [Trình duy
 
 | Tool | Duyệt | Giới hạn | Việc nó làm |
 |---|---|---|---|
-| `browser_navigate` | **có**; host trong `browser_hosts` thì không hỏi, host ngoài danh sách thì luôn hỏi | chờ trang tải 20 s (`timeout_s` 5–60 s); chỉ `http`/`https` tới địa chỉ công khai | mở một địa chỉ trong một tab của hội thoại và trả về dàn ý của trang |
+| `browser_navigate` | **có**; host trong `browser_hosts` thì không hỏi, host ngoài danh sách thì luôn hỏi; địa chỉ tool luôn từ chối thì không hỏi | chờ trang tải 20 s (`timeout_s` 5–60 s); chỉ `http`/`https` tới địa chỉ công khai | mở một địa chỉ trong một tab của hội thoại và trả về dàn ý của trang |
 | `browser_snapshot` | không | vừa trần đầu ra của agent; `wait_for` chờ tối đa 30 s | lấy lại dàn ý của tab: mỗi phần tử một dòng có vai trò, tên và `ref`; `interactive` chỉ giữ phần bấm, gõ được và tiêu đề mục, `query` chỉ giữ dòng chứa chữ cần tìm |
 | `browser_text` | không | `max_chars`, không quá trần đầu ra của agent | chữ của cả trang hoặc của một `ref`, như người đọc thấy |
 | `browser_tabs` | không | `browser_max_tabs` tab mỗi agent (mặc định 5) | liệt kê các tab của hội thoại, hoặc đóng một tab theo nhãn; không bao giờ khởi động trình duyệt |
@@ -371,10 +371,15 @@ dù hội thoại autonomous; nếu không, lời gọi thuộc loại thường
 giám sát; còn lại theo `autonomous` và danh sách `auto_approve` của hội thoại như mọi tool cần
 duyệt.
 
-- `browser_navigate`: agent có `browser_hosts` thì host trong danh sách là thường ngày (không
-  hỏi), host ngoài danh sách luôn hỏi. Agent không có danh sách thì tool hỏi như mọi tool đổi
-  trạng thái: hội thoại được giám sát hỏi, hội thoại autonomous chạy. Hồ sơ giữ cookie, nên mở
-  một trang là hành động mang danh tính của chủ, không phải một lần đọc.
+- `browser_navigate`: agent có `browser_hosts` thì host trong danh sách là thường ngày (không hỏi),
+  host ngoài danh sách luôn hỏi. Agent không có danh sách thì tool hỏi như mọi tool đổi trạng thái:
+  hội thoại được giám sát hỏi, hội thoại autonomous chạy. Hồ sơ giữ cookie, nên mở một trang là hành
+  động mang danh tính của chủ, không phải một lần đọc. Riêng địa chỉ mà tool từ chối bất kể ai trả
+  lời gì thì không ai bị hỏi, ở hội thoại nào cũng vậy: lời gọi chạy thẳng tới lời từ chối, vì câu
+  đồng ý không đổi được gì. Đó là địa chỉ không đọc được, địa chỉ không phải `http`/`https`, và địa
+  chỉ nội bộ viết thẳng ra (`127.0.0.1`, `10.0.0.5`, `[::1]`, `localhost` và mọi tên dưới
+  `localhost`). Tên miền chỉ lộ ra là nội bộ khi phân giải thì vẫn theo thứ tự trên: hỏi trước nếu
+  phải hỏi, rồi mới bị từ chối.
 - `browser_act` luôn hỏi, kể cả trong hội thoại autonomous, khi `kind` là `upload` (thẻ duyệt
   nêu tệp nào, lên trang nào); khi agent có `browser_hosts` và trang đang hiện nằm ngoài danh
   sách; hoặc khi `kind` là `click`, `press` hay `select` và phần tử mang một **từ dừng** — trong
@@ -422,12 +427,14 @@ number`. Không cấu hình nào bật được việc này: đăng nhập và t
 **Enter gửi form.** `press` với Enter trong một form mà nút gửi mang một từ dừng bị từ chối, kèm
 lời dặn bấm thẳng nút gửi bằng `click` để chủ được hỏi.
 
-**Chỉ tới địa chỉ công khai.** Đây là từ chối cứng: không cấu hình và không lần duyệt nào bật
-được. `browser_navigate` chỉ nhận địa chỉ `http`/`https` đầy đủ; nó từ chối địa chỉ có `user@`,
-dấu `\`, ký tự mã hoá `%` trong tên máy chủ hay ký tự không in được. Tên miền quốc tế được đổi
-sang dạng ASCII (punycode) và trình duyệt được trao đúng cách viết đã xét. Tên được phân giải
-trước, và *mọi* địa chỉ nó trỏ tới phải công khai: loopback, mạng riêng, link-local, CGNAT, dải
-dành riêng và địa chỉ IPv4 bọc trong IPv6 đều bị từ chối. Rào này chặt hơn rào của `fetch_url`.
+**Chỉ tới địa chỉ công khai.** Đây là từ chối cứng: không cấu hình và không lần duyệt nào bật được.
+`browser_navigate` chỉ nhận địa chỉ `http`/`https` đầy đủ; nó từ chối địa chỉ có `user@`, dấu `\`,
+ký tự mã hoá `%` trong tên máy chủ hay ký tự không in được. Tên miền quốc tế được đổi sang dạng
+ASCII (punycode) và trình duyệt được trao đúng cách viết đã xét. Địa chỉ nội bộ viết thẳng ra,
+`localhost` và mọi tên dưới `localhost` bị từ chối ngay, không phân giải tên nào: trình duyệt cũng
+không hỏi ai về `localhost`. Mọi tên khác được phân giải trước, và *mọi* địa chỉ nó trỏ tới phải
+công khai: loopback, mạng riêng, link-local, CGNAT, dải dành riêng và địa chỉ IPv4 bọc trong IPv6
+đều bị từ chối. Rào này chặt hơn rào của `fetch_url`.
 
 Rào ấy mới xét địa chỉ đầu. Phần còn lại do một proxy trong chính tiến trình server lo: mỗi
 trình duyệt chỉ ra mạng qua proxy riêng của nó (lắng nghe trên loopback, mật khẩu sinh mới mỗi
