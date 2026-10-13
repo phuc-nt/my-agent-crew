@@ -19,7 +19,7 @@ from my_agent_crew.agent.turn_context import turn_conversation_id
 from my_agent_crew.browser.fence import driver_error, first_line
 from my_agent_crew.browser.policy import AskWords
 from my_agent_crew.browser.pool import BrowserPool, Session
-from my_agent_crew.browser.snapshot import Node, Shown, Snapshot, address, read
+from my_agent_crew.browser.snapshot import Node, Shown, Snapshot, address, read, traits
 from my_agent_crew.browser.tabs import JOB_OWNER, Tab
 from my_agent_crew.config_browser import BrowserSettings
 from my_agent_crew.tools.registry import Tool, ToolError
@@ -178,7 +178,7 @@ async def look(kit: Kit, tab: Tab) -> tuple[str, Snapshot]:
 
 def show(tab: Tab, url: str, snapshot: Snapshot) -> None:
     """Keep what the model is about to be given: an action is checked against it."""
-    tab.shown = Shown(url, snapshot.nodes)
+    tab.shown = Shown(url, snapshot.nodes, traits(snapshot))
 
 
 def known(tab: Tab, ref: str) -> Node:

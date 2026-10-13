@@ -1,4 +1,5 @@
-"""What the browser tools say of themselves to the model: descriptions and parameters."""
+"""What the browser tools say of themselves to the model: descriptions and parameters, and
+what the mark they put in an outline means."""
 
 NAVIGATE_DESCRIPTION = (
     "Mở một địa chỉ web trong trình duyệt riêng của agent này và trả về dàn ý của trang: mỗi "
@@ -27,6 +28,10 @@ ACT_DESCRIPTION = (
     "upload (đưa một tệp trong workspace vào ô chọn tệp). Lấy `ref` và `name` từ dàn ý mới "
     "nhất; tên không khớp với trang lúc này thì bị từ chối và phải lấy lại dàn ý. Không gõ được "
     "vào ô mật khẩu, mã xác thực hay số thẻ. Trả về dàn ý của trang sau thao tác."
+)
+# Said outside the fence, of the lines an outline gives with the mark.
+PAGE_NEW = (
+    "{count} dòng mang dấu [new]: phần tử mới có, hoặc đã đổi chữ, từ lần xem tab này ngay trước."
 )
 
 PARAM_URL = "Địa chỉ http hoặc https đầy đủ."
