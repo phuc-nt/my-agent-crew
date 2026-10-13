@@ -118,7 +118,7 @@ async def test_a_browser_a_call_is_using_is_not_stopped_and_its_idle_time_starts
 ):
     clock = Clock()
     async with browsers(tmp_path / "browser", clock=clock, idle_minutes=1) as pool:
-        async with pool.hold("coach") as session:
+        async with pool.hold(await pool.session("coach")) as session:
             clock.now = 500
             assert await pool.reap() == [] and pool.running("coach") is session
         assert session.busy == 0

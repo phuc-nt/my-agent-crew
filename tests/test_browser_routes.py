@@ -446,6 +446,71 @@ async def test_a_removed_agent_takes_its_browser_and_what_it_was_signed_in_to_wi
     assert (await crew.client.get("/api/connections")).json()["browser"]["running"] == ["reader"]
 
 
+async def test_a_turn_still_running_when_its_agent_loses_the_browser_browses_no_more(crew: Crew):
+    """A turn keeps the tools it began with. Those of an agent taken off the browser, or of
+    one that was removed, start no browser: what the owner just stopped stays stopped."""
+    held = {a: crew.rt.deps_for(a).tools.get(NAVIGATE).run for a in ("coach", "reader")}
+
+    async def go(agent_id: str) -> str:
+        with reading_as("conv-1"):
+            return await held[agent_id]({"url": crew.site.url("/don")})
+
+    async def refused(agent_id: str) -> str:
+        with pytest.raises(ToolError) as refusal:
+            await go(agent_id)
+        return str(refusal.value)
+
+    await go("coach"), await go("reader")
+
+    reply = await crew.client.patch("/api/agents/coach", json={"profile": {"browser": "off"}})
+
+    assert reply.status_code == 200, reply.text
+    assert await refused("coach") == told_to_a_model.BROWSER_GONE
+    assert crew.pool.running("coach") is None
+    assert await crew.told("coach") == {"mode": "off", **DOWN}
+    # Given the browser back, the agent's next turn browses, signed in as before. The turn
+    # that was running when it lost the browser is not given it back.
+    reply = await crew.client.patch("/api/agents/coach", json={"profile": {"browser": "act"}})
+    assert reply.status_code == 200, reply.text
+    await crew.call("coach", NAVIGATE, "conv-2", url=crew.site.url("/"))
+    assert crew.pool.running("coach") is not None
+    assert await refused("coach") == told_to_a_model.BROWSER_GONE
+
+    reply = await crew.client.delete("/api/agents/reader")
+
+    assert reply.status_code in (200, 204), reply.text
+    assert await refused("reader") == told_to_a_model.BROWSER_GONE
+    assert crew.pool.running("reader") is None
+    assert sorted(path.name for path in browser_root(crew.home).iterdir()) == ["coach"]
+
+
+async def test_an_agent_its_file_took_off_the_browser_has_it_stopped_when_the_crew_is_built_again(
+    crew: Crew,
+):
+    held = {a: crew.rt.deps_for(a).tools.get(NAVIGATE).run for a in ("coach", "reader")}
+    await crew.call("coach", NAVIGATE, "conv-1", url=crew.site.url("/"))
+    await crew.call("reader", NAVIGATE, "conv-9", url=crew.site.url("/"))
+    other = crew.pool.running("reader")
+    own = crew.home / "agents" / "coach" / "agent.yaml"
+    own.write_text("name: coach\nbrowser: 'off'\n", encoding="utf-8")
+
+    # A key or the routes saved builds every running agent from its file again.
+    await commit(crew.rt, prepare(crew.rt, crew.env), channel_key(crew.rt.agents, crew.env))
+
+    assert browser_tools(crew.rt, "coach") == []
+    assert crew.pool.running("coach") is None
+    assert (browser_root(crew.home) / "coach").is_dir()
+    with reading_as("conv-1"), pytest.raises(ToolError) as refusal:
+        await held["coach"]({"url": crew.site.url("/don")})
+    assert str(refusal.value) == told_to_a_model.BROWSER_GONE
+    # An agent that still has the browser keeps the one it had up, and a turn of its that
+    # was running goes on with it.
+    assert crew.pool.running("reader") is other
+    with reading_as("conv-9"):
+        await held["reader"]({"url": crew.site.url("/don")})
+    assert [tab["title"] for tab in (await crew.told("reader"))["tabs"]] == ["Đơn của tôi"]
+
+
 async def test_an_agent_that_joins_or_is_built_again_while_served_browses_through_the_one_pool(
     crew: Crew,
 ):

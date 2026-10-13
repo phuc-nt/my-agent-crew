@@ -73,12 +73,21 @@ class Browsers:
         its next call starts it again. Whether there was one for this call to stop."""
         return self.pool is not None and await self.pool.stop(agent_id)
 
+    async def retire(self, agent_id: str) -> bool:
+        """Stop the browser of an agent that is removed or taken off the browser, for good.
+        A turn of its that is still running holds the tools it began with: they are told
+        before the stop takes its first step, so no call of theirs starts it again."""
+        if self.pool is None:
+            return False
+        self.pool.left[agent_id] += 1
+        return await self.pool.stop(agent_id)
+
     async def forget(self, agent_id: str) -> None:
         """An agent left the crew: its browser is stopped and the folder its logins were kept
         in goes with it. An agent later given the id would otherwise wake up signed in as the
         one that was removed."""
         folder = profile_dir(self.root, agent_id)
-        await self.stop(agent_id)
+        await self.retire(agent_id)
         try:
             await asyncio.to_thread(shutil.rmtree, folder)
         except FileNotFoundError:

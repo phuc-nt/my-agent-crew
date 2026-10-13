@@ -17,6 +17,7 @@ from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser import tools_read
 from my_agent_crew.browser.navigate import build_navigate
+from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.browser.tools_read import build_snapshot, build_tabs, build_text
 from my_agent_crew.config_browser import BrowserSettings
 from my_agent_crew.script.scope import only_reads
@@ -408,7 +409,8 @@ async def test_what_the_browser_raises_is_told_by_its_kind_and_its_first_line_is
 
 
 async def test_the_reading_tools_change_nothing_and_ask_nobody(tmp_path):
-    kit = k.Kit(None, "coach", BrowserSettings(enabled=True, mode="read"), tmp_path, 20_000)
+    own = BrowserSettings(enabled=True, mode="read")
+    kit = k.Kit(BrowserPool(tmp_path / "browser", own), "coach", own, tmp_path, 20_000)
     built = {
         build.__name__: build(kit)
         for build in (build_snapshot, build_text, build_tabs, build_navigate)

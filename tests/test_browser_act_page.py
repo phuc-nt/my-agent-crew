@@ -10,6 +10,7 @@ from my_agent_crew import texts_browser as t
 from my_agent_crew.browser import act as a
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser.act_page import current
+from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.browser.snapshot import Node, Shown, read
 from my_agent_crew.browser.tabs import Tab
 from my_agent_crew.config_browser import BrowserSettings
@@ -50,7 +51,9 @@ class Page:
 @pytest.fixture
 def kit(tmp_path, monkeypatch):
     monkeypatch.setattr(k, "SETTLE_SECONDS", 0)
-    return k.Kit(None, "coach", BrowserSettings(enabled=True, mode="act"), tmp_path, 20_000)
+    own = BrowserSettings(enabled=True, mode="act")
+    # A pool that is never asked for a browser starts none.
+    return k.Kit(BrowserPool(tmp_path / "browser", own), "coach", own, tmp_path, 20_000)
 
 
 def tab_on(kit, page: Page, shown: str = SHOWN, url: str = A) -> Tab:

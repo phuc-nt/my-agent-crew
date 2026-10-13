@@ -13,6 +13,7 @@ from my_agent_crew import texts_browser as t
 from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser import report
+from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.browser.snapshot import Node, Shown
 from my_agent_crew.browser.tabs import JOB_OWNER
 from my_agent_crew.config_browser import BrowserSettings
@@ -49,7 +50,9 @@ class Holder:
 @pytest.fixture
 def kit(tmp_path, monkeypatch):
     monkeypatch.setattr(k, "SETTLE_SECONDS", 0)
-    return k.Kit(None, "coach", BrowserSettings(enabled=True, mode="act"), tmp_path, 20_000)
+    own = BrowserSettings(enabled=True, mode="act")
+    # A pool that is never asked for a browser starts none.
+    return k.Kit(BrowserPool(tmp_path / "browser", own), "coach", own, tmp_path, 20_000)
 
 
 async def test_a_page_that_stays_where_it_is_is_drawn_once(kit):

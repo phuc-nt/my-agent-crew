@@ -92,9 +92,12 @@ class Kit:
     # The chain pictures go to, when the machine has one.
     vision: Any = None
     ask: AskWords = field(init=False)
+    # How often the agent had been taken off the browser when these tools were made.
+    born: int = field(init=False)
 
     def __post_init__(self) -> None:
         self.ask = AskWords(self.settings.ask_patterns)
+        self.born = self.pool.left[self.agent_id]
 
     def owner(self) -> str:
         """Whose tabs this call sees: its conversation's, or the one a script job has."""
@@ -113,15 +116,18 @@ class Kit:
         up meanwhile. `make` opens the tab when the caller has none of that label; `last`
         takes no label to mean the tab of the caller's last call and no other. Whatever the
         browser raises leaves as words the model can act on, with the line the browser wrote
-        inside a fence; a call that outlasts `seconds` is given up."""
+        inside a fence; a call that outlasts `seconds` is given up. Tools of a turn that was
+        running when its agent was removed or taken off the browser start no browser."""
         owner = self.owner()
         try:
             async with asyncio.timeout(seconds):
+                if self.pool.left[self.agent_id] != self.born:
+                    raise ToolError(t.BROWSER_GONE)
                 try:
-                    await self.pool.session(self.agent_id)
+                    session = await self.pool.session(self.agent_id)
                 except Exception as exc:  # noqa: BLE001 - whatever kept the browser from starting
                     raise ToolError(t.BROWSER_DOWN.format(error=first_line(exc))) from exc
-                async with self.pool.hold(self.agent_id) as session:
+                async with self.pool.hold(session):
                     tabs = session.tabs
                     if make:
                         tab = tabs.find(owner, label) or await tabs.open(owner, label)
