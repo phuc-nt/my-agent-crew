@@ -14,8 +14,10 @@ from my_agent_crew.texts import (
     WORKSPACE_ESCAPE,
     WORKSPACE_IS_DIR,
     WORKSPACE_NOT_FOUND,
+    WORKSPACE_PRIVATE,
     WORKSPACE_WRITE_OUTSIDE,
 )
+from my_agent_crew.tools.private_paths import is_private
 from my_agent_crew.tools.registry import Tool, ToolError
 
 
@@ -28,16 +30,17 @@ def resolve_inside(root: Path, relative: str) -> Path:
     written for other runtimes quote absolute paths, and refusing them only wastes a step.
     Containment is checked on the lexical path, so `..` cannot walk out of the root while
     symlinks the user placed inside the workspace (a chart folder linked from another tool's
-    workspace) are followed like any other entry."""
+    workspace) are followed like any other entry. The one place no entry leads is a folder
+    the server keeps private (`private_paths.py`), wherever the path to it starts."""
     root = root.resolve()
     candidate = Path(relative).expanduser()
     lexical = Path(os.path.normpath(root / candidate))
-    if _within(root, lexical):
-        return lexical
-    resolved = lexical.resolve()
-    if _within(root, resolved):
-        return resolved
-    raise ToolError(WORKSPACE_ESCAPE)
+    inside = lexical if _within(root, lexical) else lexical.resolve()
+    if not _within(root, inside):
+        raise ToolError(WORKSPACE_ESCAPE)
+    if is_private(inside):
+        raise ToolError(WORKSPACE_PRIVATE)
+    return inside
 
 
 def resolve_writable(root: Path, relative: str, write_paths: Sequence[str] = ()) -> Path:

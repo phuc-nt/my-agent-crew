@@ -15,6 +15,11 @@ REPORT_BACK = (
 WORKSPACE_ESCAPE = (
     "Đường dẫn nằm ngoài thư mục làm việc; tệp ngoài workspace đọc bằng shell_run (cat, sed -n)."
 )
+# Names what is kept there, so a model that was only following a page's words sees why.
+WORKSPACE_PRIVATE = (
+    "Đường dẫn này dẫn vào thư mục máy chủ giữ riêng (hồ sơ trình duyệt: cookie, phiên đăng "
+    "nhập). Không công cụ tệp nào đọc hay ghi ở đó; đừng tìm đường khác để vào."
+)
 WORKSPACE_NOT_FOUND = "Không có tệp hoặc thư mục: {path}"
 WORKSPACE_IS_DIR = "{path} là thư mục, không phải tệp."
 WORKSPACE_WRITE_OUTSIDE = (
