@@ -361,8 +361,15 @@ async def test_nobody_is_asked_about_an_address_that_is_refused_whatever_they_sa
         "http://[::1]:8765/",
         "http://[::ffff:127.0.0.1]/",
         "http://169.254.169.254/latest/meta-data/",
+        "http://2130706433/",
+        "http://0x7f000001:8765/api/agents",
+        "http://0177.0.0.1/",
+        "http://127.1/",
+        "http://0/",
     ]
     unread = [
+        "http://1.2.3.4.5/",
+        "https://shop.123/",
         "file:///etc/passwd",
         "javascript:alert(1)",
         "about:blank",
@@ -388,6 +395,8 @@ async def test_nobody_is_asked_about_an_address_that_is_refused_whatever_they_sa
         t.URL_PRIVATE.format(host=host_of(url)) for url in private
     ]
     assert said["http://localhost:9/api/agents"] == t.URL_PRIVATE.format(host="localhost")
+    assert said["http://2130706433/"] == t.URL_PRIVATE.format(host="127.0.0.1")
+    assert said["http://0/"] == t.URL_PRIVATE.format(host="0.0.0.0")
     assert {said[str(url)] for url in unread} == {t.URL_SCHEME}
     # The gate itself: neither conversation stops for one, and both still stop for a page
     # outside the list that might be opened.

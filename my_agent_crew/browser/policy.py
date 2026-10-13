@@ -21,6 +21,9 @@ HUMP = re.compile(r"(?<=[a-z])(?=[A-Z])")
 
 # A host as a browser is handed it: labels of letters, digits, hyphens and underscores.
 LABELS = re.compile(r"(?:[a-z0-9_-]+\.)*[a-z0-9_-]+\.?")
+# One part of a host written in numbers, in the bases a browser reads: hex after `0x` (and
+# nothing after it is zero), octal after a leading `0`, decimal otherwise.
+NUMBER = re.compile(r"0x(?P<hex>[0-9a-f]*)|0(?P<oct>[0-7]+)|(?P<dec>0|[1-9][0-9]*)")
 
 
 @dataclass(frozen=True)
@@ -31,6 +34,31 @@ class Address:
     port: int | None
 
 
+def _number(part: str) -> int | None:
+    read = NUMBER.fullmatch(part)
+    if not read:
+        return None
+    if read["dec"] is not None:
+        return int(read["dec"])
+    return int(read["oct"], 8) if read["oct"] is not None else int(read["hex"] or "0", 16)
+
+
+def _plain(host: str) -> str:
+    """A host that ends in a number is an address to a browser, in any base and in one part
+    to four: `2130706433`, `0x7f.1` and `0177.0.0.1` are all 127.0.0.1. That address the plain
+    way; a name as it is; ValueError for what ends in a number and is no address, which a
+    browser does not open."""
+    parts = host.removesuffix(".").split(".")
+    if not parts[-1].isdigit() and _number(parts[-1]) is None:
+        return host
+    *first, last = [_number(part) for part in parts]
+    if len(first) > 3 or last is None or None in first or any(n > 255 for n in first):
+        raise ValueError(host)
+    if last >= 256 ** (4 - len(first)):  # the last part fills every byte the others left
+        raise ValueError(host)
+    return str(ipaddress.IPv4Address(last + sum(n << 8 * (3 - at) for at, n in enumerate(first))))
+
+
 def read_address(url: str) -> Address | None:
     """An address read the one way a browser reads it too, or None.
 
@@ -38,7 +66,8 @@ def read_address(url: str) -> Address | None:
     another way is no address at all: a backslash before the path (a browser takes it for a
     slash, and the host ends there), a name and password before the host, an escaped letter
     in the host, a blank anywhere. A host in another script is turned into its ASCII form
-    here, and the browser is given that spelling and not the one it would work out."""
+    here, and one written in numbers into the address it stands for; the browser is given
+    that spelling and not the one it would work out."""
     if not url.isprintable() or " " in url:
         return None
     try:
@@ -50,10 +79,11 @@ def read_address(url: str) -> Address | None:
             host = str(ipaddress.IPv6Address(parts.hostname or ""))
             spelled = f"[{host}]"
         else:
-            host = spelled = (parts.hostname or "").encode("idna").decode("ascii")
+            host = (parts.hostname or "").encode("idna").decode("ascii")
             if not LABELS.fullmatch(host):
                 return None
-    except ValueError:  # a bad bracket or port, or a label no name can hold
+            host = spelled = _plain(host)
+    except ValueError:  # a bad bracket or port, a label no name can hold, numbers no address
         return None
     netloc = spelled if port is None else f"{spelled}:{port}"
     return Address(parts._replace(netloc=netloc).geturl(), parts.scheme, host.rstrip("."), port)
