@@ -70,6 +70,16 @@ async def test_an_agent_that_reads_gets_five_tools_and_one_that_acts_one_more(tm
     # also what lets a script call them.
     assert names(tool for tool in act if tool.requires_approval) == [k.NAVIGATE, k.ACT]
     assert names(tool for tool in act if only_reads(tool)) == LOOKS[1:]
+    # Each tells the owner's screens it follows the agent's `browser` key and no list.
+    assert [tool.to_dict() for tool in act] == [
+        {
+            "name": tool.name,
+            "description": tool.description,
+            "requires_approval": tool.requires_approval,
+            "with_browser": True,
+        }
+        for tool in act
+    ]
     assert not (tmp_path / "browser").exists()
 
 

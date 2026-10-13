@@ -12,7 +12,14 @@ from typing import Any
 from my_agent_crew import texts_browser as t
 from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import kit as k
-from my_agent_crew.browser.kit import Kit, first_line, from_browser, text_of, timed_out
+from my_agent_crew.browser.kit import (
+    BrowserTool,
+    Kit,
+    first_line,
+    from_browser,
+    text_of,
+    timed_out,
+)
 from my_agent_crew.browser.network import check_url
 from my_agent_crew.browser.policy import host_allowed, host_of
 from my_agent_crew.browser.pool import Session
@@ -90,7 +97,7 @@ def build_navigate(kit: Kit) -> Tool:
             status = await _go(session, tab, url, wait, mark)
             return await page_report(kit, session, tab, status=status, mark=mark, before=before)
 
-    return Tool(
+    return BrowserTool(
         name=k.NAVIGATE,
         description=d.NAVIGATE_DESCRIPTION,
         parameters=k.schema(

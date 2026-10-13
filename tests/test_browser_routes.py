@@ -24,7 +24,14 @@ from my_agent_crew import texts_browser_web as told_to_the_web
 from my_agent_crew.activity.step_previews import outcome_preview
 from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.browser.install import NO_BROWSER, Installed
-from my_agent_crew.browser.kit import BROWSER_TOOLS, NAVIGATE, READ_TOOLS, SCREENSHOT, SNAPSHOT
+from my_agent_crew.browser.kit import (
+    ACT,
+    BROWSER_TOOLS,
+    NAVIGATE,
+    READ_TOOLS,
+    SCREENSHOT,
+    SNAPSHOT,
+)
 from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.config_browser import browser_root
 from my_agent_crew.server import browser_runtime, routes_browser
@@ -147,6 +154,30 @@ async def test_a_browser_that_is_down_is_told_so_and_asking_starts_nothing(crew:
 
     assert all(crew.pool.running(agent_id) is None for agent_id in crew.rt.agents)
     assert not browser_root(crew.home).exists()
+
+
+async def test_the_crews_tool_list_marks_the_browser_tools_as_the_browser_keys_to_give(
+    crew: Crew,
+):
+    listed = {tool["name"]: tool for tool in (await crew.client.get("/api/tools")).json()}
+
+    # The mark is what a screen tells them apart by: no allow-list brings one, so a cell
+    # that is empty is the agent's `browser` key and nothing a list or an API key explains.
+    assert [name for name, tool in listed.items() if "with_browser" in tool] == sorted(
+        BROWSER_TOOLS
+    )
+    for name in BROWSER_TOOLS:
+        assert listed[name]["with_browser"] is True, name
+        assert listed[name]["optional"] is False, name
+        assert "with_reads" not in listed[name] and "with_mcp" not in listed[name], name
+    assert {name: listed[name]["agents"] for name in READ_TOOLS} == dict.fromkeys(
+        READ_TOOLS, ["coach", "reader"]
+    )
+    assert listed[ACT]["agents"] == ["coach"]
+    assert [name for name in BROWSER_TOOLS if listed[name]["requires_approval"]] == [NAVIGATE, ACT]
+    # And none of them is an agent's list's to give, whatever the agent's key says.
+    for agent in (await crew.client.get("/api/agents")).json():
+        assert not set(agent["listable_tools"]) & set(BROWSER_TOOLS), agent["id"]
 
 
 @pytest.mark.parametrize(

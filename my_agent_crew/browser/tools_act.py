@@ -15,7 +15,7 @@ from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import act as a
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser.act_page import NAME_CHARS, current, guard, perform
-from my_agent_crew.browser.kit import Kit, one_line, text_of, timed_out
+from my_agent_crew.browser.kit import BrowserTool, Kit, one_line, text_of, timed_out
 from my_agent_crew.browser.policy import host_allowed, host_of
 from my_agent_crew.browser.report import page_report
 from my_agent_crew.browser.tabs import Tab
@@ -87,7 +87,7 @@ def build_act(kit: Kit) -> Tool:
             # Done is done: a page that cannot be read afterwards is no reason to do it twice.
             return closed if page.is_closed() else "\n".join([done, t.ACT_UNSEEN.format(error=exc)])
 
-    return Tool(
+    return BrowserTool(
         name=k.ACT,
         description=d.ACT_DESCRIPTION,
         parameters=k.schema(
