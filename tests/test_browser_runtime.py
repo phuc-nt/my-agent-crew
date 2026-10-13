@@ -403,6 +403,7 @@ class Rounds:
 
     def __init__(self, *rounds: list[str] | Exception) -> None:
         self.rounds, self.asked, self.all_stopped = list(rounds), 0, 0
+        self.shut, self.shut_when_stopped = False, False
         self.done = asyncio.Event()
 
     def running(self, agent_id: str) -> None:
@@ -420,6 +421,7 @@ class Rounds:
 
     async def stop_all(self) -> None:
         self.all_stopped += 1
+        self.shut_when_stopped = self.shut
 
 
 async def test_the_reaper_goes_round_until_cancelled_and_a_failed_round_does_not_end_it(caplog):
@@ -483,9 +485,11 @@ async def test_a_served_crew_reaps_while_it_is_up_and_stops_every_browser_as_it_
 
     async with app.router.lifespan_context(app):
         await asyncio.wait_for(pool.done.wait(), 5)
-        assert pool.all_stopped == 0
+        assert pool.all_stopped == 0 and pool.shut is False
 
     assert pool.all_stopped == 1
+    # Marked before the stop: a call that lands while browsers close starts none.
+    assert pool.shut_when_stopped is True
     # Browsers last: a turn or a job still running then would start one that nobody stops.
     assert order == ["turns", "jobs", "browsers"]
     asked = pool.asked

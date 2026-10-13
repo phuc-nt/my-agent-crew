@@ -65,12 +65,16 @@ class BrowserPool:
         self._closing: dict[str, asyncio.Future[bool]] = {}
         # Times an agent was taken off the browser: tools made before the last start none.
         self.left: Counter[str] = Counter()
+        # Set as the server stops: a turn the stop has not ended yet starts no browser.
+        self.shut = False
 
     async def session(self, agent_id: str) -> Session:
         """The agent's browser, started now if it is not up. The place is taken before the
         first await, so two turns that ask at once wait for one browser."""
         task = self._sessions.get(agent_id)
         if task is None:
+            if self.shut:
+                raise RuntimeError("the server is stopping")
             start = self._launch(agent_id, self._closing.get(agent_id))
             task = self._sessions[agent_id] = asyncio.ensure_future(start)
             task.add_done_callback(lambda done: self._failed(agent_id, done))
