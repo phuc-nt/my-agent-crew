@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 from my_agent_crew.config_parse import as_bool
 from my_agent_crew.texts_browser import DEFAULT_ASK_WORDS
@@ -16,6 +17,21 @@ BROWSER_OFF, BROWSER_READ, BROWSER_ACT = "off", "read", "act"
 BROWSER_MODES = (BROWSER_OFF, BROWSER_READ, BROWSER_ACT)
 # The Chromium Playwright ships, pinned with the package, or the Chrome installed here.
 CHANNELS = ("chromium", "chrome")
+
+
+def browser_root(home: Path) -> Path:
+    """Where the browsers keep what they are signed in to, one folder an agent. It is the
+    one place under the crew home no file tool and no sandboxed command goes into, and it
+    is named here once so the server that closes it and the browser that fills it agree."""
+    return home / "browser"
+
+
+def profile_dir(root: Path, agent_id: str) -> Path:
+    """The folder one agent's browser keeps its logins in. An id that is not one plain
+    name would be a folder somewhere else, another agent's among them."""
+    if Path(agent_id).name != agent_id or agent_id in ("", ".", ".."):
+        raise ValueError(f"not an agent id: {agent_id!r}")
+    return root / agent_id
 
 
 @dataclass(frozen=True)

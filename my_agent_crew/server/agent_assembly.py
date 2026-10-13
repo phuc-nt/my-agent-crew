@@ -15,6 +15,7 @@ from my_agent_crew import texts
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.context import ensure_agent_dirs
+from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.llm.fake import EchoProvider
 from my_agent_crew.llm.ollama import OllamaProvider, base_url
@@ -123,6 +124,7 @@ def build_agent_deps(
     store: Store,
     fallback_routes: Sequence[Route] = (),
     extra_tools: Sequence[Tool] = (),
+    browser: BrowserPool | None = None,
 ) -> AgentDeps:
     ensure_agent_dirs(profile)
     routes = usable_routes(profile.settings.routes, providers, fallback_routes)
@@ -135,7 +137,7 @@ def build_agent_deps(
     # The agent's own routes summarise its own over-cap text output. A separate cheap route
     # would be tempting, but the summary is read as if it were the tool's answer, so it is
     # written by the model the agent is already trusting rather than by a weaker one.
-    tools, listable = assemble(profile, client, store, skills, extra_tools, vision, chain)
+    tools, listable = assemble(profile, client, store, skills, extra_tools, vision, chain, browser)
     deps = AgentDeps(
         settings=profile.settings,
         chain=chain,

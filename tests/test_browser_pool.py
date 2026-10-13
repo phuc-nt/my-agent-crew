@@ -218,6 +218,31 @@ async def test_a_call_that_arrives_while_its_browser_is_stopping_waits_until_it_
         assert (await fresh.tabs.open("c1")).label == "t1"
 
 
+async def test_a_second_stop_waits_for_the_first_and_says_it_stopped_nothing(tmp_path):
+    async with browsers(tmp_path / "browser") as pool:
+        session = await pool.session("coach")
+        gone, close, order = asyncio.Event(), session.close, []
+
+        async def slowly() -> None:
+            await gone.wait()
+            await close()
+            order.append("closed")
+
+        session.close = slowly
+        first = asyncio.ensure_future(pool.stop("coach"))
+        second = asyncio.ensure_future(pool.stop("coach"))
+        other = asyncio.ensure_future(pool.stop("ledger"))
+        await asyncio.sleep(0.2)
+        # Whoever is told it is stopped may take the profile folder away: not before it is.
+        waited = (first.done(), second.done(), other.done(), list(order))
+        gone.set()
+
+        assert await second is False and order == ["closed"]
+        assert waited == (False, False, True, [])
+        assert await first is True and await other is False
+        assert await pool.stop("coach") is False
+
+
 async def test_stopping_an_agent_that_has_no_browser_does_nothing(tmp_path):
     async with browsers(tmp_path / "browser") as pool:
         assert await pool.stop("coach") is False

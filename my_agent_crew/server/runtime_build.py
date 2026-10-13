@@ -17,6 +17,7 @@ from my_agent_crew.config import Settings, ensure_home
 from my_agent_crew.mcp.hub import McpHub
 from my_agent_crew.mcp.tokens import TokenStore
 from my_agent_crew.server.agent_assembly import build_agent_deps, build_providers
+from my_agent_crew.server.browser_runtime import build_browsers
 from my_agent_crew.server.runtime import PROVIDER_TIMEOUT_SECONDS, Runtime
 from my_agent_crew.store import Store
 
@@ -49,15 +50,19 @@ def build_runtime(
     providers = build_providers(settings, client)
     profiles = load_profiles(settings)
     check_delegates(profiles)
+    environ = os.environ if env is None else env
+    # Before any agent: its tools are built with the pool its browser is started in.
+    browsers = build_browsers(settings, environ)
     agents = {
-        profile.id: build_agent_deps(profile, providers, client, store, settings.routes)
+        profile.id: build_agent_deps(
+            profile, providers, client, store, settings.routes, browser=browsers.pool
+        )
         for profile in profiles
     }
     peers = {agent_id: deps.agent for agent_id, deps in agents.items()}
     for deps in agents.values():
         deps.peers = peers  # the roster a delegating agent is shown
     hub = ActivityHub(store)
-    environ = os.environ if env is None else env
     channel = build_channel(agents, hub, client, environ)
     tokens = TokenStore(settings.home, environ)
     runtime = Runtime(
@@ -69,6 +74,7 @@ def build_runtime(
         providers=providers,
         client=client,
         mcp=McpHub(settings.mcp_servers, client, tokens, environ=environ),
+        browsers=browsers,
     )
     runtime.wire_delegation()
     return runtime

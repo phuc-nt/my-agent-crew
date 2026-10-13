@@ -6,6 +6,7 @@ leaving a crew that runs is `runtime_crew`."""
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field, replace
 from typing import Any
@@ -23,6 +24,7 @@ from my_agent_crew.mcp.hub import McpHub
 from my_agent_crew.memory.session_summary import schedule_summary
 from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.server import runtime_crew
+from my_agent_crew.server.browser_runtime import Browsers, build_browsers
 from my_agent_crew.server.crew_abilities import crew_abilities
 from my_agent_crew.store import Store
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME, build_delegate_tool
@@ -50,6 +52,9 @@ class Runtime:
     # Whether the channel was started by the app's lifespan; a rebuilt one follows suit
     # (`runtime_connections`).
     channel_live: bool = False
+    # The browsers the agents' tools drive. A runtime made without them (tests around a
+    # few agents) gets what its settings say, which is none unless they turn one on.
+    browsers: Browsers = field(default=None)  # type: ignore[assignment]
     scheduler: Scheduler = field(init=False)
     # The gate every platform's messages pass through; it shares `agents`, so it grows too.
     inbound: Inbound = field(init=False)
@@ -57,6 +62,7 @@ class Runtime:
     drain: QueueDrain = field(init=False)
 
     def __post_init__(self) -> None:
+        self.browsers = self.browsers or build_browsers(self.settings, os.environ)
         self.scheduler = Scheduler(
             self.agents, self.hub, clock=self.settings.now, deliver=self.deliver, notify=self.notify
         )
