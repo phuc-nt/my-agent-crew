@@ -7,8 +7,6 @@ the page's words, so what was read out of it stands between fence lines like the
 
 from __future__ import annotations
 
-import itertools
-import os
 import re
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -21,8 +19,9 @@ from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser.fence import ERROR_CHARS, answer, room, with_data
 from my_agent_crew.browser.kit import BrowserTool, Kit, one_line, text_of
+from my_agent_crew.browser.saved import keep, place
 from my_agent_crew.llm.provider import ProviderError
-from my_agent_crew.texts import IMAGE_EMPTY, WORKSPACE_ESCAPE, WORKSPACE_WRITE_OUTSIDE
+from my_agent_crew.texts import IMAGE_EMPTY
 from my_agent_crew.tools.image import data_url, describe
 from my_agent_crew.tools.registry import Tool, ToolError, ToolResult
 
@@ -54,37 +53,10 @@ async def take(page: Any, full: bool) -> tuple[bytes, str]:
     raise ToolError(t.SHOT_TOO_LARGE.format(limit=MAX_BYTES / 1024 / 1024))
 
 
-def place(workspace: Path, write_paths: Sequence[str]) -> tuple[Path, str]:
-    """The folder pictures go in, and that folder as the answer names it. An agent held to
-    some folders keeps its pictures under the first of them: a picture of a page is personal
-    data, and the rule that keeps such an agent's files out of the rest of a git repo holds
-    for the files of this tool too. The folder is judged where it really is, so one that a
-    link leads out of the workspace, or out of those folders, takes no picture."""
-    base = Path(os.path.realpath(workspace))
-    held = [Path(os.path.realpath(base / path)) for path in write_paths]
-    folder = Path(os.path.realpath((held[0] if held else base) / FOLDER))
-    if not folder.is_relative_to(base):
-        raise ToolError(WORKSPACE_ESCAPE)
-    if held and not any(folder.is_relative_to(path) for path in held):
-        asked, paths = f"{write_paths[0]}/{FOLDER}", ", ".join(write_paths)
-        raise ToolError(WORKSPACE_WRITE_OUTSIDE.format(paths=paths, path=asked))
-    return folder, folder.relative_to(base).as_posix()
-
-
 def save(folder: Path, label: str, data: bytes, kind: str) -> Path:
     """Write the picture under a name not taken yet, and keep the folder from growing: the
     oldest of the tool's own pictures go, and nothing else in the folder is touched."""
-    folder.mkdir(parents=True, exist_ok=True)
-    stem = f"{now():%Y%m%dT%H%M%SZ}-{label}"
-    for n in itertools.count(1):
-        path = folder / f"{stem}{f'-{n}' if n > 1 else ''}.{kind}"
-        try:
-            # Made new or not at all: never over a file, nor through a link, already there.
-            with open(path, "xb") as file:
-                file.write(data)
-        except FileExistsError:
-            continue
-        break
+    path = keep(folder, f"{now():%Y%m%dT%H%M%SZ}-{label}.{kind}", data)
     mine = sorted(
         (found for found in folder.iterdir() if OURS.match(found.name)),
         key=lambda found: (found.lstat().st_mtime_ns, found.name),
@@ -102,7 +74,7 @@ def build_screenshot(kit: Kit, write_paths: Sequence[str] = ()) -> Tool:
             data, kind = await take(tab.page, full)
             label = tab.label
         # The tab is free again: reading a picture takes a model its time.
-        folder, shown = place(kit.workspace, write_paths)
+        folder, shown = place(kit.workspace, write_paths, FOLDER)
         try:
             path = save(folder, label, data, kind)
         except OSError as exc:
