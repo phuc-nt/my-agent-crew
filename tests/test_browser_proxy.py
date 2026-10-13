@@ -10,7 +10,7 @@ import base64
 
 import pytest
 
-from my_agent_crew.browser.proxy import USER, FilteringProxy
+from my_agent_crew.browser.proxy import MARK, USER, FilteringProxy
 from tests.browser_servers import Recorder, ask, only, sites
 
 
@@ -82,6 +82,30 @@ async def test_a_name_nobody_resolves_is_a_bad_gateway_and_not_a_refusal(started
 
     assert answer.startswith(b"HTTP/1.1 502 ")
     assert proxy.refused_total == 0
+
+
+async def test_the_proxy_signs_its_own_answers_and_no_answer_of_a_site(started):
+    """A refusal and a site's own 403 read the same to a browser. The line the proxy adds to
+    what it says itself is how the two are told apart."""
+    sign = f"{MARK}: 1".encode()
+
+    def resolver(host: str) -> list[str]:
+        if host == "gone.test":
+            raise OSError("no such host")
+        return ["127.0.0.1"]
+
+    with sites({"/cam": lambda site: (403, {}, "cấm")}) as [shop]:
+        proxy = await started(resolver=resolver, allow=only(shop))
+
+        own = await ask(proxy.port, get(proxy, shop.url("/cam")))
+        refused = await ask(proxy.port, get(proxy, "http://127.0.0.1:9/"))
+        gone = await ask(proxy.port, get(proxy, "http://gone.test/"))
+        stranger = await ask(proxy.port, b"GET http://x.test/ HTTP/1.1\r\nHost: x.test\r\n\r\n")
+
+    assert own.startswith(b"HTTP/1.1 403 ") and sign not in own.lower()
+    assert refused.startswith(b"HTTP/1.1 403 ") and sign in refused.split(b"\r\n\r\n")[0]
+    assert gone.startswith(b"HTTP/1.1 502 ") and sign in gone.split(b"\r\n\r\n")[0]
+    assert stranger.startswith(b"HTTP/1.1 407 ") and sign in stranger.split(b"\r\n\r\n")[0]
 
 
 async def test_a_request_goes_to_the_address_that_was_checked_and_not_to_the_name_again(started):

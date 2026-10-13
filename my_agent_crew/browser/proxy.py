@@ -30,6 +30,8 @@ USER = "crew"
 HEAD_LIMIT = 64 * 1024
 CONNECT_SECONDS = 10.0
 REFUSED_KEPT = 50
+# On every answer this proxy writes itself, so a refusal here is told from a site's own 403.
+MARK = "x-crew-proxy"
 # Headers that speak to this proxy, or about this one connection, and not to the site.
 HOP_HEADERS = ("proxy-", "connection:", "keep-alive:")
 REASONS = {
@@ -152,7 +154,7 @@ class FilteringProxy:
 async def _answer(writer: asyncio.StreamWriter, status: int, extra: str = "") -> None:
     body = REASONS[status].encode()
     head = (
-        f"HTTP/1.1 {status} {REASONS[status].split(':')[0]}\r\n{extra}"
+        f"HTTP/1.1 {status} {REASONS[status].split(':')[0]}\r\n{extra}{MARK}: 1\r\n"
         f"Content-Type: text/plain\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n"
     )
     writer.write(head.encode("latin-1") + body)
