@@ -299,6 +299,33 @@ async def test_everything_stops_together_and_a_later_call_starts_afresh(tmp_path
         assert (await pool.session("coach")).context.pages
 
 
+async def test_a_pool_that_was_shut_starts_no_browser(tmp_path):
+    async with browsers(tmp_path / "browser") as pool:
+        up = await pool.session("coach")
+        pool.shut = True
+
+        # A browser that is up stays the agent's until everything stops.
+        assert await pool.session("coach") is up
+        with pytest.raises(RuntimeError, match="the server is stopping"):
+            await pool.session("ledger")
+        assert pool.running("ledger") is None
+        assert not (tmp_path / "browser" / "ledger").exists()
+
+        await pool.stop_all()
+
+        with pytest.raises(RuntimeError, match="the server is stopping"):
+            await pool.session("coach")
+        assert pool.running("coach") is None and up.context.pages == []
+
+
+async def test_a_pool_starts_browsers_until_it_is_shut(tmp_path):
+    async with browsers(tmp_path / "browser") as pool:
+        assert pool.shut is False
+        await pool.stop_all()
+        # Stopping everything is not the end: only the server going down is.
+        assert pool.shut is False
+
+
 async def test_the_gate_reads_a_tab_without_starting_anything(tmp_path):
     async with browsers(tmp_path / "browser") as pool:
         assert pool.peek("coach", "c1") is None and pool.running("coach") is None

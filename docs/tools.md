@@ -545,7 +545,9 @@ trong đó không mở lại trình duyệt: lời gọi kế tiếp kết thúc
 bị tắt trình duyệt giữa lượt, và không có gì được ghi lại vào thư mục hồ sơ. Lời gọi đang dở lúc
 đó kết thúc bằng lỗi của trình duyệt bị đóng. Agent được bật lại, hay agent mới mang cùng id,
 nhận bộ tool mới ở lượt kế tiếp; lượt cũ vẫn bị từ chối. `stop` thì khác: nó chỉ tắt trình
-duyệt, và chính lượt đang chạy mở lại được.
+duyệt, và chính lượt đang chạy mở lại được. Lúc server dừng thì mọi trình duyệt bị tắt và
+không lời gọi nào đến sau đó mở lại được: một lượt chưa kịp kết thúc nhận lỗi không khởi động
+được trình duyệt, và không tiến trình Chromium nào ở lại sau server.
 
 - **Kết nối.** Thẻ **Trình duyệt** nói máy đang bật hay tắt, kênh và phiên bản, hoặc thứ đang
   thiếu kèm lệnh cài, và agent nào đang có trình duyệt chạy. Riêng dòng cuối ấy đổi mà không ai

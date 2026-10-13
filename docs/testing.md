@@ -7295,7 +7295,7 @@ dựng một đội có agent giữ trình duyệt.
     mọi agent; `tools:` không đem tới cũng không lấy đi tool trình duyệt; bật mà thiếu trình duyệt là
     một dòng cảnh báo và server vẫn chạy; pool dựng theo cấu hình của máy và tìm đúng kênh; server
     đang chạy thì quét trình duyệt nhàn rỗi theo chu kỳ, một vòng hỏng không làm dừng việc quét, và
-    khi tắt thì dừng mọi trình duyệt).
+    khi tắt thì đánh dấu pool đã đóng trước rồi mới dừng mọi trình duyệt).
 - **một Chromium cho mỗi agent, hồ sơ riêng**:
   - pytest: `tests/test_browser_pool.py` (chưa ai gọi thì chưa có gì chạy; hai lời gọi cùng lúc chờ
     một trình duyệt; đăng nhập của agent này không phải của agent kia và còn qua lần khởi động lại;
@@ -7305,7 +7305,9 @@ dựng một đội có agent giữ trình duyệt.
     quên và khởi động lại; lời gọi đến lúc đang dừng thì chờ; lệnh dừng đến trước khi lần khởi động
     chạy bước đầu vẫn dừng được trình duyệt ấy; mọi thứ dừng được cả khi một trình duyệt còn đang
     khởi động; lệnh dừng thứ hai chờ lệnh thứ nhất; cổng duyệt đọc tab mà không khởi động gì; trình
-    duyệt không tự chạy việc riêng nào ra mạng).
+    duyệt không tự chạy việc riêng nào ra mạng; pool đã bị đánh dấu đóng thì không khởi động trình
+    duyệt nào và không để lại hồ sơ, trình duyệt đang chạy vẫn là của agent cho tới khi mọi thứ
+    dừng; dừng mọi thứ chưa phải là đóng).
 - **chỉ tới địa chỉ công khai**:
   - pytest: `tests/test_browser_network.py` (địa chỉ không công khai là nội bộ, kể cả địa chỉ riêng
     viết trong IPv6; dải mà `fetch_url` cho qua thì trình duyệt vẫn chặn; một tên chỉ tới được khi
@@ -7429,7 +7431,8 @@ dựng một đội có agent giữ trình duyệt.
     của agent khác còn nguyên; lượt đang chạy lúc agent bị đưa về `off` hay bị gỡ không duyệt thêm
     được, còn bộ tool mới của agent được bật lại thì duyệt được; agent bị tệp của nó đưa về `off`
     thì bị dừng trình duyệt ở lần đội được dựng lại, hồ sơ còn nguyên, agent khác không bị đụng;
-    agent thêm vào hay dựng lại lúc server đang chạy dùng cùng một pool;
+    agent thêm vào hay dựng lại lúc server đang chạy dùng cùng một pool; lời gọi đến sau khi server
+    đã dừng không khởi động trình duyệt nào và nhận đúng câu báo không khởi động được;
     bảng tool của đội đánh dấu `with_browser` cho đúng sáu tool; dòng đầu của `browser_screenshot`
     nêu một đường dẫn mà `GET /api/agents/{id}/files` trả về như một ảnh, cả khi dòng ấy đã bị rút
     thành bản xem trước của step).

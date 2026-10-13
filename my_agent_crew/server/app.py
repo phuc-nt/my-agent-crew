@@ -150,7 +150,8 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
             if reaper is not None:
                 reaper.cancel()
             if pool is not None:
-                # Last of what runs: no turn or job is left to start one again.
+                # Last of what runs, and for good: a turn still on its way out starts none.
+                pool.shut = True
                 await pool.stop_all()
             runtime.hub.close()
 

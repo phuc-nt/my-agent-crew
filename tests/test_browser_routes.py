@@ -605,3 +605,22 @@ async def test_a_server_that_goes_down_leaves_no_browser_up(tmp_path: Path, monk
     assert left[0] == "asked"
     assert all(pool.running(agent_id) is None for agent_id in ("coach", "shop"))
     assert [len(context.pages) for context in contexts] == [0, 0]
+
+
+async def test_a_call_that_outlives_the_server_starts_no_browser(tmp_path: Path, monkeypatch):
+    agents = {"coach": "browser: act\n", "shop": "browser: read\n"}
+    async with serving(tmp_path, monkeypatch, **agents) as c:
+        await c.call("coach", NAVIGATE, "conv-1", url=c.site.url("/"))
+        address = c.site.url("/don")
+
+    # A turn the shutdown did not wait for makes its next call with the tool it holds.
+    stopping = told_to_a_model.BROWSER_DOWN.format(error="the server is stopping")
+    try:
+        for agent_id in ("coach", "shop"):
+            with pytest.raises(ToolError) as refusal:
+                await c.call(agent_id, NAVIGATE, "conv-1", url=address)
+            assert str(refusal.value) == stopping
+            assert c.pool.running(agent_id) is None
+        assert not (browser_root(c.home) / "shop").exists()
+    finally:
+        await c.pool.stop_all()
