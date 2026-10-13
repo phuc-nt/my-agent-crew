@@ -7271,7 +7271,9 @@ Agent có `browser: read` hay `act` trong tệp của nó, trên máy đã bật
 `browser_*`: một Chromium riêng cho mỗi agent, tab thuộc về cuộc trò chuyện, trang được kể thành dàn ý
 có `ref` giữa hai dòng rào, và mọi kết nối của trình duyệt đi qua một proxy chỉ cho tới địa chỉ công
 khai. Chi tiết ở [tools.md](tools.md#trình-duyệt). Test chạy trên chính Chromium mà gói Playwright
-ghim (CI cài nó trước khi chạy pytest), với các trang do máy chủ giả trên loopback phục vụ
+ghim (CI cài nó trước khi chạy pytest; trên máy mình thì chạy `uv run playwright install chromium`
+một lần, thiếu nó các test này đỏ chứ không bị bỏ qua), với các trang do máy chủ giả trên loopback
+phục vụ
 (`tests/browser_servers.py`); cổng của máy chủ giả được miễn rào mạng theo từng cổng, chỉ trong test.
 Không test nào ra mạng. `tests/browser_tools.py` dựng bộ tool cho một agent, `tests/browser_crew.py`
 dựng một đội có agent giữ trình duyệt.

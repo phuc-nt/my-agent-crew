@@ -279,6 +279,46 @@ time, and on macOS inside a sandbox with no network and no writes.
 Details: [docs/tools.md](docs/tools.md#gọi-tool-từ-script) and
 [docs/tools.md](docs/tools.md#máy-chủ-mcp).
 
+## A browser of its own
+
+An agent can open and read web pages in a Chromium of its own and, where its file says so,
+click and type in them. Nothing of it is there until two switches say so:
+
+```yaml
+# config.yaml — the machine
+browser_enabled: true
+```
+
+```yaml
+# agents/<id>/agent.yaml — the agent
+browser: act                 # off (the default) · read · act
+browser_hosts:               # its own sites: an address there opens without a question
+  - shop.example
+  - "*.shop.example"
+```
+
+The browser is installed once with `uv run playwright install chromium`. `read` gives the agent
+`browser_navigate`, `browser_snapshot`, `browser_text`, `browser_tabs` and `browser_screenshot`;
+`act` adds `browser_act`. A page is told to the model as an outline between two fence lines made
+anew for every answer, each thing that can be acted on with a `ref`, so the words of a page stay
+data. Each agent has one headless browser, started at its first call and stopped after ten idle
+minutes, with a profile of its own under `<home>/browser/<agent id>/`: what one agent is signed
+in to is not another's. A tab belongs to the conversation that opened it.
+
+Two guards cannot be switched off. Every connection the browser makes goes through a proxy inside
+the server that reaches public addresses only, and the folder that holds the profiles is closed
+to every file tool and every sandboxed shell. `browser_navigate` and `browser_act` ask before
+they run, like any tool that changes something. An agent given `browser_hosts` opens an address
+there without a question and asks before any other host, in an autonomous conversation as well;
+an upload always asks, and so does a click on something whose name holds one of
+`browser_ask_patterns` (buy, pay, order, send, delete and their like). Nothing is ever typed into
+a password, one-time code or card number field.
+
+**Kết nối** shows whether the machine has the browser and whose is up; the agent editor sets the
+level and the hosts; an agent's page lists its open tabs, closes one and stops the browser.
+Details: [docs/tools.md](docs/tools.md#trình-duyệt), and what to check before turning it on in
+[docs/deployment-guide.md](docs/deployment-guide.md).
+
 ## Canvas
 
 A canvas is a versioned document that you and an agent edit together. The agent writes one for
@@ -509,6 +549,7 @@ Or run each gate on its own:
 ```bash
 uv run ruff check .              # lint
 uv run ruff format --check .     # formatting — a separate gate, a green `ruff check` does not replace it
+uv run playwright install chromium   # once: the browser tests drive a real Chromium
 uv run pytest -q                 # backend
 cd web && npm ci
 npm run typecheck && npm test    # frontend unit

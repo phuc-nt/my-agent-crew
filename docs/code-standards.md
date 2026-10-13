@@ -50,6 +50,7 @@ vì danh sách nằm trong tệp thì không bỏ sót được, còn nằm tron
 uv sync
 uv run ruff check .
 uv run ruff format --check .     # ← dễ quên nhất: `ruff check` xanh không có nghĩa cổng này xanh
+uv run playwright install chromium   # lần đầu, và sau khi gói Playwright đổi phiên bản
 uv run pytest -q
 
 cd web

@@ -32,6 +32,9 @@ run() {
 # whose bytes did not change, and the cache would keep their old, clean result.
 run "ruff check"            uv run ruff check --no-cache .
 run "ruff format --check"   uv run ruff format --check .
+# The browser tests drive the Chromium the Python Playwright package pins. Like the web's
+# further down, it is wanted once per machine: install it only when it is missing.
+uv run playwright install chromium >/dev/null 2>&1 || true
 run "pytest"                uv run pytest -q
 
 cd "$root/web"
