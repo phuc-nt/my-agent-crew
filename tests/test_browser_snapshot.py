@@ -121,6 +121,122 @@ def test_a_word_does_not_reach_what_stands_beside_or_after_it():
     assert [table[f"e{n}"].word for n in range(1, 7)] == ["thanh toán"] * 3 + [""] * 3
 
 
+# As the browser drew them: a button or a link that holds elements has no name of its own, and
+# what it says stands on the lines under it.
+INSIDE = """\
+- generic [active] [ref=e1]:
+  - button [ref=e2]:
+    - img "thùng rác" [ref=e3]
+    - text: Xoá tài khoản
+  - link [ref=e5] [cursor=pointer]:
+    - /url: /hit?a1
+    - heading "Gói Pro" [level=3] [ref=e6]
+    - paragraph [ref=e7]: 199.000đ mỗi tháng
+    - text: Mua ngay
+  - button [ref=e8]:
+    - paragraph [ref=e9]: Tài khoản của bạn
+    - paragraph [ref=e10]: Xoá vĩnh viễn
+  - button [ref=e11]:
+    - img "biểu tượng" [ref=e12]
+    - text: Gửi tiền
+  - generic [ref=e14] [cursor=pointer]:
+    - text: Xoá hẳn
+    - paragraph [ref=e15]: Không hoàn tác được
+    - img "x" [ref=e16]
+  - button "Xem" [ref=e17]:
+    - img "mắt" [ref=e18]"""
+
+
+def test_what_stands_inside_a_control_asks_for_the_word_the_control_holds():
+    """A click on the picture in a button presses the button."""
+    table = nodes(INSIDE)
+
+    assert {ref: table[ref].word for ref in table if ref not in ("e1", "e17", "e18")} == {
+        **dict.fromkeys(("e2", "e3"), "xoá"),
+        **dict.fromkeys(("e5", "e6", "e7"), "mua"),
+        **dict.fromkeys(("e8", "e9", "e10"), "xoá"),
+        **dict.fromkeys(("e11", "e12"), "gửi"),
+        **dict.fromkeys(("e14", "e15", "e16"), "xoá"),
+    }
+    assert (table["e17"].word, table["e18"].word) == ("", "")
+
+
+PRESSED = "button link menuitem menuitemcheckbox menuitemradio tab option checkbox radio switch"
+HOLDING = "generic listitem row cell paragraph heading group form dialog list region textbox"
+
+
+@pytest.mark.parametrize("role", [*PRESSED.split(), "treeitem"])
+def test_every_kind_of_control_a_click_sets_off_gives_its_word_to_what_it_holds(role):
+    table = nodes(f'- {role} [ref=e1]:\n  - img "hình" [ref=e2]\n  - text: Xoá')
+
+    assert (table["e1"].word, table["e2"].word) == ("xoá", "xoá")
+
+
+@pytest.mark.parametrize("role", [*HOLDING.split(), "combobox"])
+def test_what_only_holds_things_gives_them_no_word(role):
+    table = nodes(f'- {role} [ref=e1]:\n  - img "hình" [ref=e2]\n  - text: Xoá')
+
+    assert (table["e1"].word, table["e2"].word) == ("xoá", "")
+
+
+def test_a_word_goes_down_only_inside_what_a_click_sets_off():
+    """A row, a list item, a form or a box no pointer shows over sets nothing off by itself:
+    what stands beside a word in one of them is still its own thing."""
+    table = nodes(
+        "- generic [ref=e1]:\n"
+        "  - text: Thanh toán\n"
+        "  - paragraph [ref=e2]: Bằng thẻ\n"
+        "- row [ref=e3]:\n"
+        '  - cell "Đơn 12" [ref=e4]\n'
+        "  - cell [ref=e5]:\n"
+        '    - button "Xem" [ref=e6]\n'
+        "  - cell [ref=e7]:\n"
+        '    - button "Xoá" [ref=e8]\n'
+        '- form "Thanh toán" [ref=e9]:\n'
+        '  - textbox "Ghi chú" [ref=e10]\n'
+        '  - button "Tiếp" [ref=e11]\n'
+        "- listitem [ref=e12]:\n"
+        "  - text: Xoá\n"
+        '  - link "Trang chủ" [ref=e13] [cursor=pointer]:\n'
+        "    - /url: /x\n"
+        '- textbox "Thư" [ref=e14]:\n'
+        "  - paragraph [ref=e15]: Gửi anh Nam\n"
+        "  - paragraph [ref=e16]: Hẹn gặp"
+    )
+
+    assert {ref: node.word for ref, node in table.items() if node.word} == {
+        "e1": "thanh toán",
+        "e3": "xoá",
+        "e7": "xoá",
+        "e8": "xoá",
+        "e9": "thanh toán",
+        "e12": "xoá",
+        "e14": "gửi",
+        "e15": "gửi",
+    }
+
+
+def test_a_control_inside_another_keeps_its_words_and_takes_those_of_the_one_around_it():
+    table = nodes(
+        "- generic [ref=e1] [cursor=pointer]:\n"
+        '  - heading "Áo sơ mi" [level=3] [ref=e2]\n'
+        '  - button "Mua" [ref=e3]\n'
+        "- link [ref=e4] [cursor=pointer]:\n"
+        "  - /url: /goi\n"
+        "  - text: Thanh toán\n"
+        '  - button "Xem" [ref=e5]:\n'
+        '    - img "mắt" [ref=e6]\n'
+        '  - button "Xoá" [ref=e7]:\n'
+        '    - img "thùng" [ref=e8]'
+    )
+
+    # The card is clicked for what it holds, its title is not: the word is the button's own.
+    assert [table[f"e{n}"].word for n in (1, 2, 3)] == ["mua", "", "mua"]
+    # A button in a link presses the link too, and what is in that button with it.
+    assert [table[f"e{n}"].word for n in (4, 5, 6)] == ["thanh toán"] * 3
+    assert [table[f"e{n}"].word for n in (7, 8)] == ["xoá", "xoá"]
+
+
 def test_the_address_of_a_link_asks_for_nothing():
     table = nodes('- link "Tiếp" [ref=e1] [cursor=pointer]:\n  - /url: /order/confirm?pay=1')
 

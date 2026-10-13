@@ -13,7 +13,7 @@ from my_agent_crew import texts_browser as t
 from my_agent_crew.browser import act as a
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser.kit import Kit, one_line
-from my_agent_crew.browser.snapshot import Node, address, same_name
+from my_agent_crew.browser.snapshot import Node, address, read, same_name
 from my_agent_crew.browser.tabs import Tab
 from my_agent_crew.tools.registry import ToolError
 
@@ -21,9 +21,15 @@ READ_MS = 2_000
 CHOOSER_SECONDS = 2.0
 NAME_CHARS = 80
 FIELDS = "input, textarea, [contenteditable]"
-# What Enter in a form presses, and where such a control says what it does.
-SUBMITS = "button:not([type]), button[type=submit], input[type=submit], input[type=image]"
+# What Enter in a form presses: a button of any type but the two that send nothing (a type
+# left out, left empty or misspelt is a submit button's), and the two inputs that send.
+SUBMITS = (
+    "button:not([type=reset i]):not([type=button i])",
+    "input[type=submit i]",
+    "input[type=image i]",
+)
 SUBMITS_READ = 5
+# Where a control says what it does beside what is drawn of it: all there is of a hidden one.
 SUBMIT_SAYS = ("value", "aria-label", "title", "alt")
 
 
@@ -51,16 +57,48 @@ async def current(kit: Kit, tab: Tab, asked: a.Asked) -> tuple[Any, Node]:
     return target, node
 
 
-async def _submit_word(kit: Kit, target: Any) -> str:
-    """The word a person is asked for, on a control that sends the form this element is in:
-    Enter there is a click on it."""
-    controls = target.locator("xpath=ancestor-or-self::form[1]").locator(SUBMITS)
-    for n in range(min(await controls.count(), SUBMITS_READ)):
-        control = controls.nth(n)
-        said = [await control.text_content(timeout=READ_MS)]
-        said += [await control.get_attribute(x, timeout=READ_MS) for x in SUBMIT_SAYS]
-        for text in said:
-            word = kit.ask.find(text or "")
+def _quoted(value: str) -> str:
+    """A value as a string of a selector, whatever a page wrote in it."""
+    return '"' + "".join(c if c.isalnum() else f"\\{ord(c):x} " for c in value) + '"'
+
+
+def _submits(tied: str) -> str:
+    return ", ".join(control + tied for control in SUBMITS)
+
+
+async def _says(kit: Kit, page: Any, control: Any) -> str:
+    """The ask word on one control: in what it holds and declares, or in what the browser
+    draws of it, which is what a click on it is judged by."""
+    said = [await control.text_content(timeout=READ_MS)]
+    said += [await control.get_attribute(x, timeout=READ_MS) for x in SUBMIT_SAYS]
+    word = next((found for text in said if (found := kit.ask.find(text or ""))), "")
+    if not word:
+        word = read(await control.aria_snapshot(mode="ai", timeout=READ_MS), kit.ask).word
+        # Drawing one element makes the browser forget the refs of the others: the page is
+        # drawn again, which gives every element that did not change the ref it had.
+        await page.aria_snapshot(mode="ai")
+    return word
+
+
+async def _submit_word(kit: Kit, page: Any, target: Any) -> str:
+    """The word a person is asked for, on a control that sends the form this element belongs
+    to: Enter there is a click on it. An element belongs to the form it stands in, or to the
+    one its `form` attribute names; so do the controls, wherever on the page they stand."""
+    whole = target.locator("xpath=ancestor-or-self::*[last()]")
+    named = await target.get_attribute("form", timeout=READ_MS)
+    if named is None:
+        form = target.locator("xpath=ancestor-or-self::form[1]")
+    else:
+        form = whole.locator(f"form[id={_quoted(named)}]").first
+    if await form.count() != 1:
+        return ""
+    sending = [form.locator(_submits(":not([form])"))]
+    called = await form.get_attribute("id", timeout=READ_MS)
+    if called:
+        sending.append(whole.locator(_submits(f"[form={_quoted(called)}]")))
+    for controls in sending:
+        for n in range(min(await controls.count(), SUBMITS_READ)):
+            word = await _says(kit, page, controls.nth(n))
             if word:
                 return word
     return ""
@@ -86,7 +124,7 @@ async def guard(kit: Kit, page: Any, target: Any, asked: a.Asked, name: str, ms:
         if await target.and_(page.locator(":focus")).count() != 1:
             raise ToolError(t.ACT_NOT_FOCUSED.format(ref=ref))
     if kind == "press" and a.sends(asked.key):
-        word = await _submit_word(kit, target)
+        word = await _submit_word(kit, page, target)
         if word:
             raise ToolError(t.ACT_ENTER_SUBMITS.format(word=word))
 
