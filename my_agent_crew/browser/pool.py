@@ -4,7 +4,9 @@ nobody used it for a while and when the server stops.
 Each agent has a profile of its own under `<home>/browser/<agent_id>/`, so what one agent is
 logged in to is not another's. Every browser is started behind a proxy of its own that
 refuses private addresses (`proxy.py`): there is no other way out of it. How a Chromium is
-started is in `launch.py`."""
+started is in `launch.py`, what one that is up holds in `session.py`. A profile is one
+browser's at a time, so an agent whose profile a person is signing in on (`login.py`) has no
+browser until that window is closed."""
 
 from __future__ import annotations
 
@@ -14,37 +16,18 @@ import logging
 import time
 from collections import Counter
 from collections.abc import AsyncIterator, Callable
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from my_agent_crew.browser.downloads import Downloads, fresh
 from my_agent_crew.browser.launch import Driver, launch
 from my_agent_crew.browser.network import Allow
 from my_agent_crew.browser.proxy import FilteringProxy
+from my_agent_crew.browser.session import Reserved, Session
 from my_agent_crew.browser.tabs import Tab, Tabs
 from my_agent_crew.config_browser import BrowserSettings, profile_dir
 from my_agent_crew.tools.web import Resolver, resolve_host
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class Session:
-    agent_id: str
-    context: Any
-    proxy: FilteringProxy
-    tabs: Tabs
-    used: float
-    busy: int = 0
-    downloads: Downloads | None = None
-
-    async def close(self) -> None:
-        try:
-            await self.context.close()
-        except Exception:  # noqa: BLE001 - a browser that already died is closed
-            pass
-        await self.proxy.stop()
 
 
 class BrowserPool:
@@ -63,6 +46,8 @@ class BrowserPool:
         self.resolver = resolver
         self.allow = allow
         self.driver = Driver(self._lost)
+        # Agents whose profile a person holds: `login.py` adds and removes them.
+        self.reserved: set[str] = set()
         self._sessions: dict[str, asyncio.Future[Session]] = {}
         self._closing: dict[str, asyncio.Future[bool]] = {}
         # Times an agent was taken off the browser: tools made before the last start none.
@@ -73,6 +58,8 @@ class BrowserPool:
     async def session(self, agent_id: str) -> Session:
         """The agent's browser, started now if it is not up. The place is taken before the
         first await, so two turns that ask at once wait for one browser."""
+        if agent_id in self.reserved:
+            raise Reserved(agent_id)
         task = self._sessions.get(agent_id)
         if task is None:
             if self.shut:
@@ -98,6 +85,12 @@ class BrowserPool:
         if task is None or not task.done() or task.cancelled() or task.exception():
             return None
         return task.result()
+
+    def in_use(self, agent_id: str) -> bool:
+        """Whether a call is using the agent's browser now, or one is starting for a call."""
+        task = self._sessions.get(agent_id)
+        session = self.running(agent_id)
+        return task is not None and (not task.done() or bool(session and session.busy))
 
     def peek(self, agent_id: str, owner: str, label: str = "") -> Tab | None:
         """A tab as it is now, without starting anything: what the approval gate reads."""
@@ -162,7 +155,7 @@ class BrowserPool:
             await proxy.stop()
             raise
         tabs = Tabs(context, self.settings.max_tabs, self.clock)
-        session = Session(agent_id, context, proxy, tabs, self.clock())
+        session = Session(agent_id, context, proxy, tabs, self.clock(), profile=profile)
         session.downloads = Downloads(context, held)
         context.on("close", lambda _context: self._closed(session))
         log.info("browser started for agent %s (%s)", agent_id, self.settings.channel)
