@@ -7264,3 +7264,156 @@ mất có mặt ngay ở lần gọi model kế tiếp ([agents.md](agents.md#ma
   - Server của bộ eval chạy `--no-schedule` nên không tự nối máy chủ MCP lúc khởi động: muốn có
     trạng thái đã nối thì gọi `POST /api/mcp/<tên>/reconnect` ngay khi server lên, và đặt một ca
     không dính tới máy chủ ở đầu tệp ca.
+
+## Trình duyệt của agent
+
+Agent có `browser: read` hay `act` trong tệp của nó, trên máy đã bật `browser_enabled`, giữ các tool
+`browser_*`: một Chromium riêng cho mỗi agent, tab thuộc về cuộc trò chuyện, trang được kể thành dàn ý
+có `ref` giữa hai dòng rào, và mọi kết nối của trình duyệt đi qua một proxy chỉ cho tới địa chỉ công
+khai. Chi tiết ở [tools.md](tools.md#trình-duyệt). Test chạy trên chính Chromium mà gói Playwright
+ghim (CI cài nó trước khi chạy pytest), với các trang do máy chủ giả trên loopback phục vụ
+(`tests/browser_servers.py`); cổng của máy chủ giả được miễn rào mạng theo từng cổng, chỉ trong test.
+Không test nào ra mạng. `tests/browser_tools.py` dựng bộ tool cho một agent, `tests/browser_crew.py`
+dựng một đội có agent giữ trình duyệt.
+
+- **bật ở máy và ở từng agent**:
+  - pytest: `tests/test_browser_config.py` (máy không có trình duyệt cho tới khi tệp nói vậy; tệp đặt
+    và biến môi trường thắng; danh sách từ dừng để rỗng là tắt rào mềm có chủ ý, chỉ khoá vắng mới về
+    mặc định; giá trị lạ làm dừng khởi động; agent chỉ đọc hay thao tác khi chính tệp của nó nói, không
+    bật được thứ máy chưa bật, không thừa hưởng mức từ cấu hình chung; `off` trần của YAML là tắt, `on`
+    trần bị từ chối vì không nói tới đâu, mức lạ bị từ chối; danh sách host chỉ nhận tên host; lần lưu
+    từ web là điều lần khởi động sau đọc, `off` được ghi thành chữ, xoá hai khoá là bỏ khỏi tệp, giá
+    trị sai từ web bị từ chối và tệp giữ nguyên).
+  - pytest: `tests/test_browser_install.py` (Chromium đúng bản ghim, tải xong trọn vẹn, mới là đã cài
+    và nói được phiên bản; bản khác hay lần tải dở thì chưa; thiếu gói thì không có gì; kênh `chrome`
+    là Chrome của máy, phiên bản đọc từ ứng dụng mà không khởi động nó; thư mục trình duyệt tìm đúng
+    nơi Playwright để).
+  - pytest: `tests/test_browser_tool_set.py`, `tests/test_browser_runtime.py` (máy tắt hay agent không
+    xin thì không có tool nào; `read` được năm tool, `act` thêm một; master nhận theo tệp của nó như
+    mọi agent; `tools:` không đem tới cũng không lấy đi tool trình duyệt; bật mà thiếu trình duyệt là
+    một dòng cảnh báo và server vẫn chạy; pool dựng theo cấu hình của máy và tìm đúng kênh; server
+    đang chạy thì quét trình duyệt nhàn rỗi theo chu kỳ, một vòng hỏng không làm dừng việc quét, và
+    khi tắt thì dừng mọi trình duyệt).
+- **một Chromium cho mỗi agent, hồ sơ riêng**:
+  - pytest: `tests/test_browser_pool.py` (chưa ai gọi thì chưa có gì chạy; hai lời gọi cùng lúc chờ
+    một trình duyệt; đăng nhập của agent này không phải của agent kia và còn qua lần khởi động lại;
+    trình duyệt chỉ tới được trang qua proxy của nó, loopback cũng vậy; nhàn rỗi đủ lâu thì bị dừng và
+    lời gọi sau khởi động lại; trình duyệt đang phục vụ một lời gọi không bị dừng; lần khởi động hỏng
+    không giữ chỗ; tên không phải id agent không khởi động gì; trình duyệt tự biến mất được quên và
+    khởi động lại; lời gọi đến lúc đang dừng thì chờ; cổng duyệt đọc tab mà không khởi động gì; trình
+    duyệt không tự chạy việc riêng nào ra mạng).
+- **chỉ tới địa chỉ công khai**:
+  - pytest: `tests/test_browser_network.py` (địa chỉ không công khai là nội bộ, kể cả địa chỉ riêng
+    viết trong IPv6; dải mà `fetch_url` cho qua thì trình duyệt vẫn chặn; một tên chỉ tới được khi mọi
+    địa chỉ nó phân giải ra đều tới được; chỉ mở địa chỉ `http`/`https` đầy đủ; trang ở địa chỉ riêng
+    bị từ chối kèm tên; tên không ai phân giải được nói đúng là vậy chứ không nói là riêng; ngoại lệ
+    cho test nêu một cổng và không che gì khác).
+  - pytest: `tests/test_browser_proxy.py` (máy chủ nội bộ bị từ chối và không bao giờ được nối tới;
+    tên trỏ vào trong bị từ chối theo địa chỉ nó phân giải ra; request đi tới đúng địa chỉ đã kiểm,
+    không hỏi lại tên; proxy ký câu trả lời của chính nó và không trang nào giả được chữ ký; trang
+    không được nghe điều nói với proxy; thân request đi trọn; request thứ hai trên cùng kết nối không
+    được chuyển; đường hầm chở byte hai chiều tới địa chỉ đã kiểm; không mật khẩu của lần khởi động
+    này thì không được phục vụ, hai lần khởi động không chung mật khẩu; nhiễu và máy khách bỏ ngang
+    không làm proxy ngừng; các lần từ chối gần đây đọc lại được; dừng thì đóng cửa và cả các đường hầm
+    đang mở).
+  - pytest: `tests/test_browser_policy.py` (host của một địa chỉ được đọc theo cách chứng chỉ viết
+    nó; địa chỉ mà trình duyệt có thể đọc theo cách khác thì không nêu host nào; trình duyệt được
+    giao đúng cách viết đã dùng để đọc host; host thuộc về agent chỉ khi danh sách nêu, bất kể hoa
+    thường, cổng hay dấu chấm cuối; từ là chuỗi chữ và số viết thường; tên viết bằng dấu rời vẫn là
+    cùng những từ ấy; từ dừng được tìm theo pattern khớp nó, tên chỉ trông giống thì không; từ có
+    dấu trong tên không khớp pattern viết không dấu; pattern đầu tiên của danh sách là cái được nêu).
+- **tab thuộc về cuộc trò chuyện**:
+  - pytest: `tests/test_browser_tabs.py` (một cuộc thấy tab của chính nó, tab dùng sau cùng đứng
+    đầu; tab của lời gọi trước là đúng tab ấy hoặc không có, không bao giờ là tab khác; hỏi tab không
+    có thì được kể những tab đang có; nhãn trùng không được cấp hai lần, nhãn sai không mở gì; cuộc
+    giữ hết chỗ thì được bảo đóng bớt; tới giới hạn thì tab cuộc khác để lâu nhất nhường chỗ, tab
+    đang giữa một thao tác thì không; hai cuộc mở cùng lúc không cùng lấy chỗ cuối; tab không ai dùng
+    nửa giờ bị đóng; cửa sổ trang tự mở là tab kế tiếp của cùng cuộc; hộp thoại bị gạt đi và được giữ
+    lại để kể; trang hỏi có rời đi không thì được rời).
+  - pytest: `tests/test_browser_kit.py` (lời gọi ngoài mọi cuộc trò chuyện dùng tab của job; `ref`
+    là thứ model đã được thấy hoặc không tìm ra gì; rào được tạo mới cho mỗi câu trả lời; chỗ dành
+    cho trang là phần trần còn lại và không bao giờ quá ít để đọc; trang đứng yên được vẽ một lần,
+    trang chuyển đi lúc đang vẽ được vẽ lại, chuyển trong cùng trang không tính, trang không ngừng
+    chuyển được kể ở địa chỉ nó vừa rời; lỗi của trình duyệt chỉ kể dòng đầu).
+- **trang được kể thành dàn ý, giữa hai dòng rào**:
+  - pytest: `tests/test_browser_snapshot.py` (mỗi phần tử có `ref` được đọc cùng vai trò và tên;
+    `ref` viết trong tên hay trong giá trị không phải là `ref`; phần tử mang từ dừng của chính tên
+    nó, hộp mang từ dừng của thứ nó chứa, từ không lan sang thứ đứng bên cạnh hay phía sau; địa chỉ
+    của liên kết không làm dừng; `ref` vẽ hai lần thì không tìm ra gì; dàn ý vừa trần được đưa trọn,
+    quá trần thì rút về những gì thao tác được; tìm kiếm trả những dòng chứa từ, dưới các dòng cha
+    của chúng, xét cả giá trị, địa chỉ và hai cách viết dấu; mọi khung nhìn bị cắt đều kết ở một dòng
+    trọn và nói còn bao nhiêu).
+  - pytest: `tests/test_browser_navigate.py` (trang được kể giữa hai dòng rào và được giữ làm thứ
+    đã cho xem; lời gọi tiếp tục ở tab vừa dùng trừ khi nêu tab khác; địa chỉ bị từ chối không khởi
+    động trình duyệt; trang dẫn tới địa chỉ riêng bị từ chối và để lại tab trắng; lời từ chối của
+    chính trang web là một trang như mọi trang; trang tự viết dấu của proxy chỉ tự từ chối mình; máy
+    chủ không trả lời được nêu tên; trang tải quá chậm bị bỏ mà tab vẫn dùng được; lỗi của trình
+    duyệt được kể không kèm địa chỉ; địa chỉ lẽ ra tải tệp về thì không tải gì; thứ trang với tới mà
+    bị từ chối được kể trong rào; agent có danh sách host mở các host ấy không hỏi và hỏi với host
+    khác; trình duyệt được giao địa chỉ đúng như đã kiểm).
+  - pytest: `tests/test_browser_read_tools.py` (điều trang viết không đóng được rào cũng không đứng
+    được ngoài rào; trang dài hơn trần bị cắt ở dòng trọn và giữ dòng rào đóng; cửa sổ trang mở và
+    hộp thoại được kể đúng một lần; dàn ý chờ được một câu chữ và nói khi chữ không tới; tab chỉ
+    với tới được từ cuộc đã mở nó; chữ của cả trang hay của một phần tử; `ref` trang không còn nhận
+    thì bị từ chối; liệt kê tab không khởi động trình duyệt, tab không trả lời vẫn được kể và đóng
+    được; các tool đọc không đổi gì và không hỏi ai).
+- **thao tác trúng đúng thứ model đã thấy**:
+  - pytest: `tests/test_browser_act_rules.py` (mỗi `kind` được đọc với đúng thứ nó cần; `kind` lạ
+    và tham số thiếu được nêu tên; chỉ `fill` được viết rỗng; phím là một trong vài phím hay một ký
+    tự, nhiều nhất kèm Shift, tổ hợp phím bị từ chối; Enter gửi form dù có Shift hay không; ô chỉ
+    chủ được điền nhận ra qua điều nó khai hay tên nó mang; thao tác dừng vì một từ trong tên, trong
+    lựa chọn hay dưới phần tử; tệp tải lên phải có trong workspace).
+  - pytest: `tests/test_browser_act_page.py` (phần tử còn như đã cho xem thì tìm được theo `ref`;
+    `ref` model chưa từng được cho không với tới trang nào; trang đã sang địa chỉ khác, phần tử đã
+    mất hay đổi vai trò, tên nêu không còn là tên phần tử đang mang, hay chữ dành cho người đã đổi
+    thì không thao tác; từ mà người đã được hỏi rồi không tính là đổi).
+  - pytest: `tests/test_browser_act_tools.py` (bấm đúng một lần và trang sau đó là điều model nhận
+    lại; mỗi `kind` làm đúng một việc với phần tử được nêu; `ref` ở lại với phần tử khi trang mọc
+    thêm quanh nó; từ dừng xuất hiện dưới phần tử sau khi model nhìn thì chặn thao tác; mật khẩu, mã
+    và số thẻ không bao giờ được gõ; phím tới phần tử được nêu hoặc không tới đâu; Enter không gửi
+    form mà người sẽ được hỏi; tệp của workspace đi vào hộp chọn tệp mà phần tử mở; cổng duyệt không
+    khởi động trình duyệt và hỏi về tải lên ở mọi nơi; agent có danh sách host được hỏi cho mọi thao
+    tác trên trang ngoài danh sách; thao tác dành cho tab được nêu hay tab của lời gọi trước và
+    không bao giờ chuyển sang tab khác khi tab của nó mất; thứ trang với tới và hộp thoại trang nói
+    trong lúc thao tác được kể cùng trang sau thao tác; phần tử không bao giờ sẵn sàng bị bỏ sau thời
+    gian đã xin; thao tác đã làm được kể là đã làm khi không đọc lại được trang).
+  - pytest: `tests/test_tool_gate_conditional.py` (lời gọi mà tool nêu lý do thì hỏi dù cuộc trò
+    chuyện cho phép gì; lời gọi tool không nêu thì theo quy tắc thường; lý do hiện ra đúng như tool
+    viết và đọc lại sau vẫn còn; tool hỏng khi xét có hỏi không thì vẫn hỏi, hỏng khi xét điều gì là
+    thường lệ thì không cho gì; lời gọi thường lệ chạy trong cuộc đang giám sát; lý do để hỏi đứng
+    trên điều thường lệ; lượt không ai trông dừng ở lời gọi tool nêu; script và script của lịch bị
+    kết thúc bởi lời gọi tool nêu; tool có thể hỏi không bao giờ được tính là tool chỉ đọc).
+- **ảnh chụp tab**:
+  - pytest: `tests/test_browser_screenshot.py` (ảnh là một tệp trong workspace dưới tên tool tự đặt;
+    ảnh của đúng tab được nêu; ảnh quá lớn ở PNG được giữ ở JPEG, còn quá lớn thì bị từ chối; điều
+    model đọc từ ảnh được kể giữa hai dòng rào, bài đọc dài bị cắt sao cho rào vẫn đóng; ảnh không
+    model nào đọc được vẫn được giữ và tab rảnh trong lúc chờ; chỉ những ảnh gần nhất của tool được
+    giữ, thứ khác trong thư mục không bị đụng; ảnh được ghi trong workspace hoặc không ghi; agent bị
+    giữ trong vài thư mục thì ảnh nằm dưới thư mục đầu tiên; không bao giờ ghi qua một tên đã có).
+- **gọi từ script**:
+  - pytest: `tests/test_browser_runtime.py` (script gọi được các tool chỉ nhìn; `browser_navigate` và
+    `browser_act` chỉ gọi được từ script của agent `script_calls: gated`, qua cổng duyệt).
+- **thư mục hồ sơ đóng với mọi tool**:
+  - pytest: `tests/test_private_paths.py` (chưa giữ thư mục nào thì chưa gì là riêng; thư mục được
+    giữ và mọi thứ dưới nó là riêng, thứ bên cạnh thì không; liên kết dẫn vào thư mục được giữ là
+    riêng dù nằm đâu; thư mục được nhận ra theo chính nó chứ không theo cách viết tên; thư mục giữ
+    trước khi được tạo vẫn được nhận ra; các tool tệp không đọc, không liệt kê, không ghi; tìm kiếm
+    bắt đầu phía trên thì đi vòng qua, có hay không có ripgrep). Server giữ tên các thư mục riêng
+    suốt đời tiến trình, nên một fixture trong `tests/conftest.py` cho mỗi test bắt đầu khi chưa
+    thư mục nào được giữ.
+  - pytest: `tests/test_shell_private_folder.py` (lệnh trong sandbox không với tới thư mục riêng;
+    thứ nằm bên cạnh vẫn đọc và ghi như trước; thư mục nêu qua một liên kết bị đóng ở nơi nó thật sự
+    nằm; lời từ chối nói cả hai quy tắc; shell chưa từng bị giữ thì không vì thư mục riêng mà bị
+    giữ). `tests/test_browser_runtime.py` giữ phần của server: thư mục đóng dù trình duyệt bật hay
+    tắt, và được đóng trước khi server tìm trình duyệt.
+- **API: xem, dừng, đóng tab**:
+  - pytest: `tests/test_browser_routes.py` (hỏi trạng thái không khởi động gì; agent không có trong
+    đội là 404; tab được kể theo thứ tự dùng gần nhất, theo host và tiêu đề, không bao giờ theo địa
+    chỉ; tab được gọi bằng số của nó; thời gian nhàn rỗi là số giây trọn; máy thiếu phần nào thì nói
+    đúng phần ấy; lời gọi đang chạy được kể là bận và kết thúc khi người đóng tab của nó; dừng thì
+    kết thúc lời gọi đang chạy, giữ đăng nhập và để lời gọi sau khởi động lại; agent bị đưa về `off`
+    thì trình duyệt nó để chạy bị dừng; gỡ agent thì mất cả trình duyệt lẫn những gì nó đã đăng nhập,
+    của agent khác còn nguyên; agent thêm vào hay dựng lại lúc server đang chạy dùng cùng một pool;
+    bảng tool của đội đánh dấu `with_browser` cho đúng sáu tool; dòng đầu của `browser_screenshot`
+    nêu một đường dẫn mà `GET /api/agents/{id}/files` trả về như một ảnh, cả khi dòng ấy đã bị rút
+    thành bản xem trước của step).
