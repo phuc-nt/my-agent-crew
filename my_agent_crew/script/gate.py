@@ -47,7 +47,7 @@ def _asked(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str:
     """Why the gate would ask. A pattern of the agent's ask list is the owner's own words
     and is named; a tool's own reason may quote the call, so it is not passed on."""
     tool = deps.tools.get(name)
-    own = tool is not None and tool.ask_reason is not None
+    own = tool is not None and (tool.ask_reason is not None or tool.ask_when is not None)
     pattern = None if own else ask_reason_for(deps, name, arguments)
     if pattern:
         return t.SCRIPT_GATE_ASK_LIST.format(name=name, pattern=pattern)

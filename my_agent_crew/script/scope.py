@@ -63,7 +63,8 @@ def no_scripts(settings: Settings) -> bool:
 def only_reads(tool: Tool) -> bool:
     """Whether calling the tool changes nothing and asks nobody. A call of any other is
     the approval gate's to decide before it runs."""
-    return tool.replay_safe and not tool.requires_approval and tool.ask_reason is None
+    asks = tool.requires_approval or tool.ask_reason is not None or tool.ask_when is not None
+    return tool.replay_safe and not asks
 
 
 def scriptable(tool: Tool, gated: bool = False, delegates: bool = False) -> bool:

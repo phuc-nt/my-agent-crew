@@ -19,6 +19,7 @@ from my_agent_crew.config import load_settings
 from my_agent_crew.config_parse import ALLOW_PATTERN_DENYLIST, allow_patterns
 from my_agent_crew.store.models import Conversation
 from my_agent_crew.tools.ask_user import ASK_USER_TOOL_NAME
+from my_agent_crew.tools.registry import ToolRegistry
 from my_agent_crew.tools.shell import SHELL_TOOL_NAME, ask_reason
 
 
@@ -138,11 +139,13 @@ def test_a_tool_the_person_always_allows_still_runs():
 
 
 class FakeDeps:
-    """`allowed_by_pattern` reads nothing but the settings, so a real registry and store would only
-    obscure what the test is about."""
+    """`allowed_by_pattern` reads the settings, and asks the registry only whether the tool
+    has a rule of its own (`test_tool_gate_conditional.py`). None here has, so an empty
+    registry stands in, and a real store would only obscure what the test is about."""
 
     def __init__(self, patterns: tuple[str, ...]):
         self.settings = SimpleNamespace(shell_allow_patterns=patterns)
+        self.tools = ToolRegistry([])
 
 
 def test_only_a_shell_call_is_matched_against_the_allow_list():

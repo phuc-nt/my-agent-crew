@@ -88,6 +88,18 @@ def calling_as(call_id: str) -> Iterator[None]:
 
 
 @contextmanager
+def reading_as(conv_id: str) -> Iterator[None]:
+    """A request read back outside the turn that made it, as a page reload does: why it
+    stopped is worked out again from the call, and a tool whose reason depends on the
+    conversation (the page a browser tab shows) reads the same one the turn did."""
+    outer = _turn_conversation_id.set(conv_id)
+    try:
+        yield
+    finally:
+        _turn_conversation_id.reset(outer)
+
+
+@contextmanager
 def job_context(call_id: str) -> Iterator[None]:
     """What a schedule's script goes by while it runs: a job's work, with no conversation
     of its own, under a call id of its own. A script is no turn, and its tools read where
