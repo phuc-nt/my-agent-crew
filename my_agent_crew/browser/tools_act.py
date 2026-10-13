@@ -18,6 +18,7 @@ from my_agent_crew.browser.act_page import NAME_CHARS, current, guard, perform
 from my_agent_crew.browser.kit import BrowserTool, Kit, one_line, text_of, timed_out
 from my_agent_crew.browser.policy import host_allowed, host_of
 from my_agent_crew.browser.report import page_report
+from my_agent_crew.browser.snapshot import Shown
 from my_agent_crew.browser.tabs import Tab
 from my_agent_crew.tools.registry import Tool, ToolError
 
@@ -35,16 +36,23 @@ def bound(kit: Kit, label: str) -> Tab | None:
     return session.tabs.find(owner, label) if label else session.tabs.last(owner)
 
 
+def seen(kit: Kit, label: str) -> tuple[Shown | None, str, str]:
+    """What the model was shown of the tab a call is for, the address that was at, and its
+    host as a person is told it. Read from what was shown and never from the page as it is
+    now: the gate asks several times for one call and has to hear the same each time."""
+    tab = bound(kit, label)
+    shown = tab.shown if tab else None
+    url = shown.url if shown else tab.page.url if tab else ""
+    return shown, url, host_of(url) or one_line(url, HOST_CHARS) or "—"
+
+
 def build_act(kit: Kit) -> Tool:
     hosts = kit.settings.hosts
 
     def ask(args: dict[str, Any]) -> str | None:
         """Why this call stops for a person, None when it need not. It only reads."""
         kind, ref, name = (text_of(args, key) for key in ("kind", "ref", "name"))
-        tab = bound(kit, text_of(args, "tab"))
-        shown = tab.shown if tab else None
-        url = shown.url if shown else tab.page.url if tab else ""
-        host = host_of(url) or one_line(url, HOST_CHARS) or "—"
+        shown, url, host = seen(kit, text_of(args, "tab"))
         said = one_line(name, NAME_CHARS)
         if kind == "upload":
             path = one_line(text_of(args, "path"), a.PATH_CHARS)

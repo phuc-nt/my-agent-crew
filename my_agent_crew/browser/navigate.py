@@ -22,11 +22,14 @@ from my_agent_crew.browser.pool import Session
 from my_agent_crew.browser.proxy import MARK
 from my_agent_crew.browser.report import URL_CHARS, page_report, told
 from my_agent_crew.browser.tabs import Tab
+from my_agent_crew.texts_browser_files import NAV_IS_FILE
 from my_agent_crew.tools.registry import Tool, ToolError
 
 # How long a page is given to load: least, default, most.
 LOAD_SECONDS = (5, 20, 60)
 BLANKS, BLANK_PAUSE = 3, 0.2
+# How the browser says an address answered with a file to keep instead of a page to show.
+IS_FILE = "Download is starting"
 
 
 async def _blank(tab: Tab) -> None:
@@ -59,6 +62,8 @@ async def _go(session: Session, tab: Tab, url: str, wait: int, mark: int, limit:
             raise ToolError(t.NAV_SLOW.format(seconds=wait)) from exc
         if refused:
             raise _refusal(limit, refused) from exc
+        if IS_FILE in str(exc):
+            raise ToolError(NAV_IS_FILE) from exc
         raise driver_error(limit, t.NAV_FAILED, exc) from exc
     if response is None or MARK not in response.headers or response.status < 400:
         return response.status if response else None

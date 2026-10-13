@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from my_agent_crew.browser.downloads import Downloads, fresh
 from my_agent_crew.browser.launch import Driver, launch
 from my_agent_crew.browser.network import Allow
 from my_agent_crew.browser.proxy import FilteringProxy
@@ -36,6 +37,7 @@ class Session:
     tabs: Tabs
     used: float
     busy: int = 0
+    downloads: Downloads | None = None
 
     async def close(self) -> None:
         try:
@@ -153,12 +155,15 @@ class BrowserPool:
         proxy = FilteringProxy(self.resolver, self.allow)
         await proxy.start()
         try:
-            context = await launch(driver, profile, self.settings.channel, proxy.launch_option)
+            held = await asyncio.to_thread(fresh, profile)
+            option, channel = proxy.launch_option, self.settings.channel
+            context = await launch(driver, profile, channel, option, downloads=held)
         except BaseException:
             await proxy.stop()
             raise
         tabs = Tabs(context, self.settings.max_tabs, self.clock)
         session = Session(agent_id, context, proxy, tabs, self.clock())
+        session.downloads = Downloads(context, held)
         context.on("close", lambda _context: self._closed(session))
         log.info("browser started for agent %s (%s)", agent_id, self.settings.channel)
         return session

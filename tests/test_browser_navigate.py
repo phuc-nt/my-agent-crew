@@ -16,6 +16,7 @@ from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.browser import navigate
 from my_agent_crew.browser.navigate import build_navigate
 from my_agent_crew.browser.policy import host_of
+from my_agent_crew.texts_browser_files import NAV_IS_FILE
 from my_agent_crew.tools.registry import ToolError
 from tests.browser_servers import Site, browsers, sites
 from tests.browser_tools import World, parts, talking, under, world
@@ -291,12 +292,10 @@ async def test_an_address_that_would_download_a_file_downloads_nothing(w):
     with pytest.raises(ToolError) as error:
         await go.run({"url": w.site.url("/tai?ten=bi-mat")})
 
-    # An error with no code of the browser's is told by its kind alone outside the fence.
-    assert under(str(error.value)) == (
-        t.NAV_FAILED.format(error="Error"),
-        f.BROWSER_SAID.format(error="Page.goto: Download is starting"),
-    )
+    # It is told what the address is, and which tool takes a file, not that the page broke.
+    assert str(error.value) == NAV_IS_FILE
     assert not list((w.pool.root / "coach").rglob("a.bin"))
+    assert w.tab("nav-file").page.url == "about:blank"
 
 
 @talking("nav-reach")

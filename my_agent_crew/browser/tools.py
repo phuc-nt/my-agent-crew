@@ -1,8 +1,8 @@
 """The browser tools one agent is given.
 
 None where the machine has no browser to start, and none where the agent's own file leaves
-the browser off. An agent that reads pages gets the five tools that open and look; one that
-acts gets the one that does something to a page beside them. The agent's `browser` key
+the browser off. An agent that reads pages gets the six tools that open, look and keep a
+copy; one that acts gets the two that do something to a page beside them. The `browser` key
 decides this and nothing else does: its `tools:` list neither brings one nor takes one away."""
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from my_agent_crew.browser.navigate import build_navigate
 from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.browser.screenshot import build_screenshot
 from my_agent_crew.browser.tools_act import build_act
+from my_agent_crew.browser.tools_files import build_download, build_pdf
 from my_agent_crew.browser.tools_read import build_snapshot, build_tabs, build_text
 from my_agent_crew.config_browser import BrowserSettings
 from my_agent_crew.script.limits import RAW_LIMIT
@@ -46,5 +47,7 @@ def build_browser_tools(
         build_text(kit),
         build_tabs(kit),
         build_screenshot(kit, write_paths),
+        build_pdf(kit, write_paths),
     ]
-    return [*tools, build_act(kit)] if settings.acts else tools
+    acting = [build_act(kit), build_download(kit, write_paths)]
+    return [*tools, *acting] if settings.acts else tools
