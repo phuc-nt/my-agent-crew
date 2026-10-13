@@ -22,8 +22,9 @@ to its data: it can fetch and record, but it cannot edit the code, the scripts o
 config, and it cannot get `launchctl` or `osascript` to do that for it. Nor the server it
 runs under: see `server_rules`.
 
-Reading has one exception: a folder the server keeps private (a browser's logins), which a
-sandboxed command neither reads nor writes, see `private_rules`."""
+Reading has one exception: a folder the server keeps private (a browser's logins, the
+desktop helper's socket), which a sandboxed command neither reads nor writes nor connects
+into, see `private_rules`."""
 
 from __future__ import annotations
 
@@ -91,13 +92,18 @@ def private_rules(folders: Sequence[Path]) -> str:
     """The rules that close `folders` to a command altogether. Denying the read is not
     enough: the rules go by path, so a command that may write around such a folder would
     move it, or a folder above it, to a path no rule names and read it there. So the folder
-    takes no write either, and no folder above it can be moved or removed."""
+    takes no write either, and no folder above it can be moved or removed.
+
+    Nor is a socket in it connected to. With the network on, that is a rule of its own: a
+    Unix socket is reached by `connect`, which the file rules do not judge, and whoever
+    reaches the desktop helper's sees the screen and types on the keyboard."""
     if not folders:
         return ""
     inside = " ".join(f"(subpath {_quoted(folder)})" for folder in folders)
     above = sorted({parent for folder in folders for parent in folder.parents})
     held = " ".join(f"(literal {_quoted(parent)})" for parent in above)
-    return f"(deny file-read* file-write* {inside})(deny file-write-unlink {held})"
+    closed = f"(deny file-read* file-write* network-outbound {inside})"
+    return f"{closed}(deny file-write-unlink {held})"
 
 
 def sandbox_profile(
