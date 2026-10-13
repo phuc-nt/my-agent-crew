@@ -13,6 +13,8 @@ from datetime import date, datetime, tzinfo
 from pathlib import Path
 
 from my_agent_crew.clock import zone_for
+from my_agent_crew.config_browser import BrowserSettings, browser_settings
+from my_agent_crew.config_checks import checked
 from my_agent_crew.config_parse import (
     DEFAULT_SHELL_ASK_PATTERNS,
     Route,
@@ -97,6 +99,8 @@ class Settings:
     write_paths: tuple[str, ...] = ()
     # MCP servers `config.yaml` names; an agent uses one by naming it in its own file.
     mcp_servers: tuple[McpServer, ...] = ()
+    # The crew's own browser; off unless the machine and the agent's file both say so.
+    browser: BrowserSettings = BrowserSettings()
 
     @property
     def zone(self) -> tzinfo:
@@ -180,14 +184,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
             )
         ),
         mcp_servers=parse_servers(file_values.get("mcp_servers")),
+        browser=browser_settings(env, file_values),
     )
-    positive = (settings.max_steps, settings.approval_ttl_seconds, settings.tool_output_chars)
-    if min(positive) < 1 or settings.cost_cap_usd < 0:
-        raise ValueError(
-            "max_steps, approval_ttl_seconds and tool_output_chars must be >= 1, cost_cap_usd >= 0"
-        )
-    zone_for(settings.timezone)  # an unknown zone fails here, not in the first job
-    return settings
+    return checked(settings)
 
 
 def ensure_home(settings: Settings) -> Settings:

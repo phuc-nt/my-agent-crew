@@ -59,6 +59,7 @@ def apply_patch(raw: Any, patch: dict[str, Any]) -> Any:
         "shell_deny_patterns",
         "shell_write_paths",
         "write_paths",
+        "browser_hosts",
     )
     for key in (*list_keys, *PATH_KEYS):
         value = patch.get(key)
