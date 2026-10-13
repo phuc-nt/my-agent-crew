@@ -1,6 +1,6 @@
 # Kiểm thử
 
-**Phiên bản**: 0.17.0 · **Cập nhật**: 2026-10-13
+**Phiên bản**: 0.18.0 · **Cập nhật**: 2026-10-14
 
 Ba tầng, một quy tắc: **mỗi tính năng ra kèm một test ở tầng thấp nhất có thể thấy nó.**
 Bản thân các tệp test là bản kiểm kê đầy đủ; trang này nói mỗi tầng dùng để làm gì, chạy ra

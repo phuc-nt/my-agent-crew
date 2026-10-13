@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-10-14
+
 ### Added
 
 - An agent can open and read web pages in a browser of its own and, where its file says so, click
@@ -2797,6 +2799,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.18.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.18.0
 [0.17.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.17.0
 [0.16.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.16.0
 [0.15.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.15.0
