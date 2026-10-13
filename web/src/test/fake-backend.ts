@@ -279,7 +279,7 @@ export class FakeBackend {
     if (mcp) return json(mcp.body, mcp.status);
     const kept = this.scriptStore.route(path, method, url.searchParams);
     if (kept) return json(kept.body, kept.status);
-    const browser = this.browser.route(path, method);
+    const browser = this.browser.route(path, method, body);
     if (browser) return json(browser.body, browser.status);
     // Like the server, what the machine has for a browser is read as the page is answered.
     if (path === "/connections") return json({ ...this.connections, browser: this.browser.status() });

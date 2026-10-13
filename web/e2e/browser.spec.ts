@@ -201,6 +201,37 @@ test("a browser call that waits in the chat is said in a line above its argument
   await expect(bar.getByRole("button", { name: vi.approve, exact: true })).toBeEnabled();
 });
 
+test("a download that waits in the chat is said as what it presses and the name its file is kept under", async ({ page }) => {
+  const invoice = { ref: "e7", name: "Tải hoá đơn", save_as: "hoa-don-10.pdf", tab: "main" };
+  await mockApi(page, { agents: [master, coach({ browser: "act" })], conversations: [paused("c1", "Hoá đơn", "browser_download", invoice)], browser: machineOn() });
+  await page.goto("/#/chat/c1");
+
+  const bar = page.getByRole("alertdialog");
+  const said = bar.getByTestId("approval-call");
+  const raw = bar.locator(".approval-text > code");
+  await expect(said).toHaveText("Bấm «Tải hoá đơn» để tải tệp về, lưu thành hoa-don-10.pdf");
+  await expect(raw).toHaveText("ref=e7, name=Tải hoá đơn, save_as=hoa-don-10.pdf, tab=main");
+  expect(await top(said)).toBeLessThan(await top(raw));
+  await expect(bar.getByRole("button", { name: vi.approve, exact: true })).toBeEnabled();
+});
+
+test("a download that waits in the list of requests is said the same way, with no name where the call gives none", async ({ page }) => {
+  const invoice = { ref: "e7", name: "Tải hoá đơn" };
+  await mockApi(page, {
+    agents: [master, coach({ browser: "act" })],
+    conversations: [paused("c2", "Hoá đơn", "browser_download", invoice)],
+    runs: [waiting("c2")],
+    browser: machineOn(),
+  });
+  await page.goto("/#/manage/approvals");
+
+  const row = page.getByTestId("attention-row");
+  const said = row.getByTestId("approval-call");
+  await expect(said).toHaveText("Bấm «Tải hoá đơn» để tải tệp về");
+  expect(await top(said)).toBeLessThan(await top(row.locator(".approval-text > code")));
+  await expect(row.locator(".approval-text > code")).toHaveText("ref=e7, name=Tải hoá đơn");
+});
+
 test("a browser call that waits in the list of requests is said under the server's reason", async ({ page }) => {
   const cart = { url: "https://shop.example/cart?item=1", tab: "main" };
   await mockApi(page, {

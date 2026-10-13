@@ -1,5 +1,5 @@
-// An agent's browser as the server reports it. Mirrors `server/routes_browser.py` and the
-// `browser` keys of `agents/profile.py`.
+// An agent's browser as the server reports it. Mirrors `server/routes_browser.py`,
+// `server/routes_browser_login.py` and the `browser` keys of `agents/profile.py`.
 
 /** What an agent's file says of the browser: none, pages to read, or pages to act on too. */
 export type BrowserMode = "off" | "read" | "act";
@@ -39,6 +39,29 @@ export interface BrowserTab {
   busy: boolean;
 }
 
+/** The window a person signs in through on the agent's own profile. It shows on the screen
+ * of the machine the crew runs on, and the agent has no browser while it is open. */
+export interface BrowserLogin {
+  open: boolean;
+  /** When an open window closes by itself, UTC; null when none is open. */
+  until: string | null;
+  /** One could be opened now. False while one is open. */
+  available: boolean;
+  /** What is in the way when it is neither open nor available: "off" (the agent has no
+   * browser), "no_console", "locked", "busy", or a value a later server adds. "" otherwise. */
+  why: string;
+}
+
+/** A host the agent's browser may still be signed in to. A sign read off its cookies, not
+ * proof; of a cookie only this name and this moment are ever sent. */
+export interface BrowserSignedIn {
+  /** A host name, or a pattern of the agent's own list such as `*.shop.example`. */
+  host: string;
+  /** When the last cookie that counts runs out, UTC; null for a host of the agent's own
+   * list that holds nothing. */
+  until: string | null;
+}
+
 /** `GET /agents/{id}/browser`: the agent's key, the machine's two facts, and what runs. */
 export interface AgentBrowser {
   mode: BrowserMode;
@@ -50,4 +73,9 @@ export interface AgentBrowser {
   idle_seconds: number | null;
   /** Last used first; empty while nothing runs. */
   tabs: BrowserTab[];
+  /** Absent from a server older than the window. */
+  login?: BrowserLogin;
+  /** Null where there is nothing to tell: the agent has no browser, or none has ever closed
+   * on its profile and none is up. Absent from a server older than the key. */
+  logins?: BrowserSignedIn[] | null;
 }

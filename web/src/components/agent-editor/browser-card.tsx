@@ -2,20 +2,26 @@ import { useId } from "react";
 import type { AgentBrowser, BrowserMode, BrowserTab } from "../../api/types";
 import { type AgentBrowserController, useAgentBrowser } from "../../hooks/use-agent-browser";
 import { vi } from "../../i18n/vi";
+import { BrowserLogin } from "./browser-login";
+import { BrowserSignedIn } from "./browser-signed-in";
 
 interface Props {
   agentId: string;
   /** The agent's `browser` key as its file has it; absent from a server older than the key. */
   savedMode?: BrowserMode;
+  /** Its `browser_hosts` as its file has them: an agent with a list is shown every host of it. */
+  savedHosts?: string[];
   /** Opens the conversation a tab belongs to, on a page that has a way to. */
   onOpenConversation?: (conversationId: string) => void;
 }
 
 /** Where the browser stands, in one line. What runs is said first: a browser left up by a
- * setting since changed is still there to be stopped. */
+ * setting since changed is still there to be stopped. A window a person signs in through
+ * holds the profile, so the agent has no browser to start while it is open. */
 function stateLine(browser: AgentBrowser): string {
   const t = vi.browser.card;
   if (browser.running) return t.running(browser.tabs.length);
+  if (browser.login?.open) return t.loginOpen;
   if (!browser.enabled) return t.machineOff;
   if (!browser.installed) return t.notInstalled;
   return t.stopped;
@@ -77,11 +83,15 @@ function TabRow({ tab, control, onOpenConversation }: TabProps) {
  * first. Nothing is lost that the agent cannot open again, and what it is signed in to stays.
  * While one of them is in flight every button waits, and the state is read again after it.
  *
+ * Under what runs are the window a person signs in through and the hosts the browser may
+ * still be signed in to, each where the server tells of it: one older than them tells of
+ * neither, and the card is as it was.
+ *
  * An agent with no browser and none running has no card, and neither has one on a server
  * older than the route. A state that never arrived is said only for an agent whose file
  * asks for a browser, where the card was to be expected.
  */
-export function BrowserCard({ agentId, savedMode, onOpenConversation }: Props) {
+export function BrowserCard({ agentId, savedMode, savedHosts, onOpenConversation }: Props) {
   const stopNote = useId();
   const control = useAgentBrowser(agentId, savedMode);
   const { browser, note, pending } = control;
@@ -123,6 +133,8 @@ export function BrowserCard({ agentId, savedMode, onOpenConversation }: Props) {
           </span>
         </div>
       )}
+      {browser?.login && <BrowserLogin login={browser.login} control={control} />}
+      {browser && browser.logins !== undefined && <BrowserSignedIn logins={browser.logins} ownHosts={savedHosts} />}
       {note && (
         <p className={`credential-note ${note.tone}`} role="status" data-testid="browser-note">
           {note.text}

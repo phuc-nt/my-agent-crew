@@ -393,7 +393,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     }
     const kept = scriptStore.route(path, method, url.searchParams);
     if (kept) return json(kept.body, kept.status);
-    const browsed = browser.route(path, method);
+    const browsed = browser.route(path, method, route.request().postDataJSON());
     if (browsed) return json(browsed.body, browsed.status);
     const single = path.match(/^\/agents\/([^/]+)$/);
     if (single && (method === "PATCH" || method === "DELETE")) {

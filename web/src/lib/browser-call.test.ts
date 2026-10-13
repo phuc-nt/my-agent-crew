@@ -79,5 +79,47 @@ describe("a waiting browser call said in one line", () => {
     expect(browserCallLine("browser_navigate", "url=https://shop.example")).toBeNull();
     expect(browserCallLine("browser_navigate", null)).toBeNull();
     expect(browserCallLine("browser_act", ["click"])).toBeNull();
+    expect(browserCallLine("browser_download", "name=Tải hoá đơn")).toBeNull();
+    expect(browserCallLine("browser_download", null)).toBeNull();
+  });
+});
+
+describe("a waiting download said in one line", () => {
+  const download = (args: Record<string, unknown>) => browserCallLine("browser_download", { ref: "e7", ...args });
+
+  it("says what is pressed to bring the file down", () => {
+    expect(download({ name: "Tải hoá đơn" })).toBe("Bấm «Tải hoá đơn» để tải tệp về");
+    expect(download({ name: "Tải hoá đơn", tab: "don", timeout_s: 30 })).toBe("Bấm «Tải hoá đơn» để tải tệp về");
+  });
+
+  it("adds the name the file is to be kept under, where the call gives one", () => {
+    expect(download({ name: "Tải hoá đơn", save_as: "hoa-don-10.pdf" })).toBe("Bấm «Tải hoá đơn» để tải tệp về, lưu thành hoa-don-10.pdf");
+  });
+
+  it("says nothing of a file name that is empty or is no text", () => {
+    for (const save_as of ["", "   ", null, { name: "a.pdf" }, ["a.pdf"]]) {
+      expect(download({ name: "Tải hoá đơn", save_as })).toBe("Bấm «Tải hoá đơn» để tải tệp về");
+    }
+  });
+
+  it("reads nothing from a download that names no element, whatever file name it gives", () => {
+    expect(download({})).toBeNull();
+    expect(download({ save_as: "hoa-don.pdf" })).toBeNull();
+    expect(download({ name: "  ", save_as: "hoa-don.pdf" })).toBeNull();
+    expect(download({ name: { text: "Tải" } })).toBeNull();
+  });
+
+  it("puts each piece on one line, cuts it at eighty characters and writes a hidden character as its code point", () => {
+    expect(download({ name: "Tải\n  hoá đơn ", save_as: " hoa\tdon.pdf " })).toBe("Bấm «Tải hoá đơn» để tải tệp về, lưu thành hoa don.pdf");
+    const name = "n".repeat(81);
+    const file = "f".repeat(200);
+    expect(download({ name, save_as: file })).toBe(`Bấm «${"n".repeat(80)}…» để tải tệp về, lưu thành ${"f".repeat(80)}…`);
+    expect(download({ name: "Tải", save_as: "hoa‮fdp.exe" })).toBe("Bấm «Tải» để tải tệp về, lưu thành hoa[U+202E]fdp.exe");
+  });
+
+  it("is read from this tool alone: an action that names a file to keep is not a download", () => {
+    expect(browserCallLine("browser_act", { kind: "click", name: "Tải", save_as: "a.pdf" })).toBe("Bấm «Tải»");
+    expect(browserCallLine("browser_pdf", { name: "Tải", save_as: "a.pdf" })).toBeNull();
+    expect(browserCallLine("browser_download_all", { name: "Tải" })).toBeNull();
   });
 });

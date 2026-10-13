@@ -87,3 +87,9 @@ export function clockTime(iso: string): string {
   const date = parse(iso);
   return date === null ? iso : clock(date);
 }
+
+/** "24/09/2026" on the viewer's calendar: a day far enough off that its year has to be said. */
+export function calendarDate(iso: string): string {
+  const date = parse(iso);
+  return date === null ? iso : `${shortDate(date)}/${date.getFullYear()}`;
+}

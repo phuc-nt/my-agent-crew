@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayClock, dayGroup, dayOffset, timeAgo, timeUntil } from "./relative-time";
+import { calendarDate, dayClock, dayGroup, dayOffset, timeAgo, timeUntil } from "./relative-time";
 
 // The suite runs in Asia/Ho_Chi_Minh (vite.config.ts), so 17:30Z is 00:30 on the 27th.
 const now = new Date("2026-09-26T17:30:00Z");
@@ -65,5 +65,23 @@ describe("a time as a sentence names it", () => {
 
   it("hands back a timestamp it cannot read", () => {
     expect(dayClock("not a date", midMorning)).toBe("not a date");
+  });
+});
+
+describe("a day with its year", () => {
+  it("is the viewer's own day, month and year, each day and month as two digits", () => {
+    expect(calendarDate(new Date(2026, 10, 12, 9, 30).toISOString())).toBe("12/11/2026");
+    expect(calendarDate(new Date(2027, 0, 3, 23, 59).toISOString())).toBe("03/01/2027");
+  });
+
+  it("is the day the viewer lives in, where the instant falls on another day in UTC", () => {
+    expect(new Date().getTimezoneOffset()).toBe(-420);
+    // 17:30 UTC on the 11th is half past midnight on the 12th in Hanoi.
+    expect(calendarDate("2026-11-11T17:30:00+00:00")).toBe("12/11/2026");
+    expect(calendarDate("2026-12-31T17:00:00+00:00")).toBe("01/01/2027");
+  });
+
+  it("hands back a timestamp it cannot read", () => {
+    expect(calendarDate("not a date")).toBe("not a date");
   });
 });

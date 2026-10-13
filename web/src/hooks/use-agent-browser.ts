@@ -1,4 +1,5 @@
-// One agent's browser as it runs now, and the two things a person can do to it at once.
+// One agent's browser as it runs now, and what a person can do to it at once: stop it, close
+// a tab, and open or close the window they sign in through.
 //
 // Nobody tells the page when a browser starts, when a tab opens or when an idle one is
 // stopped, so the state is read again every few seconds for as long as the page is looked
@@ -20,15 +21,33 @@ export interface BrowserNote {
   text: string;
 }
 
+/** What is in flight: stopping the browser, opening the sign-in window ("login"), closing it
+ *  ("done"), the id of the tab being closed, or null. */
+export type BrowserPending = "stop" | "login" | "done" | number | null;
+
 export interface AgentBrowserController {
   /** The last answer. Null until the first, and for good from a server without the route. */
   browser: AgentBrowser | null;
-  /** What is in flight: "stop", the id of the tab being closed, or null. */
-  pending: "stop" | number | null;
+  pending: BrowserPending;
   /** What the last action has to say, else why the state could not be read again. */
   note: BrowserNote | null;
   stop: () => void;
   closeTab: (tabId: number) => void;
+  /** Opens the sign-in window, on `url` when one is given. True once the server opened it. */
+  openLogin: (url: string) => Promise<boolean>;
+  closeLogin: () => void;
+}
+
+/**
+ * What an action that failed has to say. Two refusals are no failure of the request, and the
+ * server words each in a sentence of its own, shown as it is: a tab that is gone already
+ * (404), and a sign-in window that cannot open now or on that address (409, 422).
+ */
+function refusal(what: BrowserPending, error: unknown): BrowserNote {
+  const status = error instanceof ApiError ? error.status : 0;
+  const worded = typeof what === "number" ? status === 404 : what === "login" && (status === 409 || status === 422);
+  if (worded) return { tone: "warn", text: errorText(error) };
+  return { tone: "danger", text: vi.connectionsPage.failed(errorText(error)) };
 }
 
 /**
@@ -39,7 +58,7 @@ export function useAgentBrowser(agentId: string, savedMode: BrowserMode | undefi
   const [browser, setBrowser] = useState<AgentBrowser | null>(null);
   // The route answered 404: a server older than it, or an agent the crew no longer has.
   const [missing, setMissing] = useState(false);
-  const [pending, setPending] = useState<"stop" | number | null>(null);
+  const [pending, setPending] = useState<BrowserPending>(null);
   const [acted, setActed] = useState<BrowserNote | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   // Answers can cross on the wire. Each read takes a number, and one asked no later than
@@ -71,23 +90,21 @@ export function useAgentBrowser(agentId: string, savedMode: BrowserMode | undefi
   useWhileSeen(read, BROWSER_POLL_MS, !missing);
 
   const act = useCallback(
-    async (what: "stop" | number, work: () => Promise<unknown>) => {
+    async (what: BrowserPending, work: () => Promise<unknown>): Promise<boolean> => {
       setPending(what);
       setActed(null);
+      let done = true;
       try {
         await work();
       } catch (e) {
-        // A tab that is gone already is no failure of the request: the server says so in its
-        // own sentence, and the read below shows the tabs there are.
-        const gone = what !== "stop" && e instanceof ApiError && e.status === 404;
-        setActed(
-          gone ? { tone: "warn", text: errorText(e) } : { tone: "danger", text: vi.connectionsPage.failed(errorText(e)) },
-        );
+        done = false;
+        setActed(refusal(what, e));
       }
       // Whatever was asked before the action ended describes the browser before it.
       shown.current = asked.current;
       await read();
       setPending(null);
+      return done;
     },
     [read],
   );
@@ -97,7 +114,10 @@ export function useAgentBrowser(agentId: string, savedMode: BrowserMode | undefi
     (tabId: number) => void act(tabId, () => api.closeAgentBrowserTab(agentId, tabId)),
     [act, agentId],
   );
+  const openLogin = useCallback((url: string) => act("login", () => api.openAgentBrowserLogin(agentId, url)), [act, agentId]);
+  const closeLogin = useCallback(() => void act("done", () => api.closeAgentBrowserLogin(agentId)), [act, agentId]);
 
   const note = acted ?? (readError === null ? null : { tone: "danger" as const, text: vi.browser.card.readFailed(readError) });
-  return { browser: missing ? null : browser, pending, note: missing ? null : note, stop, closeTab };
+  const state = { browser: missing ? null : browser, pending, note: missing ? null : note };
+  return { ...state, stop, closeTab, openLogin, closeLogin };
 }
