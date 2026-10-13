@@ -80,7 +80,8 @@ class BrowserPool:
         first await, so two turns that ask at once wait for one browser."""
         task = self._sessions.get(agent_id)
         if task is None:
-            task = self._sessions[agent_id] = asyncio.ensure_future(self._launch(agent_id))
+            start = self._launch(agent_id, self._closing.get(agent_id))
+            task = self._sessions[agent_id] = asyncio.ensure_future(start)
             task.add_done_callback(lambda done: self._failed(agent_id, done))
         return await asyncio.shield(task)
 
@@ -151,10 +152,12 @@ class BrowserPool:
                 await session.tabs.close_cold()
         return stopped
 
-    async def _launch(self, agent_id: str) -> Session:
+    async def _launch(self, agent_id: str, stopping: asyncio.Future[bool] | None) -> Session:
+        # `stopping` is the stop that was going on when this start was asked for: a profile is
+        # one browser's at a time. A stop that comes later waits for this start, not this for it.
         profile = profile_dir(self.root, agent_id)
-        if agent_id in self._closing:  # a profile is one browser's at a time
-            await asyncio.wait({self._closing[agent_id]})
+        if stopping is not None:
+            await asyncio.wait({stopping})
         if self._driver is None:
             from playwright.async_api import async_playwright  # absent where no agent browses
 
@@ -191,9 +194,7 @@ class BrowserPool:
 
     def _closed(self, session: Session) -> None:
         """A browser that went away by itself (a crash, a kill) is forgotten with its proxy."""
-        task = self._sessions.get(session.agent_id)
-        if task is not None and task.done() and not task.cancelled() and not task.exception():
-            if task.result() is session:
-                del self._sessions[session.agent_id]
-                closing = asyncio.ensure_future(session.proxy.stop())
-                closing.add_done_callback(lambda done: done.exception())
+        if self.running(session.agent_id) is session:
+            del self._sessions[session.agent_id]
+            closing = asyncio.ensure_future(session.proxy.stop())
+            closing.add_done_callback(lambda done: done.exception())

@@ -7297,10 +7297,12 @@ dựng một đội có agent giữ trình duyệt.
 - **một Chromium cho mỗi agent, hồ sơ riêng**:
   - pytest: `tests/test_browser_pool.py` (chưa ai gọi thì chưa có gì chạy; hai lời gọi cùng lúc chờ
     một trình duyệt; đăng nhập của agent này không phải của agent kia và còn qua lần khởi động lại;
-    trình duyệt chỉ tới được trang qua proxy của nó, loopback cũng vậy; nhàn rỗi đủ lâu thì bị dừng và
-    lời gọi sau khởi động lại; trình duyệt đang phục vụ một lời gọi không bị dừng; lần khởi động hỏng
-    không giữ chỗ; tên không phải id agent không khởi động gì; trình duyệt tự biến mất được quên và
-    khởi động lại; lời gọi đến lúc đang dừng thì chờ; cổng duyệt đọc tab mà không khởi động gì; trình
+    trình duyệt chỉ tới được trang qua proxy của nó, loopback cũng vậy; nhàn rỗi đủ lâu thì bị dừng
+    và lời gọi sau khởi động lại; trình duyệt đang phục vụ một lời gọi không bị dừng; lần khởi động
+    hỏng không giữ chỗ; tên không phải id agent không khởi động gì; trình duyệt tự biến mất được
+    quên và khởi động lại; lời gọi đến lúc đang dừng thì chờ; lệnh dừng đến trước khi lần khởi động
+    chạy bước đầu vẫn dừng được trình duyệt ấy; mọi thứ dừng được cả khi một trình duyệt còn đang
+    khởi động; lệnh dừng thứ hai chờ lệnh thứ nhất; cổng duyệt đọc tab mà không khởi động gì; trình
     duyệt không tự chạy việc riêng nào ra mạng).
 - **chỉ tới địa chỉ công khai**:
   - pytest: `tests/test_browser_network.py` (địa chỉ không công khai là nội bộ, kể cả địa chỉ riêng

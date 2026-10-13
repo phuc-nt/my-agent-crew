@@ -190,4 +190,6 @@ async def browsers(
     try:
         yield pool
     finally:
-        await pool.stop_all()
+        # A stop that never ends is a failed test, not a run that never ends.
+        async with asyncio.timeout(60):
+            await pool.stop_all()

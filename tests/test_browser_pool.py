@@ -218,6 +218,41 @@ async def test_a_call_that_arrives_while_its_browser_is_stopping_waits_until_it_
         assert (await fresh.tabs.open("c1")).label == "t1"
 
 
+async def test_a_stop_that_comes_before_a_start_took_its_first_step_stops_that_browser(tmp_path):
+    """The place is taken when a browser is asked for, and the start runs a turn later. A stop
+    in between waits for that start; the start must not wait for the stop in its turn."""
+    async with browsers(tmp_path / "browser") as pool:
+        asking = asyncio.ensure_future(pool.session("coach"))
+        await asyncio.sleep(0)
+        assert pool.running("coach") is None and not asking.done()
+
+        async with asyncio.timeout(30):
+            assert await pool.stop("coach") is True
+            session = await asking
+
+        assert pool.running("coach") is None and session.context.pages == []
+        with pytest.raises(OSError):
+            await asyncio.open_connection("127.0.0.1", session.proxy.port)
+        async with asyncio.timeout(30):
+            again = await pool.session("coach")
+        assert again is not session and pool.running("coach") is again
+        assert (await again.tabs.open("c1")).label == "t1"
+
+
+async def test_everything_stops_while_a_browser_is_still_starting(tmp_path):
+    async with browsers(tmp_path / "browser") as pool:
+        up = await pool.session("ledger")
+        asking = asyncio.ensure_future(pool.session("coach"))
+        await asyncio.sleep(0)
+
+        async with asyncio.timeout(30):
+            await pool.stop_all()
+            session = await asking
+
+        assert pool.running("coach") is None and pool.running("ledger") is None
+        assert session.context.pages == [] and up.context.pages == []
+
+
 async def test_a_second_stop_waits_for_the_first_and_says_it_stopped_nothing(tmp_path):
     async with browsers(tmp_path / "browser") as pool:
         session = await pool.session("coach")
