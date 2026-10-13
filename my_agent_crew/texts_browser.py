@@ -60,6 +60,10 @@ URL_PRIVATE = (
 # Refusals about tabs.
 NO_TAB = "Chưa có tab nào mở trong hội thoại này. Gọi browser_navigate với một địa chỉ trước."
 UNKNOWN_TAB = "Không có tab «{label}» trong hội thoại này. Tab đang mở: {labels}."
+TAB_GONE = (
+    "Tab của lần gọi trước không còn. Tab đang mở: {labels}. Gọi browser_snapshot(tab=…) rồi "
+    "thao tác trên dàn ý mới."
+)
 BAD_LABEL = (
     "Nhãn tab «{label}» không hợp lệ: chỉ chữ thường không dấu, số, gạch nối và gạch dưới, "
     "tối đa 24 ký tự."
@@ -165,16 +169,16 @@ ACT_NOT_FOCUSED = (
     "Phần tử {ref} không nhận được chữ hay phím: nó không giữ được con trỏ nhập. Chọn đúng ô "
     "nhập (textbox, combobox) hoặc nút trong dàn ý."
 )
-ACT_UNREADABLE = (
-    "Không đọc được phần tử {ref} trên trang: trang đang đổi hoặc không cho đọc. Gọi "
-    "browser_snapshot rồi thử lại."
-)
 ACT_TIMEOUT = (
     "Phần tử {ref} chưa sẵn sàng sau {seconds} giây: có thể bị che, bị tắt, không có lựa chọn "
     "đó, hoặc trang còn đang tải. Gọi browser_snapshot rồi thử lại."
 )
 ACT_DONE = "Đã {kind} {ref}."
 ACT_TAB_CLOSED = "Đã {kind} {ref}; tab «{label}» đóng lại sau thao tác."
+ACT_UNSEEN = (
+    "Thao tác đã xong nhưng chưa đọc lại được trang. {error} Gọi browser_snapshot để xem trang "
+    "lúc này; đừng lặp lại thao tác khi chưa xem."
+)
 
 # Why a call stops for a person: shown on the approval card as written.
 ASK_NAV_OUTSIDE = "Mở trang ở {host}: máy chủ này nằm ngoài danh sách browser_hosts của agent."
@@ -191,4 +195,5 @@ SHOT_NO_VISION = (
     "browser_snapshot hoặc browser_text."
 )
 SHOT_UNREAD = "Không đọc được ảnh: {error}"
+SHOT_NOT_SAVED = "Không lưu được ảnh chụp vào workspace: {error}"
 SHOT_TOO_LARGE = "Ảnh chụp lớn hơn {limit:.0f} MB. Chụp lại mà không dùng full_page."

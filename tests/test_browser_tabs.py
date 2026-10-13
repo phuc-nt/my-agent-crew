@@ -59,6 +59,46 @@ async def test_a_conversation_sees_its_own_tabs_and_the_one_it_used_last_first(t
         assert tabs.get("c1", " T2 ") is second
 
 
+async def test_the_tab_of_the_last_call_is_that_one_or_none_and_never_another(tmp_path):
+    clock = Clock()
+    async with browsers(tmp_path / "b", clock=clock) as pool:
+        tabs = (await pool.session("coach")).tabs
+        clock.now = 1
+        first, other = await tabs.open("c1"), await tabs.open("c2")
+
+        assert tabs.last("c1") is None  # a tab no call was on yet is nobody's last
+        with pytest.raises(ToolError) as untouched:
+            tabs.get("c1", last=True)
+        assert str(untouched.value) == t.TAB_GONE.format(labels="t1")
+
+        tabs.touch(other)
+        tabs.touch(first)
+        clock.now = 2
+        second = await tabs.open("c1")  # as a window the page opened would be
+
+        assert tabs.last("c1") is first and tabs.last("c2") is other
+        assert tabs.find("c1") is second and tabs.get("c1") is second  # where a read goes
+        assert tabs.get("c1", last=True) is first
+        assert tabs.get("c1", "t2", last=True) is second  # a label given is the label meant
+        with pytest.raises(ToolError) as unknown:
+            tabs.get("c1", "don", last=True)
+        assert str(unknown.value) == t.UNKNOWN_TAB.format(label="don", labels="t2, t1")
+
+        await tabs.close(first)
+
+        assert tabs.last("c1") is None and tabs.find("c1") is second
+        with pytest.raises(ToolError) as gone:
+            tabs.get("c1", last=True)
+        assert str(gone.value) == t.TAB_GONE.format(labels="t2")
+
+        await tabs.close(second)
+
+        with pytest.raises(ToolError) as none:
+            tabs.get("c1", last=True)
+        assert str(none.value) == t.NO_TAB
+        assert tabs.get("c2", last=True) is other
+
+
 async def test_asking_for_a_tab_that_is_not_there_says_which_there_are(tmp_path):
     async with browsers(tmp_path / "b") as pool:
         tabs = (await pool.session("coach")).tabs

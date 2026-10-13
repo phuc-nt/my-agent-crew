@@ -31,6 +31,7 @@ ACT_DESCRIPTION = (
 
 PARAM_URL = "Địa chỉ http hoặc https đầy đủ."
 PARAM_TAB = "Nhãn tab; bỏ trống là tab dùng gần nhất của hội thoại này."
+PARAM_ACT_TAB = "Nhãn tab; bỏ trống là tab của lần gọi browser_* ngay trước, không tab nào khác."
 PARAM_NAV_TAB = (
     "Nhãn tab: chữ thường không dấu, số, gạch nối. Bỏ trống là tab dùng gần nhất; một nhãn "
     "chưa có sẽ mở tab mới mang nhãn đó."
