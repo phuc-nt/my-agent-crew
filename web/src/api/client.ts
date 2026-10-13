@@ -1,5 +1,6 @@
 import { activityApi } from "./client/activity";
 import { agentsApi } from "./client/agents";
+import { browserApi } from "./client/browser";
 import { connectionsApi } from "./client/connections";
 import { conversationsApi } from "./client/conversations";
 import { query } from "./client/http";
@@ -41,6 +42,7 @@ export function subscribeActivity(
 
 export const api = {
   ...agentsApi,
+  ...browserApi,
   ...connectionsApi,
   ...conversationsApi,
   ...activityApi,

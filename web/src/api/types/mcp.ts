@@ -15,6 +15,9 @@ export interface RegistryTool extends ToolInfo {
    * its own that only reads or an MCP tool listed as read-only and not hidden, whatever
    * its allow-list and mode say. */
   with_reads?: boolean;
+  /** Only on the six `browser_*` tools: the agent's `browser` key alone brings them,
+   * whatever its allow-list and mode say. */
+  with_browser?: boolean;
 }
 
 /**

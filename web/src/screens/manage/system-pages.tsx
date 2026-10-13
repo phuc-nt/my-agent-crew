@@ -28,6 +28,7 @@ export function systemPages(props: ManageProps, { registry, credentials, mcp, re
             connections={registry.connections}
             credentials={credentials}
             mcp={mcp}
+            agentName={props.agentName}
             onChanged={rebuilt}
           />
         ) : (

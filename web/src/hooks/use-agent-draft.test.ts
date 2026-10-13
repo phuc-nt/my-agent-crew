@@ -32,6 +32,8 @@ describe("useAgentDraft", () => {
       mcp: fakeAgent.mcp,
       script_calls: "read_only",
       script_llm: true,
+      browser: "off",
+      browser_hosts: [],
       schedules: fakeAgent.schedules,
       telegram: fakeAgent.telegram,
     });

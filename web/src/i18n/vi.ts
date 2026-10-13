@@ -3,6 +3,7 @@
 import { viActivity } from "./vi/activity";
 import { viAppStatus } from "./vi/app-status";
 import { viAttention } from "./vi/attention";
+import { viBrowser } from "./vi/browser";
 import { viCanvas } from "./vi/canvas";
 import { viCanvasSections } from "./vi/canvas-sections";
 import { viConnections } from "./vi/connections";
@@ -35,6 +36,7 @@ export const vi = {
   ...viNotices,
   ...viManage,
   ...viConnections,
+  ...viBrowser,
   ...viEditor,
   ...viWelcome,
   ...viSettings,

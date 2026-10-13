@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { vi } from "../i18n/vi";
+import { browserCallLine } from "../lib/browser-call";
 import type { PendingApproval } from "../state/thread-reducer";
 import { formatClock } from "./run-timeline";
 import { summarizeArguments, ToolArgsDetail } from "./tool-args-detail";
@@ -18,6 +19,8 @@ interface Props {
 }
 
 export function ApprovalBar({ pending, busy, onDecide, onAlways, deadline, labelledBy }: Props) {
+  // A browser call in plain words, where its arguments can be read as one.
+  const call = browserCallLine(pending.name, pending.arguments);
   return (
     <div
       className="approval-bar callout"
@@ -31,6 +34,11 @@ export function ApprovalBar({ pending, busy, onDecide, onAlways, deadline, label
       <div className="approval-text">
         <strong>{vi.approvalTitle(pending.name)}</strong>
         {pending.reason && <span className="approval-reason">{pending.reason}</span>}
+        {call && (
+          <span className="approval-call" data-testid="approval-call">
+            {call}
+          </span>
+        )}
         <code>{summarizeArguments(pending.arguments) || "—"}</code>
         <ToolArgsDetail args={pending.arguments} />
         {deadline ??

@@ -1,8 +1,9 @@
 import { useId, useRef } from "react";
-import type { McpServerInfo, McpStatus, RegistryTool } from "../../api/types";
+import type { BrowserConnection, McpServerInfo, McpStatus, RegistryTool } from "../../api/types";
 import type { AgentDraft } from "../../hooks/use-agent-draft";
 import { useFocusAfterRowLeft } from "../../hooks/use-focus-after-row-left";
 import { vi } from "../../i18n/vi";
+import { BrowserControls, BrowserToolsNote } from "./browser-controls";
 import { ScriptControls } from "./script-controls";
 import { allowList } from "./tool-allow-list";
 
@@ -11,6 +12,8 @@ interface Props {
   readOnly: boolean;
   tools: RegistryTool[];
   mcpServers: McpServerInfo[];
+  /** The machine's browser, for the browser setting to say when it brings no tool. */
+  machine?: BrowserConnection;
 }
 
 const STATUS_TONE: Record<McpStatus, string> = { connected: "ok", idle: "warn", signed_out: "warn", failed: "danger" };
@@ -25,9 +28,9 @@ const STATUS_TONE: Record<McpStatus, string> = { connected: "ok", idle: "warn", 
  *
  * Which names a list has a say over is the server's to decide, and it says so for each
  * agent as it is saved (`listable_tools`): the picker offers a tick for those and for no
- * other. So the tools of an MCP server, the search that finds them and the script tool get
- * no row: they come with the server switched on below, or with what the agent may read,
- * whatever the list says.
+ * other. So the tools of an MCP server, the search that finds them, the script tool and the
+ * browser's tools get no row: they come with the server switched on below, with what the
+ * agent may read, or with its browser setting, whatever the list says.
  *
  * A name the list holds that the server does not report keeps a row of its own, ticked and
  * said to bring nothing, because only the person takes a name off a list: the form writes
@@ -41,7 +44,7 @@ const STATUS_TONE: Record<McpStatus, string> = { connected: "ok", idle: "warn", 
  * row that took its place, else to the last row of that list, else to the radio that is on:
  * "every tool" when the last name went, since an empty list is no list.
  */
-export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
+export function ToolsSection({ form, readOnly, tools, mcpServers, machine }: Props) {
   const strayMark = useId();
   const savedFirst = useId();
   const list = allowList(tools, form.original, form.draft);
@@ -137,6 +140,7 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
           {vi.editor.toolsFollowSaved}
         </p>
       )}
+      <BrowserToolsNote form={form} />
 
       <h3>{vi.editor.mcp}</h3>
       <p className="muted">{vi.editor.mcpHint}</p>
@@ -181,6 +185,7 @@ export function ToolsSection({ form, readOnly, tools, mcpServers }: Props) {
       )}
 
       <ScriptControls form={form} readOnly={readOnly} />
+      <BrowserControls form={form} readOnly={readOnly} machine={machine} />
     </section>
   );
 }

@@ -67,7 +67,7 @@ export function RunCard({ run, agentName, expanded = false, onOpenConversation, 
           ) : (
             <ol className="run-steps">
               {runRows(run).map((row) => (
-                <StepRow key={row.key} row={row} onOpenConversation={onOpenConversation} />
+                <StepRow key={row.key} row={row} agentId={run.agent_id} onOpenConversation={onOpenConversation} />
               ))}
             </ol>
           )}

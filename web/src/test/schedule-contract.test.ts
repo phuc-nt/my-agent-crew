@@ -140,6 +140,67 @@ describe("the two script switches, as the double reads them", () => {
   });
 });
 
+// `agents/profile_browser.py`, rule for rule: what the editor's tests of the browser keys
+// can prove is what this takes and refuses.
+describe("the browser's two keys, as the double reads them", () => {
+  const HOSTS_REFUSED = {
+    error: "browser_hosts must be a list of host names such as shop.example or *.shop.example, in lowercase, with no scheme, port or path",
+  };
+  const set = { ...fakeAgent, browser: "act" as const, browser_hosts: ["shop.example"] };
+
+  it("takes each of the three levels, and answers with it", () => {
+    for (const value of ["off", "read", "act"])
+      expect(applyAgentPatch(fakeAgent, { browser: value })).toMatchObject({ ok: { browser: value } });
+  });
+
+  it("refuses a bare yes, saying which of the two levels to write instead", () => {
+    expect(applyAgentPatch(fakeAgent, { browser: true })).toEqual({
+      error: "browser must be off, read or act, not a bare on, yes or true: write read to let it open and read pages, or act to let it click and type as well",
+    });
+  });
+
+  it("refuses any other word, another case and a number", () => {
+    for (const value of ["on", "Read", "ACT", "write", "", 1, 0, ["read"]])
+      expect(applyAgentPatch(fakeAgent, { browser: value })).toEqual({ error: "browser must be off, read or act" });
+  });
+
+  it("reads a cleared level and a bare no as off", () => {
+    for (const value of [null, false]) expect(applyAgentPatch(set, { browser: value })).toMatchObject({ ok: { browser: "off" } });
+  });
+
+  it("takes a list of host names and of names with a star in front, each kept without the space around it", () => {
+    expect(applyAgentPatch(fakeAgent, { browser_hosts: ["shop.example", " *.bank.example ", "localhost", "127.0.0.1"] })).toMatchObject({
+      ok: { browser_hosts: ["shop.example", "*.bank.example", "localhost", "127.0.0.1"] },
+    });
+  });
+
+  it("reads a cleared list and an empty one as no host", () => {
+    for (const value of [null, [], "", false]) expect(applyAgentPatch(set, { browser_hosts: value })).toMatchObject({ ok: { browser_hosts: [] } });
+  });
+
+  it("refuses the whole list for one entry that is no host name", () => {
+    for (const entry of ["https://shop.example", "shop.example:8443", "shop.example/cart", "Shop.example", "*.", "shop..example", "", 7, null])
+      expect(applyAgentPatch(set, { browser_hosts: ["docs.example", entry] })).toEqual(HOSTS_REFUSED);
+  });
+
+  it("refuses a list that is not one", () => {
+    for (const value of ["shop.example", { host: "shop.example" }, 7]) expect(applyAgentPatch(set, { browser_hosts: value })).toEqual(HOSTS_REFUSED);
+  });
+
+  it("leaves both as they were on a save that names neither, and each alone on a save of the other", () => {
+    expect(applyAgentPatch(set, { name: "Khác" })).toMatchObject({ ok: { browser: "act", browser_hosts: ["shop.example"] } });
+    // Set to off, the list stays in the file for the day a level is chosen again.
+    expect(applyAgentPatch(set, { browser: "off" })).toMatchObject({ ok: { browser: "off", browser_hosts: ["shop.example"] } });
+    expect(applyAgentPatch(set, { browser_hosts: [] })).toMatchObject({ ok: { browser: "act", browser_hosts: [] } });
+  });
+
+  it("does not edit the agent it was handed", () => {
+    applyAgentPatch(set, { browser: "off", browser_hosts: [] });
+
+    expect(set).toMatchObject({ browser: "act", browser_hosts: ["shop.example"] });
+  });
+});
+
 describe("the delegates and the names a list has a say over, as the double answers a save", () => {
   // Not the master, chatting, naming nobody: it hands no work out.
   const plain = { ...fakeAgent, is_master: false, listable_tools: ["memory_save", "write_file"] };

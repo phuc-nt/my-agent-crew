@@ -43,11 +43,13 @@ export function crewPages(
             agents={props.agents}
             tools={registry.tools}
             mcpServers={mcp.servers}
+            browser={registry.connections?.browser}
             providers={registry.connections?.providers.map((p) => p.name) ?? []}
             onBack={() => props.onEditAgent(null)}
             fromJob={props.fromJob}
             onChanged={crewChanged}
             focus={props.editFocus}
+            onOpenConversation={props.onOpenConversation}
           />
         ) : (
           <CrewPanel

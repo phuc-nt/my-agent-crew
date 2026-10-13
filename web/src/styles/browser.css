@@ -1,0 +1,114 @@
+/*
+ * The browser an agent drives, on the screens that draw it their own way: the agent's card
+ * with its tabs, the two marks of the tools grid, the line an approval reads a call in, and
+ * the small picture of a screenshot.
+ */
+
+/* The grid's marks for an agent whose own setting keeps a browser tool away read as the
+   other marks of a choice do: quiet, since nothing is wrong. */
+.matrix td.cell.browser-off,
+.matrix td.cell.browser-read,
+.legend-mark.browser-off,
+.legend-mark.browser-read {
+  color: var(--muted);
+}
+
+/* ── The agent's card ───────────────────────────────────────────────────── */
+.browser-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.browser-tabs {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.browser-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+
+.browser-tab-head,
+.browser-tab-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+}
+
+.browser-tab-meta {
+  font-size: var(--text-sm);
+}
+
+/* A page's title and a host come with no promise of a space to break at. */
+.browser-tab-title,
+.browser-tab-host {
+  overflow-wrap: anywhere;
+}
+
+.browser-tab-host {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.browser-tab-meta .link-button {
+  font-size: inherit;
+}
+
+.browser-tab .credential-actions {
+  margin-top: 0;
+}
+
+.browser-card .credential-note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+}
+
+/* ── A call, read before it is approved ─────────────────────────────────── */
+/* What the call would do, in a sentence, above the arguments it is made of. An address or
+   a typed text can be one long word. */
+.approval-call {
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+/* ── A screenshot, small ────────────────────────────────────────────────── */
+/* The picture a call took, at a size that tells one page from another; the whole of it
+   opens in a tab of its own. On the rail it lines up under the row's text, as everything
+   below the head does. */
+.screenshot-thumb {
+  grid-column: 2;
+  justify-self: start;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: var(--space-2);
+  line-height: 0;
+}
+
+.screenshot-thumb img {
+  display: block;
+  max-width: min(100%, 15rem);
+  max-height: 10rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* A link is not among the controls touch-targets.css widens, and the picture of a whole
+   page, many times taller than wide, is a sliver at this height. */
+@media (max-width: 720px), (pointer: coarse) {
+  .screenshot-thumb {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+  }
+}
