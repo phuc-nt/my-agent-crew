@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
+from my_agent_crew.agents.profile_browser import browser_of
 from my_agent_crew.config import SCRIPT_GATED, SCRIPT_NONE, SCRIPT_READ_ONLY, Route, Settings
 from my_agent_crew.config_parse import parse_routes
 
@@ -81,6 +82,7 @@ def settings_from(
         script_calls=script_calls(raw, agent_id),
         script_llm=script_llm(raw, agent_id),
         write_paths=names(raw, "write_paths", agent_id),
+        browser=browser_of(raw, agent_id, base.browser),
     )
 
 

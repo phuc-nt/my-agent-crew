@@ -25,6 +25,11 @@ YAML_KEYS = (
     "openrouter_providers",
     "openrouter_provider_fallbacks",
     "mcp_servers",
+    "browser_enabled",
+    "browser_channel",
+    "browser_idle_minutes",
+    "browser_max_tabs",
+    "browser_ask_patterns",
 )
 
 
