@@ -43,16 +43,28 @@ def _tool_ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> s
 
     Fails closed: a reason that comes back empty, or a tool that crashes while writing it,
     still stops for a person — named by the tool alone — rather than letting the call
-    skip the gate or take the turn down."""
+    skip the gate or take the turn down.
+
+    A tool may instead stop only for some of its calls (`ask_when`): a browser action on a
+    button named "Pay", and not one on "Next". No reason then leaves the ordinary rules to
+    decide, and a crash still stops for a person."""
     tool = deps.tools.get(name)
-    if tool is None or tool.ask_reason is None:
+    if tool is None:
+        return None
+    if tool.ask_reason is not None:
+        try:
+            reason = tool.ask_reason(arguments)
+        except Exception:
+            logger.exception("ask_reason for %s crashed", name)
+            return name
+        return reason or name
+    if tool.ask_when is None:
         return None
     try:
-        reason = tool.ask_reason(arguments)
+        return tool.ask_when(arguments) or None
     except Exception:
-        logger.exception("ask_reason for %s crashed", name)
+        logger.exception("ask_when for %s crashed", name)
         return name
-    return reason or name
 
 
 def ask_reason_for(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:
@@ -115,8 +127,17 @@ def needs_decision(conv: Allowed, name: str, reason: str | None, allowed: bool =
 
 
 def allowed_by_pattern(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> bool:
-    """A shell command whose shape the person marked routine. Only shell: every other
-    tool is allowed per tool, through `auto_approve`, not per argument."""
+    """A call the person marked routine by what it is asked to do: a shell command whose
+    shape is on the allow list, or a call a tool reads as routine from the agent's own
+    settings (`allow_when`), as a page on a host the agent was given. Every other tool is
+    allowed per tool, through `auto_approve`. A tool that crashes deciding allowed nothing."""
+    tool = deps.tools.get(name)
+    if tool is not None and tool.allow_when is not None:
+        try:
+            return bool(tool.allow_when(arguments))
+        except Exception:
+            logger.exception("allow_when for %s crashed", name)
+            return False
     if name != SHELL_TOOL_NAME:
         return False
     command = str(arguments.get("command", ""))

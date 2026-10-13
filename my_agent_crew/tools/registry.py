@@ -48,6 +48,12 @@ class Tool:
     # treats a non-empty return here as a reason to ask, ahead of the allow list, autonomy
     # and `auto_approve` — none of which can waive it. None means the ordinary rules apply.
     ask_reason: Callable[[dict[str, Any]], str] | None = None
+    # A reason to stop for a person that depends on the call. It outranks the same three
+    # waivers, and unlike `ask_reason` an empty return leaves the ordinary rules to decide.
+    ask_when: Callable[[dict[str, Any]], str | None] | None = None
+    # A call the owner's own settings mark routine: it runs in a supervised conversation
+    # too. Below `ask_when`, as the shell's allow list is below its ask list.
+    allow_when: Callable[[dict[str, Any]], bool] | None = None
     # May be made again when a restart cut it before its result: it only reads (`replay.py`).
     replay_safe: bool = False
 

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agent.tool_gate import ask_reason_text
+from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.agents import DEFAULT_AGENT_ID
 from my_agent_crew.memory.session_summary import summarize_conversation
 from my_agent_crew.server.deps import ConvDeps, Rt
@@ -82,7 +83,8 @@ def conversation_detail(deps: AgentDeps, conv_id: str) -> dict[str, Any]:
     if pending:
         # Why an ask pattern stopped the call is not stored: it is worked out again from the
         # call, as it was for the live event, so a request read later still says it.
-        reason = ask_reason_text(deps, pending.tool_name, pending.arguments)
+        with reading_as(conv_id):
+            reason = ask_reason_text(deps, pending.tool_name, pending.arguments)
         data["pending_approval"] = {**pending.to_dict(), "reason": reason}
     # Read, not taken: what waits for the running turn stays queued after a reload shows it.
     data["queued"] = [item.to_dict() for item in deps.store.queue.peek_all(conv_id)]
