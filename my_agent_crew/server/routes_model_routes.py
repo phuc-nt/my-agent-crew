@@ -95,4 +95,4 @@ async def set_routes(body: RoutesRequest, rt: Rt) -> dict[str, Any]:
         except OSError as exc:
             raise HTTPException(409, t.CONFIG_UNWRITABLE.format(error=str(exc))) from None
         problem = await apply(rt, prepared, before)
-    return {**list_connections(rt), "restart_required": problem}
+    return {**await list_connections(rt), "restart_required": problem}

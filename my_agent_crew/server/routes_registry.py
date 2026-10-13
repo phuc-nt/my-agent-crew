@@ -18,6 +18,7 @@ from ruamel.yaml import YAMLError
 from my_agent_crew.agents.profile_write import read_raw
 from my_agent_crew.llm.ollama import base_url as ollama_base_url
 from my_agent_crew.server.deps import Rt
+from my_agent_crew.server.desktop_runtime import machine
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.tool_assembly import OPTIONAL_TOOLS
 from my_agent_crew.tools.web import search_backends
@@ -92,7 +93,7 @@ def routes_source(home: Path) -> Literal["env", "config", "default"]:
 
 
 @router.get("/connections")
-def list_connections(rt: Rt) -> dict[str, Any]:
+async def list_connections(rt: Rt) -> dict[str, Any]:
     s = rt.settings
     return {
         "providers": [{"name": name, "built": True} for name in sorted(rt.default.chain.providers)],
@@ -116,4 +117,7 @@ def list_connections(rt: Rt) -> dict[str, Any]:
         "telegram": _telegram(rt),
         # What the machine has to start a browser with, and whose is up now.
         "browser": rt.browsers.status(rt.agents),
+        # Whether the desktop helper answers, and what it says of the machine. Asked now,
+        # with a second to answer in: a helper installed since the start is found here.
+        "desktop": await machine(s),
     }
