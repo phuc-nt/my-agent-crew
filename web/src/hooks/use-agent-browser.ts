@@ -11,6 +11,7 @@ import { ApiError, api } from "../api/client";
 import type { AgentBrowser, BrowserMode } from "../api/types";
 import { vi } from "../i18n/vi";
 import { errorText } from "../lib/error-text";
+import { useWhileSeen } from "./use-while-seen";
 
 export const BROWSER_POLL_MS = 5_000;
 
@@ -67,26 +68,7 @@ export function useAgentBrowser(agentId: string, savedMode: BrowserMode | undefi
     void read();
   }, [read, savedMode]);
 
-  useEffect(() => {
-    if (missing) return;
-    let timer: number | undefined;
-    const watch = () => {
-      window.clearInterval(timer);
-      timer = undefined;
-      if (document.visibilityState !== "visible") return;
-      timer = window.setInterval(() => void read(), BROWSER_POLL_MS);
-    };
-    const seen = () => {
-      if (document.visibilityState === "visible") void read();
-      watch();
-    };
-    watch();
-    document.addEventListener("visibilitychange", seen);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", seen);
-    };
-  }, [read, missing]);
+  useWhileSeen(read, BROWSER_POLL_MS, !missing);
 
   const act = useCallback(
     async (what: "stop" | number, work: () => Promise<unknown>) => {

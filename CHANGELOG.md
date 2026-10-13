@@ -81,19 +81,20 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   `browser` and `browser_hosts`, and `PATCH /api/agents/{id}` sets them from the next turn on; a
   save that leaves the agent at `off` stops its browser at once, and removing an agent deletes its
   profile folder with it. `GET /api/tools` marks the six tools with `with_browser`.
-- The web shows and sets all of it. Connections has a "Trình duyệt" card: on or off, the channel
-  and the version, or what is missing with the command that installs it, and the agents whose
-  browser is up; it sets nothing. The agent editor has a "Trình duyệt" part, the level (Tắt, Đọc,
-  Thao tác) and the hosts that open without a question: on a machine that has the browser off or
-  not installed the form says so as soon as a level is chosen, and a line that is no host name is
-  named under the box and holds the save. An agent's page has a card of what its browser has open,
-  each tab with its title, host and conversation, a button that closes a tab and one that stops
-  the browser; it reads again every five seconds while the page is looked at. The tools table
-  marks the six tools as coming with the browser and explains an empty cell by the agent's
-  `browser` key. A browser call that waits for a person is said in one line above its raw
-  arguments ("Mở trang shop.example", "Bấm «Đặt hàng»"), in the chat and in the list of requests.
-  A finished `browser_screenshot` step shows the picture small, as a link to the whole of it. On a
-  server from before this release the web draws none of it.
+- The web shows and sets all of it. Connections has a "Trình duyệt" card: on or off, the channel and
+  the version, or what is missing with the command that installs it, and the agents whose browser is
+  up, a line it reads again by itself every five seconds while the page is looked at; it sets
+  nothing. The agent editor has a "Trình duyệt" part, the level (Tắt, Đọc, Thao tác) and the hosts
+  that open without a question: on a machine that has the browser off or not installed the form says
+  so as soon as a level is chosen, and a line that is no host name is named under the box and holds
+  the save. An agent's page has a card of what its browser has open, each tab with its title, host
+  and conversation, a button that closes a tab and one that stops the browser; it reads again every
+  five seconds while the page is looked at. The tools table marks the six tools as coming with the
+  browser and explains an empty cell by the agent's `browser` key. A browser call that waits for a
+  person is said in one line above its raw arguments ("Mở trang shop.example", "Bấm «Đặt hàng»"), in
+  the chat and in the list of requests. A finished `browser_screenshot` step shows the picture
+  small, as a link to the whole of it. On a server from before this release the web draws none of
+  it.
 
 ## [0.17.0] — 2026-10-13
 
