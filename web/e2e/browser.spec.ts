@@ -79,6 +79,24 @@ test("the connections page says a browser is switched off, or what is missing an
   await expect(card.getByTestId("browser-missing").locator("code")).toHaveText("uv run playwright install chromium");
 });
 
+test("the connections page keeps whose browser is up current with no reload: after a stop on the agent's page, and as one comes up", async ({ page }) => {
+  const browser = machineOn().start("coach", [browserTab()]);
+  await mockApi(page, { agents: [master, coach({ browser: "act" })], browser });
+  // The manage screen reads the machine once, here, while the coach's browser is up.
+  await page.goto("/#/manage/crew/coach");
+  const own = page.getByTestId("browser-card");
+  await own.getByRole("button", { name: t.card.stop }).click();
+  await expect(own.getByTestId("browser-state")).toHaveText(t.card.stopped);
+
+  await page.getByRole("navigation", { name: vi.manage.nav }).getByRole("button", { name: vi.manage.connections }).click();
+  const running = page.getByTestId("browser-machine").getByTestId("browser-machine-running");
+  await expect(running).toHaveText(t.machine.noneRunning);
+
+  // The agent's next call brings its browser up, and nobody tells the page: its own clock does.
+  browser.start("coach", [browserTab()]);
+  await expect(running).toHaveText("Đang chạy cho 1 agent: HLV sức khoẻ", { timeout: 10_000 });
+});
+
 test("an agent's browser level and its hosts are set, saved as two keys, and still there after a reload", async ({ page }) => {
   await mockApi(page, { agents: [master, coach()], browser: machineOn() });
   await page.goto("/#/manage/crew/coach");

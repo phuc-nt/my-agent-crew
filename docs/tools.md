@@ -481,8 +481,10 @@ agent về `off` tắt luôn trình duyệt đang chạy của nó, và gỡ m�
 duyệt của nó.
 
 - **Kết nối.** Thẻ **Trình duyệt** nói máy đang bật hay tắt, kênh và phiên bản, hoặc thứ đang
-  thiếu kèm lệnh cài, và agent nào đang có trình duyệt chạy. Thẻ không đặt gì: `browser_enabled`
-  là tệp của máy, đọc lúc khởi động.
+  thiếu kèm lệnh cài, và agent nào đang có trình duyệt chạy. Riêng dòng cuối ấy đổi mà không ai
+  ở trang này làm gì, nên thẻ tự đọc lại nó: lúc được vẽ, rồi năm giây một lần khi trang đang
+  được nhìn, và ngay khi tab trở lại trước mắt; máy đang tắt trình duyệt hay chưa cài thì thẻ
+  không hỏi gì. Thẻ không đặt gì: `browser_enabled` là tệp của máy, đọc lúc khởi động.
 - **Trình sửa agent.** Mục Công cụ có phần "Trình duyệt": Tắt, Đọc hoặc Thao tác, và danh sách
   host. Sáu tool `browser_*` không nằm trong danh sách cho phép, vì danh sách không quyết định
   chúng. Chọn một mức trên máy đang tắt trình duyệt hay chưa cài thì form nói ngay điều đó; một

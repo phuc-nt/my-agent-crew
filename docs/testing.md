@@ -7422,9 +7422,19 @@ dựng một đội có agent giữ trình duyệt.
     duyệt thì không vẽ thẻ; máy tắt thì thẻ nói chỗ bật; máy bật nói kênh và phiên bản, không có
     phiên bản thì bỏ; thiếu gói hay thiếu Chromium nói đúng phần thiếu kèm lệnh cài, thiếu Chrome
     thì không có lệnh nào để đưa; phần thiếu được nói cả khi máy đang tắt; agent nào đang có trình
-    duyệt chạy được kể bằng tên, không có tên thì bằng mã; thẻ không có gì để bấm, gõ hay mở).
+    duyệt chạy được kể bằng tên, không có tên thì bằng mã; thẻ không có gì để bấm, gõ hay mở;
+    dòng "ai đang chạy" được đọc lại lúc thẻ được vẽ, dù trang đã đọc máy từ bao lâu, nên agent
+    vừa bị dừng trình duyệt không còn được kể và agent vừa khởi động thì được kể; đọc lại năm
+    giây một lần bằng đúng một đồng hồ; tab khuất thì không hỏi, trở lại thì hỏi ngay; máy tắt
+    hay chưa cài thì không hỏi lần nào; server không trả lời thì thẻ giữ nguyên điều đang nói và
+    nhận câu trả lời kế tiếp; câu trả lời không nói gì về trình duyệt không xoá dòng ấy; câu trả
+    lời đến chéo sau một câu hỏi muộn hơn không thay nó; chỉ đúng một dòng ấy được lấy, phần còn
+    lại của trang giữ như trang đã đọc; trang đọc lại máy thành máy tắt thì thẻ nói theo trang và
+    thôi hỏi; rời trang thì không còn đồng hồ, không còn câu hỏi).
   - Playwright: `web/e2e/browser.spec.ts` (thẻ khi máy bật và có trình duyệt đang chạy; thẻ khi máy
-    tắt và khi thiếu trình duyệt, kèm lệnh cài; ở 390px thẻ không làm trang tràn ngang).
+    tắt và khi thiếu trình duyệt, kèm lệnh cài; dừng trình duyệt ở trang agent rồi sang Kết nối
+    bằng thanh điều hướng, không tải lại, thì thẻ nói chưa agent nào chạy, và một trình duyệt khởi
+    động lúc trang đang mở thì được kể; ở 390px thẻ không làm trang tràn ngang).
 - **web: mức dùng và danh sách host trong trình sửa agent**:
   - vitest: `web/src/components/agent-editor/browser-controls.test.tsx` (ba mức, mỗi mức một dòng
     gợi ý; lần lưu chỉ gửi khoá đã đổi, và về Tắt chỉ gửi mức, để nguyên danh sách đã lưu; ô host
@@ -7485,13 +7495,15 @@ dựng một đội có agent giữ trình duyệt.
     390px ảnh chụp cả trang dài vẫn nằm trong khung và đủ lớn cho ngón tay).
 - **web: nối các mảnh, và server của bản trước**:
   - vitest: `web/src/app-browser-surfaces.test.tsx` (mục Kết nối kể tên agent đang có trình duyệt
-    chạy; trạng thái của máy tới được trình sửa từ lần đọc Kết nối đã có, chỉ hỏi một lần; thẻ của
-    trang agent mở đúng cuộc trò chuyện của một tab; lần lưu về Tắt dừng trình duyệt và thẻ đi
-    mất; ảnh nhỏ được hỏi ở agent của cuộc trò chuyện hay agent đã chạy; trên server bản trước
-    không có thẻ ở Kết nối, không có mục và thẻ ở agent, không có dòng, nhãn hay chú thích ở bảng
-    công cụ), `web/src/components/agent-editor/editor-on-older-server.test.tsx` (server không trả
-    `browser` thì trình sửa không có mục, không có thẻ, không có dòng dưới danh sách công cụ, và
-    lần lưu thứ khác không gửi khoá nào của trình duyệt).
+    chạy; agent bị dừng trình duyệt ở trang của nó không còn được kể ở Kết nối, và agent khởi động
+    sau khi trang đã đọc máy thì được kể, cả hai không cần tải lại; trạng thái của máy tới được
+    trình sửa từ lần đọc Kết nối đã có, chỉ hỏi một lần; thẻ của trang agent mở đúng cuộc trò chuyện
+    của một tab; lần lưu về Tắt dừng trình duyệt và thẻ đi mất; ảnh nhỏ được hỏi ở agent của cuộc
+    trò chuyện hay agent đã chạy; trên server bản trước không có thẻ ở Kết nối, không có mục và thẻ
+    ở agent, không có dòng, nhãn hay chú thích ở bảng công cụ),
+    `web/src/components/agent-editor/editor-on-older-server.test.tsx` (server không trả `browser`
+    thì trình sửa không có mục, không có thẻ, không có dòng dưới danh sách công cụ, và lần lưu thứ
+    khác không gửi khoá nào của trình duyệt).
   - Playwright: `web/e2e/older-server.spec.ts` (trên server của bản trước không gì của trình
     duyệt được vẽ: không ô đặt, không thẻ, không nhãn, và lần lưu không mang khoá nào của nó).
   - vitest: `web/src/test/fake-browser.test.ts`, `web/src/test/schedule-contract.test.ts` (server

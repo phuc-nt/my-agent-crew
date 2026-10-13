@@ -51,6 +51,32 @@ describe("the browser on the connections page", () => {
     expect(card.queryByRole("button")).not.toBeInTheDocument();
     expect(card.queryByRole("checkbox")).not.toBeInTheDocument();
   });
+
+  it("no longer names an agent whose browser was stopped on its own page, with no reload between", async () => {
+    backend.browser.start("coach", [browserTab()]);
+    // The manage screen reads the machine once, here, while the coach's browser is up.
+    open("#/manage/crew/coach");
+    const own = within(await screen.findByTestId("browser-card"));
+    await userEvent.click(await own.findByRole("button", { name: vi.browser.card.stop }));
+    await waitFor(() => expect(screen.getByTestId("browser-state")).toHaveTextContent(vi.browser.card.stopped));
+
+    await userEvent.click(within(screen.getByRole("navigation", { name: vi.manage.nav })).getByRole("button", { name: vi.manage.connections }));
+
+    const running = await screen.findByTestId("browser-machine-running");
+    await waitFor(() => expect(running).toHaveTextContent(/^Chưa agent nào đang mở trình duyệt\.$/));
+  });
+
+  it("names an agent whose browser came up after the page read the machine, with no reload between", async () => {
+    open("#/manage/crew/coach");
+    expect(await screen.findByTestId("browser-state")).toHaveTextContent(vi.browser.card.stopped);
+    // The agent's first call starts its browser, and nobody tells the page.
+    backend.browser.start("coach", [browserTab()]);
+
+    await userEvent.click(within(screen.getByRole("navigation", { name: vi.manage.nav })).getByRole("button", { name: vi.manage.connections }));
+
+    const running = await screen.findByTestId("browser-machine-running");
+    await waitFor(() => expect(running).toHaveTextContent(/^Đang chạy cho 1 agent: HLV sức khoẻ$/));
+  });
 });
 
 describe("the browser on an agent's page", () => {

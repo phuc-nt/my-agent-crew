@@ -1,4 +1,5 @@
 import type { BrowserConnection } from "../api/types";
+import { useBrowsersRunning } from "../hooks/use-browsers-running";
 import { vi } from "../i18n/vi";
 import { MetricCard } from "./ui/metric-card";
 
@@ -32,11 +33,12 @@ function Missing({ browser }: { browser: BrowserConnection }) {
  * whose is up now.
  *
  * Nothing here sets anything. The switch is a key of the machine's own file, read when the
- * server starts, and each agent's use of the browser is set on that agent's page.
+ * server starts, and each agent's use of the browser is set on that agent's page. Whose is up
+ * changes with nobody on this page doing anything, so the card keeps that one line current.
  */
 export function ConnectionsBrowserCard({ browser, agentName }: Props) {
   const t = vi.browser.machine;
-  const names = browser.running.map((id) => agentName?.(id) ?? id);
+  const names = useBrowsersRunning(browser).map((id) => agentName?.(id) ?? id);
   return (
     <MetricCard title={vi.browser.title} testId="browser-machine">
       {browser.enabled ? (
