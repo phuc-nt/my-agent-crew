@@ -1,5 +1,6 @@
 """An agent's browser as a person sees it: whether it is up, what each of its tabs shows, and
-the two things a person may do to it — stop it, and close one tab.
+the two things a person may do to it — stop it, and close one tab. The window a person signs
+in through is in `routes_browser_login.py`.
 
 Nothing here starts a browser or sends a tab anywhere: an agent's own call does that, through
 the gate. A tab is told by its host and its title and not by its whole address, which may
@@ -20,6 +21,7 @@ from my_agent_crew.browser.pool import Session
 from my_agent_crew.browser.tabs import JOB_OWNER, Tab
 from my_agent_crew.server.agent_edit_common import existing
 from my_agent_crew.server.deps import Rt
+from my_agent_crew.server.routes_browser_login import login_told, logins_told
 from my_agent_crew.server.runtime import Runtime
 
 router = APIRouter(tags=["agents"])
@@ -75,6 +77,8 @@ async def read_browser(agent_id: str, rt: Rt) -> dict[str, Any]:
         "busy": bool(session and session.busy),
         "idle_seconds": _idle(now, session.used) if session else None,
         "tabs": [_told(tab, title, now) for tab, title in zip(tabs, titles, strict=True)],
+        "login": login_told(rt, agent_id),
+        "logins": await logins_told(rt, agent_id),
     }
 
 

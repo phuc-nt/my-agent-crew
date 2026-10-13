@@ -28,6 +28,7 @@ from my_agent_crew.server import (
     routes_artifact_render,
     routes_artifacts,
     routes_browser,
+    routes_browser_login,
     routes_canvas_focus,
     routes_chat,
     routes_conversations,
@@ -78,6 +79,7 @@ ROUTERS = (
     routes_agents_edit.router,
     routes_agents_files.router,
     routes_browser.router,
+    routes_browser_login.router,
     routes_script_store.router,
     routes_registry.router,
     routes_credentials.router,
@@ -149,10 +151,8 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
             await runtime.scheduler.stop()
             if reaper is not None:
                 reaper.cancel()
-            if pool is not None:
-                # Last of what runs, and for good: a turn still on its way out starts none.
-                pool.shut = True
-                await pool.stop_all()
+            # Last of what runs, and for good: a turn still on its way out starts none.
+            await runtime.browsers.stop_all()
             runtime.hub.close()
 
     app = SecuredApp(title="my-agent-crew", version=__version__, lifespan=lifespan)
