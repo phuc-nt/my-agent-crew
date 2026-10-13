@@ -8,9 +8,9 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 from collections.abc import Callable, Sequence
-from urllib.parse import urlsplit
 
 from my_agent_crew import texts_browser as t
+from my_agent_crew.browser.policy import read_address
 from my_agent_crew.tools.registry import ToolError
 from my_agent_crew.tools.web import Resolver, is_private
 
@@ -49,20 +49,16 @@ def reachable(addresses: Sequence[str], port: int, allow: Allow | None = None) -
 
 
 async def check_url(url: str, resolver: Resolver, allow: Allow | None = None) -> str:
-    """The host of a page a tab is about to be sent to, or the words that refuse it. The
-    proxy decides again for every connection the page makes; this says so before a tab is
-    opened, in words the model can act on."""
-    try:
-        parts = urlsplit(url)
-        host, port = parts.hostname, parts.port or PORTS.get(parts.scheme, 0)
-    except ValueError as exc:
-        raise ToolError(t.URL_SCHEME) from exc
-    if parts.scheme not in PORTS or not host:
+    """The address a tab is about to be sent to, spelled as the browser is given it, or the
+    words that refuse it. The proxy decides again for every connection the page makes; this
+    says so before a tab is opened, in words the model can act on."""
+    address = read_address(url)
+    if address is None or address.scheme not in PORTS:
         raise ToolError(t.URL_SCHEME)
     try:
-        addresses = await asyncio.to_thread(resolver, host)
+        addresses = await asyncio.to_thread(resolver, address.host)
     except OSError as exc:
-        raise ToolError(t.URL_UNREACHABLE.format(host=host, error=exc)) from exc
-    if not reachable(addresses, port, allow):
-        raise ToolError(t.URL_PRIVATE.format(host=host))
-    return host
+        raise ToolError(t.URL_UNREACHABLE.format(host=address.host, error=exc)) from exc
+    if not reachable(addresses, address.port or PORTS[address.scheme], allow):
+        raise ToolError(t.URL_PRIVATE.format(host=address.host))
+    return address.url

@@ -40,7 +40,11 @@ DEFAULT_ASK_WORDS = (
 )
 
 # Refusals of a page address, before any tab is opened.
-URL_SCHEME = "Trình duyệt chỉ mở địa chỉ http và https đầy đủ, ví dụ https://shop.example/don-hang."
+URL_SCHEME = (
+    "Trình duyệt chỉ mở địa chỉ http và https đầy đủ, ví dụ https://shop.example/don-hang. Tên "
+    "máy chủ phải viết thẳng: không có tên đăng nhập đứng trước (user@…), không có dấu \\, "
+    "ký tự mã hoá % hay khoảng trắng."
+)
 URL_UNREACHABLE = "Không phân giải được tên máy chủ {host}: {error}"
 URL_PRIVATE = (
     "Từ chối mở {host}: đó là địa chỉ nội bộ (máy này, mạng riêng hoặc mạng nội bộ). Trình duyệt "
