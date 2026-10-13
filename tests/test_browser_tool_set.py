@@ -11,8 +11,8 @@ import pytest_asyncio
 
 from my_agent_crew import texts_browser as t
 from my_agent_crew.browser import kit as k
+from my_agent_crew.browser.fence import room
 from my_agent_crew.browser.pool import BrowserPool
-from my_agent_crew.browser.report import room
 from my_agent_crew.browser.tools import build_browser_tools
 from my_agent_crew.config import Route
 from my_agent_crew.config_browser import BrowserSettings

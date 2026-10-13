@@ -16,6 +16,7 @@ from typing import Any
 
 from my_agent_crew import texts_browser as t
 from my_agent_crew.agent.turn_context import turn_conversation_id
+from my_agent_crew.browser.fence import driver_error, first_line
 from my_agent_crew.browser.policy import AskWords
 from my_agent_crew.browser.pool import BrowserPool, Session
 from my_agent_crew.browser.snapshot import Node, Shown, Snapshot, address, read
@@ -29,7 +30,6 @@ TABS, SCREENSHOT, ACT = "browser_tabs", "browser_screenshot", "browser_act"
 READ_TOOLS = (NAVIGATE, SNAPSHOT, TEXT, TABS, SCREENSHOT)
 BROWSER_TOOLS = (*READ_TOOLS, ACT)
 CALL_SECONDS = 20.0
-ERROR_CHARS = 200
 # How often an outline is drawn again when the page moved while it was being drawn, and how
 # long a page is given to settle after something was done to it.
 LOOKS = 3
@@ -42,12 +42,6 @@ def from_browser(exc: BaseException) -> bool:
 
 def timed_out(exc: BaseException) -> bool:
     return from_browser(exc) and type(exc).__name__ == "TimeoutError"
-
-
-def first_line(exc: BaseException) -> str:
-    """The first line of an error: what follows it is a log that quotes the page."""
-    lines = str(exc).strip().splitlines()
-    return (lines[0] if lines else type(exc).__name__)[:ERROR_CHARS]
 
 
 def one_line(text: str, limit: int) -> str:
@@ -118,8 +112,8 @@ class Kit:
         """The caller's tab for the length of one call, alone on it, with the browser kept
         up meanwhile. `make` opens the tab when the caller has none of that label; `last`
         takes no label to mean the tab of the caller's last call and no other. Whatever the
-        browser raises leaves as words the model can act on; a call that outlasts `seconds`
-        is given up."""
+        browser raises leaves as words the model can act on, with the line the browser wrote
+        inside a fence; a call that outlasts `seconds` is given up."""
         owner = self.owner()
         try:
             async with asyncio.timeout(seconds):
@@ -143,7 +137,7 @@ class Kit:
         except Exception as exc:
             if not from_browser(exc):
                 raise
-            raise ToolError(t.BROWSER_FAILED.format(error=first_line(exc))) from exc
+            raise driver_error(self.limit, t.BROWSER_FAILED, exc) from exc
 
 
 async def settle(page: Any) -> None:

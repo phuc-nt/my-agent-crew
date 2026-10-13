@@ -10,6 +10,7 @@ import pytest_asyncio
 from playwright.async_api import Error
 
 from my_agent_crew import texts_browser as t
+from my_agent_crew import texts_browser_fence as f
 from my_agent_crew.agent.tool_gate import ASK, RUN, verdict
 from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.browser import navigate
@@ -17,7 +18,7 @@ from my_agent_crew.browser.navigate import build_navigate
 from my_agent_crew.browser.policy import host_of
 from my_agent_crew.tools.registry import ToolError
 from tests.browser_servers import Site, browsers, sites
-from tests.browser_tools import World, parts, talking, world
+from tests.browser_tools import World, parts, talking, under, world
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")
 
@@ -143,9 +144,10 @@ async def test_a_page_that_leads_to_a_private_address_is_refused_and_leaves_a_bl
         with pytest.raises(ToolError) as error:
             await go.run({"url": w.site.url(path)})
         tab = w.tab("nav-hop")
-        told[path] = (str(error.value), tab.page.url, tab.shown)
+        told[path] = (under(str(error.value)), tab.page.url, tab.shown)
 
-    refused = t.NAV_REFUSED.format(hosts="127.0.0.1")
+    # The address a page led to is one the page chose: it is told inside a fence.
+    refused = (t.NAV_REFUSED, t.PAGE_REFUSED.format(hosts="127.0.0.1"))
     assert told == {
         "/vong": (refused, "about:blank", None),
         "/vong-tls": (refused, "about:blank", None),
@@ -173,12 +175,12 @@ async def test_a_site_that_writes_the_proxys_mark_only_refuses_itself(w):
     with pytest.raises(ToolError) as error:
         await go.run({"url": w.site.url("/gia")})
 
-    assert str(error.value) == t.NAV_REFUSED.format(hosts="127.0.0.1")
+    assert under(str(error.value)) == (t.NAV_REFUSED, t.PAGE_REFUSED.format(hosts="127.0.0.1"))
     assert w.tab("nav-fake").page.url == "about:blank"
 
 
 @talking("nav-dead")
-async def test_a_server_that_does_not_answer_is_named_and_nothing_is_refused(w):
+async def test_a_server_that_does_not_answer_is_told_inside_the_fence_and_nothing_is_refused(w):
     go = build_navigate(w.kit())
     session = await w.pool.session("coach")
     mark = session.proxy.refused_total
@@ -187,9 +189,10 @@ async def test_a_server_that_does_not_answer_is_named_and_nothing_is_refused(w):
     for path in ("/", "/vong-chet"):
         with pytest.raises(ToolError) as error:
             await go.run({"url": w.dead.url("/") if path == "/" else w.site.url(path)})
-        said.append(str(error.value))
+        said.append(under(str(error.value)))
 
-    assert said == [t.NAV_UNREACHABLE.format(host="127.0.0.1")] * 2
+    # Where the page ended is where a redirect sent it.
+    assert said == [(t.NAV_UNREACHABLE, t.PAGE_URL.format(url=w.dead.url("/")))] * 2
     assert session.proxy.refused_since(mark) == []
     assert w.tab("nav-dead").page.url == "about:blank"
 
@@ -202,7 +205,7 @@ async def test_a_page_too_slow_to_load_is_given_up_and_the_tab_stays_usable(w, m
     with pytest.raises(ToolError) as error:
         await go.run({"url": w.site.url("/cham?bi-mat=1")})
 
-    assert str(error.value) == t.NAV_FAILED.format(error="Page.goto: Timeout 1000ms exceeded.")
+    assert str(error.value) == t.NAV_SLOW.format(seconds=1)
     assert w.tab("nav-slow").shown is None
     assert (await go.run({"url": w.site.url("/")})).startswith("Tab t1 · HTTP 200")
 
@@ -219,21 +222,24 @@ async def test_a_slow_page_is_not_blamed_on_what_it_reached_for_meanwhile(w, mon
         await go.run({"url": w.site.url("/anh-cham")})
 
     assert session.proxy.refused_since(mark) == ["127.0.0.1"]
-    assert str(error.value) == t.NAV_FAILED.format(error="Page.goto: Timeout 1000ms exceeded.")
+    assert str(error.value) == t.NAV_SLOW.format(seconds=1)
     assert w.intranet.seen == []
 
 
 @talking("nav-dead-tls")
-async def test_an_error_of_the_browser_is_told_without_the_address_it_names(w):
-    """The address in it is one the model wrote or a page chose: neither is said again
-    outside a fence."""
+async def test_an_error_of_the_browser_is_told_by_its_code_and_its_line_inside_the_fence(w):
+    """The address in the line is one the model wrote or a page chose: outside a fence only
+    the browser's own code is said."""
     go = build_navigate(w.kit())
+    url = w.dead.url("/don?khoa=bi-mat").replace("http:", "https:")
 
     with pytest.raises(ToolError) as error:
-        await go.run({"url": w.dead.url("/don?khoa=bi-mat").replace("http:", "https:")})
+        await go.run({"url": url})
 
-    assert str(error.value) == t.NAV_FAILED.format(
-        error="Page.goto: net::ERR_TUNNEL_CONNECTION_FAILED"
+    code = "net::ERR_TUNNEL_CONNECTION_FAILED"
+    assert under(str(error.value)) == (
+        t.NAV_FAILED.format(error=code),
+        f.BROWSER_SAID.format(error=f"Page.goto: {code} at {url}"),
     )
 
 
@@ -273,7 +279,7 @@ async def test_a_fault_of_this_program_is_not_told_as_a_page_that_failed():
     broken = Held(Busy([RuntimeError("của chương trình")]))
 
     with pytest.raises(RuntimeError):
-        await navigate._go(None, broken, "http://shop.test/", 5, 0)
+        await navigate._go(None, broken, "http://shop.test/", 5, 0, 20_000)
 
     assert broken.page.asked == ["http://shop.test/"]
 
@@ -285,8 +291,11 @@ async def test_an_address_that_would_download_a_file_downloads_nothing(w):
     with pytest.raises(ToolError) as error:
         await go.run({"url": w.site.url("/tai?ten=bi-mat")})
 
-    assert str(error.value).startswith(t.NAV_FAILED.format(error="Page.goto: "))
-    assert "bi-mat" not in str(error.value) and str(w.site.port) not in str(error.value)
+    # An error with no code of the browser's is told by its kind alone outside the fence.
+    assert under(str(error.value)) == (
+        t.NAV_FAILED.format(error="Error"),
+        f.BROWSER_SAID.format(error="Page.goto: Download is starting"),
+    )
     assert not list((w.pool.root / "coach").rglob("a.bin"))
 
 

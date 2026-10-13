@@ -1,6 +1,7 @@
 """What the browser tools share: how they read their arguments, tell a browser's error from
-their own, draw a page again when it moved while it was drawn, and size an answer under the
-registry's cap. No browser here: a page is a stand-in that answers as scripted."""
+their own, and draw a page again when it moved while it was drawn. No browser here: a page
+is a stand-in that answers as scripted. (How an answer is fenced and sized:
+`test_browser_fence.py`.)"""
 
 from __future__ import annotations
 
@@ -143,15 +144,6 @@ def test_an_error_of_the_browser_is_known_by_where_its_class_lives():
     assert not k.from_browser(ToolError("x"))
 
 
-def test_only_the_first_line_of_an_error_is_told():
-    """What follows it is a call log that quotes the page."""
-    error = Error("Locator.click: Timeout 8000ms exceeded.\nCall log:\n  - <button>Bỏ qua…")
-
-    assert k.first_line(error) == "Locator.click: Timeout 8000ms exceeded."
-    assert k.first_line(Error("x" * 500)) == "x" * k.ERROR_CHARS
-    assert k.first_line(RuntimeError("")) == "RuntimeError"
-
-
 def test_an_argument_is_read_as_what_the_tool_takes_and_nothing_else():
     args = {"tab": "  gio-hang \n", "n": "12", "low": -4, "high": 900, "odd": "ba", "on": "true"}
 
@@ -203,29 +195,8 @@ def test_a_ref_is_one_the_model_was_shown_or_it_finds_nothing(kit):
     assert str(made_up.value) == t.REF_UNKNOWN.format(ref="e5] , body >> [x" + "y" * 24)
 
 
-def test_a_fence_is_made_anew_for_each_answer():
-    said, opening, closing = report.fence()
-    again = report.fence()
-
-    assert opening != again[1] and closing != again[2]
-    nonce = opening.removeprefix("<<<TRANG ")
-    assert len(nonce) == 16 and closing == f"TRANG {nonce}>>>"
-    assert f"`{opening}`" in said and f"`{closing}`" in said
-    body = report.fenced("một\nhai").splitlines()
-    assert body[2:4] == ["một", "hai"] and body[1].startswith("<<<TRANG ")
-    assert body[4] == body[1].removeprefix("<<<") + ">>>"
-
-
-def test_the_room_for_a_page_is_what_the_cap_leaves_and_never_too_little_to_read():
-    fence = sum(len(part) + 1 for part in report.fence())
-
-    assert report.room(20_000) == 20_000 - fence - report.NOTE_ROOM
-    assert report.room(20_000, "Tab t1", "Địa chỉ: x") == report.room(20_000) - 7 - 11
-    assert report.room(600) == report.LEAST_ROOM
-
-
 def test_hosts_are_told_once_each_as_names_and_only_a_few():
-    """They are said outside the fence too, so what is no part of a host name is dropped."""
+    """They are told on one line inside a fence: what is no part of a host name is dropped."""
     many = [f"h{n}.test" for n in range(9)]
 
     assert report.told(["Shop.Test", "shop.test", "10.0.0.5", "[::1]"]) == (

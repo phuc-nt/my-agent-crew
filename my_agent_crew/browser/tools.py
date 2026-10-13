@@ -18,6 +18,7 @@ from my_agent_crew.browser.screenshot import build_screenshot
 from my_agent_crew.browser.tools_act import build_act
 from my_agent_crew.browser.tools_read import build_snapshot, build_tabs, build_text
 from my_agent_crew.config_browser import BrowserSettings
+from my_agent_crew.script.limits import RAW_LIMIT
 from my_agent_crew.tools.registry import Tool
 
 
@@ -36,7 +37,9 @@ def build_browser_tools(
     folders its files are held to."""
     if pool is None or not settings.reads:
         return []
-    kit = Kit(pool, agent_id, settings, workspace, limit, vision)
+    # A script reads an answer through a registry of its own and keeps this much of it: an
+    # answer sized to an agent's cap above that would be cut there, fence and all.
+    kit = Kit(pool, agent_id, settings, workspace, min(limit, RAW_LIMIT), vision)
     tools = [
         build_navigate(kit),
         build_snapshot(kit),

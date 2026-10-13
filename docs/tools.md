@@ -347,11 +347,21 @@ khớp không phân biệt hoa thường và dấu, và giữ cả các dòng ch
 tới 30 giây cho một đoạn chữ *hiện ra* (chữ trang giấu đi không tính) rồi mới lấy dàn ý; chưa
 thấy thì câu trả lời nói vậy và vẫn kèm trang lúc ấy.
 
-**Trang là dữ liệu.** Mọi thứ trang có quyền viết (địa chỉ, tiêu đề, dàn ý, lời trong hộp thoại,
-tên các máy chủ nội bộ nó thử gọi) nằm giữa hai dòng rào, dưới một dòng nói rõ đó là dữ liệu chứ
-không phải chỉ dẫn. Con số trong dòng rào được sinh mới cho từng câu trả lời, nên trang không
-viết sẵn được một dòng đóng rào. Ngoài rào chỉ có lời của chương trình. Câu trả lời được đo cho
-vừa trần đầu ra của agent, vì một câu trả lời bị registry cắt sẽ mất dòng đóng rào:
+**Trang là dữ liệu.** Mọi thứ trang có quyền viết nằm giữa hai dòng rào, dưới một dòng nói rõ
+đó là dữ liệu chứ không phải chỉ dẫn: địa chỉ, tiêu đề, dàn ý, lời trong hộp thoại, tên các máy
+chủ nó thử gọi hay đẩy trình duyệt sang, dòng lỗi do trình duyệt viết, và lời một model đọc ra
+từ ảnh chụp. Con số trong dòng rào được sinh mới cho từng câu trả lời, nên trang không viết sẵn
+được một dòng đóng rào. Ngoài rào chỉ có lời của chương trình và chính lời model đã đưa vào
+(địa chỉ nó xin mở, chữ nó xin tìm). Lỗi của trình duyệt được kể ngoài rào bằng mã của Chromium
+(`net::ERR_…`) hoặc tên loại lỗi; cả dòng lỗi thì nằm trong rào.
+
+Câu trả lời không bao giờ dài quá trần đầu ra của agent. Registry cắt một câu trả lời quá trần
+từ cuối, đúng chỗ dòng đóng rào; nó còn có thể cất bản đầy đủ ra tệp để đọc lại từng đoạn không
+có rào, hoặc nhờ một model tóm tắt. Nên chính tool đo phần nó rào: dàn ý được giữ theo dòng trọn,
+chữ và lời đọc ảnh theo ký tự, kèm một dòng nói đã giữ bao nhiêu trên tổng số. Hàng rào cùng chỗ
+để dành cho các dòng ghi chú chiếm khoảng 700 ký tự của trần; trần không đủ chỗ cho cả rào thì
+câu trả lời nói rõ là không đưa được nội dung trang và nêu `tool_output_chars`, chứ không có
+một cái rào mở mà không đóng:
 
 ```text
 Tab t1 · HTTP 200
@@ -462,8 +472,10 @@ trình duyệt chỉ ra mạng qua proxy riêng của nó (lắng nghe trên loo
 lần khởi động), và proxy phân giải, xét rồi nối tới đúng địa chỉ đã xét cho *từng* kết nối: bước
 redirect, ảnh và script của trang, `fetch`, WebSocket. Trang công khai nảy sang hay gọi ngầm một
 địa chỉ nội bộ thì kết nối ấy bị chặn. Lần điều hướng bị chặn kết thúc bằng lời từ chối và để
-tab trống; tên máy chủ nội bộ mà một trang thử gọi được kể cho model bên trong rào. QUIC bị tắt
-và WebRTC không đi được ngoài proxy.
+tab trống. Tên máy chủ bị chặn là do trang chọn (một bước redirect đặt tên gì cũng được), nên nó
+được kể trong rào, dưới lời từ chối; tên máy chủ nội bộ mà một trang đã mở thử gọi, và địa chỉ
+của một máy chủ không trả lời sau redirect, cũng vậy. QUIC bị tắt và WebRTC không đi được ngoài
+proxy.
 
 **Ảnh chụp.** `browser_screenshot` chụp phần đang thấy của tab (`full_page` chụp cả trang) thành
 PNG; ảnh quá 2 MB được chụp lại thành JPEG, vẫn quá thì bị từ chối. Ảnh nằm ở `screenshots/`
@@ -471,13 +483,17 @@ trong workspace, hoặc trong thư mục đầu của `write_paths` khi agent c�
 `<giờ UTC>-<nhãn tab>.png`, ví dụ `screenshots/20261013T120000Z-t1.png`. Tool giữ 40 ảnh mới
 nhất của chính nó và không đụng tệp nào khác trong thư mục. Dòng đầu của câu trả lời nói ảnh đã
 lưu ở đâu. Có vision route thì theo sau là lời đọc ảnh (trả lời `question`, hoặc mô tả chung),
-nằm trong rào như nội dung trang, và tiền của lần đọc được tính vào run; không có vision route
-thì câu trả lời nói ảnh đã lưu nhưng chưa ai đọc.
+nằm trong rào như nội dung trang và được giữ vừa chỗ còn lại dưới trần đầu ra, và tiền của lần
+đọc được tính vào run. Trần không còn chỗ cho lời đọc thì ảnh vẫn được lưu nhưng không model nào
+được gọi. Vision route báo lỗi thì lời báo của nó nằm trong rào. Không có vision route thì câu
+trả lời nói ảnh đã lưu nhưng chưa ai đọc.
 
 **Từ script.** Bốn tool đọc (`browser_snapshot`, `browser_text`, `browser_tabs`,
 `browser_screenshot`) gọi được từ script của `tool_script` như mọi tool chỉ đọc.
 `browser_navigate` và `browser_act` chỉ gọi được khi agent có `script_calls: gated`, mỗi lời gọi
-qua cổng duyệt trước (xem [Gọi tool từ script](#gọi-tool-từ-script)).
+qua cổng duyệt trước (xem [Gọi tool từ script](#gọi-tool-từ-script)). Script giữ được 200.000 ký
+tự của một câu trả lời, bất kể trần của agent; tool trình duyệt đo câu trả lời theo mức nhỏ hơn
+trong hai mức ấy, nên script cũng luôn nhận đủ cả hai dòng rào.
 
 **Thư mục giữ riêng.** `<home>/browser/` chứa những gì các trình duyệt đang đăng nhập, nên không
 tool tệp nào đọc hay ghi được ở đó, dù trình duyệt có bật hay không: đường dẫn được xét theo nơi

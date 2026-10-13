@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+from my_agent_crew import texts_browser_fence as f
 from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.browser.kit import Kit
 from my_agent_crew.browser.pool import BrowserPool
@@ -18,6 +19,8 @@ from my_agent_crew.config_browser import BrowserSettings
 from tests.browser_servers import Page, Site, local_names
 
 FENCE = re.compile(r"^<<<TRANG ([0-9a-f]{16})\n(.*)\nTRANG \1>>>\Z", re.S | re.M)
+# A fence wherever it stands in what a registry answered, with a note after it or none.
+WHOLE = re.compile(r"^<<<TRANG ([0-9a-f]{16})\n(.*?)\nTRANG \1>>>$", re.S | re.M)
 
 
 @dataclasses.dataclass
@@ -39,7 +42,9 @@ class World:
 
 
 @asynccontextmanager
-async def world(root: Path, pages: dict[str, Page], **settings: Any) -> AsyncIterator[World]:
+async def world(
+    root: Path, pages: dict[str, Page], resolver: Any = local_names, **settings: Any
+) -> AsyncIterator[World]:
     site, intranet = Site(pages), Site({"/": "<title>Nội bộ</title>bí mật", "/x.png": "bí mật"})
     ports = {site.port}
     workspace = root / "workspace"
@@ -47,7 +52,7 @@ async def world(root: Path, pages: dict[str, Page], **settings: Any) -> AsyncIte
     pool = BrowserPool(
         root / "browser",
         BrowserSettings(enabled=True, **settings),
-        resolver=local_names,
+        resolver=resolver,
         allow=lambda _address, port: port in ports,
     )
     try:
@@ -78,6 +83,30 @@ def parts(answer: str) -> tuple[str, str]:
     match = FENCE.search(answer)
     assert match, answer
     return answer[: match.start()], match.group(2)
+
+
+def under(answer: str) -> tuple[str, str]:
+    """A tool's own words, and what it fenced under them. Between the two stands the line
+    that says what the fence is, and nothing else."""
+    match = FENCE.search(answer)
+    assert match, answer
+    opening = f.PAGE_OPEN.format(nonce=match.group(1))
+    closing = f.PAGE_CLOSE.format(nonce=match.group(1))
+    said = f.PAGE_FENCE.format(opening=opening, closing=closing) + "\n"
+    outside = answer[: match.start()]
+    assert outside.endswith(said), answer
+    return outside.removesuffix(said).removesuffix("\n"), match.group(2)
+
+
+def kept(output: str) -> tuple[str, str | None]:
+    """What an answer says outside a fence once a registry had it, and what it still holds
+    inside one: None for an answer with no fence. A fence that opens and is not closed, or
+    the line that tells of one with none under it, is no answer at all."""
+    if "<<<TRANG" not in output:
+        return output, None
+    match = WHOLE.search(output)
+    assert match, output
+    return output[: match.start()] + output[match.end() :], match.group(2)
 
 
 def ref_of(answer: str, name: str) -> str:

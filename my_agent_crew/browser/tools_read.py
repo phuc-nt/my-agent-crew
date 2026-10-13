@@ -6,8 +6,10 @@ import asyncio
 from typing import Any
 
 from my_agent_crew import texts_browser as t
+from my_agent_crew import texts_browser_fence as f
 from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import kit as k
+from my_agent_crew.browser.fence import answer, room, whole_lines
 from my_agent_crew.browser.kit import (
     BrowserTool,
     Kit,
@@ -16,7 +18,7 @@ from my_agent_crew.browser.kit import (
     text_of,
     timed_out,
 )
-from my_agent_crew.browser.report import URL_CHARS, fenced, page_report, room
+from my_agent_crew.browser.report import URL_CHARS, page_report
 from my_agent_crew.browser.snapshot import address
 from my_agent_crew.browser.tabs import Tab
 from my_agent_crew.tools.registry import Tool, ToolError
@@ -74,10 +76,12 @@ def build_text(kit: Kit) -> Tool:
             text = (await target.first.inner_text()).strip() if await target.count() else ""
             outside = [t.PAGE_HEAD_PLAIN.format(label=tab.label)]
             where = t.PAGE_URL.format(url=one_line(tab.page.url, URL_CHARS))
-        most = min(k.number(args, "max_chars", LEAST_TEXT, ALL, ALL), room(kit.limit, where))
+        asked = k.number(args, "max_chars", LEAST_TEXT, ALL, ALL)
+        most = min(asked, room(kit.limit, *outside, where))
         if len(text) > most:
             outside.append(t.TEXT_CUT.format(shown=most, total=len(text)))
-        return "\n".join([*outside, fenced("\n".join([where, "", text[:most] or t.TEXT_EMPTY]))])
+        body = "\n".join([where, "", text[:most] or ("" if text else t.TEXT_EMPTY)])
+        return answer(kit.limit, outside, body)
 
     return BrowserTool(
         name=k.TEXT,
@@ -126,7 +130,10 @@ def build_tabs(kit: Kit) -> Tool:
             )
             for tab in mine
         ]
-        return "\n".join([*said, fenced("\n".join(lines))])
+        kept = whole_lines(lines, room(kit.limit, *said))
+        if kept < len(lines):
+            said.append(f.TABS_CUT.format(shown=kept, total=len(lines)))
+        return answer(kit.limit, said, "\n".join(lines[:kept]))
 
     return BrowserTool(
         name=k.TABS,

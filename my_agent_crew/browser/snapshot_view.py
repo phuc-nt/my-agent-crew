@@ -6,6 +6,7 @@ from __future__ import annotations
 import unicodedata
 from dataclasses import dataclass
 
+from my_agent_crew.browser.fence import whole_lines
 from my_agent_crew.browser.snapshot import Snapshot
 
 # What a long page is cut down to: the things a person would act on, and the headings that
@@ -32,12 +33,8 @@ def _folded(text: str) -> str:
 
 
 def _fit(drawn: list[str], budget: int, kind: str) -> View:
-    """As many whole lines as the budget holds: a line cut in half would read as a name."""
-    kept, used = 0, 0
-    for line in drawn:
-        if used + len(line) + 1 > budget:
-            break
-        kept, used = kept + 1, used + len(line) + 1
+    """As many whole lines as the budget holds."""
+    kept = whole_lines(drawn, budget)
     return View("\n".join(drawn[:kept]), kind, kept, len(drawn))
 
 
