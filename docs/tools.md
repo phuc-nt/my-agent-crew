@@ -387,6 +387,15 @@ duyệt.
   trong nó. Ngoài ba trường hợp ấy, thao tác hỏi trong hội thoại được giám sát và chạy trong hội
   thoại autonomous.
 
+Thẻ duyệt của một thao tác ngoài ba trường hợp ấy đọc lên thao tác và tên phần tử (bấm «Xem đơn»),
+không kèm dòng lý do: nó không nêu host của trang và không nói một liên kết dẫn tới đâu. Ba trường
+hợp luôn hỏi thì có dòng lý do, nêu host. Duyệt bằng "Luôn cho phép" đưa `browser_act` vào
+`auto_approve` của hội thoại: các thao tác thường ngày sau đó chạy không hỏi, ba trường hợp luôn hỏi
+vẫn hỏi. `browser_hosts` xét trang đang hiện lúc thao tác, không xét nơi một lần bấm dẫn tới: bấm
+một liên kết trên trang trong danh sách có thể đưa tab sang host ngoài danh sách mà không ai bị hỏi
+về lần bấm ấy; thao tác kế tiếp trên trang mới thì luôn hỏi, và địa chỉ nội bộ thì trình duyệt không
+tới được bằng đường nào.
+
 `browser_hosts` viết `shop.example` là đúng host ấy; `*.shop.example` là host ấy và mọi host bên
 dưới nó; `notshop.example` không thuộc cái nào. Mỗi dòng là tên host chữ thường, không scheme,
 cổng hay đường dẫn; dòng sai làm dừng khởi động.
