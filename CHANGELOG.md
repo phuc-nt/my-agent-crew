@@ -23,68 +23,89 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   the start, since it does not say how far the agent may go. The browser is the Chromium the
   Playwright package pins, installed once with `uv run playwright install chromium`, or the
   machine's own Chrome with `browser_channel: chrome`. A machine that turns the browser on without
-  one still starts, with one warning line that names the command, and gives no agent a browser
-  tool. Each agent has one headless browser, started at its first call and stopped after
-  `browser_idle_minutes` (10) without use, with a profile of its own under
-  `<home>/browser/<agent id>/`: what one agent is signed in to is not another's, and stays over a
-  restart. A tab belongs to the conversation that opened it and no other conversation reaches it;
-  the tabs of scheduled runs are kept apart from every conversation's. An agent holds at most
-  `browser_max_tabs` (5) tabs, and a tab nobody used for half an hour is closed. The master is told
-  the browser tools of each agent by name, like any other tool.
-- A page is told to the model as an outline of what is on it, each thing that can be acted on with
-  a `ref`, between two fence lines made anew for every answer: nothing a page writes can close the
-  fence or stand outside it, so the words of a page stay data. `browser_snapshot` gives the whole
-  outline, only what can be acted on, or the lines that hold a word, and can wait for words to
-  appear; `browser_text` gives the text of the page or of one element; `browser_tabs` lists and
-  closes the conversation's tabs without starting a browser; `browser_screenshot` saves a picture
-  under `screenshots/` in the agent's workspace (under the first of its `write_paths` when it has
-  them), keeps the newest 40, and, on a machine with a vision route, gives what that route reads in
-  the picture between fence lines too. A window a page opens becomes the conversation's next tab,
-  and a dialog is dismissed and told once.
+  one still starts, with one warning line that names the command, and gives no agent a browser tool.
+  Each agent has one headless browser, started at its first call and stopped after
+  `browser_idle_minutes` (10) without use, with a profile of its own under `<home>/browser/<agent
+  id>/`: what one agent is signed in to is not another's, and stays over a restart. A browser whose
+  driver went away is forgotten with it, and the next call starts another. A tab belongs to the
+  conversation that opened it and no other conversation reaches it; the tabs of scheduled runs are
+  kept apart from every conversation's. An agent holds at most `browser_max_tabs` (5) tabs, and a
+  tab nobody used for half an hour is closed. The master is told the browser tools of each agent by
+  name, like any other tool.
+- A page is told to the model as an outline of what is on it, each thing that can be acted on with a
+  `ref`, between two fence lines made anew for every answer: nothing a page writes can close the
+  fence or stand outside it, so the words of a page stay data. A tool sizes what it fences to the
+  agent's output cap, so no answer is cut, kept in a file or shortened by a model and the closing
+  line is always there; under a cap with no room for a fence the answer says so in place of the
+  page. An error of the browser is told outside the fence by Chromium's code or the kind of the
+  error only, and the line the browser wrote, which may quote the page, inside it.
+  `browser_snapshot` gives the whole outline, only what can be acted on, or the lines that hold a
+  word, and can wait for words to appear; `browser_text` gives the text of the page or of one
+  element; `browser_tabs` lists and closes the conversation's tabs without starting a browser;
+  `browser_screenshot` saves a picture under `screenshots/` in the agent's workspace (under the
+  first of its `write_paths` when it has them), keeps the newest 40, and, on a machine with a vision
+  route, gives what that route reads in the picture between fence lines too. A window a page opens
+  becomes the conversation's next tab, and a dialog is dismissed and told once.
 - `browser_act` does one thing (`click`, `type`, `fill`, `press`, `select`, `hover`, `scroll` or
   `upload`) to the element the model names by `ref` and by the name the page shows for it, and only
-  while that element is the one the model was shown: a page that went to another address, an
-  element that is gone, became another kind of element, carries another name, or gained a word
-  that stops for a person since the model looked, is not acted on. Nothing is ever typed into a
-  password, one-time code or card number field, whatever the conversation allows. Enter in a form
-  whose button a person would be asked about is refused, so a key is no way round the question. An
-  upload takes a file of the agent's workspace.
+  while that element is the one the model was shown: a page that went to another address, an element
+  that is gone, became another kind of element, carries another name, or gained a word that stops
+  for a person since the model looked, is not acted on. Nothing is ever typed into a password,
+  one-time code or card number field, whatever the conversation allows: a field is one by its
+  `type`, its `autocomplete`, the name the page draws for it, its `name` or `id` in the markup (a
+  password box switched to show what is typed stays one), or by taking a single character, as each
+  box of a code typed one digit a box does. Enter in a field is judged by the buttons it would
+  press: where a submit button of the field's form carries a word a person would be asked about, the
+  key is refused and the model is told to click that button, so a key is no way round the question.
+  An upload takes a file of the agent's workspace.
 - Two guards cannot be switched off. Every connection a browser makes goes through a proxy inside
-  the server that lets it reach public addresses only, judged by the address a name resolves to
-  and connected to that same address; a page that leads to a private one is refused by name, and
-  what a page reached for and was refused is told with the page. An address is read one way, the
-  way the browser reads it too, and only a full `http` or `https` address is opened; a private
-  address written out, `localhost` and every name under it are refused with no name resolved. The
-  folder
-  that holds the profiles, `<home>/browser/`, is closed to every file tool of every agent (read,
-  list, write, search, through a link as well) and to every sandboxed shell, with the browser on
-  or off. A shell that was never sandboxed is not sandboxed by this: `docs/deployment-guide.md`
-  says what to check before the browser is turned on for an agent that has one. Downloads are
-  refused in this release.
+  the server that lets it reach public addresses only, judged by the address a name resolves to and
+  connected to that same address; a page that leads to a private one is refused, and the host it led
+  to, a name of the page's choosing, is told inside the fence, as is what a page reached for and was
+  refused. Nothing leaves a browser beside that proxy: QUIC is off, a page's WebRTC sends nothing
+  around it (also on a profile used before), and the errands a Chromium runs for itself are turned
+  off or sent nowhere (a connection to a search engine at each page, the forms of a page described
+  to the autofill service, its sign-in service, the check-in of its push service). An address is
+  read one way, the way the browser reads it too, and only a full `http` or `https` address is
+  opened; a private address written out, `localhost` and every name under it are refused with no
+  name resolved, and so is one written as a number in another base or in fewer parts (`2130706433`,
+  `0x7f000001`, `0177.0.0.1`, `127.1`), which a browser reads as an address. The folder that holds
+  the profiles, `<home>/browser/`, is closed to every file tool of every agent (read, list, write,
+  search, through a link as well) and to every sandboxed shell, with the browser on or off. A shell
+  that was never sandboxed is not sandboxed by this: `docs/deployment-guide.md` says what to check
+  before the browser is turned on for an agent that has one. Downloads are refused in this release.
 - `browser_navigate` and `browser_act` ask before they run, like any tool that changes something,
   and a tool can now say which of its calls stop for a person whatever the conversation allows and
   which are routine. An agent's `browser_hosts` (`shop.example`, `*.shop.example`) names the sites
   that are its own: an address there opens without a question, in a supervised conversation as well;
   any other host asks, in an autonomous one as well, and so does an action on a page outside the
   list. `browser_act` always asks for an upload, and for a click, a key or a choice on an element
-  whose name, or the words drawn under it, hold one of the machine's `browser_ask_patterns` (by
-  default words such as mua, thanh toán, đặt hàng, gửi, xoá, pay, buy, order, submit, delete,
-  confirm, as whole words in any case, an accented word also matching a name written without
-  accents; an emptied list turns this guard off). The request carries the reason as a line a person
-  reads. Nobody is asked about an address `browser_navigate` refuses whatever the answer (one it
-  cannot read, one that is not `http` or `https`, a private one written out): the call goes
-  straight to its refusal. From a script, the tools that only look are called like any reading tool;
-  `browser_navigate` and `browser_act` only by an agent with `script_calls: gated`, through the same
-  gate.
+  whose name, the words drawn under it, or the words of the button or link it stands inside (a click
+  on the picture in a button is a click on the button) hold one of the machine's
+  `browser_ask_patterns`: by default 49 words of paying, ordering, booking, sending, deleting,
+  agreeing and signing out, Vietnamese and English (mua, thanh toán, đặt hàng, gửi, xoá, đăng ký,
+  pay, buy, checkout, submit, delete, confirm, subscribe and the like; `docs/tools.md` has the
+  list), as whole words in any case, an accented word also matching a name written without accents.
+  A name is read as an eye reads it: characters a browser draws nothing for are left out, letters
+  drawn in another form (fullwidth, ligatures, mathematical) are read as plain ones, and a name
+  written the way code is (`btn_pay`, `CheckOut`) is taken apart first. An emptied list turns this
+  guard off. The request carries the reason as a line a person reads. Nobody is asked about an
+  address `browser_navigate` refuses whatever the answer (one it cannot read, one that is not `http`
+  or `https`, a private one written out): the call goes straight to its refusal. From a script, the
+  tools that only look are called like any reading tool; `browser_navigate` and `browser_act` only
+  by an agent with `script_calls: gated`, through the same gate.
 - `GET /api/agents/{id}/browser` tells what an agent's browser has open (each tab by number, label,
-  conversation, host and title, never its whole address, last used first) and starts nothing;
-  `POST /api/agents/{id}/browser/stop` stops it, a call in flight included, and keeps what it is
-  signed in to; `DELETE /api/agents/{id}/browser/tabs/{tab_id}` closes one tab. `GET
-  /api/connections` gains `browser` (on or off, channel, installed version or the missing part and
-  the command that installs it, the agents whose browser is up). An agent's profile carries
-  `browser` and `browser_hosts`, and `PATCH /api/agents/{id}` sets them from the next turn on; a
-  save that leaves the agent at `off` stops its browser at once, and removing an agent deletes its
-  profile folder with it. `GET /api/tools` marks the six tools with `with_browser`.
+  conversation, host and title, never its whole address, last used first) and starts nothing; `POST
+  /api/agents/{id}/browser/stop` stops it, a call in flight included, and keeps what it is signed in
+  to; `DELETE /api/agents/{id}/browser/tabs/{tab_id}` closes one tab. `GET /api/connections` gains
+  `browser` (on or off, channel, installed version or the missing part and the command that installs
+  it, the agents whose browser is up). An agent's profile carries `browser` and `browser_hosts`, and
+  `PATCH /api/agents/{id}` sets them from the next turn on; a save that leaves the agent at `off`
+  stops its browser at once, and removing an agent deletes its profile folder with it; a turn that
+  was running when either happened keeps its tools and is refused by them, so nothing opens that
+  browser again or writes to the profile. A server going down stops every browser and starts none
+  after that: no Chromium is left behind it. `GET /api/tools` marks the six tools with
+  `with_browser`.
 - The web shows and sets all of it. Connections has a "Trình duyệt" card: on or off, the channel and
   the version, or what is missing with the command that installs it, and the agents whose browser is
   up, a line it reads again by itself every five seconds while the page is looked at; it sets
