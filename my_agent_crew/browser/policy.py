@@ -6,9 +6,11 @@ fields) are elsewhere and read no setting."""
 
 from __future__ import annotations
 
+import ipaddress
 import re
 import unicodedata
 from collections.abc import Sequence
+from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 # Letters and digits in a row. An underscore joins nothing: `btn_pay` holds the word `pay`.
@@ -17,14 +19,50 @@ WORD = re.compile(r"[^\W_]+")
 HUMP = re.compile(r"(?<=[a-z])(?=[A-Z])")
 
 
-def host_of(url: str) -> str:
-    """The host a URL names, as a certificate would spell it: lower case, no trailing dot,
-    no port, a name in another script in its ASCII form. "" for what names none."""
+# A host as a browser is handed it: labels of letters, digits, hyphens and underscores.
+LABELS = re.compile(r"(?:[a-z0-9_-]+\.)*[a-z0-9_-]+\.?")
+
+
+@dataclass(frozen=True)
+class Address:
+    url: str  # the address as the browser is given it
+    scheme: str
+    host: str  # as a certificate would spell it: lower case, ASCII, no trailing dot, no port
+    port: int | None
+
+
+def read_address(url: str) -> Address | None:
+    """An address read the one way a browser reads it too, or None.
+
+    The host this reads is what a rule is judged on, so an address a browser might read
+    another way is no address at all: a backslash before the path (a browser takes it for a
+    slash, and the host ends there), a name and password before the host, an escaped letter
+    in the host, a blank anywhere. A host in another script is turned into its ASCII form
+    here, and the browser is given that spelling and not the one it would work out."""
+    if not url.isprintable() or " " in url:
+        return None
     try:
-        host = (urlsplit(url).hostname or "").rstrip(".")  # already lower case
-        return host.encode("idna").decode("ascii") if host else ""
+        parts = urlsplit(url)
+        port = parts.port
+        if not parts.netloc or "@" in parts.netloc:
+            return None
+        if parts.netloc.startswith("["):
+            host = str(ipaddress.IPv6Address(parts.hostname or ""))
+            spelled = f"[{host}]"
+        else:
+            host = spelled = (parts.hostname or "").encode("idna").decode("ascii")
+            if not LABELS.fullmatch(host):
+                return None
     except ValueError:  # a bad bracket or port, or a label no name can hold
-        return ""
+        return None
+    netloc = spelled if port is None else f"{spelled}:{port}"
+    return Address(parts._replace(netloc=netloc).geturl(), parts.scheme, host.rstrip("."), port)
+
+
+def host_of(url: str) -> str:
+    """The host a URL names, "" for what names none or names it in a way to be misread."""
+    address = read_address(url)
+    return address.host if address else ""
 
 
 def host_allowed(host: str, patterns: Sequence[str]) -> bool:

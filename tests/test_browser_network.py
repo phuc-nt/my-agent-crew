@@ -11,7 +11,11 @@ from my_agent_crew.browser.network import check_url, is_local, reachable
 from my_agent_crew.tools.registry import ToolError
 from my_agent_crew.tools.web import is_private
 
-PUBLIC = {"shop.test": ["8.8.8.8"], "v6.test": ["2001:4860:4860::8888"]}
+PUBLIC = {
+    "shop.test": ["8.8.8.8"],
+    "v6.test": ["2001:4860:4860::8888"],
+    "xn--bcher-kva.test": ["8.8.4.4"],
+}
 
 
 @pytest.mark.parametrize(
@@ -96,15 +100,16 @@ def test_an_exemption_names_a_port_and_covers_nothing_else():
 
 
 @pytest.mark.parametrize(
-    ("url", "host"),
+    ("url", "given"),
     [
-        ("https://shop.test/don-hang?id=1#top", "shop.test"),
-        ("http://SHOP.test:8080/", "shop.test"),
-        ("https://v6.test", "v6.test"),
+        ("https://shop.test/don-hang?id=1#top", "https://shop.test/don-hang?id=1#top"),
+        ("http://SHOP.test.:8080/", "http://shop.test.:8080/"),
+        ("https://v6.test", "https://v6.test"),
+        ("https://bücher.test/", "https://xn--bcher-kva.test/"),
     ],
 )
-async def test_a_public_page_is_let_through_and_its_host_named(url, host):
-    assert await check_url(url, PUBLIC.__getitem__) == host
+async def test_a_public_page_is_let_through_spelled_as_the_browser_is_given_it(url, given):
+    assert await check_url(url, PUBLIC.__getitem__) == given
 
 
 @pytest.mark.parametrize(
@@ -122,6 +127,11 @@ async def test_a_public_page_is_let_through_and_its_host_named(url, host):
         "https://",
         "https://shop.test:port/",
         "http://[::1",
+        "//shop.test/don-hang",
+        "https://user:secret@shop.test/",
+        "https://evil.test\\@shop.test/",
+        "https://shop.test%2eevil.test/",
+        "https://shop.test /",
         "",
     ],
 )
@@ -182,7 +192,7 @@ async def test_a_test_server_is_let_through_only_on_the_port_it_was_given():
     local = lambda host: ["127.0.0.1"]  # noqa: E731
     shop = lambda address, port: port == 8080  # noqa: E731
 
-    assert await check_url("http://shop.test:8080/", local, shop) == "shop.test"
+    assert await check_url("http://shop.test:8080/", local, shop) == "http://shop.test:8080/"
     with pytest.raises(ToolError):
         await check_url("http://shop.test:8081/", local, shop)
     with pytest.raises(ToolError):

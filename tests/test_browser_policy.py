@@ -7,7 +7,14 @@ import unicodedata
 
 import pytest
 
-from my_agent_crew.browser.policy import AskWords, host_allowed, host_of, plain, words
+from my_agent_crew.browser.policy import (
+    AskWords,
+    host_allowed,
+    host_of,
+    plain,
+    read_address,
+    words,
+)
 from my_agent_crew.texts_browser import DEFAULT_ASK_WORDS
 
 
@@ -17,7 +24,7 @@ from my_agent_crew.texts_browser import DEFAULT_ASK_WORDS
         ("https://shop.example/don-hang", "shop.example"),
         ("https://Shop.Example:8443/x?y=1#z", "shop.example"),
         ("https://shop.example./", "shop.example"),
-        ("https://user:secret@shop.example/", "shop.example"),
+        ("https://my_shop.example/", "my_shop.example"),
         ("http://203.0.113.9/x", "203.0.113.9"),
         ("https://[2001:db8::1]:8443/", "2001:db8::1"),
         ("https://bücher.example/", "xn--bcher-kva.example"),
@@ -32,6 +39,56 @@ from my_agent_crew.texts_browser import DEFAULT_ASK_WORDS
 )
 def test_the_host_of_an_address_is_read_the_way_a_certificate_spells_it(url, host):
     assert host_of(url) == host
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        # A browser takes a backslash for a slash: its host is evil.test in all three.
+        "https://evil.test\\.shop.example/",
+        "https://evil.test\\@shop.example/",
+        "https://evil.test\\/shop.example/",
+        "https://user:secret@shop.example/",
+        "https://shop.example@evil.test/",
+        "https://shop.example%2eevil.test/",
+        "https://%73hop.example/",
+        "https://shop.example /",
+        " https://shop.example/",
+        "https://shop\t.example/",
+        "https://shop.example\n.evil.test/",
+        "https://shop.example\uff0fevil.test/",  # a full-width slash folds into a real one
+        "https://shop.example\uff20evil.test/",
+        "https://shop.example\u200b.evil.test/",
+        "https://shop.example,evil.test/",
+        "https://shop.example<.evil.test/",
+        "https://*.shop.example/",
+        "https://shop.example:99999/",
+        "https://[::1/",
+        "https://[shop.example]/",
+    ],
+)
+def test_an_address_a_browser_might_read_another_way_names_no_host(url):
+    assert read_address(url) is None and host_of(url) == ""
+    assert not host_allowed(host_of(url), ["shop.example", "*.shop.example", "evil.test"])
+
+
+@pytest.mark.parametrize(
+    "url, given",
+    [
+        ("https://shop.example/don-hang?id=1#top", "https://shop.example/don-hang?id=1#top"),
+        ("HTTPS://Shop.Example:8443/A?b=C", "https://shop.example:8443/A?b=C"),
+        ("https://shop.example.:/x", "https://shop.example./x"),
+        ("https://bücher.example/sách", "https://xn--bcher-kva.example/sách"),
+        ("https://straße.example/", "https://strasse.example/"),
+        ("http://[2001:DB8::1]:8080/", "http://[2001:db8::1]:8080/"),
+        ("https://shop.example/a\\b@c%2f", "https://shop.example/a\\b@c%2f"),
+    ],
+)
+def test_the_browser_is_given_the_spelling_the_host_was_read_from(url, given):
+    address = read_address(url)
+
+    assert address.url == given
+    assert host_of(given) == address.host and read_address(given) == address
 
 
 @pytest.mark.parametrize(
