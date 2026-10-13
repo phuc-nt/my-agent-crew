@@ -78,14 +78,15 @@ def test_the_rules_close_a_folder_and_hold_every_folder_above_it_in_place():
 
     assert private_rules([]) == "" and "file-read*" not in plain
     assert private_rules([Path("/h/browser")]) == (
-        '(deny file-read* file-write* (subpath "/h/browser"))'
+        '(deny file-read* file-write* network-outbound (subpath "/h/browser"))'
         '(deny file-write-unlink (literal "/") (literal "/h"))'
     )
     # Named after the rule that opens the writable paths: of two rules the later decides.
     assert closed == plain + private_rules([Path("/h/browser")])
     two = private_rules([Path("/h/browser"), Path('/h/a "b"/c')])
+    inside = '(subpath "/h/browser") (subpath "/h/a \\"b\\"/c")'
     assert two == (
-        '(deny file-read* file-write* (subpath "/h/browser") (subpath "/h/a \\"b\\"/c"))'
+        f"(deny file-read* file-write* network-outbound {inside})"
         '(deny file-write-unlink (literal "/") (literal "/h") (literal "/h/a \\"b\\""))'
     )
 
