@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts
+from my_agent_crew.tools.private_paths import is_private, kept_under
 from my_agent_crew.tools.registry import Tool, ToolError
 from my_agent_crew.tools.workspace import resolve_inside
 
@@ -27,9 +28,13 @@ SNIFF_BYTES = 1024
 
 
 def _pruned_walk(root: Path):
+    """Folders the server keeps private are left out with the noisy ones, and so is a file
+    that is a link into one: a walk follows no linked folder, but a read follows a file."""
     for current, dirs, files in os.walk(root):
-        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
-        yield Path(current), sorted(files)
+        here = Path(current)
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not is_private(here / d))
+        led = {f for f in files if (here / f).is_symlink() and is_private(here / f)}
+        yield here, sorted(f for f in files if f not in led)
 
 
 def _is_text(path: Path) -> bool:
@@ -72,6 +77,10 @@ async def _ripgrep(root: Path, pattern: str, glob: str | None, max_results: int)
         command += ["--glob", f"!{name}/"]
     if glob:
         command += ["--glob", glob]
+    # ripgrep follows no link, so a private folder is reached only by lying under the root.
+    # Named last: of two globs that match a folder, the later one decides.
+    for kept in kept_under(root):
+        command += ["--iglob", "!/" + re.sub(r"([\\*?\[\]{}])", r"\\\1", kept) + "/"]
     command += ["--regexp", pattern, "."]
     process = await asyncio.create_subprocess_exec(
         *command,
