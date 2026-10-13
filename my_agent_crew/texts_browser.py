@@ -4,45 +4,21 @@ tools say of themselves and what they answer when they refuse."""
 # A click, a key or a choice on an element named with one of these stops for a person, in an
 # autonomous conversation too. Whole words, any case; a name written without accents is
 # matched too. `browser_ask_patterns` in `config.yaml` replaces the list.
-DEFAULT_ASK_WORDS = (
-    "mua",
-    "thanh toán",
-    "đặt hàng",
-    "đặt mua",
-    "gửi",
-    "xoá",
-    "xóa",
-    "huỷ đơn",
-    "hủy đơn",
-    "xác nhận",
-    "đồng ý",
-    "chuyển khoản",
-    "chuyển tiền",
-    "đăng xuất",
-    "pay",
-    "buy",
-    "purchase",
-    "order",
-    "checkout",
-    "check out",
-    "submit",
-    "send",
-    "delete",
-    "remove",
-    "confirm",
-    "agree",
-    "transfer",
-    "publish",
-    "post",
-    "log out",
-    "logout",
-    "sign out",
+DEFAULT_ASK_WORDS = tuple(
+    "mua|thanh toán|đặt hàng|đặt mua|gửi|xoá|xóa|huỷ đơn|hủy đơn|xác nhận|đồng ý|chuyển khoản|"
+    "chuyển tiền|đăng xuất|pay|buy|purchase|order|checkout|check out|submit|send|delete|remove|"
+    "confirm|agree|transfer|publish|post|log out|logout|sign out|"
+    # Money that moves and things one is held to, under their other names.
+    "trả tiền|nạp tiền|rút tiền|đặt cọc|đặt chỗ|đặt vé|đặt phòng|đăng ký|chấp nhận|nộp|"
+    "subscribe|accept|book now|withdraw|deposit|donate|bid".split("|")
 )
 
 # A field named with one of these takes no key from the crew, like a field the page itself
 # marks as a password, a one-time code or a card number. No setting changes the list.
 SECRET_FIELD_WORDS = tuple(
-    "mật khẩu|password|passcode|otp|mã xác thực|mã xác minh|cvv|cvc|số thẻ|card number".split("|")
+    "mật khẩu|password|passcode|otp|mã xác thực|mã xác minh|cvv|cvc|số thẻ|card number|"
+    "mã xác nhận|mã bảo mật|mã pin|pin code|security code|verification code|one time code|"
+    "cardnumber|cc number|ccnumber|cvv2|cvc2".split("|")
 )
 
 # Refusals of a page address, before any tab is opened.

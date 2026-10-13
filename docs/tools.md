@@ -417,10 +417,15 @@ cổng hay đường dẫn; dòng sai làm dừng khởi động.
 Từ dừng mặc định: `mua`, `thanh toán`, `đặt hàng`, `đặt mua`, `gửi`, `xoá`, `xóa`, `huỷ đơn`,
 `hủy đơn`, `xác nhận`, `đồng ý`, `chuyển khoản`, `chuyển tiền`, `đăng xuất`, `pay`, `buy`,
 `purchase`, `order`, `checkout`, `check out`, `submit`, `send`, `delete`, `remove`, `confirm`,
-`agree`, `transfer`, `publish`, `post`, `log out`, `logout`, `sign out`. Khớp cả từ, không phân
-biệt hoa thường; tên viết không dấu vẫn khớp một từ có dấu (`Dat hang` khớp `đặt hàng`), và tên
-kiểu lập trình được tách ra trước khi so (`btn_pay` chứa `pay`, `CheckOut` đọc thành `check
-out`). `browser_ask_patterns` thay cả danh sách.
+`agree`, `transfer`, `publish`, `post`, `log out`, `logout`, `sign out`, `trả tiền`, `nạp tiền`,
+`rút tiền`, `đặt cọc`, `đặt chỗ`, `đặt vé`, `đặt phòng`, `đăng ký`, `chấp nhận`, `nộp`,
+`subscribe`, `accept`, `book now`, `withdraw`, `deposit`, `donate`, `bid`. Khớp cả từ, không
+phân biệt hoa thường; tên viết không dấu vẫn khớp một từ có dấu (`Dat hang` khớp `đặt hàng`), và
+tên kiểu lập trình được tách ra trước khi so (`btn_pay` chứa `pay`, `CheckOut` đọc thành `check
+out`). Tên được đọc như mắt người đọc nó: ký tự trình duyệt không vẽ ra (gạch nối mềm, khoảng
+trắng rộng bằng không, dấu đổi chiều chữ) bị bỏ, chữ vẽ ở dạng khác (chữ rộng toàn ô, chữ ghép
+`ﬁ`, chữ toán học) được đọc thành chữ thường, và dấu phụ không ghép được với chữ bên dưới thì
+không được tính. `browser_ask_patterns` thay cả danh sách.
 
 **Thao tác trúng đúng thứ model đã thấy.** Lý do hỏi được xét trên dàn ý model được cho thấy lần
 cuối, không trên trang đang sống: thẻ duyệt nói về đúng cái nút model đã đọc. Ngay trước khi
@@ -441,11 +446,18 @@ trả lời nói rõ thao tác **đã xong** và dặn đừng lặp lại khi c
 | `hover`, `scroll` | — | rê chuột lên phần tử, hoặc cuộn tới nó |
 | `upload` | `path` | tệp phải có trong workspace; chỉ đi vào hộp chọn tệp mà lần bấm mở ra trong 2 giây |
 
-**Ô bí mật.** `type`, `fill` và `press` không bao giờ đi vào ô mật khẩu, mã xác thực hay số thẻ:
-ô có `type=password`, ô mà trang đánh dấu `autocomplete` là `current-password`, `new-password`,
-`one-time-code`, `cc-number` hay `cc-csc`, và ô có tên chứa một trong các từ `mật khẩu`,
-`password`, `passcode`, `otp`, `mã xác thực`, `mã xác minh`, `cvv`, `cvc`, `số thẻ`, `card
-number`. Không cấu hình nào bật được việc này: đăng nhập và thanh toán là việc của chủ.
+**Ô bí mật.** `type`, `fill` và `press` không bao giờ đi vào ô mật khẩu, mã xác thực hay số thẻ.
+Một ô là ô bí mật khi có một trong các dấu hiệu sau: `type=password`; `autocomplete` là
+`current-password`, `new-password`, `one-time-code`, `cc-number` hay `cc-csc`; ô chỉ nhận một
+ký tự (`maxlength` mà trình duyệt đọc thành 1, kể cả `01`, `+1` hay `1px`), như từng ô của một
+mã gõ mỗi ô một chữ số; hoặc tên trang vẽ cho ô, thuộc tính `name` hay thuộc tính `id` của nó
+chứa một trong các từ `mật khẩu`, `password`, `passcode`, `otp`, `mã xác thực`, `mã xác minh`,
+`cvv`, `cvc`, `số thẻ`, `card number`, `mã xác nhận`, `mã bảo mật`, `mã pin`, `pin code`,
+`security code`, `verification code`, `one time code`, `cardnumber`, `cc number`, `ccnumber`,
+`cvv2`, `cvc2`. Các từ được đọc theo đúng cách đọc từ dừng ở trên (`verificationCode` đọc thành
+`verification code`, `user[password_confirmation]` chứa `password`), nên ô mật khẩu đã được
+bật "hiện mật khẩu" (trang đổi nó sang `type=text`) vẫn là ô bí mật khi `name` hay `id` của nó
+còn nói vậy. Không cấu hình nào bật được việc này: đăng nhập và thanh toán là việc của chủ.
 
 **Enter gửi form.** `press` với Enter trong một ô của một form mà một nút gửi của form ấy mang
 một từ dừng bị từ chối, kèm lời dặn bấm thẳng nút gửi bằng `click` để chủ được hỏi. Nút gửi là
@@ -563,7 +575,16 @@ duyệt, và chính lượt đang chạy mở lại được.
 **Giới hạn đã biết.**
 
 - Quy tắc ô bí mật là quy tắc của sản phẩm, không phải ranh giới chống một trang cố tình nguỵ
-  trang ô của mình.
+  trang ô của mình: ô mã dài hơn một ký tự mà tên, `name`, `id` và `autocomplete` đều không
+  nói nó là gì thì không nhận ra được. Ngược lại, ô một ký tự không phải ô mã (chữ lót của một
+  cái tên chẳng hạn) cũng bị từ chối.
+- Từ dừng được so theo chữ, không theo hình: chữ của bảng chữ khác trông giống chữ Latin (`рау`
+  viết bằng chữ Kirin), chữ Latin mang một dấu lạ đã ghép sẵn (`ṕay`) và dòng chữ bị dấu đổi
+  chiều vẽ ngược lại không khớp từ nào. Với agent có `browser_hosts`, trang của host ngoài danh
+  sách luôn hỏi, nên chỗ hở này chỉ còn ở trang của host chủ đã liệt kê; agent `act` không có
+  danh sách thì không có lớp ấy.
+- Danh sách mặc định có `accept` và `chấp nhận`, nên nút đồng ý của một băng cookie cũng dừng
+  lại hỏi chủ.
 - `browser_hosts` giới hạn lần điều hướng trực tiếp và các thao tác, không giới hạn redirect hay
   liên kết của trang thuộc một host trong danh sách. Khung (frame) bên trong một trang được xét
   theo host của trang ngoài cùng.

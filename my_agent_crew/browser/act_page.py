@@ -114,10 +114,8 @@ async def guard(kit: Kit, page: Any, target: Any, asked: a.Asked, name: str, ms:
     if kind == "select" and await target.and_(page.locator("select")).count() != 1:
         raise ToolError(t.ACT_NOT_SELECT.format(ref=ref))
     if kind in a.KEYBOARD:
-        declared = [
-            await target.get_attribute(x, timeout=READ_MS) for x in ("type", "autocomplete")
-        ]
-        if a.secret_field(*declared, name):
+        declared = {x: await target.get_attribute(x, timeout=READ_MS) for x in a.DECLARED}
+        if a.secret_field(declared, name):
             raise ToolError(t.ACT_SECRET_FIELD)
     if kind in ("type", "press"):
         await target.focus(timeout=ms)
