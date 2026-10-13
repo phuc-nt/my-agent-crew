@@ -30,7 +30,9 @@ LOOKS = [
     "browser_text",
     "browser_tabs",
     "browser_screenshot",
+    "browser_pdf",
 ]
+DOES = ["browser_act", "browser_download"]
 
 
 @pytest_asyncio.fixture(loop_scope="module", scope="module")
@@ -58,17 +60,19 @@ async def test_no_browser_on_the_machine_or_none_for_the_agent_is_no_tool(tmp_pa
     assert not (tmp_path / "browser").exists()  # and building tools starts nothing
 
 
-async def test_an_agent_that_reads_gets_five_tools_and_one_that_acts_one_more(tmp_path: Path):
+async def test_an_agent_that_reads_gets_the_tools_that_look_and_one_that_acts_two_more(
+    tmp_path: Path,
+):
     pool = BrowserPool(tmp_path / "browser", on())
 
     read = build_browser_tools(pool, "coach", on(mode="read"), tmp_path, 1_000)
     act = build_browser_tools(pool, "coach", on(mode="act"), tmp_path, 1_000)
 
     assert names(read) == list(k.READ_TOOLS) == LOOKS
-    assert names(act) == list(k.BROWSER_TOOLS) == [*LOOKS, "browser_act"]
-    # Opening a page and doing something to one are the gate's; the rest only look, which is
-    # also what lets a script call them.
-    assert names(tool for tool in act if tool.requires_approval) == [k.NAVIGATE, k.ACT]
+    assert names(act) == list(k.BROWSER_TOOLS) == [*LOOKS, *DOES]
+    # Opening a page, doing something to one and taking a file from one are the gate's; the
+    # rest only look, which is also what lets a script call them.
+    assert names(tool for tool in act if tool.requires_approval) == [k.NAVIGATE, *DOES]
     assert names(tool for tool in act if only_reads(tool)) == LOOKS[1:]
     # Each tells the owner's screens it follows the agent's `browser` key and no list.
     assert [tool.to_dict() for tool in act] == [

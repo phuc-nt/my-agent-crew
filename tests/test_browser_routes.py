@@ -27,6 +27,7 @@ from my_agent_crew.browser.install import NO_BROWSER, Installed
 from my_agent_crew.browser.kit import (
     ACT,
     BROWSER_TOOLS,
+    DOWNLOAD,
     NAVIGATE,
     READ_TOOLS,
     SCREENSHOT,
@@ -173,8 +174,9 @@ async def test_the_crews_tool_list_marks_the_browser_tools_as_the_browser_keys_t
     assert {name: listed[name]["agents"] for name in READ_TOOLS} == dict.fromkeys(
         READ_TOOLS, ["coach", "reader"]
     )
-    assert listed[ACT]["agents"] == ["coach"]
-    assert [name for name in BROWSER_TOOLS if listed[name]["requires_approval"]] == [NAVIGATE, ACT]
+    assert listed[ACT]["agents"] == listed[DOWNLOAD]["agents"] == ["coach"]
+    asking = [name for name in BROWSER_TOOLS if listed[name]["requires_approval"]]
+    assert asking == [NAVIGATE, ACT, DOWNLOAD]
     # And none of them is an agent's list's to give, whatever the agent's key says.
     for agent in (await crew.client.get("/api/agents")).json():
         assert not set(agent["listable_tools"]) & set(BROWSER_TOOLS), agent["id"]

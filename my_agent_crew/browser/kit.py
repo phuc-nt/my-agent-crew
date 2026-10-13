@@ -26,9 +26,10 @@ from my_agent_crew.tools.registry import Tool, ToolError
 
 NAVIGATE, SNAPSHOT, TEXT = "browser_navigate", "browser_snapshot", "browser_text"
 TABS, SCREENSHOT, ACT = "browser_tabs", "browser_screenshot", "browser_act"
-# What `browser: read` brings; `browser: act` adds the last.
-READ_TOOLS = (NAVIGATE, SNAPSHOT, TEXT, TABS, SCREENSHOT)
-BROWSER_TOOLS = (*READ_TOOLS, ACT)
+PDF, DOWNLOAD = "browser_pdf", "browser_download"
+# What `browser: read` brings; `browser: act` adds the last two.
+READ_TOOLS = (NAVIGATE, SNAPSHOT, TEXT, TABS, SCREENSHOT, PDF)
+BROWSER_TOOLS = (*READ_TOOLS, ACT, DOWNLOAD)
 CALL_SECONDS = 20.0
 # How often an outline is drawn again when the page moved while it was being drawn, and how
 # long a page is given to settle after something was done to it.

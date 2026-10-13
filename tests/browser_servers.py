@@ -29,6 +29,7 @@ class Site:
         self.seen: list[str] = []
         self.heads: list[dict[str, str]] = []
         self.bodies: list[bytes] = []
+        self.cut: list[str] = []  # the paths whose answer the browser hung up on
         site = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -62,6 +63,7 @@ class Site:
                             time.sleep(piece)
                 except OSError:  # the browser gave up on a slow page and hung up
                     self.close_connection = True
+                    site.cut.append(self.path)
 
             do_GET = do_POST = _serve
 
