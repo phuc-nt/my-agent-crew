@@ -26,11 +26,16 @@ log = logging.getLogger(__name__)
 VIEWPORT = {"width": 1280, "height": 800}
 ACTION_MS, NAVIGATION_MS = 8_000, 20_000
 # Nothing leaves the browser beside the proxy: no direct connection for loopback, no UDP that
-# a proxy cannot carry.
+# a proxy cannot carry. And the browser runs no errand of its own: it opens no connection to
+# a search engine at each page, and its sign-in service and the check-in its push service
+# starts with are sent to names that resolve nowhere.
 ARGS = (
     "--proxy-bypass-list=<-loopback>",
     "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
     "--disable-quic",
+    "--disable-features=PreconnectToSearch",
+    "--gaia-url=http://gaia.invalid",
+    "--gcm-checkin-url=http://gcm.invalid/checkin",
 )
 
 
