@@ -140,6 +140,17 @@ INSIDE = (
     f"<button id=xem onclick=\"log('xem')\"><img alt='mắt' src='{DOT}' width=20 height=20> "
     "<span>Xem</span></button>" + LOG
 )
+# Fields that are the owner's by one thing each: what the markup calls them, or the one
+# character they hold. Nothing a person reads on the page says so.
+CODES = (
+    "<title>Mã</title>"
+    '<input name="otp" aria-label="Ô thứ nhất" id=mot>'
+    '<input id="cardNumber" aria-label="Ô thứ hai">'
+    '<input maxlength=1 aria-label="Chữ số 1" id=s1>'
+    '<input maxlength="01" inputmode=numeric aria-label="Chữ số 2" id=s2>'
+    '<input maxlength=2 aria-label="Tháng" id=thang>'
+    '<input name="q" aria-label="Tìm đơn" id=tim>'
+)
 # A page in two pieces with a pause between; the first is enough for a browser to show it.
 PIECES = ["<title>Mảnh</title><p>Phần đầu</p>" + " " * 2048, 0.6, "<button>Phần cuối</button>"]
 PAGES = {
@@ -147,6 +158,7 @@ PAGES = {
     "/di": LEAVING,
     "/manh": lambda _site: (200, {}, PIECES),
     "/khoa": LOGIN,
+    "/ma": CODES,
     "/khung": FRAME,
     "/form": FORMS,
     "/tep": UPLOAD,
@@ -435,6 +447,25 @@ async def test_a_password_a_code_and_a_card_number_are_never_typed_into(w):
     assert await value(tab, "#email") == "a@b.vn"
     assert await frame.locator("#fi").input_value() == "chào"
     assert 'button "Đã bấm"' in pressed
+
+
+@talking("act-codes")
+async def test_a_field_is_the_owners_by_its_markup_alone_and_so_is_a_box_of_one_character(w):
+    first = await opened(w, "/ma")
+    tab = w.tab("act-codes")
+    ways = (("type", {"text": "7"}), ("fill", {"text": "7"}), ("press", {"key": "7"}))
+
+    for name in ("Ô thứ nhất", "Ô thứ hai", "Chữ số 1", "Chữ số 2"):
+        ref = ref_of(first, name)
+        for kind, more in ways:
+            assert why(w, kind, ref, name, **more) is None
+            assert await refused(w, kind, ref, name, **more) == t.ACT_SECRET_FIELD
+    assert [await value(tab, x) for x in ("#mot", "#cardNumber", "#s1", "#s2")] == [""] * 4
+
+    # A field that holds more and one called something else are typed into.
+    await act(w, "type", ref_of(first, "Tháng"), "Tháng", text="12")
+    await act(w, "fill", ref_of(first, "Tìm đơn"), "Tìm đơn", text="áo")
+    assert [await value(tab, x) for x in ("#thang", "#tim")] == ["12", "áo"]
 
 
 @talking("act-focus")

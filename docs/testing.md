@@ -7327,7 +7327,10 @@ dựng một đội có agent giữ trình duyệt.
     giao đúng cách viết đã dùng để đọc host; host thuộc về agent chỉ khi danh sách nêu, bất kể hoa
     thường, cổng hay dấu chấm cuối; từ là chuỗi chữ và số viết thường; tên viết bằng dấu rời vẫn là
     cùng những từ ấy; từ dừng được tìm theo pattern khớp nó, tên chỉ trông giống thì không; từ có
-    dấu trong tên không khớp pattern viết không dấu; pattern đầu tiên của danh sách là cái được nêu).
+    dấu trong tên không khớp pattern viết không dấu; pattern đầu tiên của danh sách là cái được nêu;
+    ký tự trình duyệt không vẽ ra bị bỏ khỏi tên, chỗ trống vẽ bằng một chữ cái là khoảng trắng, chữ
+    vẽ ở dạng khác đọc thành chữ thường, dấu phụ lạc không được tính; chữ của bảng chữ khác trông
+    giống chữ Latin không khớp từ nào; mỗi từ của danh sách mặc định dừng được một cái tên).
 - **tab thuộc về cuộc trò chuyện**:
   - pytest: `tests/test_browser_tabs.py` (một cuộc thấy tab của chính nó, tab dùng sau cùng đứng
     đầu; tab của lời gọi trước là đúng tab ấy hoặc không có, không bao giờ là tab khác; hỏi tab không
@@ -7368,8 +7371,10 @@ dựng một đội có agent giữ trình duyệt.
   - pytest: `tests/test_browser_act_rules.py` (mỗi `kind` được đọc với đúng thứ nó cần; `kind` lạ
     và tham số thiếu được nêu tên; chỉ `fill` được viết rỗng; phím là một trong vài phím hay một ký
     tự, nhiều nhất kèm Shift, tổ hợp phím bị từ chối; Enter gửi form dù có Shift hay không; ô chỉ
-    chủ được điền nhận ra qua điều nó khai hay tên nó mang; thao tác dừng vì một từ trong tên, trong
-    lựa chọn hay dưới phần tử; tệp tải lên phải có trong workspace).
+    chủ được điền nhận ra qua điều nó khai hay tên nó mang, qua `name` và `id` trong markup, và qua
+    việc nó chỉ nhận một ký tự theo cách trình duyệt đọc `maxlength`; ô nhận nhiều ký tự hơn và ô
+    không nói gì thì không phải; thao tác dừng vì một từ trong tên, trong lựa chọn hay dưới phần
+    tử; tệp tải lên phải có trong workspace).
   - pytest: `tests/test_browser_act_page.py` (phần tử còn như đã cho xem thì tìm được theo `ref`;
     `ref` model chưa từng được cho không với tới trang nào; trang đã sang địa chỉ khác, phần tử đã
     mất hay đổi vai trò, tên nêu không còn là tên phần tử đang mang, hay chữ dành cho người đã đổi
@@ -7377,7 +7382,8 @@ dựng một đội có agent giữ trình duyệt.
   - pytest: `tests/test_browser_act_tools.py` (bấm đúng một lần và trang sau đó là điều model nhận
     lại; mỗi `kind` làm đúng một việc với phần tử được nêu; `ref` ở lại với phần tử khi trang mọc
     thêm quanh nó; từ dừng xuất hiện dưới phần tử sau khi model nhìn thì chặn thao tác; mật khẩu, mã
-    và số thẻ không bao giờ được gõ; phím tới phần tử được nêu hoặc không tới đâu; Enter không gửi
+    và số thẻ không bao giờ được gõ, kể cả ô chỉ markup nói nó là gì và ô mã một ký tự; phím tới
+    phần tử được nêu hoặc không tới đâu; Enter không gửi
     form mà người sẽ được hỏi; tệp của workspace đi vào hộp chọn tệp mà phần tử mở; cổng duyệt không
     khởi động trình duyệt và hỏi về tải lên ở mọi nơi; agent có danh sách host được hỏi cho mọi thao
     tác trên trang ngoài danh sách; thao tác dành cho tab được nêu hay tab của lời gọi trước và

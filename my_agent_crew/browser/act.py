@@ -7,6 +7,8 @@ are no setting: a password, a one-time code and a card number are the owner's to
 
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,6 +46,10 @@ SHIFT = "Shift+"
 SECRET_AUTOCOMPLETE = frozenset(
     {"current-password", "new-password", "one-time-code", "cc-number", "cc-csc"}
 )
+# What a field says of itself in the page's markup, beside the name it is drawn with.
+DECLARED = ("type", "autocomplete", "name", "id", "maxlength")
+# A limit of one character, as a browser reads the attribute: `01`, `+1` and `1px` too.
+ONE_CHAR = re.compile(r"[\t\n\f\r ]*\+?0*1(?![0-9])")
 PATH_CHARS = 120
 _NAMED = {name.casefold(): name for name in KEYS}
 _SECRET = AskWords(t.SECRET_FIELD_WORDS)
@@ -85,14 +91,17 @@ def sends(key: str) -> bool:
     return key.removeprefix(SHIFT) == "Enter"
 
 
-def secret_field(kind: str | None, autocomplete: str | None, name: str) -> bool:
-    """Whether a field is one the owner alone fills: by what the page declares it to be, or
-    by what it is called (a password shown as plain text is still a password)."""
-    if (kind or "").strip().casefold() == "password":
+def secret_field(declared: Mapping[str, str | None], name: str) -> bool:
+    """Whether a field is one the owner alone fills: by what the page declares it to be, by
+    what it is called on the page or in its markup (a password shown as plain text is still
+    a password), or by holding one character, as each box of a code typed a digit a box
+    does."""
+    said = {key: declared.get(key) or "" for key in DECLARED}
+    if said["type"].strip().casefold() == "password" or ONE_CHAR.match(said["maxlength"]):
         return True
-    if SECRET_AUTOCOMPLETE & set((autocomplete or "").casefold().split()):
+    if SECRET_AUTOCOMPLETE & set(said["autocomplete"].casefold().split()):
         return True
-    return bool(_SECRET.find(name))
+    return any(_SECRET.find(text) for text in (name, said["name"], said["id"]))
 
 
 def word_for(ask: AskWords, kind: str, name: str, value: str, node: Node | None) -> str:

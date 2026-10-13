@@ -213,6 +213,66 @@ def test_a_name_spelled_with_separate_accent_marks_is_the_same_words():
     assert apart != "Thanh toán" and words(apart) == ["thanh", "toán"]
 
 
+@pytest.mark.parametrize(
+    "unseen",
+    [
+        "\u00ad",  # a soft hyphen
+        "\u061c",  # a mark of the direction a line is written in
+        "\u180e",
+        "\u200b",  # a zero-width space
+        "\u200d",
+        "\u200f",
+        "\u202a",
+        "\u202c",
+        "\u2060",  # a word joiner
+        "\u2064",
+        "\u206f",
+        "\ufe00",  # a variation selector
+        "\ufe0f",
+        "\ufeff",
+        "\ufff0",
+        "\U0001bca0",
+        "\U0001d173",
+        "\U000e0001",  # a tag character
+        "\U000e0061",
+        "\U000e0fff",
+    ],
+)
+def test_what_a_browser_draws_nothing_for_parts_no_word(unseen):
+    assert words(f"p{unseen}ay{unseen} n{unseen}{unseen}ow") == ["pay", "now"]
+    assert words(unseen) == []
+
+
+@pytest.mark.parametrize("blank", ["\u115f", "\u1160", "\u3164", "\uffa0"])
+def test_a_letter_drawn_as_an_empty_place_parts_two_words(blank):
+    assert words(f"pay{blank}now") == ["pay", "now"]
+    assert words(f"p{blank}ay") == ["p", "ay"]
+
+
+def test_a_letter_drawn_in_another_form_is_the_plain_letter():
+    assert words("\uff50\uff41\uff59") == ["pay"]  # full width
+    assert words("\uff23\uff48\uff45\uff43\uff4b\uff2f\uff55\uff54") == ["check", "out"]
+    assert words("\U0001d429\U0001d41a\U0001d432") == ["pay"]  # mathematical bold
+    assert words("\u24df\u24d0\u24e8") == ["pay"]  # circled
+    assert words("con\ufb01rm") == ["confirm"]  # a ligature of f and i
+
+
+def test_a_mark_that_makes_no_letter_with_the_one_under_it_is_not_read():
+    # A dot under a `p` and a ring around an `a`: no such letters, so the eye reads `pay`.
+    assert words("p\u0323a\u20ddy") == ["pay"]
+    # A mark that does make a letter stays in it, in whichever order the marks were typed.
+    assert words("\u0110a\u0323\u0306t ha\u0300ng") == ["đặt", "hàng"]
+    assert words("mu\u0300a") == ["mùa"]
+
+
+def test_a_letter_of_another_alphabet_is_not_the_one_it_looks_like():
+    cyrillic = "\u0440\u0430\u0443"  # draws as `pay`
+
+    assert words(cyrillic) == [cyrillic]
+    assert AskWords(["pay"]).find(cyrillic) == ""
+    assert AskWords(["pay"]).find("\u1e55ay") == ""  # a `p` with an accent is another letter
+
+
 def test_a_word_without_accents_has_no_marks_and_a_plain_d():
     assert plain("đặt") == "dat"
     assert plain("hủy") == "huy"
@@ -249,6 +309,27 @@ ASK = AskWords(DEFAULT_ASK_WORDS)
         ("Log out", "log out"),
         ("Sign   out", "sign out"),
         ("Delete account", "delete"),
+        ("P\u200bay now", "pay"),
+        ("\uff30\uff41\uff59", "pay"),
+        ("Thanh\u00ad toa\u0301n", "thanh toán"),
+        ("Trả tiền", "trả tiền"),
+        ("Tra tien", "trả tiền"),
+        ("Nạp tiền vào ví", "nạp tiền"),
+        ("Rút tiền", "rút tiền"),
+        ("Đặt cọc 500k", "đặt cọc"),
+        ("Đặt chỗ", "đặt chỗ"),
+        ("Đặt vé ngay", "đặt vé"),
+        ("Dat phong", "đặt phòng"),
+        ("Đăng ký gói năm", "đăng ký"),
+        ("Chấp nhận tất cả", "chấp nhận"),
+        ("Nộp hồ sơ", "nộp"),
+        ("Subscribe", "subscribe"),
+        ("Accept all", "accept"),
+        ("Book now", "book now"),
+        ("Withdraw", "withdraw"),
+        ("Deposit", "deposit"),
+        ("Donate $5", "donate"),
+        ("Place bid", "bid"),
     ],
 )
 def test_a_name_holding_an_ask_word_is_found_by_the_pattern_it_matches(name, pattern):
@@ -275,6 +356,14 @@ def test_a_name_holding_an_ask_word_is_found_by_the_pattern_it_matches(name, pat
         "Senders",
         "Sign in",
         "Check in / out of stock",
+        "Book a table",  # the word alone is no pattern
+        "Bookmarks",
+        "Bidding",
+        "Acceptable",
+        "Subscribers",
+        "Đăng nhập",
+        "Đặt lại mật khẩu",
+        "Tiền mặt",
         "",
         "→",
     ],

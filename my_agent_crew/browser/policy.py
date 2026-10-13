@@ -17,8 +17,15 @@ from urllib.parse import urlsplit
 WORD = re.compile(r"[^\W_]+")
 # Where a name written without spaces changes word: `CheckOut` reads as `check out`.
 HUMP = re.compile(r"(?<=[a-z])(?=[A-Z])")
-
-
+# What a browser draws nothing for (Unicode's default ignorable code points): a soft hyphen
+# or a zero-width space in the middle of `pay` leaves a name that still reads `pay`.
+UNSEEN = re.compile(
+    "[\u00ad\u034f\u061c\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e\u2060-\u206f"
+    "\ufe00-\ufe0f\ufeff\ufff0-\ufff8\U0001bca0-\U0001bca3\U0001d173-\U0001d17a"
+    "\U000e0000-\U000e0fff]"
+)
+# Letters by their class that are drawn as an empty place: they part two words.
+BLANK = re.compile("[\u115f\u1160\u3164\uffa0]")
 # A host as a browser is handed it: labels of letters, digits, hyphens and underscores.
 LABELS = re.compile(r"(?:[a-z0-9_-]+\.)*[a-z0-9_-]+\.?")
 # One part of a host written in numbers, in the bases a browser reads: hex after `0x` (and
@@ -111,8 +118,14 @@ def host_allowed(host: str, patterns: Sequence[str]) -> bool:
 
 
 def words(text: str) -> list[str]:
-    """The words of a name, lower case and in one spelling of each accented letter."""
-    return WORD.findall(unicodedata.normalize("NFC", HUMP.sub(" ", text)).casefold())
+    """The words of a name as an eye reads them: lower case, one spelling of each accented
+    letter, a letter drawn in another form (full width, a ligature) as the plain one, and
+    nothing of what is not drawn or is a mark over a letter that makes no letter with it.
+    A letter of another alphabet that looks the same is not read as the one it looks
+    like."""
+    seen = unicodedata.normalize("NFKC", BLANK.sub(" ", UNSEEN.sub("", text)))
+    letters = "".join(ch for ch in seen if unicodedata.category(ch) not in ("Mn", "Me"))
+    return WORD.findall(HUMP.sub(" ", letters).casefold())
 
 
 def plain(word: str) -> str:

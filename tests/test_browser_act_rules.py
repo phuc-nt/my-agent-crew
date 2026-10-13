@@ -180,7 +180,7 @@ def test_enter_sends_a_form_with_shift_or_without():
 def test_a_field_the_owner_alone_fills_is_known_by_what_it_declares_or_is_called(
     kind, autocomplete, name
 ):
-    assert a.secret_field(kind, autocomplete, name)
+    assert a.secret_field({"type": kind, "autocomplete": autocomplete}, name)
 
 
 @pytest.mark.parametrize(
@@ -198,7 +198,69 @@ def test_a_field_the_owner_alone_fills_is_known_by_what_it_declares_or_is_called
     ],
 )
 def test_any_other_field_may_be_typed_into(kind, autocomplete, name):
-    assert not a.secret_field(kind, autocomplete, name)
+    assert not a.secret_field({"type": kind, "autocomplete": autocomplete}, name)
+
+
+@pytest.mark.parametrize(
+    ("declared", "name"),
+    [
+        ({"name": "otp"}, "Ô thứ nhất"),
+        ({"name": "user[password_confirmation]"}, "Nhập lại"),
+        ({"name": "verificationCode"}, ""),
+        ({"name": "ccnumber"}, ""),
+        ({"name": "cardnumber"}, "Dãy số"),
+        ({"name": "cvv2"}, ""),
+        ({"id": "cardNumber"}, "Dãy số"),
+        ({"id": "card-number"}, ""),
+        ({"id": "cc-number"}, ""),
+        ({"id": "security_code"}, ""),
+        ({"id": "cvc2"}, ""),
+        ({"id": "PIN-code"}, ""),
+        ({}, "Mã xác nhận"),
+        ({}, "Ma bao mat"),
+        ({}, "Mã PIN"),
+        ({}, "Security code"),
+        ({}, "Verification code"),
+        ({}, "One-time code"),
+        ({}, "M\u200bật khẩu"),  # the name is read as an eye reads it
+    ],
+)
+def test_a_field_is_also_known_by_what_it_is_called_in_the_markup(declared, name):
+    assert a.secret_field(declared, name)
+
+
+@pytest.mark.parametrize("limit", ["1", "01", "+1", " 1", "\t1", "1 ", "1px", "1.5", "1e3"])
+def test_a_field_that_holds_one_character_is_a_box_of_a_code(limit):
+    # Each spelling is one the pinned Chromium reads as a limit of one.
+    assert a.secret_field({"type": "tel", "maxlength": limit}, "Chữ số thứ nhất")
+
+
+@pytest.mark.parametrize(
+    "limit", ["", "0", "2", "10", "11", "-1", "0x1", "\u00a01", "\uff11", "x1"]
+)
+def test_a_field_with_any_other_limit_is_judged_by_the_rest(limit):
+    assert not a.secret_field({"maxlength": limit}, "Tháng")
+    assert a.secret_field({"maxlength": limit, "name": "otp"}, "Tháng")
+
+
+@pytest.mark.parametrize(
+    ("declared", "name"),
+    [
+        ({"name": "q", "id": "search"}, "Tìm"),
+        ({"id": "email", "name": "email"}, "Email"),
+        ({"name": "pin"}, "Pin (mAh)"),  # a battery
+        ({"name": "postcode"}, "Mã bưu chính"),
+        ({"id": "discount-code"}, "Mã giảm giá"),
+        ({"name": "order_code"}, "Mã đơn hàng"),
+        ({"name": "passport"}, "Số hộ chiếu"),
+        ({"id": "card-holder"}, "Tên trên thẻ"),
+        ({"name": "cc-exp"}, "Ngày hết hạn"),
+        # What the rule does not read: a value and a hint are not what a field is.
+        ({"value": "password", "placeholder": "otp", "class": "cvv"}, "Ghi chú"),
+    ],
+)
+def test_a_field_called_something_else_in_the_markup_may_be_typed_into(declared, name):
+    assert not a.secret_field(declared, name)
 
 
 def test_an_action_stops_for_a_word_in_the_name_the_choice_or_under_the_element():
