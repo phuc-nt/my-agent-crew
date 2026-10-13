@@ -11,6 +11,77 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- An agent can open and read web pages in a browser of its own and, where its file says so, click
+  and type in them. Two switches bring it. The machine's `browser_enabled` (`config.yaml`, or
+  `MY_AGENT_BROWSER_ENABLED`) is off by default; the agent's own `browser` key in `agent.yaml` is
+  `off` (the default), `read` or `act`. `read` gives `browser_navigate`, `browser_snapshot`,
+  `browser_text`, `browser_tabs` and `browser_screenshot`; `act` adds `browser_act`. The key alone
+  brings the tools: a `tools:` list neither adds one nor takes one away, and the key is read from
+  the agent's own file, never from the settings it starts from. A bare `on`, `yes` or `true` stops
+  the start, since it does not say how far the agent may go. The browser is the Chromium the
+  Playwright package pins, installed once with `uv run playwright install chromium`, or the
+  machine's own Chrome with `browser_channel: chrome`. A machine that turns the browser on without
+  one still starts, with one warning line that names the command, and gives no agent a browser
+  tool. Each agent has one headless browser, started at its first call and stopped after
+  `browser_idle_minutes` (10) without use, with a profile of its own under
+  `<home>/browser/<agent id>/`: what one agent is signed in to is not another's, and stays over a
+  restart. A tab belongs to the conversation that opened it and no other conversation reaches it;
+  the tabs of scheduled runs are kept apart from every conversation's. An agent holds at most
+  `browser_max_tabs` (5) tabs, and a tab nobody used for half an hour is closed. The master is told
+  the browser tools of each agent by name, like any other tool.
+- A page is told to the model as an outline of what is on it, each thing that can be acted on with
+  a `ref`, between two fence lines made anew for every answer: nothing a page writes can close the
+  fence or stand outside it, so the words of a page stay data. `browser_snapshot` gives the whole
+  outline, only what can be acted on, or the lines that hold a word, and can wait for words to
+  appear; `browser_text` gives the text of the page or of one element; `browser_tabs` lists and
+  closes the conversation's tabs without starting a browser; `browser_screenshot` saves a picture
+  under `screenshots/` in the agent's workspace (under the first of its `write_paths` when it has
+  them), keeps the newest 40, and, on a machine with a vision route, gives what that route reads in
+  the picture between fence lines too. A window a page opens becomes the conversation's next tab,
+  and a dialog is dismissed and told once.
+- `browser_act` does one thing (`click`, `type`, `fill`, `press`, `select`, `hover`, `scroll` or
+  `upload`) to the element the model names by `ref` and by the name the page shows for it, and only
+  while that element is the one the model was shown: a page that went to another address, an
+  element that is gone, became another kind of element, carries another name, or gained a word
+  that stops for a person since the model looked, is not acted on. Nothing is ever typed into a
+  password, one-time code or card number field, whatever the conversation allows. Enter in a form
+  whose button a person would be asked about is refused, so a key is no way round the question. An
+  upload takes a file of the agent's workspace.
+- Two guards cannot be switched off. Every connection a browser makes goes through a proxy inside
+  the server that lets it reach public addresses only, judged by the address a name resolves to
+  and connected to that same address; a page that leads to a private one is refused by name, and
+  what a page reached for and was refused is told with the page. An address is read one way, the
+  way the browser reads it too, and only a full `http` or `https` address is opened. The folder
+  that holds the profiles, `<home>/browser/`, is closed to every file tool of every agent (read,
+  list, write, search, through a link as well) and to every sandboxed shell, with the browser on
+  or off. A shell that was never sandboxed is not sandboxed by this: `docs/deployment-guide.md`
+  says what to check before the browser is turned on for an agent that has one. Downloads are
+  refused in this release.
+- `browser_navigate` and `browser_act` ask before they run, like any tool that changes something,
+  and a tool can now say which of its calls stop for a person whatever the conversation allows and
+  which are routine. An agent's `browser_hosts` (`shop.example`, `*.shop.example`) names the sites
+  that are its own: an address there opens without a question, in a supervised conversation as well;
+  any other host asks, in an autonomous one as well, and so does an action on a page outside the
+  list. `browser_act` always asks for an upload, and for a click, a key or a choice on an element
+  whose name, or the words drawn under it, hold one of the machine's `browser_ask_patterns` (by
+  default words such as mua, thanh toán, đặt hàng, gửi, xoá, pay, buy, order, submit, delete,
+  confirm, as whole words in any case, an accented word also matching a name written without
+  accents; an emptied list turns this guard off). The request carries the reason as a line a person
+  reads. From a script, the tools that only look are called like any reading tool;
+  `browser_navigate` and `browser_act` only by an agent with `script_calls: gated`, through the same
+  gate.
+- `GET /api/agents/{id}/browser` tells what an agent's browser has open (each tab by number, label,
+  conversation, host and title, never its whole address, last used first) and starts nothing;
+  `POST /api/agents/{id}/browser/stop` stops it, a call in flight included, and keeps what it is
+  signed in to; `DELETE /api/agents/{id}/browser/tabs/{tab_id}` closes one tab. `GET
+  /api/connections` gains `browser` (on or off, channel, installed version or the missing part and
+  the command that installs it, the agents whose browser is up). An agent's profile carries
+  `browser` and `browser_hosts`, and `PATCH /api/agents/{id}` sets them from the next turn on; a
+  save that leaves the agent at `off` stops its browser at once, and removing an agent deletes its
+  profile folder with it. `GET /api/tools` marks the six tools with `with_browser`.
+
 ## [0.17.0] — 2026-10-13
 
 ### Added

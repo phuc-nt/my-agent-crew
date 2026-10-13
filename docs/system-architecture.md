@@ -111,6 +111,8 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 | Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns` và `shell_deny_patterns`; `shell_network: false` hoặc `shell_write_paths` thì chạy trong `sandbox-exec`, chỉ ghi dưới các đường dẫn đó, không mạng nếu `shell_network: false`) | có |
 | Lịch | `schedule_create` (đề xuất một job prompt lặp lại) | **luôn luôn**, không cấu hình nào tắt được |
 | Web | `fetch_url`, `web_search` | không |
+| Trình duyệt | `browser_snapshot`, `browser_text`, `browser_tabs`, `browser_screenshot` (chỉ agent có khoá `browser`) | không |
+| Trình duyệt | `browser_navigate`, `browser_act` (`browser_act` chỉ khi `browser: act`) | có; host trong `browser_hosts` thì `browser_navigate` không hỏi, còn host ngoài danh sách, tên phần tử mang từ như "thanh toán", hay một lần tải tệp lên thì hỏi cả khi autonomous |
 | Trí nhớ | `memory_save`, `memory_search`, `user_memory_save`, `user_memory_forget`, `wiki_get`, `wiki_search`, `wiki_apply` | không |
 | Đội | `delegate` | không |
 | Canvas | `artifact_create`, `artifact_read`, `artifact_edit`, `artifact_rewrite`, `artifact_list`, `artifact_import` | không (bản cũ nào cũng khôi phục được) |
@@ -125,6 +127,8 @@ chúng qua streamable HTTP, và mỗi tool vào sổ đăng ký dưới tên `mc
 qua cùng cổng duyệt: mọi tool MCP hỏi trước khi chạy, trừ những tool chủ ghi là chỉ đọc. Mặc định
 chúng không được khai sẵn cho model: agent tìm bằng `tool_search`, tool tìm thấy được khai từ lời
 gọi model kế tiếp, và cái đã nạp được đọc lại từ chính hội thoại nên còn nguyên sau restart.
+
+Sáu tool `browser_*` cũng không theo `tools` hay `mode`: chúng đến theo khoá `browser` trong tệp của agent, trên máy đã bật `browser_enabled` và đã cài trình duyệt. Gói `browser/` giữ cho mỗi agent một Chromium với hồ sơ riêng ở `<home>/browser/<agent id>/`, mở ở lời gọi đầu tiên; tab thuộc về cuộc trò chuyện đã mở nó. Model không nhận HTML mà nhận một dàn ý của trang, mỗi phần tử một `ref`, đặt giữa hai dòng rào mang mã ngẫu nhiên để chữ trên trang là dữ liệu chứ không phải chỉ dẫn. Hai hàng rào nằm trong mã và không có công tắc: mọi request của trang (kể cả chuyển hướng, tài nguyên con, WebSocket) đi qua một proxy trong chính tiến trình server, nơi địa chỉ không công khai bị từ chối; và thư mục hồ sơ đóng với mọi tool tệp cùng mọi lệnh shell trong sandbox. `browser_act` chỉ làm khi phần tử còn đúng là thứ model vừa được cho thấy: cùng trang, cùng `ref`, cùng vai trò, cùng tên. Chi tiết ở [tools.md](tools.md#trình-duyệt).
 
 Agent giữ ít nhất một tool script gọi được thì có thêm `tool_script`: một tool có sẵn chỉ đọc, hay
 một tool MCP chủ ghi là chỉ đọc (`read_only`, không `hidden`). Nó không cần máy chủ MCP nào và
@@ -202,7 +206,7 @@ Mọi thứ làm nên một agent là tệp văn bản trong `~/.my-agent-crew/a
 | `.agents/` | kit lệnh/agent/hook kiểu Claude Code | lệnh vào roster; hook chạy quanh tool |
 | `workspace/` | nơi tool đọc/ghi | khi tool chạy |
 
-Dùng chung cho mọi agent: `config.yaml`, `agent.sqlite3`, `users/owner/` (USER.md + facts), `skills/` và `.agents/` cấp home. Bố cục đầy đủ ở [agents.md](agents.md).
+Dùng chung cho mọi agent: `config.yaml`, `agent.sqlite3`, `users/owner/` (USER.md + facts), `skills/` và `.agents/` cấp home, cùng `browser/<id>/`, hồ sơ trình duyệt của từng agent (không tool tệp nào đọc được). Bố cục đầy đủ ở [agents.md](agents.md).
 
 ### 2.8 Canvas: tài liệu người và agent cùng sửa
 
@@ -273,6 +277,8 @@ Hai đường tắt có chủ đích:
 
 - Cuộc trò chuyện **autonomous** (job lịch, lượt delegate, hoặc agent có `autonomous: true`) bỏ qua cổng. Trong bộ cài thật, cả Pong lẫn HLV đều `autonomous: true` vì chúng chạy chủ yếu theo lịch.
 - `shell_ask_patterns` buộc hỏi cả khi autonomous cho lệnh khớp mẫu nguy hiểm.
+
+Cả hai chiều ấy là của từng lời gọi chứ không của tool: một tool khai được hàm `ask_when` (lời gọi này phải hỏi, kèm lý do hiện trên thẻ duyệt) và hàm `allow_when` (lời gọi này là việc thường, chạy cả trong cuộc có giám sát). Cổng (`agent/tool_gate.py`) xét theo thứ tự cố định: `ask_user` luôn hỏi; lời gọi có lý do phải hỏi thì hỏi dù autonomous; lời gọi được coi là việc thường thì chạy; còn lại theo autonomous và `auto_approve` của cuộc trò chuyện. Shell đi đúng thứ tự ấy với `shell_ask_patterns` và `shell_allow_patterns`; hai tool trình duyệt khai hai hàm đó để xét host của trang (`browser_hosts`) và tên của phần tử sắp bấm (`browser_ask_patterns`).
 
 Khi một approval đang chờ, `/api/inbound` trả 409 để người dùng không vô tình mở lượt thứ hai trên cùng cuộc trò chuyện. Quyết định giữ cuộc trò chuyện ngay lúc được đưa ra, trước cả khi lượt tiếp tục kịp chạy: tin gửi ngay sau đó vào hàng chờ lượt đó, còn quyết định thứ hai cho cùng yêu cầu nhận 409.
 

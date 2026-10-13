@@ -31,7 +31,7 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 
 ```
 ~/.my-agent-crew/
-├── config.yaml        # routes, cost_cap_usd, max_steps, language, timezone, web_url, autonomous_default, approval_ttl_seconds, mcp_servers
+├── config.yaml        # routes, cost_cap_usd, max_steps, language, timezone, web_url, autonomous_default, approval_ttl_seconds, mcp_servers, browser_*
 ├── env                # KEY=value, chmod 600, KHÔNG nằm trong repo; token đăng nhập MCP cũng ghi ở đây
 ├── agent.yaml         # master
 ├── agent.sqlite3
@@ -39,6 +39,7 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 ├── skills/            # skill dùng chung
 ├── .agents/           # kit dùng chung (commands, agents, skills, settings.json)
 ├── workspace/inbox/   # ảnh từ Telegram
+├── browser/<id>/      # hồ sơ trình duyệt của từng agent (cookie, đăng nhập), xem §4b
 └── agents/<id>/       # mỗi agent một thư mục, xem agents.md
 ```
 
@@ -73,6 +74,30 @@ Server tự nạp `<home>/env` lúc khởi động; biến đã có sẵn trong 
 **Không có đăng nhập.** Ai tới được cổng là điều khiển được đội: đọc hội thoại, sửa agent, đặt khoá, và `POST /api/inbound` chạy một lượt không cần xác thực (header `Origin` không có ở `curl` nên hàng rào Origin không chặn). Hàng rào Host chỉ chống trang web lạ trong trình duyệt, không phải kiểm soát truy cập. Vì vậy chỉ mở cổng trên máy hoặc trong tailnet riêng; đừng đưa ra ngoài bằng Tailscale Funnel, ngrok, Cloudflare Tunnel hay reverse proxy công khai — tên của đường hầm công khai cũng đừng thêm vào `MY_AGENT_ALLOWED_HOSTS`.
 
 Quy tắc: bí mật chỉ nằm trong tệp env ngoài repo; `agent.yaml` chỉ ghi **tên** biến (`token_env: TELEGRAM_BOT_TOKEN`), không ghi giá trị. Log server đi qua bộ lọc redact nên token không xuất hiện trong `logs/`.
+
+## 4b. Trình duyệt cho agent (tuỳ chọn)
+
+Mặc định không agent nào có trình duyệt. Bật nó là ba việc, theo thứ tự này:
+
+```bash
+uv run playwright install chromium     # tải bản Chromium mà gói Playwright ghim; Linux thêm --with-deps
+```
+
+1. **Cài trình duyệt** bằng lệnh trên, chạy trong thư mục repo. Bản tải về nằm trong thư mục cache của Playwright (`~/Library/Caches/ms-playwright` trên macOS, `~/.cache/ms-playwright` trên Linux, hoặc nơi `PLAYWRIGHT_BROWSERS_PATH` chỉ), không nằm trong repo hay home. Muốn dùng Chrome đã cài trên máy thì bỏ bước này và ghi `browser_channel: chrome`.
+2. **Bật trên máy**: ghi `browser_enabled: true` vào `<home>/config.yaml` (hoặc đặt `MY_AGENT_BROWSER_ENABLED=1`), rồi khởi động lại. Server xem trình duyệt đã cài hay chưa một lần, lúc khởi động, nên cài xong cũng phải khởi động lại. Bật mà còn thiếu thì server vẫn lên, ghi một dòng cảnh báo nêu thứ thiếu và lệnh cài, và không agent nào được trao tool trình duyệt.
+3. **Bật ở từng agent**: ghi `browser: read` (mở và đọc trang) hoặc `browser: act` (thêm bấm và gõ) vào `agent.yaml` của agent, hoặc chọn ở trình sửa agent trên web; `browser_hosts` là những host nó tới mà không ai bị hỏi ([agents.md](agents.md#agentyaml)). Sửa từ web không cần khởi động lại.
+
+Quản lý → **Kết nối** có thẻ "Trình duyệt" nói máy đang ở đâu trong ba bước đó: đã bật hay chưa, kênh và phiên bản, hoặc thứ còn thiếu kèm lệnh cài, và agent nào đang có trình duyệt chạy. Thẻ này chỉ để xem: công tắc của máy nằm trong `config.yaml`. Mọi khoá `browser_*` của máy ở [agents.md](agents.md#agentyaml), còn tool làm gì và khi nào hỏi người ở [tools.md](tools.md#trình-duyệt).
+
+**Hồ sơ là dữ liệu đăng nhập.** Mỗi agent có một hồ sơ riêng ở `<home>/browser/<agent id>/` (thư mục chỉ chủ đọc được), giữ cookie và phiên đăng nhập qua các lần khởi động lại. Trước khi bật cho một agent, làm ba việc:
+
+- Home là một repo git thì tự thêm dòng `browser/` vào `.gitignore` của home. Server không viết tệp đó hộ.
+- Xem shell của agent. Tool tệp nào cũng từ chối đường dẫn dẫn vào `<home>/browser`, và lệnh `shell_run` chạy trong sandbox cũng vậy. Nhưng shell chỉ có sandbox khi agent ghi `shell_network: false` hoặc có `shell_write_paths`; một agent có `shell_run` không sandbox thì đọc được hồ sơ của mọi agent bằng một lệnh `cat`. Agent giữ trình duyệt nên có shell trong sandbox, hoặc không có `shell_run` (danh sách `tools:` không nêu nó). Máy chủ MCP và job kiểu `command` chạy ngoài hàng rào này.
+- Xem ảnh chụp rơi vào đâu. `browser_screenshot` lưu ảnh vào `screenshots/` trong workspace của agent, hoặc trong thư mục đầu tiên của `write_paths` khi agent có danh sách đó. Ảnh của một trang đã đăng nhập là dữ liệu riêng: workspace là một repo git thì cho thư mục ấy vào `.gitignore` của repo.
+
+Bản sao lưu cả home mang theo các phiên đăng nhập ấy; giữ nó như giữ tệp `env`. Gỡ một agent khỏi đội (web hoặc `DELETE /api/agents/{id}`) xoá luôn hồ sơ trình duyệt của nó. Tắt `browser_enabled` thì các hồ sơ vẫn nằm nguyên và vẫn đóng với mọi tool; muốn đăng xuất hẳn thì dừng server rồi xoá `<home>/browser/<agent id>/`.
+
+Trình duyệt chạy ẩn (headless), mỗi agent một tiến trình Chromium, mở ở lời gọi đầu tiên và tự dừng sau `browser_idle_minutes` phút không ai gọi. Nó chỉ tới địa chỉ công khai: địa chỉ nội bộ, loopback và mạng riêng bị từ chối trong mã, không có công tắc nào mở ra.
 
 ## 5. Chạy thường trực (launchd, macOS)
 
@@ -139,6 +164,8 @@ Kiểm bản sao bằng cách mở nó bình thường và chạy `PRAGMA integr
 **Sau khi khởi động lại, tải lại các tab đang mở.** Tab mở từ trước vẫn chạy bản web cũ cho tới khi tải lại; thanh "Có bản mới" mời tải lại chứ không ép.
 
 **Agent có danh sách `tools:`.** Agent khai `tools:` trong `agent.yaml` chỉ có đúng những tool nó liệt kê, nên muốn nó dùng canvas thì thêm tên các tool canvas vào danh sách ([canvas.md](canvas.md#6-bảy-tool-của-agent)); agent không khai `tools:` thì có sẵn. Cuộc trò chuyện giao việc đã mở từ trước lần nâng cấp không có kênh gốc được ghi lại, nên agent con trong đó không ghi được canvas ([canvas.md](canvas.md#7-phạm-vi-và-kênh)).
+
+**Máy đã bật trình duyệt cho agent.** Chromium đi theo phiên bản của gói Playwright: sau một lần `uv sync` đổi phiên bản gói đó, chạy lại `uv run playwright install chromium` trước khi khởi động lại. Quên bước này thì server vẫn lên, thẻ "Trình duyệt" ở Kết nối báo thiếu trình duyệt kèm đúng lệnh ấy, và các agent mất tool `browser_*` cho tới lần khởi động sau khi cài (§4b).
 
 Bản này khác bản trước ở đâu: [CHANGELOG.md](../CHANGELOG.md).
 

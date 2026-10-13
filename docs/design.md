@@ -513,6 +513,51 @@ kèm một câu hỏi và trả câu trả lời dạng text. Agent nào cũng c
 để định tuyến bức ảnh và chuyên gia đọc lại để lấy chi tiết mình cần, và lần gọi
 được tính vào cuộc trò chuyện như một completion. [tools.md](tools.md#ảnh).
 
+## Trình duyệt của agent
+
+Một số việc không có API: đơn hàng nằm sau một trang đã đăng nhập, một trang chỉ vẽ nội dung
+bằng script. `fetch_url` không tới được những chỗ đó, nên agent được trao một trình duyệt thật.
+Những lựa chọn dưới đây đều đi từ cùng một câu hỏi: trang web là thứ người lạ viết, và agent
+đọc nó với phiên đăng nhập của chủ.
+
+- **Trình duyệt của đội, không phải Chrome của chủ.** Mỗi agent có một Chromium riêng với hồ
+  sơ riêng ở `<home>/browser/<agent id>/`. Nó không thấy cookie của chủ, và agent này không
+  thấy phiên đăng nhập của agent kia. Chủ đăng nhập cho agent nào thì agent đó có đúng phiên
+  ấy. Gắn vào Chrome đang mở của chủ thì rẻ hơn nhưng trao cả mọi tab và mọi phiên; Chrome
+  cũng đã chặn việc điều khiển hồ sơ mặc định từ xa.
+- **Bật ở hai nơi.** `browser_enabled` trên máy và khoá `browser` trong tệp của từng agent,
+  không thừa hưởng từ master. Trình duyệt chỉ có ở agent mà có người đã viết ra như vậy, và
+  danh sách `tools:` không đem nó tới: một agent không thể tự có trình duyệt nhờ một cái tên
+  trong danh sách.
+- **Dàn ý thay cho HTML và toạ độ.** Model nhận cây vai trò và tên của trang, mỗi phần tử
+  một `ref`. Nó rẻ hơn HTML nhiều lần, không cần model đọc ảnh, và cho cổng duyệt một thứ để
+  xét: tên của nút sắp bấm. Ảnh chụp là đường phụ, cho trang mà dàn ý không nói đủ.
+- **Trang là dữ liệu.** Mọi chữ lấy từ trang nằm giữa hai dòng rào mang một mã ngẫu nhiên
+  sinh mới cho từng câu trả lời, nên trang không tự viết được dòng đóng rào để nói tiếp bằng
+  giọng của harness. Rào không ngăn được model nghe lời trang; nó làm cho ranh giới rõ, còn
+  việc ngăn là của cổng duyệt bên dưới.
+- **Cổng duyệt xét theo điều người đọc hiểu.** Một thẻ duyệt ghi `click e12` không ai duyệt
+  nổi. Vì vậy `browser_act` bắt model nêu tên phần tử, từ chối khi tên ấy không còn đúng với
+  trang, và dừng lại hỏi người khi tên mang một từ như "thanh toán", "xoá", "gửi", kể cả ở
+  agent tự chủ. `browser_hosts` là chiều ngược lại: những host chủ đã nói là việc thường thì
+  mở không hỏi, và mọi thứ ngoài danh sách thì hỏi. Hai luật này là rào mềm như danh sách của
+  shell: chúng bắt lỗi vô ý và lời dụ dỗ vụng, không bắt được một trang cố tình đặt tên nút
+  sai.
+- **Rào cứng nằm ở đường ra.** Trình duyệt chỉ ra ngoài qua một proxy trong chính tiến trình
+  server, nơi mỗi kết nối được phân giải rồi mới nối tới đúng địa chỉ đã kiểm. Kiểm ở lời gọi
+  tool thôi thì không đủ: một trang công khai chuyển hướng, nhúng ảnh hay mở WebSocket tới
+  `127.0.0.1` sau khi lời gọi đã qua. Luật ở đây chặt hơn `fetch_url` (mọi địa chỉ một tên
+  phân giải ra đều phải công khai) vì trình duyệt mang cookie.
+- **Hồ sơ đóng với tool.** Thư mục hồ sơ là dữ liệu đăng nhập, nên mọi tool tệp và mọi lệnh
+  shell trong sandbox đều bị từ chối ở đó, xét theo nơi đường dẫn thật sự dẫn tới. Shell
+  không sandbox thì không có hàng rào nào giữ được, và tài liệu nói thẳng điều đó thay vì
+  ngầm hứa ([deployment-guide.md](deployment-guide.md)).
+- **Tab thuộc về cuộc trò chuyện.** Hai cuộc cùng dùng một agent không giẫm lên tab của nhau,
+  và một thao tác chỉ chạm vào tab của lời gọi `browser_*` gần nhất trong chính cuộc đó.
+
+Cái chưa có ở bản này: cửa sổ để chủ đăng nhập, tải tệp về, và điều khiển màn hình của máy.
+Từng tool, từng lời từ chối và các giới hạn đã biết ở [tools.md](tools.md#trình-duyệt).
+
 ## Canvas
 
 Chat hợp với câu trả lời đọc một lần. Một kế hoạch, một báo cáo hay một trang web mà người còn
