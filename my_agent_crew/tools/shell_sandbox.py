@@ -19,7 +19,10 @@ says, which is what an agent that keeps a ledger needs.
 
 With the network on, the same write rules keep an agent that works inside someone's repo
 to its data: it can fetch and record, but it cannot edit the code, the scripts or the
-config, and it cannot get `launchctl` or `osascript` to do that for it."""
+config, and it cannot get `launchctl` or `osascript` to do that for it.
+
+Reading has one exception: a folder the server keeps private (a browser's logins), which a
+sandboxed command neither reads nor writes, see `private_rules`."""
 
 from __future__ import annotations
 
@@ -66,12 +69,30 @@ def helper_rules() -> str:
     )
 
 
-def sandbox_profile(write_paths: Sequence[Path], *, network: bool = False) -> str:
-    """The sandbox profile text. `write_paths` must already be resolved."""
+def private_rules(folders: Sequence[Path]) -> str:
+    """The rules that close `folders` to a command altogether. Denying the read is not
+    enough: the rules go by path, so a command that may write around such a folder would
+    move it, or a folder above it, to a path no rule names and read it there. So the folder
+    takes no write either, and no folder above it can be moved or removed."""
+    if not folders:
+        return ""
+    inside = " ".join(f"(subpath {_quoted(folder)})" for folder in folders)
+    above = sorted({parent for folder in folders for parent in folder.parents})
+    held = " ".join(f"(literal {_quoted(parent)})" for parent in above)
+    return f"(deny file-read* file-write* {inside})(deny file-write-unlink {held})"
+
+
+def sandbox_profile(
+    write_paths: Sequence[Path], *, network: bool = False, private: Sequence[Path] = ()
+) -> str:
+    """The sandbox profile text. `write_paths` and `private` must already be resolved."""
     writable = " ".join(f"(subpath {_quoted(p)})" for p in (*write_paths, *temp_dirs()))
     offline = "" if network else "(deny network*)"
     return (
         f"(version 1)(allow default){offline}"
-        # Later rules win, so the allow carves the writable paths out of the deny.
-        f"(deny file-write*)(allow file-write* {writable} {DEVICE_RULES})" + helper_rules()
+        # Later rules win, so the allow carves the writable paths out of the deny, and the
+        # private folders are closed again even where they lie inside a writable one.
+        f"(deny file-write*)(allow file-write* {writable} {DEVICE_RULES})"
+        + helper_rules()
+        + private_rules(private)
     )

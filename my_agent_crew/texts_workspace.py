@@ -31,6 +31,11 @@ SHELL_WRITE_DENIED = (
     "Sandbox đã chặn một lần ghi: lệnh của agent này chỉ ghi được dưới {paths} và thư mục "
     "tạm. " + REPORT_BACK
 )
+SHELL_PRIVATE_DENIED = (
+    "Sandbox đã chặn một thao tác: lệnh của agent này chỉ ghi được dưới {paths} và thư mục "
+    "tạm, và không đọc hay ghi được thư mục máy chủ giữ riêng (hồ sơ trình duyệt: cookie, "
+    "phiên đăng nhập). " + REPORT_BACK
+)
 SHELL_WRITES_NOWHERE = "(không thư mục nào của workspace)"
 
 EDIT_DESCRIPTION = (
