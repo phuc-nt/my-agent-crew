@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import time
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -14,7 +15,9 @@ from pathlib import Path
 from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.config_browser import BrowserSettings
 
-Page = Callable[["Site"], tuple[int, dict[str, str], str]] | str
+# A body is text, or a list of text and pauses in seconds for a page that comes in pieces.
+Body = str | list[str | float]
+Page = Callable[["Site"], tuple[int, dict[str, str], Body]] | str
 
 
 class Site:
@@ -40,13 +43,25 @@ class Site:
                 status, headers, body = page(site) if callable(page) else (200, {}, page)
                 if self.path.split("?")[0] not in site.pages:
                     status, body = 404, "không có trang này"
-                raw = body.encode("utf-8")
+                pieces = body if isinstance(body, list) else [body]
                 self.send_response(status)
                 for name, value in {"content-type": "text/html; charset=utf-8", **headers}.items():
                     self.send_header(name, value)
-                self.send_header("content-length", str(len(raw)))
-                self.end_headers()
-                self.wfile.write(raw)
+                if len(pieces) == 1:
+                    self.send_header("content-length", str(len(pieces[0].encode("utf-8"))))
+                else:  # the page ends where the connection does
+                    self.send_header("connection", "close")
+                    self.close_connection = True
+                try:
+                    self.end_headers()
+                    for piece in pieces:
+                        if isinstance(piece, str):
+                            self.wfile.write(piece.encode("utf-8"))
+                            self.wfile.flush()
+                        else:
+                            time.sleep(piece)
+                except OSError:  # the browser gave up on a slow page and hung up
+                    self.close_connection = True
 
             do_GET = do_POST = _serve
 
@@ -137,6 +152,14 @@ async def ask(port: int, raw: bytes, more: bytes = b"", wait: float = 0.3) -> by
     return answer
 
 
+def local_names(host: str) -> list[str]:
+    """The names a test's browser resolves: this machine's and no other, so no test reaches
+    a server that is not its own."""
+    if host == "localhost" or host.replace(".", "").isdigit():
+        return ["127.0.0.1"]
+    raise OSError(f"no such host in a test: {host}")
+
+
 class Clock:
     """A clock a test moves by hand."""
 
@@ -149,7 +172,11 @@ class Clock:
 
 @asynccontextmanager
 async def browsers(
-    root: Path, *allowed: Site, clock: Clock | None = None, **settings: object
+    root: Path,
+    *allowed: Site,
+    clock: Clock | None = None,
+    resolver: Callable[[str], list[str]] | None = None,
+    **settings: object,
 ) -> AsyncIterator[BrowserPool]:
     """A pool whose browsers reach the given test servers and nothing else on this machine,
     stopped with everything it started when the test is over."""
@@ -158,6 +185,7 @@ async def browsers(
         BrowserSettings(enabled=True, **settings),
         allow=only(*allowed),
         **({"clock": clock} if clock else {}),
+        resolver=resolver or local_names,
     )
     try:
         yield pool

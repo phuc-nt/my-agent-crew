@@ -248,3 +248,22 @@ async def test_the_gate_reads_a_tab_without_starting_anything(tmp_path):
         assert pool.peek("coach", "c1") is tab and pool.peek("coach", "c1", "gio") is tab
         assert pool.peek("coach", "c2") is None and pool.peek("coach", "c1", "khac") is None
         assert pool.peek("ledger", "c1") is None and pool.running("ledger") is None
+
+
+async def test_a_browser_runs_no_errand_of_its_own(tmp_path):
+    """Chromium opens a connection to a search engine at every page and calls its sign-in and
+    push services at start. None of that is the crew's: the first is off, the others are
+    sent to names that resolve nowhere."""
+    asked: list[str] = []
+
+    def resolver(host: str) -> list[str]:
+        asked.append(host)
+        return ["127.0.0.1"]
+
+    with sites({"/": "<title>Trang</title>"}) as (site,):
+        async with browsers(tmp_path / "browser", site, resolver=resolver) as pool:
+            tab = await (await pool.session("coach")).tabs.open("c1")
+            await tab.page.goto(site.url("/"))
+            await asyncio.sleep(2.5)
+
+    assert {host for host in asked if not host.endswith(".invalid")} == {"127.0.0.1"}
