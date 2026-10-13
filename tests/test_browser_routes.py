@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import re
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ import pytest_asyncio
 from my_agent_crew import texts
 from my_agent_crew import texts_browser as told_to_a_model
 from my_agent_crew import texts_browser_web as told_to_the_web
+from my_agent_crew.activity.step_previews import outcome_preview
 from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.browser.install import NO_BROWSER, Installed
 from my_agent_crew.browser.kit import BROWSER_TOOLS, NAVIGATE, READ_TOOLS, SCREENSHOT, SNAPSHOT
@@ -42,6 +44,11 @@ PAGES = {
     # Its first words come at once and its last ones long after: a call that is still going.
     "/cham": lambda site: (200, {}, ["<title>Chậm</title><p>đầu</p>", 6.0, "<p>cuối</p>"]),
 }
+# As `web/src/lib/screenshot-path.ts` reads it: the name the tool gives a picture is what
+# ends the path, since a step's preview has no line ends left to tell by.
+SHOT_LINE = re.compile(
+    r"^Đã lưu ảnh chụp tab [a-z0-9_-]+ vào (.*?\d{8}T\d{6}Z-[a-z0-9_-]+\.(?:png|jpg))\."
+)
 DOWN = {
     "enabled": True,
     "installed": True,
@@ -471,6 +478,16 @@ async def test_a_picture_goes_where_the_agents_own_file_keeps_its_writing_and_is
             assert not any(line.startswith("Không đọc được ảnh") for line in said)
             assert answer.metered is True
             assert [path.name for path in workspace.rglob("*.png")] == [picture.name]
+            # The web draws the picture from the path in that line, read the one way from
+            # the whole answer and from what a run's step keeps of it, which is one line cut
+            # short. The route that serves a workspace file gives the picture as an image.
+            (shown,) = SHOT_LINE.findall(answer.output)
+            assert SHOT_LINE.findall(outcome_preview(answer.output, True)) == [shown]
+            assert shown == f"{folder}/{picture.name}"
+            served = await c.client.get(f"/api/agents/{agent_id}/files", params={"path": shown})
+            assert served.status_code == 200, agent_id
+            assert served.headers["content-type"] == "image/png"
+            assert served.content == picture.read_bytes()
 
 
 async def test_a_server_that_goes_down_leaves_no_browser_up(tmp_path: Path, monkeypatch):
