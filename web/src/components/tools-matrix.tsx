@@ -11,8 +11,11 @@ interface Props {
  * a tool of an MCP server comes with the server or not at all, the search for such tools
  * is held only while one of them has to be found, and the script tool only while the
  * agent has a tool that only reads for a script to call, unless its file takes the tool
- * away, which is a choice and not a lack. */
-type Cell = "on" | "excluded" | "missing-key" | "work-mode" | "mcp-off" | "mcp-none" | "no-reads" | "script-off";
+ * away, which is a choice and not a lack. The browser's tools follow the agent's own
+ * `browser` key and nothing else: off brings none, reading all but the one that acts. */
+type Cell =
+  | ("on" | "excluded" | "missing-key" | "work-mode" | "mcp-off" | "mcp-none" | "no-reads" | "script-off")
+  | ("browser-off" | "browser-read");
 
 const MARK: Record<Cell, string> = {
   on: "✓",
@@ -23,6 +26,8 @@ const MARK: Record<Cell, string> = {
   "mcp-none": "·",
   "no-reads": "∅",
   "script-off": "⊘",
+  "browser-off": "◌",
+  "browser-read": "◐",
 };
 
 const TITLE: Record<Cell, string> = {
@@ -34,7 +39,12 @@ const TITLE: Record<Cell, string> = {
   "mcp-none": vi.tools.legendMcpNone,
   "no-reads": vi.tools.legendNoReads,
   "script-off": vi.tools.legendScriptOff,
+  "browser-off": vi.browser.cellOff,
+  "browser-read": vi.browser.cellReadOnly,
 };
+
+/** The one tool of the browser that reading pages does not bring. */
+const actsOnPages = (tool: RegistryTool) => Boolean(tool.with_browser) && tool.name === "browser_act";
 
 /** A mark only some crews can meet: the tools that bring it, and the agents it takes. */
 const ONLY_WITH: Partial<Record<Cell, (tool: RegistryTool, agents: AgentInfo[]) => boolean>> = {
@@ -42,6 +52,8 @@ const ONLY_WITH: Partial<Record<Cell, (tool: RegistryTool, agents: AgentInfo[]) 
   "mcp-none": (tool) => Boolean(tool.with_mcp),
   "no-reads": (tool) => Boolean(tool.with_reads),
   "script-off": (tool, agents) => Boolean(tool.with_reads) && agents.some((agent) => agent.script_calls === "none"),
+  "browser-off": (tool) => Boolean(tool.with_browser),
+  "browser-read": (tool, agents) => actsOnPages(tool) && agents.some((agent) => agent.browser === "read"),
 };
 
 /**
@@ -61,6 +73,8 @@ function cellFor(tool: RegistryTool, agent: AgentInfo): Cell {
   // Nor over the script tool, which is missing where the agent's file takes it away
   // (`script_calls: none`), and otherwise only where a script would have nothing to call.
   if (tool.with_reads) return agent.script_calls === "none" ? "script-off" : "no-reads";
+  // Nor over the browser's tools: the agent's `browser` key alone brings them.
+  if (tool.with_browser) return actsOnPages(tool) && agent.browser === "read" ? "browser-read" : "browser-off";
   // What the file lists, not what the agent holds: every agent holds something, and an
   // agent that lists nothing has excluded nothing.
   const listed = agent.declared.tools;
@@ -122,6 +136,11 @@ export function ToolsMatrix({ tools, agents }: Props) {
                   {tool.with_reads && (
                     <span className="badge" title={vi.tools.withReadsTitle}>
                       {vi.tools.withReads}
+                    </span>
+                  )}
+                  {tool.with_browser && (
+                    <span className="badge" title={vi.browser.withBrowserTitle}>
+                      {vi.browser.withBrowser}
                     </span>
                   )}
                   {tool.exposure && (

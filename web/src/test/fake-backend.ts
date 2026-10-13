@@ -22,6 +22,7 @@ import type {
 } from "../api/types";
 import type { ArtifactEvent } from "../api/artifact-types";
 import { fold } from "../components/conversation-search";
+import { FakeBrowser } from "./fake-browser";
 import { FakeCanvas, type FakeReply } from "./fake-canvas";
 import { FakeMcp } from "./fake-mcp";
 import { FakeScriptStore } from "./fake-script-store";
@@ -61,6 +62,9 @@ export const fakeAgent: AgentInfo = {
   // What the file reads as when it says neither: scripts read only, and may ask a model.
   script_calls: "read_only",
   script_llm: true,
+  // What the file reads as when it says nothing of a browser: none, and no host of its own.
+  browser: "off",
+  browser_hosts: [],
   // The names a list of its own would have a say over: here, the one tool it holds.
   listable_tools: ["write_file"],
 };
@@ -214,6 +218,9 @@ export class FakeBackend {
       this.agents.find((a) => a.id === agentId)?.schedules.find((s) => s.id === scheduleId),
     conversation: (id: string) => this.conversations.get(id),
   });
+  /** The machine's browser and the agents' own: installed and left off until a test turns it
+   *  on, and nobody's up until a test starts one. */
+  browser: FakeBrowser = Object.assign(new FakeBrowser(), { crew: () => this.agents });
   /** Keepalive body bytes still in flight, which the browser caps. */
   private keepaliveBytes = 0;
   /** Set to a message to make the next PATCH refuse, the way a bad field would. */
@@ -272,10 +279,13 @@ export class FakeBackend {
     if (mcp) return json(mcp.body, mcp.status);
     const kept = this.scriptStore.route(path, method, url.searchParams);
     if (kept) return json(kept.body, kept.status);
-    if (path === "/connections") return json(this.connections);
+    const browser = this.browser.route(path, method);
+    if (browser) return json(browser.body, browser.status);
+    // Like the server, what the machine has for a browser is read as the page is answered.
+    if (path === "/connections") return json({ ...this.connections, browser: this.browser.status() });
     if (path === "/connections/routes" && method === "PUT") {
       this.connections = { ...this.connections, routes: body.routes, routes_source: "config" };
-      return json({ ...this.connections, restart_required: null });
+      return json({ ...this.connections, browser: this.browser.status(), restart_required: null });
     }
     // Before the single-agent routes: `/agents/reload` would otherwise read as an agent
     // whose id happens to be "reload".
@@ -475,7 +485,7 @@ export class FakeBackend {
       optional: name === "web_search" || name === "image_read",
       agents: this.agents.filter((a) => a.tools.includes(name)).map((a) => a.id),
     }));
-    return [...own, ...this.mcp.registryTools()];
+    return [...own, ...this.browser.registryTools(), ...this.mcp.registryTools()];
   }
 
   private createAgent(agentId: string, profile: Record<string, unknown>): Response {
@@ -506,6 +516,8 @@ export class FakeBackend {
     // A saved schedule is live at once: the jobs list follows what the file now declares,
     // and no key of a profile is left waiting for a restart.
     if ("schedules" in profile) this.jobs = jobsAfterSave(this.jobs, patched.ok);
+    // An agent a save leaves without a browser has the one it left running stopped.
+    this.browser.saved(agentId, patched.ok.browser);
     return json({ profile: patched.ok, restart_required: [] });
   }
 

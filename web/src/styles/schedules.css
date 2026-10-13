@@ -89,9 +89,12 @@ input.mono {
   min-height: var(--touch-target);
 }
 
+/* A line that says what is wrong may quote what was typed, and a pasted address has no
+   space to break at. */
 .field-error {
   font-size: var(--text-xs);
   color: var(--danger-text);
+  overflow-wrap: anywhere;
 }
 
 .field input[aria-invalid="true"],

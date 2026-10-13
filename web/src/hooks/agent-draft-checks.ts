@@ -6,6 +6,8 @@
 // into a message next to the box that caused it, with the save held until it is fixed.
 import type { AgentPatch } from "../api/types";
 import { vi } from "../i18n/vi";
+import { badHost } from "./browser-hosts";
+import { isCron, isEvery } from "./cron-checks";
 import { clashingIds, idsToSend } from "./schedule-ids";
 import { actionKind, MAX_SCRIPT_CHARS, type ScheduleRow, sendableRow, usesEvery } from "./schedule-row-shape";
 
@@ -19,6 +21,7 @@ export interface DraftProblems {
   chatId?: string;
   memoryConsolidate?: string;
   escalationRoute?: string;
+  browserHosts?: string;
   /** Index-aligned with the draft's rows; a row with nothing wrong has no entry. */
   schedules?: Record<number, RowProblems>;
   /**
@@ -33,41 +36,8 @@ const timingOf = (row: ScheduleRow) => (usesEvery(row) ? row.every : row.cron) ?
 /** What an action left blank is told, by the kind the row is. */
 const MISSING = { prompt: vi.editor.promptMissing, command: vi.editor.commandMissing, script: vi.editor.scriptMissing };
 
-// Minute, hour, day, month, weekday: the ranges `CronSpec.parse` holds each field to.
-const CRON_RANGES = [
-  [0, 59],
-  [0, 23],
-  [1, 31],
-  [1, 12],
-  [0, 7],
-] as const;
-const CRON_PART = /^(?:\*|(\d+)(?:-(\d+))?)(?:\/(\d+))?$/;
-const EVERY = /^(\d+)\s*([smhd])$/i;
-const UNIT_SECONDS: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
-
-/** One field: `*`, `n` or `a-b`, each with an optional `/step`, comma-separated. */
-function isCronField(text: string, low: number, high: number): boolean {
-  return text.split(",").every((part) => {
-    const match = CRON_PART.exec(part);
-    if (!match) return false;
-    const [, from, to, step] = match;
-    const start = from === undefined ? low : Number(from);
-    const end = from === undefined ? high : Number(to ?? from);
-    return low <= start && start <= end && end <= high && (step === undefined || Number(step) >= 1);
-  });
-}
-
-/** What `CronSpec.parse` accepts, ranges included: the server's refusal of hour 25 would
- * come back in English at the top of the page rather than next to the box. */
-export function isCron(text: string): boolean {
-  const fields = text.trim().split(/\s+/);
-  return fields.length === 5 && fields.every((field, at) => isCronField(field, CRON_RANGES[at][0], CRON_RANGES[at][1]));
-}
-
-function isEvery(text: string): boolean {
-  const match = EVERY.exec(text.trim());
-  return match !== null && Number(match[1]) * UNIT_SECONDS[match[2].toLowerCase()] >= 60;
-}
+// Read from here by the tests of the form's checks, where the rule belongs for a reader.
+export { isCron } from "./cron-checks";
 
 /**
  * What is wrong with a row; a box still blank is named only when `reveal` says so.
@@ -153,6 +123,9 @@ export function draftProblems(
   const consolidate = draft.memory_consolidate?.trim() ?? "";
   if (dirty.includes("memory_consolidate") && consolidate && !isCron(consolidate))
     problems.memoryConsolidate = vi.editor.cronInvalid;
+  // The first host line the server would refuse, named: a pasted address is the usual one.
+  const host = dirty.includes("browser_hosts") ? badHost(draft.browser_hosts ?? []) : undefined;
+  if (host !== undefined) problems.browserHosts = vi.browser.hostInvalid(host);
   if (dirty.includes("schedules")) {
     const rows = (draft.schedules ?? []) as ScheduleRow[];
     const byRow: Record<number, RowProblems> = {};

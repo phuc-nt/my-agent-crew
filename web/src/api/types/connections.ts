@@ -1,5 +1,6 @@
 import type { AgentInfo } from "./agent-profile";
 import type { RouteInfo, SkillInfo, ToolInfo } from "./agents";
+import type { BrowserConnection } from "./browser";
 
 /** An API key by the name of its environment variable. The value never leaves the server. */
 export interface KeyStatus {
@@ -31,6 +32,8 @@ export interface ConnectionsInfo {
   firecrawl_base_url: string;
   ollama_base_url?: string;
   telegram: TelegramConnection[];
+  /** The machine's browser. Absent from a server older than the key: nothing is shown. */
+  browser?: BrowserConnection;
 }
 
 /** Which card of the connections page an environment variable sits on. */

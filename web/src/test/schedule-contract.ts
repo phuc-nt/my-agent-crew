@@ -17,7 +17,26 @@ const SCHEDULE_KEYS = new Set([
 /** The values `script_calls` takes in an agent's file. */
 const SCRIPT_CALLS = ["none", "read_only", "gated"];
 
+/** The values `browser` takes in an agent's file (`agents/profile_browser.py`). */
+const BROWSER_MODES = ["off", "read", "act"];
+/** `profile_browser.HOST_PATTERN`: a host name, or one with a `*.` in front, in lowercase. */
+const BROWSER_HOST = /^(\*\.)?([a-z0-9-]+\.)*[a-z0-9-]+$/;
+const BROWSER_HOSTS_REFUSED =
+  "browser_hosts must be a list of host names such as shop.example or *.shop.example, in lowercase, with no scheme, port or path";
+
 type Read<T> = { ok: T } | { error: string };
+
+/** `profile_browser._hosts`: no list reads as an empty one, and each name is kept trimmed. */
+function readBrowserHosts(value: unknown): Read<string[]> {
+  if (value === null || value === undefined || value === "" || value === false) return { ok: [] };
+  if (!Array.isArray(value)) return { error: BROWSER_HOSTS_REFUSED };
+  const hosts: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || !BROWSER_HOST.test(entry.trim())) return { error: BROWSER_HOSTS_REFUSED };
+    hosts.push(entry.trim());
+  }
+  return { ok: hosts };
+}
 
 /** `script.limits.MAX_SOURCE_CHARS`: the longest script the parser reads, in characters. */
 const MAX_SCRIPT_CHARS = 20_000;
@@ -167,6 +186,21 @@ export function applyAgentPatch<T extends object>(agent: T, patch: Record<string
     if (patch.script_llm !== null && typeof patch.script_llm !== "boolean")
       return { error: "script_llm must be true or false" };
     next.script_llm = patch.script_llm ?? true;
+  }
+  // The browser's two keys, as `profile_browser` reads them: a mode is one of its three
+  // words, and a bare yes is refused rather than guessed at. A null clears the key, which
+  // reads back as no browser and as no host.
+  if ("browser" in patch) {
+    if (patch.browser === true)
+      return { error: "browser must be off, read or act, not a bare on, yes or true: write read to let it open and read pages, or act to let it click and type as well" };
+    if (patch.browser !== null && patch.browser !== false && !BROWSER_MODES.includes(patch.browser as string))
+      return { error: "browser must be off, read or act" };
+    next.browser = patch.browser || "off";
+  }
+  if ("browser_hosts" in patch) {
+    const read = readBrowserHosts(patch.browser_hosts);
+    if ("error" in read) return read;
+    next.browser_hosts = read.ok;
   }
   // A null clears the key, and a cleared consolidation reads back as no cron at all.
   if ("memory_consolidate" in patch) next.memory_consolidate = patch.memory_consolidate ?? "";

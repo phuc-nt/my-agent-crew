@@ -8,6 +8,7 @@ import type {
   TelegramBlock,
   ToolInfo,
 } from "./agents";
+import type { BrowserMode } from "./browser";
 
 /** One agent profile as listed by GET /api/agents. */
 export interface AgentInfo {
@@ -75,6 +76,12 @@ export interface AgentInfo {
    * whatever its list says is never among them. Absent from a server older than the key:
    * the page it serves between an update and its restart is this one. */
   listable_tools?: string[];
+  /** Whether the agent has a browser, and how far it goes on a page: the agent's own key,
+   * whatever the machine has. Absent from a server older than the key. */
+  browser?: BrowserMode;
+  /** The hosts whose pages open without asking, each `shop.example` or `*.shop.example`.
+   * Absent from a server older than the key. */
+  browser_hosts?: string[];
 }
 
 export interface InstallRequest {
@@ -127,6 +134,8 @@ export interface AgentPatch {
   mcp?: string[] | null;
   script_calls?: ScriptCalls;
   script_llm?: boolean;
+  browser?: BrowserMode;
+  browser_hosts?: string[] | null;
 }
 
 /**

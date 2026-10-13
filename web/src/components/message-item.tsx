@@ -47,7 +47,13 @@ export function Item({
 }) {
   if (item.kind === "tool")
     return (
-      <ToolCallCard item={item} agentName={agentName} onOpenConversation={onOpenConversation} canvas={canvas} />
+      <ToolCallCard
+        item={item}
+        agentId={agentId}
+        agentName={agentName}
+        onOpenConversation={onOpenConversation}
+        canvas={canvas}
+      />
     );
   // Not a bubble: a note is an aside about the work, not a turn in the conversation.
   // Giving it a bubble would make the agent look like it had said two things.

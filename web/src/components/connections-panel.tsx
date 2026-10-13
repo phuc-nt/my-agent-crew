@@ -2,6 +2,7 @@ import type { ConnectionsInfo, CredentialGroup } from "../api/types";
 import type { CredentialsController } from "../hooks/use-credentials";
 import type { McpController } from "../hooks/use-mcp-servers";
 import { vi } from "../i18n/vi";
+import { ConnectionsBrowserCard } from "./connections-browser-card";
 import { CredentialAddForm } from "./credential-add-form";
 import { CredentialRow } from "./credential-row";
 import { GlobalRoutesEditor } from "./global-routes-editor";
@@ -12,20 +13,22 @@ interface Props {
   connections: ConnectionsInfo;
   credentials: CredentialsController;
   mcp: McpController;
+  /** The name an agent goes by, for the card that says whose browser is up. */
+  agentName?: (id: string) => string;
   /** Reload the registry after the page changes the crew: new routes, a new provider. */
   onChanged: () => Promise<void> | void;
 }
 
 /**
  * What the crew talks to outside itself, one card per kind: model providers, the routes
- * tried in order, web search, Telegram, MCP servers, and whatever other variables skills
- * read. Each
- * card carries the keys and hosts that kind needs, set and checked where they are used.
+ * tried in order, web search, Telegram, MCP servers, the browser, and whatever other
+ * variables skills read. Each card carries the keys and hosts that kind needs, set and
+ * checked where they are used.
  *
  * Values go one way. A key is typed into a password field, saved to the env file and
  * applied to the running crew; the page is only ever told whether it is set.
  */
-export function ConnectionsPanel({ connections, credentials, mcp, onChanged }: Props) {
+export function ConnectionsPanel({ connections, credentials, mcp, agentName, onChanged }: Props) {
   const t = vi.connectionsPage;
   const rows = (group: CredentialGroup) => {
     const items = credentials.info?.items.filter((item) => item.group === group) ?? [];
@@ -131,6 +134,9 @@ export function ConnectionsPanel({ connections, credentials, mcp, onChanged }: P
         {rows("mcp") && <h4 className="connections-subtitle">{vi.mcp.keys}</h4>}
         {rows("mcp")}
       </MetricCard>
+
+      {/* A server older than the browser says nothing of one, and gets no card. */}
+      {connections.browser && <ConnectionsBrowserCard browser={connections.browser} agentName={agentName} />}
 
       {credentials.info && (
         <MetricCard title={t.other}>

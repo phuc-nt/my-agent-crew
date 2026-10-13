@@ -37,10 +37,12 @@ export const dev: AgentInfo = { ...agent(), id: "dev", name: "Dev" };
 
 let backend: FakeBackend;
 
-/** Opens the editor on `shown`, in a crew of it and `dev`, against a server of its own. */
-export function open(shown: AgentInfo, tools: RegistryTool[] = CREW): FakeBackend {
+/** Opens the editor on `shown`, in a crew of it and `dev`, against a server of its own.
+ * `prepare` sets that server up before the page asks it anything. */
+export function open(shown: AgentInfo, tools: RegistryTool[] = CREW, prepare?: (server: FakeBackend) => void): FakeBackend {
   backend = new FakeBackend();
   backend.agents = [shown, dev];
+  prepare?.(backend);
   vitest.stubGlobal("fetch", backend.fetch);
   render(<AgentEditor agent={shown} agents={[shown, dev]} tools={tools} mcpServers={[]} providers={["fake"]} onBack={() => {}} onChanged={() => {}} />);
   return backend;

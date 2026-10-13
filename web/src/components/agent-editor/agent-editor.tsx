@@ -1,9 +1,10 @@
 import { useLayoutEffect, useRef } from "react";
-import type { AgentInfo, McpServerInfo, RegistryTool } from "../../api/types";
+import type { AgentInfo, BrowserConnection, McpServerInfo, RegistryTool } from "../../api/types";
 import { problemsShown } from "../../hooks/agent-draft-checks";
 import { useAgentDraft } from "../../hooks/use-agent-draft";
 import { vi } from "../../i18n/vi";
 import { AgentAvatar } from "../ui/agent-avatar";
+import { BrowserCard } from "./browser-card";
 import { ChannelSection } from "./channel-section";
 import { DeleteAgent } from "./delete-agent";
 import { IdentitySection } from "./identity-section";
@@ -20,6 +21,8 @@ interface Props {
   tools: RegistryTool[];
   /** The MCP servers `config.yaml` declares, for the agent to be handed or not. */
   mcpServers: McpServerInfo[];
+  /** The machine's browser, as the connections the page already read report it. */
+  browser?: BrowserConnection;
   providers: string[];
   onBack: () => void;
   /** The job whose row of the jobs list the editor was opened from, as `<agent>/<schedule>`:
@@ -29,6 +32,8 @@ interface Props {
   onChanged: () => void;
   /** A section to bring into view on arrival, such as "schedules" from the jobs list. */
   focus?: string;
+  /** Opens the conversation a tab of the agent's browser belongs to. */
+  onOpenConversation?: (conversationId: string) => void;
 }
 
 /**
@@ -38,7 +43,8 @@ interface Props {
  * needs to know there is something unsaved while they are still scrolling through them,
  * not after they have left.
  */
-export function AgentEditor({ agent, agents, tools, mcpServers, providers, onBack, fromJob, onChanged, focus }: Props) {
+export function AgentEditor(props: Props) {
+  const { agent, agents, tools, mcpServers, browser, providers, onBack, fromJob, onChanged, focus } = props;
   const form = useAgentDraft(agent, onChanged);
   const readOnly = !agent.editable;
   // A box left empty holds the save without a banner until Lưu is pressed; pressing it
@@ -124,7 +130,14 @@ export function AgentEditor({ agent, agents, tools, mcpServers, providers, onBac
       <IdentitySection form={form} readOnly={readOnly} />
       <ModelSection form={form} readOnly={readOnly} providers={providers} />
       <PersonaSection agent={agent} readOnly={readOnly} />
-      <ToolsSection form={form} readOnly={readOnly} tools={tools} mcpServers={mcpServers} />
+      <ToolsSection form={form} readOnly={readOnly} tools={tools} mcpServers={mcpServers} machine={browser} />
+      {/* What runs now, under the setting it follows. Not part of the form: it acts at once. */}
+      <BrowserCard
+        key={agent.id}
+        agentId={agent.id}
+        savedMode={form.original?.browser}
+        onOpenConversation={props.onOpenConversation}
+      />
       <LimitsSection
         form={form}
         readOnly={readOnly}

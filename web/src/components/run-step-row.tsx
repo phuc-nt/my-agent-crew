@@ -3,6 +3,7 @@ import { modelUsageParts } from "../lib/format-usage";
 import { isAnswered } from "../lib/run-progress";
 import type { RunRow } from "../lib/run-rows";
 import { formatUsd } from "./budget-indicator";
+import { ScreenshotThumb } from "./screenshot-thumb";
 import { ScriptReport } from "./script-calls";
 import { summarizeArguments } from "./tool-args-detail";
 import { ToolOutput } from "./tool-output";
@@ -42,7 +43,14 @@ function showState(row: RunRow): boolean {
  * No glyph sits next to the label. The node is already coloured by kind, and a
  * second symbol saying the same thing only competes with it.
  */
-export function StepRow({ row, onOpenConversation }: { row: RunRow; onOpenConversation?: (conversationId: string) => void }) {
+interface Props {
+  row: RunRow;
+  /** Whose run this is, which is whose workspace a step's screenshot was saved in. */
+  agentId?: string;
+  onOpenConversation?: (conversationId: string) => void;
+}
+
+export function StepRow({ row, agentId, onOpenConversation }: Props) {
   const { step } = row;
   // A note's duration is always zero — it is stamped and closed on the same clock. "0 ms"
   // on every note row is noise that says nothing about the work the note describes. A
@@ -132,6 +140,10 @@ export function StepRow({ row, onOpenConversation }: { row: RunRow; onOpenConver
           agent's conversation is on the call. */}
       {step.kind === "tool" && (
         <ScriptReport work={step} settled={step.ok !== null} onOpenConversation={onOpenConversation} />
+      )}
+      {/* The picture a screenshot saved, once the call is known to have gone through. */}
+      {step.kind === "tool" && step.ok === true && (
+        <ScreenshotThumb agentId={agentId} toolName={step.name} output={step.output} />
       )}
       {step.kind === "tool" && step.output && <ToolOutput text={step.output} failed={step.ok === false} />}
     </li>

@@ -10,6 +10,7 @@ import type { ThreadItem, ToolStatus } from "../state/thread-reducer";
 import { CanvasCard, type CanvasLinks, isCanvasWrite } from "./canvas/canvas-card";
 import { DelegateCanvases } from "./canvas/delegate-canvases";
 import { ScriptCanvases } from "./canvas/script-canvases";
+import { ScreenshotThumb } from "./screenshot-thumb";
 import { ScriptReport } from "./script-calls";
 import { summarizeArguments, ToolArgsDetail } from "./tool-args-detail";
 import { ToolOutput } from "./tool-output";
@@ -54,6 +55,8 @@ function Status({ status, label }: { status: ToolStatus; label: string }) {
 
 interface Props {
   item: ToolItem;
+  /** Whose conversation this is, which is whose workspace a screenshot was saved in. */
+  agentId?: string;
   /** Names the agent ids the crew knows, so a card can show a name instead of an id. */
   agentName?: (id: string) => string;
   /** Opens the child conversation this call created; absent means the button is hidden. */
@@ -62,7 +65,7 @@ interface Props {
   canvas?: CanvasLinks;
 }
 
-export function ToolCallCard({ item, agentName, onOpenConversation, canvas }: Props) {
+export function ToolCallCard({ item, agentId, agentName, onOpenConversation, canvas }: Props) {
   if (item.name === DELEGATE) {
     return <DelegateCard item={item} agentName={agentName} onOpenConversation={onOpenConversation} canvas={canvas} />;
   }
@@ -87,6 +90,8 @@ export function ToolCallCard({ item, agentName, onOpenConversation, canvas }: Pr
           settled={item.status === "done" || item.status === "failed"}
           onOpenConversation={onOpenConversation}
         />
+        {/* As on the run's step: the picture a screenshot saved, once the call went through. */}
+        {item.status === "done" && <ScreenshotThumb agentId={agentId} toolName={item.name} output={item.output} />}
         {item.output && <ToolOutput text={item.output} failed={didFail(item.status)} />}
       </div>
       {/* A canvas a script wrote has its card under the script's, as one the agent wrote itself has. */}

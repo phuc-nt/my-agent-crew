@@ -22,6 +22,8 @@ export const EDITABLE: DraftKey[] = [
   "mcp",
   "script_calls",
   "script_llm",
+  "browser",
+  "browser_hosts",
   "schedules",
   "telegram",
 ];
@@ -80,6 +82,9 @@ export function toDraft(agent: AgentInfo): AgentPatch {
     // leaves nothing to save.
     script_calls: agent.script_calls ?? "read_only",
     script_llm: agent.script_llm ?? true,
+    // A crew older than the browser reports no such key and would refuse one sent to it, so
+    // the form holds neither and has no control for them.
+    ...(agent.browser === undefined ? {} : { browser: agent.browser, browser_hosts: agent.browser_hosts ?? [] }),
     schedules: agent.declared.schedules,
     telegram: agent.telegram,
   };

@@ -1,10 +1,12 @@
 import type { Page, Route } from "@playwright/test";
 import type { AgentEvent, AgentInfo, ContentHit, QueuedMessage, WikiPage, WikiPageEdit } from "../src/api/types";
 import { fold } from "../src/components/conversation-search";
+import { type BrowserCrewMember, FakeBrowser } from "../src/test/fake-browser";
 import { FakeCanvas, type FakeReply } from "../src/test/fake-canvas";
 import { FakeMcp, type CrewMember } from "../src/test/fake-mcp";
 import { FakeScriptStore } from "../src/test/fake-script-store";
 import { applyAgentPatch, jobsAfterSave } from "../src/test/schedule-contract";
+import { flatPng } from "./flat-png";
 import { renderRoute } from "./mock-render";
 
 // Every /api call is answered in-browser so the smoke tests measure the real DOM without a backend.
@@ -55,6 +57,9 @@ export const defaultAgent: AgentInfo = {
   // What the file reads as when it says neither: scripts read only, and may ask a model.
   script_calls: "read_only",
   script_llm: true,
+  // What the file reads as when it says nothing of a browser: none, and no host of its own.
+  browser: "off",
+  browser_hosts: [],
   // The names a list of its own would have a say over: here, the one tool it holds.
   listable_tools: ["write_file"],
 };
@@ -191,6 +196,13 @@ export interface MockOptions {
   /** What each agent's scripts keep between runs; nothing when omitted. A spec keeps the
    *  object to see what a delete left. */
   scriptStore?: FakeScriptStore;
+  /** The machine's browser and the agents' own: installed and left off, with nobody's up,
+   *  when omitted. A spec keeps the object to see what a stop or a closed tab left. */
+  browser?: FakeBrowser;
+  /** The pictures agents saved in their workspaces, each under "<agent id>/<path>" with its
+   *  width and height: served as a flat picture of that size. Any other file asked of a
+   *  workspace is not there. */
+  pictures?: Record<string, [width: number, height: number]>;
   /** How many messages, from the first, the server takes and then fails to answer: the turn
    *  runs and is stored, and the connection drops before a byte of it reaches the page. */
   lostAnswers?: number;
@@ -233,6 +245,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   const wiki = new Map(Object.entries(options.wiki ?? {}).map(([id, pages]) => [id, pages.map((p) => ({ ...p }))]));
   const canvas = options.canvas ?? new FakeCanvas();
   canvas.conversationExists = (id) => conversations.some((c) => c.id === id);
+  const browser = options.browser ?? new FakeBrowser();
+  browser.crew = () => agents as BrowserCrewMember[];
   const scriptStore = options.scriptStore ?? new FakeScriptStore();
   scriptStore.knownAgent = (id) => (agents as AgentInfo[]).some((a) => a.id === id);
   scriptStore.schedule = (agentId, scheduleId) =>
@@ -280,16 +294,17 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       agents.push({ ...defaultAgent, ...found, is_master: false });
       return json({ installed: [template], live: [template], needs_restart: false }, 201);
     }
-    if (path === "/tools") return json([...(options.tools ?? registryTools), ...mcp.registryTools()]);
+    if (path === "/tools") return json([...(options.tools ?? registryTools), ...browser.registryTools(), ...mcp.registryTools()]);
     const mcpReply = mcp.route(path, method);
     if (mcpReply) return json(mcpReply.body, mcpReply.status);
-    if (path === "/connections") return json({ ...connections, routes });
+    // Like the server, what the machine has for a browser is read as the page is answered.
+    if (path === "/connections") return json({ ...connections, routes, browser: browser.status() });
     if (path === "/connections/routes" && method === "PUT") {
       const body = route.request().postDataJSON() as { routes: typeof routes };
       const unknown = body.routes.find((r) => !connections.providers.some((p) => p.name === r.provider));
       if (unknown) return json({ detail: `Chưa lưu: chưa có nhà cung cấp ${unknown.provider}.` }, 409);
       routes = body.routes;
-      return json({ ...connections, routes, restart_required: null });
+      return json({ ...connections, routes, browser: browser.status(), restart_required: null });
     }
     const credential = path.match(/^\/credentials(?:\/([^/]+))?(\/check)?$/);
     if (credential) {
@@ -322,6 +337,15 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     }
     // Ahead of the single-agent routes, or the id reads as "reload".
     if (path === "/agents/reload" && method === "POST") return json({ added: [] });
+    // A file of an agent's workspace, by the path the query names: the server answers with
+    // the file itself, and says which of the two was not found.
+    const workspaceFile = path.match(/^\/agents\/([^/]+)\/files$/);
+    if (workspaceFile && method === "GET") {
+      const agentId = decodeURIComponent(workspaceFile[1]);
+      if (!agents.some((a) => (a as { id: string }).id === agentId)) return json({ detail: "agent not found" }, 404);
+      const size = options.pictures?.[`${agentId}/${url.searchParams.get("path") ?? ""}`];
+      return size ? route.fulfill({ status: 200, contentType: "image/png", body: flatPng(...size) }) : json({ detail: "file not found" }, 404);
+    }
     const persona = path.match(/^\/agents\/([^/]+)\/files\/([^/]+)$/);
     if (persona) {
       const key = `${decodeURIComponent(persona[1])}/${persona[2]}`;
@@ -369,6 +393,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     }
     const kept = scriptStore.route(path, method, url.searchParams);
     if (kept) return json(kept.body, kept.status);
+    const browsed = browser.route(path, method);
+    if (browsed) return json(browsed.body, browsed.status);
     const single = path.match(/^\/agents\/([^/]+)$/);
     if (single && (method === "PATCH" || method === "DELETE")) {
       const at = agents.findIndex((a) => (a as { id: string }).id === single[1]);
@@ -384,6 +410,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       const patched = applyAgentPatch(agents[at], profile);
       if ("error" in patched) return json({ detail: patched.error }, 422);
       agents[at] = patched.ok;
+      // An agent a save leaves without a browser has the one it left running stopped.
+      browser.saved(single[1], (patched.ok as BrowserCrewMember).browser);
       // A saved schedule is live at once: the jobs list follows what the file now declares,
       // and no key of a profile is left waiting for a restart.
       if ("schedules" in profile) jobs.splice(0, jobs.length, ...jobsAfterSave(jobs, patched.ok as Parameters<typeof jobsAfterSave>[1]));
