@@ -10,6 +10,7 @@ from playwright.async_api import TimeoutError as BrowserTimeout
 
 from my_agent_crew import texts_browser as t
 from my_agent_crew import texts_browser_fence as f
+from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import fence
 from my_agent_crew.texts import OUTPUT_TRUNCATED, TOOL_FAILED
 from my_agent_crew.texts_kit import TOOL_HOOK_NOTE
@@ -65,8 +66,10 @@ def test_the_room_kept_free_holds_what_the_registry_and_the_tools_write_afterwar
     assert fence.FAILED_ROOM == len(TOOL_FAILED.format(error="")) > 0
     # What a tool writes once the page's own text is sized, at the most it can be written.
     listed = t.PAGE_LISTED.format(shown=10**6, total=10**6)
+    new = d.PAGE_NEW.format(count=10**6)  # said of the marks an outline was given with
     after = [
-        [t.PAGE_CUT.format(shown=10**6, total=10**6)],
+        [t.PAGE_CUT.format(shown=10**6, total=10**6), new],
+        [listed, new],
         [listed, t.PAGE_EMPTY],  # a long page with nothing on it to act on
         [t.PAGE_NO_MATCH.format(query="x" * 80)],
         [t.TEXT_CUT.format(shown=10**9, total=10**9)],

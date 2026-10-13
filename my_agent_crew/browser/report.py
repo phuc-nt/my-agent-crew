@@ -10,10 +10,11 @@ from __future__ import annotations
 import re
 
 from my_agent_crew import texts_browser as t
+from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser.fence import answer, room
 from my_agent_crew.browser.kit import Kit, look, one_line, show
 from my_agent_crew.browser.pool import Session
-from my_agent_crew.browser.snapshot_view import LIST, view
+from my_agent_crew.browser.snapshot_view import LIST, added, view
 from my_agent_crew.browser.tabs import Tab
 
 URL_CHARS, TITLE_CHARS, HOST_CHARS, DIALOG_CHARS = 300, 200, 80, 300
@@ -43,8 +44,10 @@ async def page_report(
 ) -> str:
     """The tab as it is now, kept as what the model was shown. `mark` is where the proxy's
     count of refusals stood before the call, `before` the caller's tabs then: what the page
-    reached for and what it opened since are told."""
+    reached for and what it opened since are told, and what is on it now that was not on it
+    when the model was last shown it is marked."""
     url, snapshot = await look(kit, tab)
+    fresh = added(tab.shown, url, snapshot)
     show(tab, url, snapshot)
     title = await tab.page.title()
     label = t.PAGE_HEAD.format(label=tab.label, status=status) if status else ""
@@ -60,11 +63,13 @@ async def page_report(
     inside += [t.PAGE_REFUSED.format(hosts=told(refused))] if refused else []
     inside += [t.PAGE_DIALOG.format(text=one_line(said, DIALOG_CHARS)) for said in tab.dialogs]
     tab.dialogs.clear()
-    seen = view(snapshot, room(kit.limit, *outside, *inside), listed=listed, query=query)
+    budget = room(kit.limit, *outside, *inside)
+    seen = view(snapshot, budget, listed=listed, query=query, fresh=fresh)
     if seen.shown < seen.total:
         outside.append(t.PAGE_CUT.format(shown=seen.shown, total=seen.total))
     elif seen.kind == LIST and not listed:
         outside.append(t.PAGE_LISTED.format(shown=seen.shown, total=seen.total))
+    outside += [d.PAGE_NEW.format(count=seen.new)] if seen.new else []
     nothing = t.PAGE_NO_MATCH.format(query=one_line(query, 80)) if query.strip() else t.PAGE_EMPTY
     # A page with lines that none of fit says so above, not that it is empty.
     body = "\n".join([*inside, "", seen.text or ("" if seen.total else nothing)])

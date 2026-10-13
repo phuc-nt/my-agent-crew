@@ -8,8 +8,17 @@ import unicodedata
 import pytest
 
 from my_agent_crew.browser.policy import AskWords
-from my_agent_crew.browser.snapshot import Node, address, read, same_name
-from my_agent_crew.browser.snapshot_view import LIST, QUERY, TREE, view
+from my_agent_crew.browser.snapshot import (
+    Line,
+    Node,
+    Shown,
+    address,
+    read,
+    same_name,
+    traits,
+    with_mark,
+)
+from my_agent_crew.browser.snapshot_view import LIST, NEW, QUERY, TREE, added, view
 from my_agent_crew.texts_browser import DEFAULT_ASK_WORDS
 
 ASK = AskWords(DEFAULT_ASK_WORDS)
@@ -400,3 +409,152 @@ def test_a_search_over_its_budget_is_cut_at_a_whole_line_too():
 
     assert seen.text == "- generic [active] [ref=e1]:\n  - generic [ref=e11]:"
     assert (seen.shown, seen.total) == (2, 5)
+
+
+A = "https://shop.test/gio"
+CART = """\
+- generic [ref=e1]:
+  - heading "Giỏ hàng" [level=1] [ref=e2]
+  - link "Giỏ hàng (1)" [ref=e3] [cursor=pointer]:
+    - /url: /gio
+  - list [ref=e4]:
+    - listitem [ref=e5]:
+      - text: Áo
+      - button "Xoá" [ref=e6]
+    - listitem [ref=e7]:
+      - text: Quần
+      - button "Xoá" [ref=e8]
+  - textbox "Ghi chú" [ref=e9]: cũ
+  - button "Thêm" [ref=e10]"""
+# After a click on "Thêm": a row put first, the count in the link, a note, a message.
+CART_AFTER = """\
+- generic [ref=e1]:
+  - heading "Giỏ hàng" [level=1] [ref=e2]
+  - link "Giỏ hàng (2)" [ref=e11] [cursor=pointer]:
+    - /url: /gio
+  - list [ref=e4]:
+    - listitem [ref=e12]:
+      - text: Áo khoác
+      - button "Xoá" [ref=e13]
+    - listitem [ref=e5]:
+      - text: Áo
+      - button "Xoá" [ref=e6]
+    - listitem [ref=e7]:
+      - text: Quần
+      - button "Xoá" [ref=e8]
+  - textbox "Ghi chú" [ref=e9]: mới
+  - button "Thêm" [active] [ref=e10]
+  - alert [ref=e14]: Đã thêm áo khoác"""
+
+
+def shown(outline: str, url: str = A) -> Shown:
+    snapshot = read(outline, ASK)
+    return Shown(url, snapshot.nodes, traits(snapshot))
+
+
+def came(before: str, after: str) -> set[str]:
+    return set(added(shown(before), A, read(after, ASK)))
+
+
+def test_what_came_or_changed_what_it_says_since_the_last_look_is_new():
+    """Of three buttons alike, the one that came is the one whose ref was not there."""
+    assert came(CART, CART_AFTER) == {"e11", "e12", "e13", "e9", "e14"}
+    assert came(CART, CART) == set()
+    assert came(CART_AFTER, CART) == {"e3", "e9"}  # what left is told by nothing
+
+
+def test_a_page_drawn_again_is_paired_by_role_and_text_in_the_order_drawn():
+    """Every ref is another, so of the three buttons alike the last drawn is the one more."""
+    again = CART_AFTER.replace("[ref=e", "[ref=f1e")
+
+    assert came(CART, CART.replace("[ref=e", "[ref=f1e")) == set()
+    assert came(CART, again) == {"f1e11", "f1e7", "f1e8", "f1e9", "f1e14"}
+
+
+def test_a_ref_that_now_finds_another_element_is_new_and_one_that_left_pairs_with_no_other():
+    before = '- button "A" [ref=e1]\n- button "B" [ref=e2]'
+    after = '- link "A" [ref=e1]\n- button "C" [ref=e2]\n- button "A" [ref=e3]'
+
+    assert came(before, after) == {"e1", "e2"}
+    # A ref drawn twice finds nothing, so it is nothing that could have come.
+    assert came(before, before + '\n- button "Z" [ref=e5]\n- button "Z" [ref=e5]') == set()
+
+
+def test_nothing_is_new_at_a_first_look_at_another_address_or_where_nothing_stayed():
+    after = read(CART_AFTER, ASK)
+
+    assert added(None, A, after) == frozenset()
+    assert added(shown(CART, "https://shop.test/khac"), A, after) == frozenset()
+    assert added(shown(CART), A, after) != frozenset()
+    assert came('- button "A" [ref=e1]', '- button "B" [ref=e1]\n- link "C" [ref=e2]') == set()
+    # The box a page is drawn in says nothing: with all else another, the page is another.
+    box = "- generic [ref=e1]:\n  - list [ref=e2]:\n"
+    step = box + '    - button "A" [ref=e3]'
+    assert came(step, box + '    - button "B" [ref=e4]\n    - link "C" [ref=e5]') == set()
+    assert came(step, box + '    - button "A" [ref=e3]\n    - link "C" [ref=e5]') == {"e5"}
+    # What was kept without what its elements said has nothing to pair with.
+    assert added(Shown(A, read(CART, ASK).nodes), A, after) == frozenset()
+
+
+def test_the_mark_is_the_last_attribute_of_a_line_and_the_line_still_reads_as_its_element():
+    snapshot = read(SHOP, ASK)
+    lines = {line.ref: line for line in snapshot.lines if line.ref}
+
+    assert with_mark(lines["e4"], NEW) == '- button "Đặt hàng" [ref=e4] [new]'
+    assert with_mark(lines["e3"], NEW) == '- link "Đơn của tôi" [ref=e3] [cursor=pointer] [new]:'
+    assert with_mark(lines["e5"], NEW) == '- button "Xoá \\"Sách\\" khỏi giỏ" [ref=e5] [new]: x'
+    assert with_mark(lines["e8"], NEW) == '- button "Có [ref=e99] trong tên" [ref=e8] [new]: "y"'
+    assert with_mark(lines["e9"], NEW) == "- 'button \"Tên: có hai chấm\" [ref=e9] [new]'"
+    assert with_mark(lines["e10"], NEW) == "- button [ref=e10] [new]"
+    quoted = read("- 'button \"It''s: a\" [ref=e1]': v", ASK).lines[0]
+    assert with_mark(quoted, NEW) == "- 'button \"It''s: a\" [ref=e1] [new]': v"
+    every = "\n".join(
+        " " * line.indent + (with_mark(line, NEW) if line.ref else line.drawn)
+        for line in snapshot.lines
+    )
+    assert every.count(NEW) == len(lines) and dict(read(every, ASK).nodes) == dict(snapshot.nodes)
+    # A line that is no element has no place for a mark.
+    loose = Line(0, '- "chỉ có tên"', "", "", "", "", -1, False)
+    assert with_mark(loose, NEW) == loose.drawn
+
+
+def test_a_new_element_is_marked_in_whichever_view_gives_its_line():
+    snapshot = read(SHOP, ASK)
+    fresh = {"e4", "e9", "e17", "e21"}
+    whole = view(snapshot, 8000, fresh=fresh)
+    listed = view(snapshot, 8000, listed=True, fresh=fresh)
+    found = view(snapshot, 8000, query="phúc", fresh=fresh)
+
+    assert [line.strip() for line in whole.text.splitlines() if NEW in line] == [
+        '- button "Đặt hàng" [ref=e4] [new]',
+        "- 'button \"Tên: có hai chấm\" [ref=e9] [new]'",
+        '- textbox "Tên" [ref=e17] [new]: Phúc',
+        "- paragraph [ref=e21] [new]: Văn bản thường, không có ref.",
+    ]
+    assert (whole.kind, whole.new, whole.text.replace(f" {NEW}", "")) == (TREE, 4, SHOP)
+    # A paragraph is not something to act on: the list leaves it out, mark and all.
+    assert (listed.kind, listed.new, listed.text.count(NEW)) == (LIST, 3, 3)
+    assert '- textbox "Tên" [ref=e17] [new]: Phúc' in listed.text.splitlines()
+    assert (found.kind, found.new) == (QUERY, 1)
+    assert found.text.splitlines()[-1] == '      - textbox "Tên" [ref=e17] [new]: Phúc'
+    assert view(snapshot, 8000).new == 0 and NEW not in view(snapshot, 8000).text
+    # What a list holds under an element is marked as the element is.
+    menu = '- listbox "Màu" [ref=e1]:\n  - option "Đỏ" [ref=e2]\n  - option "Xanh" [ref=e3]'
+    under = view(read(menu, ASK), 8000, listed=True, fresh={"e3"})
+    assert (under.text, under.new) == (menu + " [new]", 1)
+
+
+def test_a_mark_takes_room_and_only_the_marks_given_are_counted():
+    snapshot = read(SHOP, ASK)
+    fits = len(SHOP) + 1  # each line ends in one character more
+    first, second = snapshot.lines[1].drawn, snapshot.lines[2].drawn
+    budget = len(first) + 1 + len(second) + 1 + 2 * (len(NEW) + 1)
+    fresh = {"e2", "e3", "e4"}
+
+    assert view(snapshot, fits).kind == TREE
+    assert view(snapshot, fits, fresh={"e4"}).kind == LIST
+    assert view(snapshot, fits + len(NEW) + 1, fresh={"e4"}).kind == TREE
+    two = view(snapshot, budget, listed=True, fresh=fresh)
+    assert (two.shown, two.new, two.total) == (2, 2, 17)
+    one = view(snapshot, budget - 1, listed=True, fresh=fresh)
+    assert (one.shown, one.new) == (1, 1)

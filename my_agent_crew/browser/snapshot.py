@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urldefrag
 
 from my_agent_crew.browser.policy import AskWords
@@ -70,6 +70,13 @@ class Shown:
 
     url: str
     nodes: Mapping[str, Node]
+    # Role and text of each of them: what a later look at the page is compared by.
+    traits: Mapping[str, tuple[str, str]] = field(default_factory=dict)
+
+
+def traits(snapshot: Snapshot) -> dict[str, tuple[str, str]]:
+    """Role and text of every element that can be acted on, by ref, in the order drawn."""
+    return {ln.ref: (ln.role, ln.text) for ln in snapshot.lines if ln.ref in snapshot.nodes}
 
 
 def address(url: str) -> str:
@@ -92,6 +99,17 @@ def _key(item: str) -> tuple[str, str] | None:
     while (end := item.find("'", end)) >= 0 and item[end + 1 : end + 2] == "'":
         end += 2
     return (item[1:end].replace("''", "'"), item[end + 1 :]) if end >= 0 else None
+
+
+def with_mark(line: Line, mark: str) -> str:
+    """An element's line with `mark` as the last of its attributes: after the others, ahead
+    of a value, and inside the quotes of a key that is drawn in them."""
+    item = line.drawn[2:]
+    split = _key(item)
+    if split is None:
+        return line.drawn
+    cut = len(line.drawn) - len(split[1]) - item.startswith("'")
+    return f"{line.drawn[:cut]} {mark}{line.drawn[cut:]}"
 
 
 def _value(rest: str) -> str:

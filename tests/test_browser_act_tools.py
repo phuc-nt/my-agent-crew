@@ -12,6 +12,7 @@ import pytest_asyncio
 from playwright.async_api import Error as BrowserError
 
 from my_agent_crew import texts_browser as t
+from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import act_page, tools_act
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser.navigate import build_navigate
@@ -230,6 +231,11 @@ def done(kind: str, ref: str) -> str:
     return t.ACT_DONE.format(kind=kind, ref=ref)
 
 
+def new(count: int) -> str:
+    """The line that says how many lines of the page came, or changed, with the action."""
+    return d.PAGE_NEW.format(count=count)
+
+
 async def logged(tab) -> str:
     return await tab.page.inner_text("#log")
 
@@ -258,11 +264,12 @@ async def test_a_click_is_made_once_and_the_page_after_it_is_what_the_model_is_g
     assert why(w, "click", ref, "Tìm") is None
     answer = await act(w, "click", ref, " tìm ")
 
-    assert heads(answer) == [done("click", ref), "Tab t1"]
+    # What the click wrote is the one line of the page that was not there before it.
+    assert heads(answer) == [done("click", ref), "Tab t1", new(1)]
     assert "Địa chỉ: " + w.site.url("/") in parts(answer)[1]
-    assert ": tìm;" in parts(answer)[1] and await logged(tab) == "tìm;"
+    assert await logged(tab) == "tìm;" and parts(answer)[1].count("[new]") == 1
     # The page told after an action is the one the next action is checked against.
-    line = ref_at(answer, r"paragraph \[ref=(\w+)\]: tìm;")
+    line = ref_at(answer, r"paragraph \[ref=(\w+)\] \[new\]: tìm;")
     assert line in tab.shown.nodes and line not in first
 
 
@@ -592,7 +599,7 @@ async def test_a_file_of_the_workspace_goes_to_the_chooser_an_element_opens(w, m
         t.ASK_UPLOAD.format(path="don.pdf", host="127.0.0.1", name="Chọn tệp")
     )
     answer = await act(w, "upload", button, "Chọn tệp", path="don.pdf")
-    assert heads(answer) == [done("upload", button), "Tab t1"]
+    assert heads(answer) == [done("upload", button), "Tab t1", new(1)]
     await act(w, "upload", shown, "Tệp thấy được", path="don.pdf")
     assert await logged(tab) == "don.pdf;thấy don.pdf;"
 
@@ -729,7 +736,7 @@ async def test_an_action_is_for_the_tab_named_or_for_the_tab_of_the_last_call(w)
 
     answer = await act(w, "click", order, "Đặt hàng", tab="mot")
 
-    assert heads(answer) == [done("click", order), "Tab mot"]
+    assert heads(answer) == [done("click", order), "Tab mot", new(1)]
     assert (await logged(one), await logged(two)) == ("đặt;", "")
     assert why(w, "click", order, "Đặt hàng") == asked  # which is the last call's tab now
 
