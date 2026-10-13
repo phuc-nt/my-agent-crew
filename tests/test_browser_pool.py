@@ -311,16 +311,22 @@ async def test_the_gate_reads_a_tab_without_starting_anything(tmp_path):
 
 
 async def test_a_browser_runs_no_errand_of_its_own(tmp_path):
-    """Chromium opens a connection to a search engine at every page and calls its sign-in and
-    push services at start. None of that is the crew's: the first is off, the others are
-    sent to names that resolve nowhere."""
+    """Chromium opens a connection to a search engine at every page, describes the forms of a
+    page to its autofill service, and calls its sign-in and push services at start. None of
+    that is the crew's: the first two are off, the others are sent to names that resolve
+    nowhere."""
     asked: list[str] = []
 
     def resolver(host: str) -> list[str]:
         asked.append(host)
         return ["127.0.0.1"]
 
-    with sites({"/": "<title>Trang</title>"}) as (site,):
+    form = (
+        "<title>Trang</title><form action=/gui><input name=email type=email autocomplete=email>"
+        "<input name=password type=password><input name=card autocomplete=cc-number>"
+        "<input name=address autocomplete=street-address><button>Gửi</button></form>"
+    )
+    with sites({"/": form}) as (site,):
         async with browsers(tmp_path / "browser", site, resolver=resolver) as pool:
             tab = await (await pool.session("coach")).tabs.open("c1")
             await tab.page.goto(site.url("/"))

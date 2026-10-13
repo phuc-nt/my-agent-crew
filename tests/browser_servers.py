@@ -176,14 +176,16 @@ async def browsers(
     *allowed: Site,
     clock: Clock | None = None,
     resolver: Callable[[str], list[str]] | None = None,
+    allow: Callable[[str, int], bool] | None = None,
     **settings: object,
 ) -> AsyncIterator[BrowserPool]:
     """A pool whose browsers reach the given test servers and nothing else on this machine,
-    stopped with everything it started when the test is over."""
+    stopped with everything it started when the test is over. A test that wants to see what
+    its browser asked for gives an `allow` of its own."""
     pool = BrowserPool(
         root,
         BrowserSettings(enabled=True, **settings),
-        allow=only(*allowed),
+        allow=allow or only(*allowed),
         **({"clock": clock} if clock else {}),
         resolver=resolver or local_names,
     )

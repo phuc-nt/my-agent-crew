@@ -3,7 +3,8 @@ nobody used it for a while and when the server stops.
 
 Each agent has a profile of its own under `<home>/browser/<agent_id>/`, so what one agent is
 logged in to is not another's. Every browser is started behind a proxy of its own that
-refuses private addresses (`proxy.py`): there is no other way out of it."""
+refuses private addresses (`proxy.py`): there is no other way out of it. How a Chromium is
+started is in `launch.py`."""
 
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from my_agent_crew.browser.launch import Driver, launch
 from my_agent_crew.browser.network import Allow
 from my_agent_crew.browser.proxy import FilteringProxy
 from my_agent_crew.browser.tabs import Tab, Tabs
@@ -23,20 +25,6 @@ from my_agent_crew.config_browser import BrowserSettings, profile_dir
 from my_agent_crew.tools.web import Resolver, resolve_host
 
 log = logging.getLogger(__name__)
-VIEWPORT = {"width": 1280, "height": 800}
-ACTION_MS, NAVIGATION_MS = 8_000, 20_000
-# Nothing leaves the browser beside the proxy: no direct connection for loopback, no UDP that
-# a proxy cannot carry. And the browser runs no errand of its own: it opens no connection to
-# a search engine at each page, and its sign-in service and the check-in its push service
-# starts with are sent to names that resolve nowhere.
-ARGS = (
-    "--proxy-bypass-list=<-loopback>",
-    "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
-    "--disable-quic",
-    "--disable-features=PreconnectToSearch",
-    "--gaia-url=http://gaia.invalid",
-    "--gcm-checkin-url=http://gcm.invalid/checkin",
-)
 
 
 @dataclass
@@ -71,7 +59,7 @@ class BrowserPool:
         self.clock = clock
         self.resolver = resolver
         self.allow = allow
-        self._driver: asyncio.Future[Any] | None = None
+        self.driver = Driver(self._lost)
         self._sessions: dict[str, asyncio.Future[Session]] = {}
         self._closing: dict[str, asyncio.Future[bool]] = {}
 
@@ -133,10 +121,7 @@ class BrowserPool:
         for agent_id in list(self._sessions):
             await self.stop(agent_id)
         await asyncio.gather(*self._closing.values(), return_exceptions=True)
-        driver, self._driver = self._driver, None
-        if driver is not None:
-            with contextlib.suppress(Exception):
-                await (await driver).stop()
+        await self.driver.stop()
 
     async def reap(self) -> list[str]:
         """Stop the browsers nobody used for `idle_minutes` and close the cold tabs of the
@@ -158,29 +143,14 @@ class BrowserPool:
         profile = profile_dir(self.root, agent_id)
         if stopping is not None:
             await asyncio.wait({stopping})
-        if self._driver is None:
-            from playwright.async_api import async_playwright  # absent where no agent browses
-
-            self._driver = asyncio.ensure_future(async_playwright().start())
-        driver = await asyncio.shield(self._driver)
+        driver = await self.driver.get()
         proxy = FilteringProxy(self.resolver, self.allow)
         await proxy.start()
         try:
-            profile.mkdir(mode=0o700, parents=True, exist_ok=True)
-            context = await driver.chromium.launch_persistent_context(
-                str(profile),
-                headless=True,
-                channel=self.settings.channel,
-                proxy=proxy.launch_option,
-                accept_downloads=False,
-                viewport=VIEWPORT,
-                args=list(ARGS),
-            )
+            context = await launch(driver, profile, self.settings.channel, proxy.launch_option)
         except BaseException:
             await proxy.stop()
             raise
-        context.set_default_timeout(ACTION_MS)
-        context.set_default_navigation_timeout(NAVIGATION_MS)
         tabs = Tabs(context, self.settings.max_tabs, self.clock)
         session = Session(agent_id, context, proxy, tabs, self.clock())
         context.on("close", lambda _context: self._closed(session))
@@ -198,3 +168,8 @@ class BrowserPool:
             del self._sessions[session.agent_id]
             closing = asyncio.ensure_future(session.proxy.stop())
             closing.add_done_callback(lambda done: done.exception())
+
+    def _lost(self) -> None:
+        """The driver went away, and no browser it started says so: all are forgotten."""
+        for session in filter(None, map(self.running, list(self._sessions))):
+            self._closed(session)
