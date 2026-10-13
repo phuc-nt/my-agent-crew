@@ -15,6 +15,7 @@ from my_agent_crew.config import home_from, load_settings
 from my_agent_crew.env_file import load_env_file
 from my_agent_crew.home_lock import HomeHeld, hold
 from my_agent_crew.server import build_runtime, create_app
+from my_agent_crew.tools.shell_sandbox import close_port
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -92,6 +93,8 @@ def _serve(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    # Before the crew is built: a sandboxed shell is given its profile as it is made.
+    close_port(args.port)
     runtime = build_runtime(settings)
     app = create_app(runtime, schedule=not args.no_schedule)
     routes = ", ".join(f"{r.provider}:{r.model}" for r in settings.routes)

@@ -19,7 +19,8 @@ says, which is what an agent that keeps a ledger needs.
 
 With the network on, the same write rules keep an agent that works inside someone's repo
 to its data: it can fetch and record, but it cannot edit the code, the scripts or the
-config, and it cannot get `launchctl` or `osascript` to do that for it.
+config, and it cannot get `launchctl` or `osascript` to do that for it. Nor the server it
+runs under: see `server_rules`.
 
 Reading has one exception: a folder the server keeps private (a browser's logins), which a
 sandboxed command neither reads nor writes, see `private_rules`."""
@@ -44,6 +45,8 @@ DENIED_SERVICES = ("com.apple.coreservices.launchservicesd", "com.apple.pasteboa
 # Where a command may always write: device files a shell redirect needs, and scratch
 # space nothing runs from on its own.
 DEVICE_RULES = '(literal "/dev/null") (regex #"^/dev/fd/") (regex #"^/dev/tty")'
+# The ports this very server listens on, named once as it starts (`__main__`).
+_served: set[int] = set()
 
 
 def temp_dirs() -> tuple[Path, ...]:
@@ -67,6 +70,21 @@ def helper_rules() -> str:
         f"(deny process-exec {programs})"
         f'(deny mach-lookup {services} (global-name-regex #"^com\\.apple\\.lsd\\."))'
     )
+
+
+def close_port(port: int) -> None:
+    """Close `port`, the server's own, to every sandboxed command for as long as the
+    process lives. Named before the crew is built: a profile is written with its tool."""
+    _served.add(port)
+
+
+def server_rules() -> str:
+    """The rules that keep a command with the network off the server it runs under. The
+    server's API asks for no login: a command that reaches it saves any agent's file, its
+    own write paths among them, and so has something unsandboxed act for it. A port is
+    closed on every address, since the server may listen on more than loopback; the cost
+    is that such a command reaches that port number on no host."""
+    return "".join(f'(deny network-outbound (remote tcp "*:{p}"))' for p in sorted(_served))
 
 
 def private_rules(folders: Sequence[Path]) -> str:
@@ -95,4 +113,5 @@ def sandbox_profile(
         f"(deny file-write*)(allow file-write* {writable} {DEVICE_RULES})"
         + helper_rules()
         + private_rules(private)
+        + server_rules()
     )

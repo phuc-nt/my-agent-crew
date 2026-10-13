@@ -519,8 +519,10 @@ nó thật sự trỏ tới, nên symlink và cách viết hoa khác không vòn
 trong sandbox cũng bị cấm đọc và ghi thư mục ấy. Sandbox chỉ có ở agent mà shell đã bị giới hạn
 (`shell_network: false` hoặc có `shell_write_paths`, xem [Shell](#shell)); **shell không sandbox
 của một agent đọc được hồ sơ trình duyệt như mọi tệp khác của người dùng máy**, nên agent được
-trao trình duyệt nên có shell đã sandbox hoặc không có `shell_run`. Máy chủ MCP và job lịch kiểu
-`command` không nằm dưới quy tắc nào trong hai quy tắc này.
+trao trình duyệt nên có shell đã sandbox hoặc không có `shell_run`. Shell đã sandbox cũng không
+gọi được API của chính server, nên không dừng được trình duyệt hay đổi được mức `browser` của
+agent nào qua đó (xem [Shell](#shell)). Máy chủ MCP và job lịch kiểu `command` không nằm dưới
+quy tắc nào trong các quy tắc này.
 
 **API và màn hình.**
 
@@ -662,6 +664,16 @@ lại máy, nên profile đóng từng đường mà một lệnh có thể dùn
   ngoài sandbox và có mạng. Lệnh chỉ được ghi dưới
   `shell_write_paths` (đường dẫn trong workspace) và các thư mục tạm. Danh sách rỗng
   làm workspace chỉ đọc đối với shell.
+
+Sandbox còn mạng (chỉ có `shell_write_paths`) đóng thêm một đường nữa: **cổng của chính
+server**. API của đội không hỏi đăng nhập, nên một request tới nó lưu được hồ sơ của bất kỳ
+agent nào, kể cả `shell_write_paths` của chính agent đang chạy lệnh, và dừng được trình duyệt
+của agent khác: đó cũng là nhờ một thứ ngoài sandbox làm thay. Server nêu cổng `--port` của nó
+lúc khởi động, và mọi profile sandbox từ đó cấm kết nối TCP tới cổng ấy ở mọi địa chỉ
+(`127.0.0.1`, `::1`, `localhost`, địa chỉ LAN của máy). Luật đi theo số cổng, nên lệnh trong
+sandbox cũng không tới được cổng cùng số trên máy khác; phần còn lại của mạng thì như cũ. Luật
+không che ba thứ: shell không sandbox (rào của nó là cổng duyệt), job lịch dạng `command`, và
+một dịch vụ khác trên máy chịu chuyển tiếp request tới server.
 
 Đọc tệp và chạy chương trình cục bộ vẫn hoạt động, nên script của chính agent vẫn chạy. Hệ điều hành
 thực thi toàn bộ điều này, nên `$(…)` hay script model vừa viết cũng không đi xa hơn
