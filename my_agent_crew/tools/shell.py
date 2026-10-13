@@ -11,7 +11,8 @@ report back instead: an agent kept to a job has nobody to approve the step outsi
 
 An agent whose profile sets `shell_network: false` or `shell_write_paths` runs every
 command under macOS `sandbox-exec`, writing only where its profile says, and offline too
-for the former, see `shell_sandbox.py`. That is a real boundary, unlike the patterns: it
+for the former, see `shell_sandbox.py`. Such a command is also kept out of the folders the
+server keeps private (`private_paths.py`). That is a real boundary, unlike the patterns: it
 holds for `$(…)` and for a script the model wrote a moment ago. Where `sandbox-exec` is
 missing the command is refused rather than run unconfined. Scheduled `command` jobs call
 `run_shell` directly, unsandboxed and with the network; a person wrote those, and some
@@ -85,7 +86,7 @@ def deny_reason(arguments: dict[str, Any], patterns: Sequence[str]) -> str | Non
 
 
 def _sandbox_denied(output: str) -> bool:
-    """A write the sandbox refused surfaces as EPERM, whichever program tried it."""
+    """What the sandbox refused surfaces as EPERM, whichever program tried it."""
     return "operation not permitted" in output.lower()
 
 
@@ -95,13 +96,16 @@ def build_shell_tool(
     network: bool = True,
     write_paths: Sequence[Path] = (),
     deny_patterns: Sequence[str] = (),
+    private: Sequence[Path] = (),
 ) -> Tool:
     """Sandboxed when `network` is False or `write_paths` is set: the paths are then the
     only places outside the temp directories a command may write. Offline with no paths
-    leaves the workspace read-only to the shell."""
+    leaves the workspace read-only to the shell. A sandboxed command is also kept out of
+    the `private` folders; one that is not sandboxed reads whatever its user can."""
     confined = not network or bool(write_paths)
     resolved = [p.resolve() for p in write_paths]
-    sandbox = sandbox_profile(resolved, network=network) if confined else None
+    closed = [p.resolve() for p in private]
+    sandbox = sandbox_profile(resolved, network=network, private=closed) if confined else None
     writable = ", ".join(str(p) for p in resolved) or texts.SHELL_WRITES_NOWHERE
 
     async def run(args: dict[str, Any]) -> str:
@@ -121,7 +125,10 @@ def build_shell_tool(
         if code != 0:
             failed = texts.SHELL_FAILED.format(code=code, output=output.strip()[-4000:])
             if sandbox is not None and _sandbox_denied(output):
-                failed += "\n\n" + texts.SHELL_WRITE_DENIED.format(paths=writable)
+                # A read refused in a private folder prints what a write refused anywhere
+                # prints, so an agent that has one is told of both.
+                why = texts.SHELL_PRIVATE_DENIED if closed else texts.SHELL_WRITE_DENIED
+                failed += "\n\n" + why.format(paths=writable)
             raise ToolError(failed)
         return output if output.strip() else texts.SHELL_NO_OUTPUT
 

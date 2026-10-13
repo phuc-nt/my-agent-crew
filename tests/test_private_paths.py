@@ -17,11 +17,6 @@ from my_agent_crew.tools.workspace import build_workspace_tools, resolve_inside,
 from my_agent_crew.tools.workspace_search import build_search_tools, search_in_tree
 
 
-@pytest.fixture(autouse=True)
-def nothing_kept(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(private_paths, "_kept", set())
-
-
 @pytest.fixture
 def home(tmp_path: Path) -> Path:
     """A crew home with a browser folder that holds one agent's logins, a workspace beside
@@ -245,3 +240,10 @@ async def test_ripgrep_is_told_a_kept_folder_by_a_name_it_cannot_read_as_a_patte
     out = await tools["workspace_grep"].run({"pattern": "khoa"})
 
     assert files_of(out.splitlines()) == {"a1/bc/tep.txt"}
+
+
+def test_a_test_starts_with_no_folder_kept(tmp_path: Path):
+    """A server keeps its folders for as long as it lives, and hundreds of tests build one:
+    each starts with none, whatever the tests before it in this file kept."""
+    assert private_paths._kept == set()
+    keep_private(tmp_path)

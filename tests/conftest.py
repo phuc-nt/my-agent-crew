@@ -21,7 +21,7 @@ from my_agent_crew.server import create_app
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.skills import BUILTIN_DIR, load_skills
 from my_agent_crew.store import Store
-from my_agent_crew.tools import Tool, ToolRegistry
+from my_agent_crew.tools import Tool, ToolRegistry, private_paths
 from my_agent_crew.tools.ask_user import build_ask_user_tool
 from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.shell import build_shell_tool
@@ -29,6 +29,13 @@ from my_agent_crew.tools.skills import build_skill_tools
 from my_agent_crew.tools.workspace import build_workspace_tools
 from tests.queue_helpers import GatedProvider, Rig, Served, SlowTool, make_rig
 from tests.telegram_fake import CHAT, TOKEN, FakeTelegram
+
+
+@pytest.fixture(autouse=True)
+def nothing_kept_private(monkeypatch):
+    """A server names its private folders for as long as its process lives; a test starts
+    with none, so one test's home is never another's closed folder."""
+    monkeypatch.setattr(private_paths, "_kept", set())
 
 
 @pytest.fixture(autouse=True)
