@@ -1,0 +1,306 @@
+"""How a Chromium of the crew is started: nothing leaves it beside its proxy, what the driver
+turns off stays off, and a driver that did not start or went away is replaced."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import re
+import signal
+import socket
+import stat
+import struct
+import subprocess
+import sys
+import threading
+from pathlib import Path
+from types import SimpleNamespace
+
+import playwright
+import pytest
+
+from my_agent_crew.browser import launch as launch_module
+from my_agent_crew.browser.launch import (
+    DRIVER_OFF,
+    DRIVER_SWITCH,
+    OWN_OFF,
+    PREFERENCES,
+    Driver,
+    launch,
+    prepare,
+)
+from tests.browser_servers import browsers, sites
+
+COOKIE = 0x2112A442
+POLICY = "disable_non_proxied_udp"
+
+
+class Stun:
+    """A UDP port on loopback that keeps every datagram it is sent and answers a binding
+    request the way a STUN server would: what a page asks to learn the machine's address."""
+
+    def __init__(self) -> None:
+        self.hits: list[int] = []
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._socket.bind(("127.0.0.1", 0))
+        self._socket.settimeout(0.2)
+        self.port = self._socket.getsockname()[1]
+        self._alive = True
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self) -> None:
+        while self._alive:
+            try:
+                data, peer = self._socket.recvfrom(2000)
+            except OSError:
+                continue
+            self.hits.append(len(data))
+            if len(data) >= 20 and data[:2] == b"\x00\x01":
+                port = peer[1] ^ (COOKIE >> 16)
+                address = struct.unpack("!I", socket.inet_aton(peer[0]))[0] ^ COOKIE
+                mapped = struct.pack("!HHBBHI", 0x0020, 8, 0, 1, port, address)
+                head = struct.pack("!HHI", 0x0101, len(mapped), COOKIE) + data[8:20]
+                self._socket.sendto(head + mapped, peer)
+
+    def close(self) -> None:
+        self._alive = False
+        self._thread.join(2)
+        self._socket.close()
+
+
+def rtc(port: int) -> str:
+    """A page that asks a STUN server for the machine's address and puts the kinds of the
+    candidates it was given in its title when the browser is done looking."""
+    return f"""<title>looking</title><script>
+const kinds = [];
+const peer = new RTCPeerConnection({{iceServers: [{{urls: 'stun:127.0.0.1:{port}'}}]}});
+peer.onicecandidate = found => {{
+  if (found.candidate) kinds.push(found.candidate.candidate.split(' ')[7]);
+  else document.title = 'done ' + kinds.join(' ');
+}};
+peer.createDataChannel('x');
+peer.createOffer().then(offer => peer.setLocalDescription(offer));
+</script>"""
+
+
+async def candidates(pool, address: str) -> list[str]:
+    tab = await (await pool.session("coach")).tabs.open("c1")
+    await tab.page.goto(address)
+    await tab.page.wait_for_function("document.title.startsWith('done')", timeout=20_000)
+    await asyncio.sleep(0.5)  # a datagram on its way is in the listener's list by now
+    return (await tab.page.title()).split()[1:]
+
+
+async def test_a_page_sends_no_datagram_around_the_proxy_also_on_a_profile_used_before(tmp_path):
+    """A proxy carries no UDP, so whatever WebRTC sent would go straight to an address the
+    page chose, a private one included."""
+    stun = Stun()
+    try:
+        with sites({"/rtc": rtc(stun.port)}) as (site,):
+            async with browsers(tmp_path / "browser", site) as pool:
+                first = await candidates(pool, site.url("/rtc"))
+                assert await pool.stop("coach") is True
+                again = await candidates(pool, site.url("/rtc"))
+
+        assert (first, again, stun.hits) == ([], [], [])
+    finally:
+        stun.close()
+
+
+async def test_a_plain_http_address_is_asked_for_on_its_own_port_and_no_other(tmp_path):
+    """Chromium tries the https port first for an address written with http unless that is
+    turned off. The driver turns it off, and the crew's own switch must not undo the driver's:
+    Chromium obeys the last list of features it is given and drops the others."""
+    asked: list[int] = []
+
+    def allow(_address: str, port: int) -> bool:
+        asked.append(port)
+        return False
+
+    async with browsers(
+        tmp_path / "browser", allow=allow, resolver=lambda _: ["127.0.0.1"]
+    ) as pool:
+        tab = await (await pool.session("coach")).tabs.open("c1")
+        answer = await tab.page.goto("http://shop.example.com/")
+
+    assert answer.status == 403 and set(asked) == {80}
+
+
+def command_line(profile: Path) -> str:
+    """The browser process on `profile` as the system lists it, without its helpers."""
+    listing = subprocess.run(
+        ["ps", "-axww", "-o", "args="], capture_output=True, text=True, check=True
+    ).stdout.splitlines()
+    (main,) = [x for x in listing if f"--user-data-dir={profile}" in x and "--type=" not in x]
+    return main
+
+
+async def test_a_browser_is_given_one_list_of_features_to_turn_off_the_drivers_and_the_crews(
+    tmp_path,
+):
+    async with browsers(tmp_path / "browser") as pool:
+        await pool.session("coach")
+        main = command_line(tmp_path / "browser" / "coach")
+
+    lists = [word.split()[0] for word in main.split(" --") if word.startswith("disable-features=")]
+    assert len(lists) == 1
+    assert sorted(lists[0].split("=", 1)[1].split(",")) == sorted(DRIVER_OFF + OWN_OFF)
+    # Chromium's own sandbox is kept on macOS, and left as the driver has it elsewhere.
+    assert (" --no-sandbox" in main) is (sys.platform != "darwin")
+
+
+def test_the_names_repeated_from_the_driver_are_the_ones_the_installed_driver_turns_off():
+    """The driver's switch is taken out of the command line by its exact text: a driver whose
+    list changed would be left with its own switch, and Chromium with two."""
+    source = Path(playwright.__file__).parent / "driver" / "package" / "lib" / "coreBundle.js"
+    listed = re.search(r"disabledFeatures = \[(.*?)\n\s*\];", source.read_text("utf-8"), re.S)
+
+    assert tuple(re.findall(r'^\s*"(\w+)",?\s*$', listed.group(1), re.M)) == DRIVER_OFF
+    assert DRIVER_SWITCH == "--disable-features=" + ",".join(DRIVER_OFF)
+    assert not set(OWN_OFF) & set(DRIVER_OFF)
+
+
+class Context:
+    def set_default_timeout(self, _ms: int) -> None:
+        pass
+
+    def set_default_navigation_timeout(self, _ms: int) -> None:
+        pass
+
+
+class Chromium:
+    def __init__(self) -> None:
+        self.asked: dict = {}
+
+    async def launch_persistent_context(self, profile: str, **options) -> Context:
+        self.asked = {"profile": profile, **options}
+        return Context()
+
+
+@pytest.mark.parametrize(("platform", "kept"), [("darwin", True), ("linux", False)])
+async def test_chromiums_own_sandbox_is_kept_where_it_needs_no_set_up(
+    tmp_path, monkeypatch, platform, kept
+):
+    monkeypatch.setattr(launch_module, "sys", SimpleNamespace(platform=platform))
+    chromium, proxy = Chromium(), {"server": "http://127.0.0.1:1"}
+
+    await launch(SimpleNamespace(chromium=chromium), tmp_path / "coach", "chromium", proxy)
+
+    assert chromium.asked["chromium_sandbox"] is kept
+    assert chromium.asked["ignore_default_args"] == [DRIVER_SWITCH]
+    assert chromium.asked["proxy"] is proxy and chromium.asked["accept_downloads"] is False
+    assert chromium.asked["profile"] == str(tmp_path / "coach")
+    assert kept_in(tmp_path / "coach") == PREFERENCES
+
+
+def kept_in(profile: Path) -> object:
+    return json.loads((profile / "Default" / "Preferences").read_text(encoding="utf-8"))
+
+
+def test_a_new_profile_is_private_and_starts_with_the_crews_preferences(tmp_path):
+    profile = tmp_path / "browser" / "coach"
+
+    prepare(profile)
+
+    assert stat.S_IMODE(profile.stat().st_mode) == 0o700
+    assert kept_in(profile) == PREFERENCES == {"webrtc": {"ip_handling_policy": POLICY}}
+
+
+def test_what_the_browser_kept_stays_and_the_crews_preferences_are_written_over_it(tmp_path):
+    profile = tmp_path / "coach"
+    (profile / "Default").mkdir(parents=True)
+    kept = {
+        "profile": {"name": "Coach", "exit_type": "Normal"},
+        "webrtc": {"ip_handling_policy": "default", "multiple_routes_enabled": True},
+    }
+    (profile / "Default" / "Preferences").write_text(json.dumps(kept), encoding="utf-8")
+
+    prepare(profile)
+
+    assert kept_in(profile) == {
+        "profile": {"name": "Coach", "exit_type": "Normal"},
+        "webrtc": {"ip_handling_policy": POLICY, "multiple_routes_enabled": True},
+    }
+    assert [p.name for p in (profile / "Default").iterdir()] == ["Preferences"]
+
+
+@pytest.mark.parametrize("written", ["{not json", "[1, 2]", '"text"', "", '{"webrtc": "none"}'])
+def test_preferences_that_cannot_be_read_as_such_are_replaced(tmp_path, written):
+    profile = tmp_path / "coach"
+    (profile / "Default").mkdir(parents=True)
+    (profile / "Default" / "Preferences").write_text(written, encoding="utf-8")
+
+    prepare(profile)
+
+    assert kept_in(profile) == PREFERENCES
+
+
+def test_preferences_that_already_say_so_are_not_written_again(tmp_path):
+    profile = tmp_path / "coach"
+    prepare(profile)
+    before = (profile / "Default" / "Preferences").stat().st_ino
+
+    prepare(profile)
+
+    assert (profile / "Default" / "Preferences").stat().st_ino == before
+
+
+async def test_a_driver_that_did_not_start_is_not_kept_and_the_next_launch_starts_another(
+    monkeypatch,
+):
+    starts, up = [], SimpleNamespace()
+
+    class Manager:
+        async def start(self) -> SimpleNamespace:
+            starts.append(len(starts))
+            await asyncio.sleep(0)
+            if len(starts) == 1:
+                raise RuntimeError("the driver did not start")
+            return up
+
+    monkeypatch.setattr("playwright.async_api.async_playwright", Manager)
+    driver = Driver()
+
+    failed = await asyncio.gather(driver.get(), driver.get(), return_exceptions=True)
+    assert [type(f) for f in failed] == [RuntimeError, RuntimeError] and starts == [0]
+
+    assert await driver.get() is up and await driver.get() is up
+    assert starts == [0, 1]
+
+
+def drivers() -> list[int]:
+    """The driver processes this very process started, and no other's."""
+    listing = subprocess.run(
+        ["ps", "-axww", "-o", "pid=,ppid=,args="], capture_output=True, text=True, check=True
+    ).stdout.splitlines()
+    rows = [line.split(None, 2) for line in listing]
+    mine = [r for r in rows if len(r) == 3 and int(r[1]) == os.getpid()]
+    return [int(pid) for pid, _parent, args in mine if "/playwright/driver/" in args]
+
+
+async def test_a_driver_that_went_away_takes_its_browsers_along_and_the_next_call_starts_afresh(
+    tmp_path,
+):
+    """A browser whose driver is gone says nothing of it: without the pool noticing, every
+    later call of every agent would be handed the dead one until the server restarts."""
+    with sites({"/": "<title>Trang</title>"}) as (site,):
+        async with browsers(tmp_path / "browser", site) as pool:
+            one, two = await pool.session("coach"), await pool.session("ledger")
+            (pid,) = drivers()
+
+            os.kill(pid, signal.SIGKILL)
+            async with asyncio.timeout(20):
+                while pool.running("coach") or pool.running("ledger"):
+                    await asyncio.sleep(0.05)
+            await asyncio.sleep(0.2)
+
+            for gone in (one, two):
+                with pytest.raises(OSError):
+                    await asyncio.open_connection("127.0.0.1", gone.proxy.port)
+            again = await pool.session("coach")
+            tab = await again.tabs.open("c1")
+            await tab.page.goto(site.url("/"))
+            assert again is not one and await tab.page.title() == "Trang"
+            assert len(drivers()) == 1 and drivers() != [pid]
