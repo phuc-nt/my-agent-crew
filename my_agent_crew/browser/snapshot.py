@@ -8,7 +8,10 @@ be checked against the page as it is now and not as the model remembers it.
 A line that is not drawn the way an element is gives no entry, and so nothing to act on: a
 name is never guessed from a line half understood. Each entry also carries the first of the
 agent's ask words found in its own text or in anything under it, since a click on a box
-lands on whatever the box holds.
+lands on whatever the box holds. And a click on what stands inside a button or a link presses
+that button or link, so an entry with no word of its own carries the word of the control it
+stands in: the browser draws a control that holds elements without a name, its words on the
+lines under it.
 """
 
 from __future__ import annotations
@@ -25,6 +28,11 @@ from my_agent_crew.browser.policy import AskWords
 KEY = re.compile(r'([^\s":\[]+)(?: ("(?:[^"\\]|\\.)*"))?((?: \[[^\]]*\])*)')
 REF = re.compile(r"\[ref=(\w+)\]")
 POINTER = "[cursor=pointer]"
+# What a click sets off, wherever in it the click lands; so is anything drawn with a pointer.
+CONTROLS = frozenset(
+    "button link menuitem menuitemcheckbox menuitemradio tab option checkbox radio switch "
+    "treeitem".split()
+)
 
 
 @dataclass(frozen=True)
@@ -32,7 +40,8 @@ class Node:
     ref: str
     role: str
     name: str
-    # The ask word its own text or anything under it holds, "" for none.
+    # The ask word its own text or anything under it holds, else the one of the control it
+    # stands in, "" for none.
     word: str = ""
 
 
@@ -52,6 +61,7 @@ class Line:
 class Snapshot:
     lines: tuple[Line, ...]
     nodes: Mapping[str, Node]
+    word: str = ""  # the first ask word anywhere on it
 
 
 @dataclass(frozen=True)
@@ -118,6 +128,8 @@ def _element(item: str) -> tuple[str, str, str, str, bool] | None:
 def read(outline: str, ask: AskWords) -> Snapshot:
     lines: list[Line] = []
     found: dict[int, str] = {}
+    own: dict[int, str] = {}  # a control's word, read outside any control drawn inside it
+    first = ""
     times: dict[str, int] = {}
     above: list[int] = []
     for whole in outline.splitlines():
@@ -135,14 +147,23 @@ def read(outline: str, ask: AskWords) -> Snapshot:
         # An address is not something a person reads on the page, so it asks for nothing.
         word = "" if role.startswith("/") else ask.find(text)
         if word:
+            first = first or word
             for holder in (*above, index):
                 found.setdefault(holder, word)
+            for holder in (index, *reversed(above)):
+                if lines[holder].role in CONTROLS or lines[holder].pointer:
+                    own.setdefault(holder, word)
+                    break
         above.append(index)
         if ref:
             times[ref] = times.get(ref, 0) + 1
+    inside: list[str] = []  # for each line, the word of the nearest control it stands in
+    for line in lines:
+        held = inside[line.parent] if line.parent >= 0 else ""
+        inside.append(own.get(line.parent) or held)
     nodes = {
-        line.ref: Node(line.ref, line.role, line.name, found.get(i, ""))
+        line.ref: Node(line.ref, line.role, line.name, found.get(i) or inside[i])
         for i, line in enumerate(lines)
         if line.ref and times[line.ref] == 1  # a ref drawn twice finds nothing for certain
     }
-    return Snapshot(tuple(lines), nodes)
+    return Snapshot(tuple(lines), nodes, first)

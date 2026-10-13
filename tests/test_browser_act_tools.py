@@ -31,6 +31,7 @@ KEYS = (
     "if (event.key.length > 1 && event.key != 'Shift') "
     "log((event.shiftKey ? 'Shift+' : '') + event.key)"
 )
+DOT = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
 SHOP = (
     "<title>Cửa hàng</title>"
     "<button onclick=\"log('tìm')\">Tìm</button>"
@@ -84,6 +85,33 @@ FORMS = (
     '<button>Áp dụng</button><button title="Xác nhận">OK</button></form>'
     '<form action="/luu" method=post><input name=f aria-label="Ghi thêm">'
     "<button type=button>Xoá</button><button>Lưu</button></form>"
+    # Controls that say what they do some other way than in their own words.
+    '<form action="/k1" method=post><input name=g aria-label="Ô một"><input type=submit></form>'
+    '<form action="/k2" method=post><input name=h aria-label="Ô hai">'
+    f'<button type=submit><img alt="Gửi" src="{DOT}" width=20 height=20></button></form>'
+    '<form action="/k3" method=post><input name=i aria-label="Ô ba">'
+    f'<input type=image src="{DOT}" width=20 height=20></form>'
+    '<form action="/k4" method=post><input name=j aria-label="Ô bốn">'
+    '<button type="">Thanh toán</button></form>'
+    '<form action="/k5" method=post><input name=k aria-label="Ô năm">'
+    '<button type="sumbit">Xác nhận</button></form>'
+    '<form action="/k6" method=post><input name=l aria-label="Ô sáu"><button type=submit>'
+    '<span role=img aria-label="Xoá" style="display: inline-block; width: 20px; height: 20px">'
+    "</span></button></form>"
+    '<span id=nhan hidden>Đặt hàng</span><form action="/k7" method=post>'
+    '<input name=m aria-label="Ô bảy"><button type=submit aria-labelledby=nhan>→</button></form>'
+    '<form action="/k8" method=post><input name=n aria-label="Ô tám">'
+    "<button hidden>Xoá</button></form>"
+    # A form and what belongs to it, apart on the page.
+    '<form id=\'ở "xa"\' action="/k9" method=post><input name=o aria-label="Ô chín"></form>'
+    "<button form='ở \"xa\"'>Mua ngay</button>"
+    '<input name=p aria-label="Ô mười" form=kia><form id=kia action="/k10" method=post>'
+    "<button>Chuyển tiền</button></form>"
+    '<form action="/ghi" method=post><input name=r aria-label="Ghi lại">'
+    "<button form=kia>Xoá</button><button type=reset>Xoá hết</button><button>Ghi</button></form>"
+    # A field that names no form belongs to none, also when it stands in one.
+    '<form action="/k11" method=post><input name=s aria-label="Ô rời" form="">'
+    "<button>Xoá</button></form>"
 )
 UPLOAD = (
     "<title>Tải lên</title>"
@@ -98,6 +126,20 @@ LEAVING = (
     '<a href="/manh">Từng mảnh</a>'
     "<button onclick=\"setTimeout(() => location = '/khac', 400)\">Đi sau</button>"
 )
+# Controls that hold elements of their own: a picture, a heading, a paragraph.
+INSIDE = (
+    "<title>Trong nút</title>"
+    f"<button onclick=\"log('xoá')\"><img alt='thùng rác' src='{DOT}' width=20 height=20> "
+    "Xoá tài khoản</button>"
+    '<a href="/khac" style="display: block"><h3>Gói Pro</h3><p>199.000đ mỗi tháng</p>Mua ngay</a>'
+    "<div role=button tabindex=0 onclick=\"log('vĩnh viễn')\">"
+    "<p>Tài khoản của bạn</p><p>Xoá vĩnh viễn</p></div>"
+    "<button onclick=\"log('tiền')\"><svg width=20 height=20 role=img aria-label='biểu tượng'>"
+    "<rect width=20 height=20></rect></svg> Gửi tiền</button>"
+    '<div style="cursor: pointer" onclick="log(\'hẳn\')">Xoá hẳn<p>Không hoàn tác được</p></div>'
+    f"<button id=xem onclick=\"log('xem')\"><img alt='mắt' src='{DOT}' width=20 height=20> "
+    "<span>Xem</span></button>" + LOG
+)
 # A page in two pieces with a pause between; the first is enough for a browser to show it.
 PIECES = ["<title>Mảnh</title><p>Phần đầu</p>" + " " * 2048, 0.6, "<button>Phần cuối</button>"]
 PAGES = {
@@ -108,6 +150,7 @@ PAGES = {
     "/khung": FRAME,
     "/form": FORMS,
     "/tep": UPLOAD,
+    "/trong": INSIDE,
     # The first button stands where the shop's does, so both pages draw it under one ref.
     "/khac": '<title>Khác</title><button onclick="window.close()">Tìm</button>' + LOG,
     "/lon": "<title>Lớn dần</title><div id=dau></div><button onclick=\"log('đúng')\">Chọn</button>"
@@ -115,9 +158,10 @@ PAGES = {
     "/tim": "<title>Kết quả</title><p>Đã tìm</p>",
     "/trang": "<title>Trắng</title><p>Không có gì</p>",
     "/luu": "<title>Đã lưu</title>",
+    "/ghi": "<title>Đã ghi</title>",
     "/x.png": "",
 }
-POSTS = ("/dat", "/loi", "/tra", "/bo", "/hai")
+POSTS = ("/dat", "/loi", "/tra", "/bo", "/hai", *(f"/k{n}" for n in range(1, 12)))
 
 
 @pytest_asyncio.fixture(loop_scope="module", scope="module")
@@ -314,6 +358,40 @@ async def test_a_word_that_came_under_an_element_since_the_model_looked_stops_th
     )
 
 
+@talking("act-inside")
+async def test_a_person_is_asked_for_a_click_on_what_stands_inside_a_control_that_asks(w):
+    """A click on the picture in a button presses the button, and the browser draws a button
+    that holds a picture without a name: what it says stands beside the picture."""
+    first = await opened(w, "/trong")
+    tab = w.tab("act-inside")
+    inside = (
+        (ref_of(first, "thùng rác"), "thùng rác", "xoá"),  # the picture in a button
+        (ref_of(first, "Gói Pro"), "Gói Pro", "mua"),  # the heading in a link
+        (ref_at(first, r"paragraph \[ref=(\w+)\]: 199"), "", "mua"),
+        (ref_at(first, r"paragraph \[ref=(\w+)\]: Tài khoản"), "", "xoá"),  # a box made a button
+        (ref_of(first, "biểu tượng"), "biểu tượng", "gửi"),  # a drawing in a button
+        (ref_at(first, r"paragraph \[ref=(\w+)\]: Không hoàn tác"), "", "xoá"),  # under a pointer
+    )
+
+    for ref, name, word in inside:
+        assert why(w, "click", ref, name) == t.ASK_WORD.format(
+            kind="click", name=name, host="127.0.0.1", word=word
+        )
+        assert why(w, "hover", ref, name) is None
+    assert await logged(tab) == ""
+
+    # A control that asks for nothing is pressed through what it holds, and nobody is asked.
+    eye = ref_of(first, "mắt")
+    assert why(w, "click", eye, "mắt") is None
+    await act(w, "click", eye, "mắt")
+    assert await logged(tab) == "xem;"
+    # Once it says something else than the model saw, the click is not made.
+    await tab.page.evaluate("document.querySelector('#xem span').textContent = 'Xoá'")
+    assert why(w, "click", eye, "mắt") is None
+    assert await refused(w, "click", eye, "mắt") == t.STALE_ASK.format(ref=eye)
+    assert await logged(tab) == "xem;"
+
+
 @talking("act-moved")
 async def test_a_page_that_went_elsewhere_since_the_model_looked_is_not_acted_on(w):
     first = await opened(w)
@@ -411,6 +489,16 @@ async def test_enter_does_not_send_a_form_a_person_would_be_asked_about(w):
         ("Số lượng", "thanh toán"),  # the alt of an image that submits
         ("Lý do", "xoá"),  # a label for those who cannot see the icon
         ("Mã giảm giá", "xác nhận"),  # the second of two buttons, in its title
+        ("Ô một", "submit"),  # a submit input that says nothing: the browser calls it Submit
+        ("Ô hai", "gửi"),  # the alt of a picture the button holds
+        ("Ô ba", "submit"),  # an image that submits and has no alt
+        ("Ô bốn", "thanh toán"),  # a type left empty is a submit button's
+        ("Ô năm", "xác nhận"),  # and so is a type nobody knows
+        ("Ô sáu", "xoá"),  # a label on what the button holds
+        ("Ô bảy", "đặt hàng"),  # a name written elsewhere on the page
+        ("Ô tám", "xoá"),  # a button nobody sees is still what Enter presses
+        ("Ô chín", "mua"),  # a button outside the form, tied to it by the form's id
+        ("Ô mười", "chuyển tiền"),  # a field outside its form
     )
 
     for name, word in forms:
@@ -428,6 +516,16 @@ async def test_enter_does_not_send_a_form_a_person_would_be_asked_about(w):
     sent = await act(w, "press", ref_of(first, "Ghi thêm"), "Ghi thêm", key="Enter")
 
     assert "POST /luu" in w.site.seen and "Tiêu đề: Đã lưu" in parts(sent)[1]
+    # Nor does one that only empties the form, or stands in it and belongs to another.
+    again = await opened(w, "/form")
+    sent = await act(w, "press", ref_of(again, "Ghi lại"), "Ghi lại", key="Enter")
+
+    assert "POST /ghi" in w.site.seen and "Tiêu đề: Đã ghi" in parts(sent)[1]
+    # And Enter in a field of no form sends none, whatever the form around it would do.
+    last = await opened(w, "/form")
+    stayed = await act(w, "press", ref_of(last, "Ô rời"), "Ô rời", key="Enter")
+
+    assert "Địa chỉ: " + w.site.url("/form") in parts(stayed)[1]
     assert not [x for x in w.site.seen if x.split()[1] in POSTS]
 
 

@@ -383,9 +383,12 @@ duyệt.
 - `browser_act` luôn hỏi, kể cả trong hội thoại autonomous, khi `kind` là `upload` (thẻ duyệt
   nêu tệp nào, lên trang nào); khi agent có `browser_hosts` và trang đang hiện nằm ngoài danh
   sách; hoặc khi `kind` là `click`, `press` hay `select` và phần tử mang một **từ dừng** — trong
-  tên model nêu, trong lựa chọn được chọn (`select`), hoặc trong chữ trang vẽ tại phần tử và bên
-  trong nó. Ngoài ba trường hợp ấy, thao tác hỏi trong hội thoại được giám sát và chạy trong hội
-  thoại autonomous.
+  tên model nêu, trong lựa chọn được chọn (`select`), trong chữ trang vẽ tại phần tử và bên
+  trong nó, hoặc trong chữ của thứ bấm được mà phần tử nằm trong: bấm vào tấm ảnh hay dòng chữ
+  bên trong một nút là bấm chính nút ấy. Thứ bấm được là nút, liên kết, mục menu, tab, lựa chọn,
+  ô đánh dấu, nút chọn một, công tắc, mục của cây, và mọi thứ trang vẽ với con trỏ hình bàn tay.
+  Ngoài ba trường hợp ấy, thao tác hỏi trong hội thoại được giám sát và chạy trong hội thoại
+  autonomous.
 
 Thẻ duyệt của một thao tác ngoài ba trường hợp ấy đọc lên thao tác và tên phần tử (bấm «Xem đơn»),
 không kèm dòng lý do: nó không nêu host của trang và không nói một liên kết dẫn tới đâu. Ba trường
@@ -433,8 +436,17 @@ trả lời nói rõ thao tác **đã xong** và dặn đừng lặp lại khi c
 `password`, `passcode`, `otp`, `mã xác thực`, `mã xác minh`, `cvv`, `cvc`, `số thẻ`, `card
 number`. Không cấu hình nào bật được việc này: đăng nhập và thanh toán là việc của chủ.
 
-**Enter gửi form.** `press` với Enter trong một form mà nút gửi mang một từ dừng bị từ chối, kèm
-lời dặn bấm thẳng nút gửi bằng `click` để chủ được hỏi.
+**Enter gửi form.** `press` với Enter trong một ô của một form mà một nút gửi của form ấy mang
+một từ dừng bị từ chối, kèm lời dặn bấm thẳng nút gửi bằng `click` để chủ được hỏi. Nút gửi là
+mọi `button` không ghi `type=button` hay `type=reset` (thiếu `type`, `type` rỗng hay viết sai đều
+là nút gửi), `input type=submit` và `input type=image`. Form của một ô là form ô ấy nêu bằng
+thuộc tính `form=`, không nêu thì là form bao quanh nó; nút gửi của form gồm cả nút nằm ngoài mà
+gắn vào bằng `form=`, và không gồm nút nằm trong mà thuộc form khác. Mỗi nút được xét bằng đúng
+thứ trình duyệt vẽ ra cho nó, tức thứ một lần bấm vào nó được xét: tên trình duyệt tự tính (từ
+`alt` của tấm ảnh bên trong, `aria-label`, `aria-labelledby`, nhãn `<label>`, hay chữ "Submit"
+của một nút không ghi gì), cộng với chữ và các thuộc tính `value`, `aria-label`, `title`, `alt`
+của chính nó, nên nút bị giấu vẫn được đọc. Mỗi form được đọc tới năm nút nằm trong và năm nút
+gắn từ ngoài; nút mà Enter bấm là nút đứng đầu, luôn nằm trong số ấy.
 
 **Chỉ tới địa chỉ công khai.** Đây là từ chối cứng: không cấu hình và không lần duyệt nào bật được.
 `browser_navigate` chỉ nhận địa chỉ `http`/`https` đầy đủ; nó từ chối địa chỉ có `user@`, dấu `\`,
@@ -528,9 +540,13 @@ duyệt của nó.
 - `browser_hosts` giới hạn lần điều hướng trực tiếp và các thao tác, không giới hạn redirect hay
   liên kết của trang thuộc một host trong danh sách. Khung (frame) bên trong một trang được xét
   theo host của trang ngoài cùng.
-- Quy tắc Enter không bắt được ô "Enter để gửi" không nằm trong `<form>`, form không có nút gửi,
-  và nút gửi gắn bằng thuộc tính `form=`. Nút chỉ có biểu tượng, không tên, mà gửi đi thì không
-  từ dừng nào bắt được.
+- Quy tắc Enter không bắt được ô "Enter để gửi" không nằm trong `<form>` và form không có nút
+  gửi nào (trang tự gửi bằng mã, hoặc form chỉ có một ô). Nút chỉ có biểu tượng, không tên, mà
+  gửi đi thì không từ dừng nào bắt được.
+- Từ dừng của một thứ bấm được truyền xuống mọi phần tử bên trong nó; tên của một hộp thoại hay
+  một form thì không. Nút chỉ ghi "OK" trong hộp thoại "Xoá tài khoản?" không dừng lại hỏi; lần
+  bấm mở hộp thoại ấy thì có, khi nút mở mang từ dừng. Thứ trang không vẽ thành nút, liên kết
+  hay con trỏ bàn tay (một `div` trơn gắn `onclick`) cũng không truyền chữ xuống phần tử con.
 - Trang rời đi muộn hơn lúc tool đọc lại được kể như trang cũ; `browser_act` kế tiếp đọc lại
   trang và từ chối khi địa chỉ đã đổi.
 - Các job script theo lịch của một agent dùng chung một chủ tab.
