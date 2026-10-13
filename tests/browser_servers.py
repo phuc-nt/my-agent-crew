@@ -6,9 +6,13 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+from my_agent_crew.browser.pool import BrowserPool
+from my_agent_crew.config_browser import BrowserSettings
 
 Page = Callable[["Site"], tuple[int, dict[str, str], str]] | str
 
@@ -131,3 +135,31 @@ async def ask(port: int, raw: bytes, more: bytes = b"", wait: float = 0.3) -> by
     finally:
         writer.close()
     return answer
+
+
+class Clock:
+    """A clock a test moves by hand."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@asynccontextmanager
+async def browsers(
+    root: Path, *allowed: Site, clock: Clock | None = None, **settings: object
+) -> AsyncIterator[BrowserPool]:
+    """A pool whose browsers reach the given test servers and nothing else on this machine,
+    stopped with everything it started when the test is over."""
+    pool = BrowserPool(
+        root,
+        BrowserSettings(enabled=True, **settings),
+        allow=only(*allowed),
+        **({"clock": clock} if clock else {}),
+    )
+    try:
+        yield pool
+    finally:
+        await pool.stop_all()

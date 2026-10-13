@@ -46,3 +46,14 @@ URL_PRIVATE = (
     "Từ chối mở {host}: đó là địa chỉ nội bộ (máy này, mạng riêng hoặc mạng nội bộ). Trình duyệt "
     "của đội chỉ tới địa chỉ công khai, và không cấu hình nào bật được việc này."
 )
+
+# Refusals about tabs.
+NO_TAB = "Chưa có tab nào mở trong hội thoại này. Gọi browser_navigate với một địa chỉ trước."
+UNKNOWN_TAB = "Không có tab «{label}» trong hội thoại này. Tab đang mở: {labels}."
+BAD_LABEL = (
+    "Nhãn tab «{label}» không hợp lệ: chỉ chữ thường không dấu, số, gạch nối và gạch dưới, "
+    "tối đa 24 ký tự."
+)
+TOO_MANY_TABS = (
+    "Trình duyệt đã mở {count} tab, là mức tối đa. Đóng bớt bằng browser_tabs(close=…) rồi mở lại."
+)
