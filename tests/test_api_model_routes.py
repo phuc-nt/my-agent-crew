@@ -165,3 +165,21 @@ def test_a_config_file_that_cannot_be_written_is_said_not_raised(home: Path) -> 
 
     assert reply.status_code == 409 and "config.yaml" in reply.json()["detail"]
     assert runtime.settings.routes == (Route("fake", "echo"),)
+
+
+def test_the_answer_is_the_connections_page_as_it_now_reads(home: Path) -> None:
+    client, _ = _crew(home)
+    with client:
+        reply = client.put(
+            "/api/connections/routes", json={"routes": [{"provider": "fake", "model": "two"}]}
+        )
+        page = client.get("/api/connections").json()
+
+    assert reply.status_code == 200, reply.text
+    assert reply.json() == {**page, "restart_required": None}
+    # All of it, the machine's desktop helper with the rest: this home has none.
+    unknown = ("version", "protocol", "locked", "display_asleep", "screen_recording")
+    assert reply.json()["desktop"] == {
+        "present": False,
+        **dict.fromkeys((*unknown, "accessibility")),
+    }

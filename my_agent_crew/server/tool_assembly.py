@@ -15,6 +15,7 @@ from my_agent_crew.config_browser import browser_root
 from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.provider import ProviderChain
 from my_agent_crew.server.browser_runtime import browser_tools_of
+from my_agent_crew.server.desktop_runtime import desktop_private, desktop_tools_of
 from my_agent_crew.server.tool_list_names import Reason, listable, listed_elsewhere
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Store
@@ -104,8 +105,7 @@ def assemble(
     does not pass a chain gets. Every call either chain makes here lands in the usage
     ledger under what it was for.
 
-    `browser` is where the agent's browser is started; without it no agent gets a
-    browser tool."""
+    `browser` is where an agent's browser is started; without it none gets a browser tool."""
     pictures = MeteredChain(vision, store, profile.id, "image") if vision is not None else None
     pages = MeteredChain(vision, store, profile.id, "pdf") if vision is not None else None
     tools: list[Tool] = [
@@ -128,8 +128,8 @@ def assemble(
             network=profile.settings.shell_network,
             write_paths=profile.shell_write_dirs,
             deny_patterns=profile.settings.shell_deny_patterns,
-            # What the browsers are signed in to: no sandboxed command reads it.
-            private=(browser_root(profile.settings.home),),
+            # The browsers' logins and the desktop helper's socket: closed to its commands.
+            private=(browser_root(profile.settings.home), *desktop_private(profile.settings)),
         ),
         *build_skill_tools(skills),
         # Asking is not a capability an agent should have to be granted: an agent that may
@@ -187,9 +187,10 @@ def assemble(
     tools.append(build_output_read_tool(store, spill, limit))
     why = listed_elsewhere(profile, {tool.name for tool in work_only})
     kept = allowed(tools, profile.tools, profile.id, why)
-    # The agent's `browser` key alone brings these and alone keeps them away: a list
-    # written before the key was set would otherwise quietly leave the browser out.
+    # The agent's `browser` and `computer` keys alone bring these and alone keep them away:
+    # a list written before a key was set would otherwise quietly leave its tools out.
     kept += browser_tools_of(browser, profile, limit, pictures)
+    kept += desktop_tools_of(profile, limit, pictures)
     can_reread = any(tool.name == READ_TOOL for tool in kept)
     hooks = HookRunner(profile.hooks, profile.id) if profile.hooks else None
     summariser = None

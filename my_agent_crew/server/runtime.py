@@ -26,6 +26,7 @@ from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.server import runtime_crew
 from my_agent_crew.server.browser_runtime import Browsers, build_browsers
 from my_agent_crew.server.crew_abilities import crew_abilities
+from my_agent_crew.server.desktop_runtime import close_desktop
 from my_agent_crew.store import Store
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME, build_delegate_tool
 
@@ -63,6 +64,8 @@ class Runtime:
 
     def __post_init__(self) -> None:
         self.browsers = self.browsers or build_browsers(self.settings, os.environ)
+        # Whether or not a helper runs: its socket is no file of any agent's.
+        close_desktop(self.settings)
         self.scheduler = Scheduler(
             self.agents, self.hub, clock=self.settings.now, deliver=self.deliver, notify=self.notify
         )

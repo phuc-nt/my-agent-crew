@@ -44,6 +44,8 @@ PROFILE_KEYS = {
     "write_paths",
     "browser",
     "browser_hosts",
+    "computer",
+    "computer_apps",
     "schedules",
     "telegram",
     "memory_consolidate",
@@ -143,6 +145,8 @@ class AgentProfile:
             "write_paths": list(self.settings.write_paths),
             "browser": self.settings.browser.mode,
             "browser_hosts": list(self.settings.browser.hosts),
+            "computer": self.settings.desktop.mode,
+            "computer_apps": list(self.settings.desktop.apps),
             "persona_files": [f for f in self.persona_files if (self.dir / f).is_file()],
             # Every name this agent would read, written or not. An editor that offered
             # only the files that already exist could never create the first one, which
