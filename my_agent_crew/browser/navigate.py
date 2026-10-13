@@ -20,7 +20,7 @@ from my_agent_crew.browser.kit import (
     text_of,
     timed_out,
 )
-from my_agent_crew.browser.network import check_url
+from my_agent_crew.browser.network import always_refused, check_url
 from my_agent_crew.browser.policy import host_allowed, host_of
 from my_agent_crew.browser.pool import Session
 from my_agent_crew.browser.proxy import MARK
@@ -75,15 +75,20 @@ async def _go(session: Session, tab: Tab, url: str, wait: int, mark: int) -> int
 def build_navigate(kit: Kit) -> Tool:
     hosts = kit.settings.hosts
 
+    def doomed(args: dict[str, Any]) -> bool:
+        """An address the call refuses whatever a person says. Nobody is asked about one: a
+        yes would change nothing, so the call goes straight to its refusal."""
+        return always_refused(text_of(args, "url"), kit.pool.allow)
+
     def outside(args: dict[str, Any]) -> str | None:
         """An agent given hosts stops for a person before it opens any other."""
         host = host_of(text_of(args, "url"))
-        if hosts and host and not host_allowed(host, hosts):
+        if hosts and host and not host_allowed(host, hosts) and not doomed(args):
             return t.ASK_NAV_OUTSIDE.format(host=host)
         return None
 
     def routine(args: dict[str, Any]) -> bool:
-        return bool(hosts) and host_allowed(host_of(text_of(args, "url")), hosts)
+        return doomed(args) or host_allowed(host_of(text_of(args, "url")), hosts)
 
     async def run(args: dict[str, Any]) -> str:
         # The browser is given the address as it was read here, never as it was written.

@@ -7304,10 +7304,12 @@ dựng một đội có agent giữ trình duyệt.
     duyệt không tự chạy việc riêng nào ra mạng).
 - **chỉ tới địa chỉ công khai**:
   - pytest: `tests/test_browser_network.py` (địa chỉ không công khai là nội bộ, kể cả địa chỉ riêng
-    viết trong IPv6; dải mà `fetch_url` cho qua thì trình duyệt vẫn chặn; một tên chỉ tới được khi mọi
-    địa chỉ nó phân giải ra đều tới được; chỉ mở địa chỉ `http`/`https` đầy đủ; trang ở địa chỉ riêng
-    bị từ chối kèm tên; tên không ai phân giải được nói đúng là vậy chứ không nói là riêng; ngoại lệ
-    cho test nêu một cổng và không che gì khác).
+    viết trong IPv6; dải mà `fetch_url` cho qua thì trình duyệt vẫn chặn; một tên chỉ tới được khi
+    mọi địa chỉ nó phân giải ra đều tới được; chỉ mở địa chỉ `http`/`https` đầy đủ; trang ở địa chỉ
+    riêng bị từ chối kèm tên; địa chỉ riêng viết thẳng ra bị từ chối mà không phân giải tên nào; địa
+    chỉ chỉ việc phân giải mới từ chối được thì không bị coi là đã bị từ chối từ trước; tên không ai
+    phân giải được nói đúng là vậy chứ không nói là riêng; ngoại lệ cho test nêu một cổng và không
+    che gì khác).
   - pytest: `tests/test_browser_proxy.py` (máy chủ nội bộ bị từ chối và không bao giờ được nối tới;
     tên trỏ vào trong bị từ chối theo địa chỉ nó phân giải ra; request đi tới đúng địa chỉ đã kiểm,
     không hỏi lại tên; proxy ký câu trả lời của chính nó và không trang nào giả được chữ ký; trang
@@ -7343,14 +7345,15 @@ dựng một đội có agent giữ trình duyệt.
     quá trần thì rút về những gì thao tác được; tìm kiếm trả những dòng chứa từ, dưới các dòng cha
     của chúng, xét cả giá trị, địa chỉ và hai cách viết dấu; mọi khung nhìn bị cắt đều kết ở một dòng
     trọn và nói còn bao nhiêu).
-  - pytest: `tests/test_browser_navigate.py` (trang được kể giữa hai dòng rào và được giữ làm thứ
-    đã cho xem; lời gọi tiếp tục ở tab vừa dùng trừ khi nêu tab khác; địa chỉ bị từ chối không khởi
+  - pytest: `tests/test_browser_navigate.py` (trang được kể giữa hai dòng rào và được giữ làm thứ đã
+    cho xem; lời gọi tiếp tục ở tab vừa dùng trừ khi nêu tab khác; địa chỉ bị từ chối không khởi
     động trình duyệt; trang dẫn tới địa chỉ riêng bị từ chối và để lại tab trắng; lời từ chối của
     chính trang web là một trang như mọi trang; trang tự viết dấu của proxy chỉ tự từ chối mình; máy
     chủ không trả lời được nêu tên; trang tải quá chậm bị bỏ mà tab vẫn dùng được; lỗi của trình
     duyệt được kể không kèm địa chỉ; địa chỉ lẽ ra tải tệp về thì không tải gì; thứ trang với tới mà
     bị từ chối được kể trong rào; agent có danh sách host mở các host ấy không hỏi và hỏi với host
-    khác; trình duyệt được giao địa chỉ đúng như đã kiểm).
+    khác; không ai bị hỏi về một địa chỉ bị từ chối bất kể họ trả lời gì; trình duyệt được giao địa
+    chỉ đúng như đã kiểm).
   - pytest: `tests/test_browser_read_tools.py` (điều trang viết không đóng được rào cũng không đứng
     được ngoài rào; trang dài hơn trần bị cắt ở dòng trọn và giữ dòng rào đóng; cửa sổ trang mở và
     hộp thoại được kể đúng một lần; dàn ý chờ được một câu chữ và nói khi chữ không tới; tab chỉ

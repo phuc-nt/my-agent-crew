@@ -10,9 +10,11 @@ import pytest_asyncio
 from playwright.async_api import Error
 
 from my_agent_crew import texts_browser as t
+from my_agent_crew.agent.tool_gate import ASK, RUN, verdict
 from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.browser import navigate
 from my_agent_crew.browser.navigate import build_navigate
+from my_agent_crew.browser.policy import host_of
 from my_agent_crew.tools.registry import ToolError
 from tests.browser_servers import Site, browsers, sites
 from tests.browser_tools import World, parts, talking, world
@@ -310,9 +312,10 @@ async def test_an_agent_with_hosts_opens_them_unasked_and_asks_for_any_other(w):
         "under": "http://a.b.cdn.example:8080/",
         "out": "https://evil.example/shop.example",
         "alike": "https://notshop.example/",
-        "misread": "https://shop.example\\@evil.example/",
-        "named": "https://shop.example@evil.example/",
-        "none": "shop.example",
+        # A test's own server is the one private address not refused outright: asked for.
+        "here": w.site.url("/"),
+        # A name is refused only once it is resolved, so it is asked for as any other is.
+        "inwards": "http://router.test/",
     }
 
     asks = {key: held.ask_when({"url": url}) for key, url in urls.items()}
@@ -324,16 +327,69 @@ async def test_an_agent_with_hosts_opens_them_unasked_and_asks_for_any_other(w):
         "under": None,
         "out": t.ASK_NAV_OUTSIDE.format(host="evil.example"),
         "alike": t.ASK_NAV_OUTSIDE.format(host="notshop.example"),
-        "misread": None,
-        "named": None,
-        "none": None,
+        "here": t.ASK_NAV_OUTSIDE.format(host="127.0.0.1"),
+        "inwards": t.ASK_NAV_OUTSIDE.format(host="router.test"),
     }
     assert [key for key, routine in runs.items() if routine] == ["in", "shout", "under"]
-    assert held.allow_when({"url": ["https://shop.example/"]}) is False
     # Without a list, a navigation is asked for like any other change and never waved through.
     assert all(free.ask_when({"url": url}) is None for url in urls.values())
     assert not any(free.allow_when({"url": url}) for url in urls.values())
     assert held.requires_approval and free.requires_approval and not free.replay_safe
+
+
+async def test_nobody_is_asked_about_an_address_that_is_refused_whatever_they_say(w, deps_factory):
+    """A yes would change nothing. The call goes straight to its refusal instead: for an
+    agent with hosts of its own and for one with none, watched or left to itself."""
+    free, held = (
+        build_navigate(w.kit("never")),
+        build_navigate(w.kit("never", hosts=("shop.example", "localhost"))),
+    )
+    private = [
+        "http://10.0.0.5/",
+        "http://127.0.0.1:9/",
+        "http://localhost:9/api/agents",
+        "http://shop.localhost/",
+        "http://[::1]:8765/",
+        "http://[::ffff:127.0.0.1]/",
+        "http://169.254.169.254/latest/meta-data/",
+    ]
+    unread = [
+        "file:///etc/passwd",
+        "javascript:alert(1)",
+        "about:blank",
+        "https://shop.example\\@evil.example/",
+        "https://shop.example@evil.example/",
+        "shop.example",
+        "",
+        ["https://shop.example/"],
+    ]
+    deps = deps_factory(extra_tools=[held])
+    watched, alone = deps.store.create(), deps.store.create(autonomous=True)
+
+    said = {}
+    for tool in (free, held):
+        for url in [*private, *unread]:
+            assert tool.ask_when({"url": url}) is None, url
+            assert tool.allow_when({"url": url}) is True, url
+            with pytest.raises(ToolError) as error:
+                await tool.run({"url": url})
+            said[str(url)] = str(error.value)
+
+    assert [said[url] for url in private] == [
+        t.URL_PRIVATE.format(host=host_of(url)) for url in private
+    ]
+    assert said["http://localhost:9/api/agents"] == t.URL_PRIVATE.format(host="localhost")
+    assert {said[str(url)] for url in unread} == {t.URL_SCHEME}
+    # The gate itself: neither conversation stops for one, and both still stop for a page
+    # outside the list that might be opened.
+    for conv in (watched, alone):
+        assert verdict(deps, conv, held.name, {"url": "http://127.0.0.1:9/"}) == RUN
+        assert verdict(deps, conv, held.name, {"url": "javascript:alert(1)"}) == RUN
+        assert verdict(deps, conv, held.name, {"url": "https://evil.example/"}) == ASK
+    # A test's own server, reached under a name of the agent's, is opened as any of its hosts.
+    assert held.allow_when({"url": w.site.url("/", host="localhost")}) is True
+    assert not free.allow_when({"url": w.site.url("/", host="localhost")})
+    assert w.pool.running("never") is None and w.intranet.seen == []
 
 
 async def test_the_browser_is_given_the_address_as_it_was_checked(tmp_path):
