@@ -68,7 +68,7 @@ function HostsField({ form, readOnly }: Pick<Props, "form" | "readOnly">) {
 /**
  * Whether the agent has a browser, and which hosts it opens without asking.
  *
- * Both sit with the tools because they are the say over six of them: the browser's tools
+ * Both sit with the tools because they are the say over eight of them: the browser's tools
  * are handed outside the allow-list, by this key and by nothing else. Under the select is
  * the line for the option chosen, and under that, when the machine cannot give a browser,
  * the reason the choice brings no tool yet.

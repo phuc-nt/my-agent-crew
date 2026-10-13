@@ -12,7 +12,7 @@ interface Props {
  * is held only while one of them has to be found, and the script tool only while the
  * agent has a tool that only reads for a script to call, unless its file takes the tool
  * away, which is a choice and not a lack. The browser's tools follow the agent's own
- * `browser` key and nothing else: off brings none, reading all but the one that acts. */
+ * `browser` key and nothing else: off brings none, reading all but the two that act. */
 type Cell =
   | ("on" | "excluded" | "missing-key" | "work-mode" | "mcp-off" | "mcp-none" | "no-reads" | "script-off")
   | ("browser-off" | "browser-read");
@@ -43,8 +43,9 @@ const TITLE: Record<Cell, string> = {
   "browser-read": vi.browser.cellReadOnly,
 };
 
-/** The one tool of the browser that reading pages does not bring. */
-const actsOnPages = (tool: RegistryTool) => Boolean(tool.with_browser) && tool.name === "browser_act";
+/** The browser's tools that reading pages does not bring: each does something to a page. */
+const ACTS_ON_PAGES = ["browser_act", "browser_download"];
+const actsOnPages = (tool: RegistryTool) => Boolean(tool.with_browser) && ACTS_ON_PAGES.includes(tool.name);
 
 /** A mark only some crews can meet: the tools that bring it, and the agents it takes. */
 const ONLY_WITH: Partial<Record<Cell, (tool: RegistryTool, agents: AgentInfo[]) => boolean>> = {

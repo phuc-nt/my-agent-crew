@@ -482,7 +482,8 @@ describe("stopping the browser", () => {
     expect(sent()).toEqual(["POST /agents/coach/browser/stop", `GET ${READ}`]);
     expect(browser.running("coach")).toBe(false);
     expect(rows()).toEqual([]);
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    // Nothing is left to stop or close; what is offered is the window to sign in through.
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([vi.browser.login.start]);
     expect(screen.queryByTestId("browser-note")).not.toBeInTheDocument();
   });
 
@@ -508,7 +509,7 @@ describe("stopping the browser", () => {
 
     await line.land();
     expect(state()).toHaveTextContent(t.stopped);
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([vi.browser.login.start]);
   });
 
   it.each([

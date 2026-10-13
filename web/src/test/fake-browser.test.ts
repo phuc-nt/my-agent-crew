@@ -1,7 +1,7 @@
 import { describe, expect, it, vi as vitest } from "vitest";
 import type { AgentBrowser, AgentInfo, ConnectionsInfo, RegistryTool } from "../api/types";
 import { FakeBackend, fakeAgent } from "./fake-backend";
-import { BROWSER_ACT_TOOL, BROWSER_READ_TOOLS, type BrowserCrewMember, browserMachine, browserTab, FakeBrowser, TAB_UNKNOWN } from "./fake-browser";
+import { BROWSER_ACT_TOOLS, BROWSER_READ_TOOLS, type BrowserCrewMember, browserMachine, browserTab, FakeBrowser, TAB_UNKNOWN } from "./fake-browser";
 
 const BASE = "/agents/coach/browser";
 const CREW: BrowserCrewMember[] = [{ id: "default" }, { id: "coach", browser: "act" }, { id: "reader", browser: "read" }];
@@ -17,7 +17,12 @@ describe("the browser routes both fakes answer", () => {
   it("reads an agent whose browser is not up: no tab, no idle time, and what its file and the machine say", () => {
     expect(crewed().route(BASE, "GET")).toEqual({
       status: 200,
-      body: { mode: "act", enabled: true, installed: true, running: false, busy: false, idle_seconds: null, tabs: [] },
+      body: {
+        mode: "act", enabled: true, installed: true, running: false, busy: false, idle_seconds: null, tabs: [],
+        // No window is open on its profile, one can be, and nothing was ever written of what it holds.
+        login: { open: false, until: null, available: true, why: "" },
+        logins: null,
+      },
     });
   });
 
@@ -86,13 +91,15 @@ describe("the browser routes both fakes answer", () => {
     expect(browser.tabIds("coach")).toEqual([1]);
   });
 
-  it("answers 404 for an agent the crew does not have, on each of the three", () => {
+  it("answers 404 for an agent the crew does not have, on each of the five", () => {
     const browser = crewed();
     const unknown = { status: 404, body: { detail: "unknown agent nobody" } };
 
     expect(browser.route("/agents/nobody/browser", "GET")).toEqual(unknown);
     expect(browser.route("/agents/nobody/browser/stop", "POST")).toEqual(unknown);
     expect(browser.route("/agents/nobody/browser/tabs/1", "DELETE")).toEqual(unknown);
+    expect(browser.route("/agents/nobody/browser/login", "POST", {})).toEqual(unknown);
+    expect(browser.route("/agents/nobody/browser/login/done", "POST")).toEqual(unknown);
   });
 
   it("answers each path to its own method only", () => {
@@ -101,15 +108,21 @@ describe("the browser routes both fakes answer", () => {
     expect(browser.route(BASE, "POST")?.status).toBe(405);
     expect(browser.route(`${BASE}/stop`, "GET")?.status).toBe(405);
     expect(browser.route(`${BASE}/tabs/1`, "GET")?.status).toBe(405);
-    // Nothing was stopped or closed by a request the server would not have routed.
+    expect(browser.route(`${BASE}/login`, "GET")?.status).toBe(405);
+    expect(browser.route(`${BASE}/login/done`, "GET")?.status).toBe(405);
+    // Nothing was stopped, closed or opened by a request the server would not have routed.
     expect(browser.running("coach")).toBe(true);
     expect(browser.tabIds("coach")).toEqual([1]);
+    expect(read(browser).login).toMatchObject({ open: false });
   });
 
   it("leaves every other path to the fake it sits in", () => {
     const browser = crewed();
 
-    for (const path of ["/agents/coach", "/agents/coach/browsers", "/agents/coach/browser/tabs", "/agents/coach/browser/stop/now", "/connections", "/browser"])
+    for (const path of [
+      "/agents/coach", "/agents/coach/browsers", "/agents/coach/browser/tabs", "/agents/coach/browser/stop/now",
+      "/agents/coach/browser/login/now", "/agents/coach/browser/done", "/agents/coach/browser/login/done/now", "/connections", "/browser",
+    ])
       expect(browser.route(path, "GET")).toBeNull();
   });
 
@@ -120,6 +133,8 @@ describe("the browser routes both fakes answer", () => {
     expect(browser.route(BASE, "GET")).toEqual({ status: 404, body: { detail: "Not Found" } });
     expect(browser.route(`${BASE}/stop`, "POST")?.status).toBe(404);
     expect(browser.route(`${BASE}/tabs/1`, "DELETE")?.status).toBe(404);
+    expect(browser.route(`${BASE}/login`, "POST", {})?.status).toBe(404);
+    expect(browser.route(`${BASE}/login/done`, "POST")?.status).toBe(404);
     expect(browser.status()).toBeUndefined();
     expect(browser.registryTools()).toEqual([]);
   });
@@ -183,31 +198,36 @@ describe("what a save of an agent does to its browser", () => {
 describe("the browser's rows of GET /tools", () => {
   const names = (rows: RegistryTool[]) => rows.map((row) => row.name);
 
-  it("are the six tools by name, each marked as handed outside any list and never optional", () => {
+  it("are the eight tools by name, each marked as handed outside any list and never optional", () => {
     const rows = crewed().registryTools();
 
-    expect(names(rows)).toEqual(["browser_act", "browser_navigate", "browser_screenshot", "browser_snapshot", "browser_tabs", "browser_text"]);
-    expect(names(rows).sort()).toEqual([...BROWSER_READ_TOOLS, BROWSER_ACT_TOOL].sort());
+    expect(names(rows)).toEqual([
+      "browser_act", "browser_download", "browser_navigate", "browser_pdf", "browser_screenshot", "browser_snapshot", "browser_tabs", "browser_text",
+    ]);
+    expect(names(rows).sort()).toEqual([...BROWSER_READ_TOOLS, ...BROWSER_ACT_TOOLS].sort());
     for (const row of rows) expect(row).toMatchObject({ optional: false, with_browser: true });
   });
 
-  it("ask first for the two that open an address or touch a page, and for no other", () => {
+  it("ask first for the three that open an address or touch a page, and for no other", () => {
     const asks = crewed().registryTools().filter((row) => row.requires_approval);
 
-    expect(names(asks)).toEqual(["browser_act", "browser_navigate"]);
+    expect(names(asks)).toEqual(["browser_act", "browser_download", "browser_navigate"]);
   });
 
-  it("name the agents whose file asks for each: reading brings five, acting the sixth", () => {
+  it("name the agents whose file asks for each: reading brings six, acting two more", () => {
     const held = Object.fromEntries(crewed().registryTools().map((row) => [row.name, row.agents]));
 
-    expect(held.browser_act).toEqual(["coach"]);
+    expect(BROWSER_READ_TOOLS).toHaveLength(6);
+    expect(BROWSER_ACT_TOOLS).toEqual(["browser_act", "browser_download"]);
+    for (const name of BROWSER_ACT_TOOLS) expect(held[name]).toEqual(["coach"]);
     for (const name of BROWSER_READ_TOOLS) expect(held[name]).toEqual(["coach", "reader"]);
   });
 
   it("have no row for a tool nobody holds, and none at all in a crew that asks for no browser", () => {
     const readers = crewed([{ id: "default" }, { id: "reader", browser: "read" }]);
-    expect(names(readers.registryTools())).not.toContain("browser_act");
-    expect(readers.registryTools()).toHaveLength(5);
+    for (const name of BROWSER_ACT_TOOLS) expect(names(readers.registryTools())).not.toContain(name);
+    expect(names(readers.registryTools())).toContain("browser_pdf");
+    expect(readers.registryTools()).toHaveLength(6);
 
     expect(crewed([{ id: "default" }, { id: "coach", browser: "off" }]).registryTools()).toEqual([]);
   });
@@ -307,6 +327,8 @@ describe("the browser as the fake server wires it", () => {
 
     expect(tools.find((tool) => tool.name === "browser_act")).toMatchObject({ agents: ["coach"], with_browser: true, requires_approval: true });
     expect(tools.find((tool) => tool.name === "write_file")).not.toHaveProperty("with_browser");
-    expect(tools.filter((tool) => tool.with_browser)).toHaveLength(6);
+    expect(tools.find((tool) => tool.name === "browser_download")).toMatchObject({ agents: ["coach"], with_browser: true, requires_approval: true });
+    expect(tools.find((tool) => tool.name === "browser_pdf")).toMatchObject({ agents: ["coach"], with_browser: true, requires_approval: false });
+    expect(tools.filter((tool) => tool.with_browser)).toHaveLength(8);
   });
 });

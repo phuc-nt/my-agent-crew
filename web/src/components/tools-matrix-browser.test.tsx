@@ -3,16 +3,16 @@ import { describe, expect, it } from "vitest";
 import type { AgentInfo, RegistryTool } from "../api/types";
 import { vi } from "../i18n/vi";
 import { fakeAgent } from "../test/fake-backend";
-import { BROWSER_ACT_TOOL, BROWSER_READ_TOOLS, FakeBrowser, browserMachine } from "../test/fake-browser";
+import { BROWSER_ACT_TOOLS, BROWSER_READ_TOOLS, FakeBrowser, browserMachine } from "../test/fake-browser";
 import { ToolsMatrix } from "./tools-matrix";
 
-// The browser's six tools are handed by the agent's own `browser` key and by no list. A cell
+// The browser's eight tools are handed by the agent's own `browser` key and by no list. A cell
 // that misses one says which level the agent is at, never that the tool was left off a list.
 const actor: AgentInfo = { ...fakeAgent, id: "actor", name: "Thao tác", is_master: false, browser: "act" };
 const reader: AgentInfo = { ...fakeAgent, id: "reader", name: "Đọc", is_master: false, browser: "read" };
 const none: AgentInfo = { ...fakeAgent, id: "none", name: "Không", is_master: false, browser: "off" };
 const own: RegistryTool = { name: "write_file", description: "Write", requires_approval: true, optional: false, agents: ["default"] };
-const SIX = [...BROWSER_READ_TOOLS, BROWSER_ACT_TOOL];
+const EIGHT = [...BROWSER_READ_TOOLS, ...BROWSER_ACT_TOOLS];
 
 /** The rows the server adds for this crew, on a machine that has a browser to start. */
 function browserRows(agents: AgentInfo[]): RegistryTool[] {
@@ -34,7 +34,8 @@ describe("the browser's tools in the grid", () => {
   it("are each marked as coming with the browser, with why on hover, and not as a tool of a list", () => {
     show([fakeAgent, actor]);
 
-    for (const name of SIX) {
+    expect(EIGHT).toHaveLength(8);
+    for (const name of EIGHT) {
       const badge = row(name).getByText("đi kèm trình duyệt");
       expect(badge).toHaveClass("badge");
       expect(badge).toHaveAttribute("title", vi.browser.withBrowserTitle);
@@ -47,8 +48,8 @@ describe("the browser's tools in the grid", () => {
   it("say which of them wait for a person", () => {
     show([fakeAgent, actor]);
 
-    for (const name of ["browser_navigate", "browser_act"]) expect(cell(name, 0)).toHaveTextContent(vi.tools.whenNotAutonomous);
-    for (const name of ["browser_snapshot", "browser_text", "browser_tabs", "browser_screenshot"]) {
+    for (const name of ["browser_navigate", "browser_act", "browser_download"]) expect(cell(name, 0)).toHaveTextContent(vi.tools.whenNotAutonomous);
+    for (const name of ["browser_snapshot", "browser_text", "browser_tabs", "browser_screenshot", "browser_pdf"]) {
       expect(cell(name, 0)).toHaveTextContent(vi.tools.never);
     }
   });
@@ -57,26 +58,33 @@ describe("the browser's tools in the grid", () => {
     show([fakeAgent, actor, reader]);
 
     // Columns: the approval cell, then master, actor, reader.
-    for (const name of SIX) expect(within(cell(name, 2)).getByText("✓")).toHaveAttribute("aria-label", vi.tools.legendOn);
+    for (const name of EIGHT) expect(within(cell(name, 2)).getByText("✓")).toHaveAttribute("aria-label", vi.tools.legendOn);
     for (const name of BROWSER_READ_TOOLS) expect(within(cell(name, 3)).getByText("✓")).toBeInTheDocument();
   });
 });
 
 describe("a browser tool an agent does not hold", () => {
-  it("is explained, for an agent that only reads pages, by the level the one acting tool needs", () => {
+  it.each(BROWSER_ACT_TOOLS)("is explained, for an agent that only reads pages, by the level %s needs", (name) => {
     show([fakeAgent, actor, reader]);
 
-    const missed = cell("browser_act", 3);
-    expect(within(missed).getByText("◐")).toHaveAttribute("aria-label", "Agent chỉ đọc trang; browser_act cần mức Thao tác.");
+    const missed = cell(name, 3);
+    expect(within(missed).getByText("◐")).toHaveAttribute("aria-label", "Agent chỉ đọc trang; công cụ này cần mức Thao tác.");
     expect(missed).toHaveClass("cell", "browser-read");
     expect(missed).not.toHaveClass("browser-off");
     expect(missed).toHaveAttribute("title", vi.browser.cellReadOnly);
   });
 
+  it("is not put down to the level for the page saved as a file, which an agent that reads holds", () => {
+    show([fakeAgent, actor, reader]);
+
+    expect(within(cell("browser_pdf", 3)).getByText("✓")).toBeInTheDocument();
+    expect(cell("browser_pdf", 3)).not.toHaveClass("browser-read");
+  });
+
   it("is explained, for an agent with no browser, by its setting being off", () => {
     show([fakeAgent, actor, none]);
 
-    for (const name of SIX) {
+    for (const name of EIGHT) {
       // The master has none either, and is told the same.
       for (const column of [1, 3]) {
         const missed = cell(name, column);
@@ -88,16 +96,19 @@ describe("a browser tool an agent does not hold", () => {
   });
 
   it("is never put down to the agent's list, its mode or a key", () => {
-    // A list of its own that names none of the six: any other tool would read as left out.
+    // A list of its own that names none of the eight: any other tool would read as left out.
     const listed: AgentInfo = { ...none, declared: { ...none.declared, tools: ["write_file"] } };
     const reading: AgentInfo = { ...reader, declared: { ...reader.declared, tools: ["write_file"] } };
     show([fakeAgent, actor, listed, reading]);
 
-    for (const name of SIX) {
+    for (const name of EIGHT) {
       expect(cell(name, 3)).toHaveClass("browser-off");
       for (const wrong of ["excluded", "missing-key", "work-mode"]) expect(cell(name, 3)).not.toHaveClass(wrong);
     }
-    expect(cell("browser_act", 4)).toHaveClass("browser-read");
+    for (const name of BROWSER_ACT_TOOLS) {
+      expect(cell(name, 4)).toHaveClass("browser-read");
+      for (const wrong of ["excluded", "missing-key", "work-mode"]) expect(cell(name, 4)).not.toHaveClass(wrong);
+    }
     // The same agents on a tool a list does decide.
     expect(cell("write_file", 3)).toHaveClass("work-mode");
   });
@@ -134,16 +145,16 @@ describe("the legend's lines for the browser's marks", () => {
     show([fakeAgent, actor, reader]);
 
     expect(lines("browser-read")).toHaveLength(1);
-    expect(lines("browser-read")[0]).toHaveTextContent(/^◐Agent chỉ đọc trang; browser_act cần mức Thao tác\.$/);
+    expect(lines("browser-read")[0]).toHaveTextContent(/^◐Agent chỉ đọc trang; công cụ này cần mức Thao tác\.$/);
     const marks = within(legend()).getAllByRole("definition");
     expect(marks[marks.length - 2]).toBe(lines("browser-off")[0]);
     expect(marks[marks.length - 1]).toBe(lines("browser-read")[0]);
   });
 
   it("have no line for the reading mark while the page has no acting tool to miss", () => {
-    // Nobody acts, so the server has no row for browser_act and no cell can carry the mark.
+    // Nobody acts, so the server has no row for an acting tool and no cell can carry the mark.
     show([fakeAgent, reader]);
-    expect(screen.getAllByTestId("tool-row")).toHaveLength(1 + BROWSER_READ_TOOLS.length);
+    expect(screen.getAllByTestId("tool-row")).toHaveLength(7);
 
     expect(lines("browser-off")).toHaveLength(1);
     expect(lines("browser-read")).toHaveLength(0);

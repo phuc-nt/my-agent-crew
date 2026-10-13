@@ -136,6 +136,7 @@ export function AgentEditor(props: Props) {
         key={agent.id}
         agentId={agent.id}
         savedMode={form.original?.browser}
+        savedHosts={form.original?.browser_hosts}
         onOpenConversation={props.onOpenConversation}
       />
       <LimitsSection

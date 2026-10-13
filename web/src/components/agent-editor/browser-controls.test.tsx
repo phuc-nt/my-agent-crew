@@ -74,15 +74,17 @@ describe("whether an agent has a browser", () => {
     await userEvent.selectOptions(level(), "read");
     expect(level()).toHaveAccessibleDescription(b.modeHint.read);
     expect(section().queryByText(b.modeHint.off)).not.toBeInTheDocument();
-    // Reading names its five tools, and that opening a page is asked for.
-    for (const name of ["browser_navigate", "browser_snapshot", "browser_text", "browser_tabs", "browser_screenshot"])
+    // Reading names its six tools, and that opening a page is asked for.
+    for (const name of ["browser_navigate", "browser_snapshot", "browser_text", "browser_tabs", "browser_screenshot", "browser_pdf"])
       expect(b.modeHint.read).toContain(name);
     expect(b.modeHint.read).toContain("phải duyệt");
+    // And nothing of the two it does not bring.
+    for (const name of ["browser_act", "browser_download"]) expect(b.modeHint.read).not.toContain(name);
 
     await userEvent.selectOptions(level(), "act");
     expect(level()).toHaveAccessibleDescription(b.modeHint.act);
     expect(section().queryByText(b.modeHint.read)).not.toBeInTheDocument();
-    expect(b.modeHint.act).toContain("browser_act");
+    for (const name of ["browser_act", "browser_download"]) expect(b.modeHint.act).toContain(name);
     expect(b.modeHint.act).toContain("luôn hỏi, kể cả khi hội thoại tự chủ");
   });
 

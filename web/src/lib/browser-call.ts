@@ -1,5 +1,6 @@
-// A browser call that waits for a person, said in one line: which page it opens, or what it
-// does to which element. The raw arguments stay under it; this is the line read first.
+// A browser call that waits for a person, said in one line: which page it opens, what it
+// does to which element, or what it presses to bring a file down. The raw arguments stay
+// under it; this is the line read first.
 import { vi } from "../i18n/vi";
 import { clip } from "./clip-text";
 import { showHiddenChars } from "./hidden-chars";
@@ -64,6 +65,16 @@ function actLine(args: Record<string, unknown>): string | null {
   }
 }
 
+/** A press that brings a file down: what is pressed, and the name the file is to be kept under
+ *  where the call gives one. */
+function downloadLine(args: Record<string, unknown>): string | null {
+  const t = vi.browser.call;
+  const name = piece(args.name);
+  if (!name) return null;
+  const file = piece(args.save_as);
+  return file ? t.downloadAs(name, file) : t.download(name);
+}
+
 /**
  * What a waiting call does, in one line, or null for a call this cannot read: a tool that is
  * not the browser's, an action of a kind not known here, or one that names no element.
@@ -73,5 +84,6 @@ export function browserCallLine(name: string, args: unknown): string | null {
   if (typeof args !== "object" || args === null || Array.isArray(args)) return null;
   if (name === "browser_navigate") return navigateLine(args as Record<string, unknown>);
   if (name === "browser_act") return actLine(args as Record<string, unknown>);
+  if (name === "browser_download") return downloadLine(args as Record<string, unknown>);
   return null;
 }

@@ -9,11 +9,13 @@ import type { AgentInfo } from "./api/types";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
 import { FakeBackend, FakeEventSource, coachAgent, fakeAgent, fakeApproval, fakeRun, storedMessage } from "./test/fake-backend";
-import { BROWSER_ACT_TOOL, BROWSER_READ_TOOLS, browserMachine, browserTab } from "./test/fake-browser";
+import { BROWSER_ACT_TOOLS, BROWSER_READ_TOOLS, browserMachine, browserTab } from "./test/fake-browser";
 
 const PATH = "screenshots/20261013T120000Z-don.png";
 const SHOT = `Đã lưu ảnh chụp tab don vào ${PATH}.\nKích thước 1280x720, 48 KB.`;
 const coach = (rest: Partial<AgentInfo> = {}): AgentInfo => ({ ...coachAgent, browser: "act", browser_hosts: ["shop.example"], ...rest });
+/** A day no test here outlives. */
+const FAR = new Date("2099-01-01T00:00:00Z");
 
 let backend: FakeBackend;
 
@@ -127,15 +129,64 @@ describe("the browser on an agent's page", () => {
     // The page stopped nothing itself: the save did.
     expect(asked("/agents/coach/browser/stop", "POST")).toBe(0);
   });
+
+  it("opens the sign-in window on the address typed, and closes it when the person is done, saving nothing of the agent", async () => {
+    open("#/manage/crew/coach");
+    const card = within(await screen.findByTestId("browser-card"));
+    await userEvent.type(await card.findByRole("textbox", { name: vi.browser.login.address }), "https://shop.example/login");
+
+    await userEvent.click(card.getByRole("button", { name: vi.browser.login.start }));
+
+    expect(await card.findByTestId("browser-login-open")).toHaveTextContent("Cửa sổ đăng nhập đang mở trên màn hình của máy chạy đội.");
+    expect(screen.getByTestId("browser-state").textContent).toBe(vi.browser.card.loginOpen);
+    expect(backend.requests.filter((r) => r.path === "/agents/coach/browser/login").map((r) => r.body)).toEqual([{ url: "https://shop.example/login" }]);
+    expect(backend.browser.login.window("coach")).toBeDefined();
+    // The address is the window's, not the agent's: the form has nothing to save.
+    expect(screen.getByText(vi.editor.clean)).toBeInTheDocument();
+
+    await userEvent.click(card.getByRole("button", { name: vi.browser.login.done }));
+
+    expect(await card.findByRole("button", { name: vi.browser.login.start })).toBeEnabled();
+    expect(asked("/agents/coach/browser/login/done", "POST")).toBe(1);
+    expect(backend.browser.login.window("coach")).toBeUndefined();
+    expect(screen.getByTestId("browser-state")).toHaveTextContent(vi.browser.card.stopped);
+    expect(backend.requests.filter((r) => r.method === "PATCH")).toEqual([]);
+  });
+
+  it("shows every host of the agent's own list on its card, however many", async () => {
+    const hosts = Array.from({ length: 9 }, (_, at) => `h${at + 1}.example`);
+    backend.agents = [fakeAgent, coach({ browser_hosts: hosts })];
+    backend.browser.login.signedIn("coach", { "h2.example": FAR });
+    open("#/manage/crew/coach");
+
+    const list = await screen.findByRole("list", { name: vi.browser.signedIn.label });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(9);
+    expect(within(list).getAllByText(vi.browser.signedIn.nothing, { exact: false })).toHaveLength(8);
+    expect(within(screen.getByTestId("browser-card")).queryByRole("button", { name: /máy chủ nữa$/ })).not.toBeInTheDocument();
+  });
+
+  it("goes by the list the agent's file has, not by one being typed into the form", async () => {
+    backend.agents = [fakeAgent, coach({ browser_hosts: [] })];
+    backend.browser.login.signedIn("coach", Object.fromEntries(Array.from({ length: 9 }, (_, at) => [`h${at + 1}.example`, FAR])));
+    open("#/manage/crew/coach");
+    const list = await screen.findByRole("list", { name: vi.browser.signedIn.label });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(8);
+
+    await userEvent.type(section().getByRole("textbox", { name: vi.browser.hosts }), "shop.example");
+
+    expect(section().getByRole("textbox", { name: vi.browser.hosts })).toHaveValue("shop.example");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(8);
+    expect(within(screen.getByTestId("browser-card")).getByRole("button", { name: "+1 máy chủ nữa" })).toBeInTheDocument();
+  });
 });
 
 describe("the browser's tools on the tools page", () => {
   it("are the rows the server lists, each marked as coming with the browser", async () => {
     open("#/manage/tools");
 
-    await waitFor(() => expect(screen.getAllByText(vi.browser.withBrowser)).toHaveLength(6));
+    await waitFor(() => expect(screen.getAllByText(vi.browser.withBrowser)).toHaveLength(8));
     const rows = screen.getAllByTestId("tool-row");
-    for (const name of [...BROWSER_READ_TOOLS, BROWSER_ACT_TOOL]) {
+    for (const name of [...BROWSER_READ_TOOLS, ...BROWSER_ACT_TOOLS]) {
       const row = rows.find((r) => within(r).queryByText(name)) as HTMLElement;
       expect(within(row).getByText(vi.browser.withBrowser)).toHaveAttribute("title", vi.browser.withBrowserTitle);
       // Columns: the approval cell, then the master, who has no browser, and the coach.
@@ -194,6 +245,39 @@ describe("a browser call waiting on the approvals page", () => {
     open("#/manage/approvals");
 
     expect(await screen.findByTestId("approval-call")).toHaveTextContent(/^Bấm «Thanh toán»$/);
+  });
+});
+
+describe("the app on a server that has the browser and not yet the sign-in window", () => {
+  beforeEach(() => {
+    backend.browser.login.old = true;
+    backend.browser.login.signedIn("coach", { "shop.example": FAR });
+  });
+
+  it("has the agent's card as it was: what runs, with no window to open and no host said", async () => {
+    backend.browser.start("coach", [browserTab()]);
+    open("#/manage/crew/coach");
+
+    const card = within(await screen.findByTestId("browser-card"));
+    expect(await card.findByTestId("browser-state")).toHaveTextContent(vi.browser.card.running(1));
+    expect(card.getAllByRole("button").map((button) => button.textContent)).toEqual([
+      vi.browser.card.conversation,
+      vi.browser.card.closeTab,
+      vi.browser.card.stop,
+    ]);
+    expect(card.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(card.queryByText(vi.browser.signedIn.label)).not.toBeInTheDocument();
+    expect(card.queryByText(vi.browser.signedIn.none)).not.toBeInTheDocument();
+    expect(card.queryByText(vi.browser.signedIn.caveat)).not.toBeInTheDocument();
+  });
+
+  it("lists on the tools page the six browser tools that server has", async () => {
+    open("#/manage/tools");
+
+    await waitFor(() => expect(screen.getAllByText(vi.browser.withBrowser)).toHaveLength(6));
+    expect(screen.queryByText("browser_pdf")).not.toBeInTheDocument();
+    expect(screen.queryByText("browser_download")).not.toBeInTheDocument();
+    expect(screen.getByText("browser_act")).toBeInTheDocument();
   });
 });
 

@@ -11,4 +11,13 @@ export const browserApi = {
   /** Closes one tab now; a 404 says the tab is already gone. */
   closeAgentBrowserTab: (agentId: string, tabId: number) =>
     request<{ closed: number }>(`${browserOf(agentId)}/tabs/${encodeURIComponent(tabId)}`, { method: "DELETE" }),
+  /** Opens the window a person signs in through, on `url` when one is given. One that is
+   *  open already is answered as it is. A 409 or a 422 says in a sentence why none opened. */
+  openAgentBrowserLogin: (agentId: string, url: string) =>
+    request<{ open: boolean; until: string }>(`${browserOf(agentId)}/login`, {
+      method: "POST",
+      body: JSON.stringify(url ? { url } : {}),
+    }),
+  /** Closes that window; `closed` is false when there was none to close. */
+  closeAgentBrowserLogin: (agentId: string) => request<{ closed: boolean }>(`${browserOf(agentId)}/login/done`, { method: "POST" }),
 };

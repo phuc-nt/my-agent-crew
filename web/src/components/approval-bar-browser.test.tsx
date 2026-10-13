@@ -54,6 +54,18 @@ describe("the line of a waiting browser call", () => {
     expect(line()?.textContent).toBe(said);
   });
 
+  it.each([
+    [{ name: "Tải hoá đơn" }, "Bấm «Tải hoá đơn» để tải tệp về", "ref=e7, name=Tải hoá đơn"],
+    [{ name: "Tải hoá đơn", save_as: "hoa-don-10.pdf" }, "Bấm «Tải hoá đơn» để tải tệp về, lưu thành hoa-don-10.pdf", "ref=e7, name=Tải hoá đơn, save_as=hoa-don-10.pdf"],
+  ])("says what a download presses, and the name its file is kept under: %j", (args, said, shown) => {
+    bar({ name: "browser_download", arguments: { ref: "e7", ...args } });
+
+    expect(line()?.textContent).toBe(said);
+    expect(raw()).toHaveTextContent(shown);
+    expect(before(line() as HTMLElement, raw())).toBe(true);
+    expect(screen.getByText(vi.approvalTitle("browser_download"))).toBeInTheDocument();
+  });
+
   it("stands under the title and the server's reason, and above the raw arguments", () => {
     bar({ name: "browser_navigate", arguments: CART, reason: REASON });
 
@@ -89,6 +101,8 @@ describe("the line of a waiting browser call", () => {
     ["a navigation that names no address", "browser_navigate", { tab: "main" }],
     ["an action that names no element", "browser_act", { kind: "click", ref: "e12" }],
     ["an action of a kind not known here", "browser_act", { kind: "drag", name: "Thẻ" }],
+    ["a download that names no element", "browser_download", { ref: "e7", save_as: "hoa-don.pdf" }],
+    ["a page saved as a file, which asks nobody", "browser_pdf", { tab: "main", name: "Tải" }],
   ])("is not there for %s, and the raw arguments still are", (_what, name, args) => {
     bar({ name, arguments: args });
 
@@ -183,6 +197,14 @@ describe("a browser call waiting in the list of requests", () => {
     const row = await listed({ tool_name: "browser_act", arguments: { kind: "type", ref: "e4", name: "Mã giảm giá", text: "TET26" } });
 
     expect(line(row)?.textContent).toBe("Gõ «TET26» vào «Mã giảm giá»");
+  });
+
+  it("says a download the same way, above the arguments it was read from", async () => {
+    const row = await listed({ tool_name: "browser_download", arguments: { ref: "e7", name: "Xuất sao kê", save_as: "sao-ke.csv" } });
+
+    expect(line(row)?.textContent).toBe("Bấm «Xuất sao kê» để tải tệp về, lưu thành sao-ke.csv");
+    expect(before(line(row) as HTMLElement, raw(row))).toBe(true);
+    expect(raw(row)).toHaveTextContent("save_as=sao-ke.csv");
   });
 
   it("is not said for another tool's request", async () => {

@@ -5,12 +5,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { AgentInfo, RegistryTool } from "../../api/types";
 import { vi } from "../../i18n/vi";
-import { BROWSER_ACT_TOOL, BROWSER_READ_TOOLS, FakeBrowser, browserMachine } from "../../test/fake-browser";
+import { BROWSER_ACT_TOOLS, BROWSER_READ_TOOLS, FakeBrowser, browserMachine } from "../../test/fake-browser";
 import { CHATS, CREW, HANDED, agent, open, picker, radio, rows, saved, section, ticked } from "../../test/tool-picker-screen";
 
 const t = vi.editor;
-const SIX = [...BROWSER_READ_TOOLS, BROWSER_ACT_TOOL];
-/** The six rows as the server lists them for a crew whose coach acts on pages. */
+const EIGHT = [...BROWSER_READ_TOOLS, ...BROWSER_ACT_TOOLS];
+/** The eight rows as the server lists them for a crew whose coach acts on pages. */
 const BROWSER_ROWS: RegistryTool[] = Object.assign(new FakeBrowser(), {
   crew: () => [{ id: "coach", browser: "act" as const }],
   machine: browserMachine({ enabled: true }),
@@ -19,9 +19,9 @@ const CATALOGUE = [...CREW, ...BROWSER_ROWS];
 /** What the catalogue itself does not mark as handed outside any list, in its order. */
 const UNMARKED = ["ask_user", "delegate", "web_search", "write_file"];
 
-/** The coach with a browser it acts in, holding the six tools that brings. */
+/** The coach with a browser it acts in, holding the eight tools that brings. */
 const acting = (rest: Partial<AgentInfo> = {}) =>
-  agent({ browser: "act", tools: ["write_file", "web_search", ...HANDED, ...SIX], ...rest });
+  agent({ browser: "act", tools: ["write_file", "web_search", ...HANDED, ...EIGHT], ...rest });
 
 /** The same agent as a server reports it that says nothing of which rows a list has. */
 function unreported(): AgentInfo {
@@ -30,8 +30,9 @@ function unreported(): AgentInfo {
 }
 
 describe("the tool list of an agent that has a browser", () => {
-  it("is offered the catalogue the server sends, six browser rows and all", () => {
-    expect(BROWSER_ROWS.map((row) => row.name).sort()).toEqual([...SIX].sort());
+  it("is offered the catalogue the server sends, eight browser rows and all", () => {
+    expect(BROWSER_ROWS).toHaveLength(8);
+    expect(BROWSER_ROWS.map((row) => row.name).sort()).toEqual([...EIGHT].sort());
     expect(BROWSER_ROWS.every((row) => row.with_browser === true && row.agents.includes("coach"))).toBe(true);
   });
 
@@ -46,7 +47,7 @@ describe("the tool list of an agent that has a browser", () => {
     open(unreported(), CATALOGUE);
 
     expect(rows()).toEqual(UNMARKED);
-    for (const name of SIX) expect(picker().queryByRole("checkbox", { name: new RegExp(`^${name}`) })).not.toBeInTheDocument();
+    for (const name of EIGHT) expect(picker().queryByRole("checkbox", { name: new RegExp(`^${name}`) })).not.toBeInTheDocument();
   });
 
   it.each([
