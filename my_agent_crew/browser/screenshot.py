@@ -18,7 +18,7 @@ from typing import Any
 from my_agent_crew import texts_browser as t
 from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import kit as k
-from my_agent_crew.browser.kit import Kit, one_line, text_of
+from my_agent_crew.browser.kit import BrowserTool, Kit, one_line, text_of
 from my_agent_crew.browser.report import fenced, room
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.texts import IMAGE_EMPTY, WORKSPACE_ESCAPE, WORKSPACE_WRITE_OUTSIDE
@@ -119,7 +119,7 @@ def build_screenshot(kit: Kit, write_paths: Sequence[str] = ()) -> Tool:
         output = "\n".join([saved, fenced((text or IMAGE_EMPTY)[: room(kit.limit, saved)])])
         return ToolResult(ok=True, output=output, cost_usd=cost, metered=True)
 
-    return Tool(
+    return BrowserTool(
         name=k.SCREENSHOT,
         description=d.SCREENSHOT_DESCRIPTION,
         parameters=k.schema(

@@ -21,7 +21,7 @@ from my_agent_crew.browser.pool import BrowserPool, Session
 from my_agent_crew.browser.snapshot import Node, Shown, Snapshot, address, read
 from my_agent_crew.browser.tabs import JOB_OWNER, Tab
 from my_agent_crew.config_browser import BrowserSettings
-from my_agent_crew.tools.registry import ToolError
+from my_agent_crew.tools.registry import Tool, ToolError
 
 NAVIGATE, SNAPSHOT, TEXT = "browser_navigate", "browser_snapshot", "browser_text"
 TABS, SCREENSHOT, ACT = "browser_tabs", "browser_screenshot", "browser_act"
@@ -75,6 +75,15 @@ def number(args: dict[str, Any], key: str, least: int, default: int, most: int) 
 def schema(required: tuple[str, ...], **properties: tuple[str, str]) -> dict[str, Any]:
     described = {k: {"type": kind, "description": text} for k, (kind, text) in properties.items()}
     return {"type": "object", "properties": described, "required": list(required)}
+
+
+@dataclass(frozen=True)
+class BrowserTool(Tool):
+    """A tool that comes with an agent's `browser` key instead of from its own list."""
+
+    def to_dict(self) -> dict[str, Any]:
+        # For the owner's screens: it follows the agent's `browser` key, not its allow-list.
+        return {**super().to_dict(), "with_browser": True}
 
 
 @dataclass

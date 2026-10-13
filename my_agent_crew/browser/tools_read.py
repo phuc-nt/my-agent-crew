@@ -8,7 +8,14 @@ from typing import Any
 from my_agent_crew import texts_browser as t
 from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import kit as k
-from my_agent_crew.browser.kit import Kit, from_browser, one_line, text_of, timed_out
+from my_agent_crew.browser.kit import (
+    BrowserTool,
+    Kit,
+    from_browser,
+    one_line,
+    text_of,
+    timed_out,
+)
 from my_agent_crew.browser.report import URL_CHARS, fenced, page_report, room
 from my_agent_crew.browser.snapshot import address
 from my_agent_crew.browser.tabs import Tab
@@ -38,7 +45,7 @@ def build_snapshot(kit: Kit) -> Tool:
             listed, query = k.flag(args, "interactive"), text_of(args, "query")
             return await page_report(kit, session, tab, head=head, listed=listed, query=query)
 
-    return Tool(
+    return BrowserTool(
         name=k.SNAPSHOT,
         description=d.SNAPSHOT_DESCRIPTION,
         parameters=k.schema(
@@ -72,7 +79,7 @@ def build_text(kit: Kit) -> Tool:
             outside.append(t.TEXT_CUT.format(shown=most, total=len(text)))
         return "\n".join([*outside, fenced("\n".join([where, "", text[:most] or t.TEXT_EMPTY]))])
 
-    return Tool(
+    return BrowserTool(
         name=k.TEXT,
         description=d.TEXT_DESCRIPTION,
         parameters=k.schema(
@@ -121,7 +128,7 @@ def build_tabs(kit: Kit) -> Tool:
         ]
         return "\n".join([*said, fenced("\n".join(lines))])
 
-    return Tool(
+    return BrowserTool(
         name=k.TABS,
         description=d.TABS_DESCRIPTION,
         parameters=k.schema((), close=("string", d.PARAM_CLOSE)),
