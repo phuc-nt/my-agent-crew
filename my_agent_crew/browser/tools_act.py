@@ -85,7 +85,9 @@ def build_act(kit: Kit) -> Tool:
             if not done:
                 raise
             # Done is done: a page that cannot be read afterwards is no reason to do it twice.
-            return closed if page.is_closed() else "\n".join([done, t.ACT_UNSEEN.format(error=exc)])
+            # Of why it cannot, only the tool's own first line is said: a fence may follow it.
+            why = str(exc).split("\n")[0]
+            return closed if page.is_closed() else "\n".join([done, t.ACT_UNSEEN.format(error=why)])
 
     return BrowserTool(
         name=k.ACT,

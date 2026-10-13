@@ -810,7 +810,8 @@ async def test_an_action_made_is_told_as_made_when_the_page_cannot_be_read_after
     monkeypatch.setattr(k, "CALL_SECONDS", 0.5)
     hung = await act(w, "click", ref, "Tìm", timeout_s=1)
 
-    why_not = t.BROWSER_FAILED.format(error="Target crashed")
+    # Of why the page could not be read, the tool's own line and not the fence under it.
+    why_not = t.BROWSER_FAILED.format(error="Error")
     assert crashed == done("click", ref) + "\n" + t.ACT_UNSEEN.format(error=why_not)
     assert hung == done("click", ref) + "\n" + (
         t.ACT_UNSEEN.format(error=t.PAGE_STUCK.format(seconds=2))

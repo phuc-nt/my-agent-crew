@@ -2,7 +2,9 @@
 
 The address is checked before a tab is opened and every connection the page then makes is
 checked again by the proxy. A hop the proxy refused ends the call with the tab left blank:
-the model is never shown a page that was reached by way of a private address."""
+the model is never shown a page that was reached by way of a private address. Which
+address that was, and what the browser wrote of a page it could not open, a page may have
+chosen: both are told inside a fence."""
 
 from __future__ import annotations
 
@@ -12,19 +14,13 @@ from typing import Any
 from my_agent_crew import texts_browser as t
 from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import kit as k
-from my_agent_crew.browser.kit import (
-    BrowserTool,
-    Kit,
-    first_line,
-    from_browser,
-    text_of,
-    timed_out,
-)
+from my_agent_crew.browser.fence import driver_error, failure
+from my_agent_crew.browser.kit import BrowserTool, Kit, from_browser, one_line, text_of, timed_out
 from my_agent_crew.browser.network import always_refused, check_url
 from my_agent_crew.browser.policy import host_allowed, host_of
 from my_agent_crew.browser.pool import Session
 from my_agent_crew.browser.proxy import MARK
-from my_agent_crew.browser.report import page_report, told
+from my_agent_crew.browser.report import URL_CHARS, page_report, told
 from my_agent_crew.browser.tabs import Tab
 from my_agent_crew.tools.registry import Tool, ToolError
 
@@ -45,7 +41,11 @@ async def _blank(tab: Tab) -> None:
             await asyncio.sleep(BLANK_PAUSE)
 
 
-async def _go(session: Session, tab: Tab, url: str, wait: int, mark: int) -> int | None:
+def _refusal(limit: int, hosts: list[str]) -> ToolError:
+    return failure(limit, t.NAV_REFUSED, t.PAGE_REFUSED.format(hosts=told(hosts)))
+
+
+async def _go(session: Session, tab: Tab, url: str, wait: int, mark: int, limit: int) -> int | None:
     """Send the tab to `url`; the status its page answered with. A hop the proxy refused on
     the way (the address itself was checked before) ends the call and leaves the tab blank."""
     try:
@@ -55,20 +55,22 @@ async def _go(session: Session, tab: Tab, url: str, wait: int, mark: int) -> int
             raise
         refused = session.proxy.refused_since(mark)
         await _blank(tab)
-        if refused and not timed_out(exc):
-            raise ToolError(t.NAV_REFUSED.format(hosts=told(refused))) from exc
-        # What follows " at " is the address, which a redirect may have chosen.
-        raise ToolError(t.NAV_FAILED.format(error=first_line(exc).split(" at ")[0])) from exc
+        if timed_out(exc):
+            raise ToolError(t.NAV_SLOW.format(seconds=wait)) from exc
+        if refused:
+            raise _refusal(limit, refused) from exc
+        raise driver_error(limit, t.NAV_FAILED, exc) from exc
     if response is None or MARK not in response.headers or response.status < 400:
         return response.status if response else None
     # The proxy's own answer: no site was reached, or the one reached was not let through.
-    host = host_of(tab.page.url) or host_of(url)
-    refused = session.proxy.refused_since(mark) or [host]
+    reached = tab.page.url
+    refused = session.proxy.refused_since(mark) or [host_of(reached) or host_of(url)]
     await _blank(tab)
     if response.status == 403:
-        raise ToolError(t.NAV_REFUSED.format(hosts=told(refused)))
+        raise _refusal(limit, refused)
     if response.status == 502:
-        raise ToolError(t.NAV_UNREACHABLE.format(host=host))
+        where = t.PAGE_URL.format(url=one_line(reached, URL_CHARS))
+        raise failure(limit, t.NAV_UNREACHABLE, where)
     raise ToolError(t.NAV_FAILED.format(error=f"HTTP {response.status}"))
 
 
@@ -99,7 +101,7 @@ def build_navigate(kit: Kit) -> Tool:
             mark = session.proxy.refused_total
             before = {other.id for other in session.tabs.of(tab.owner)}
             tab.shown = None
-            status = await _go(session, tab, url, wait, mark)
+            status = await _go(session, tab, url, wait, mark, kit.limit)
             return await page_report(kit, session, tab, status=status, mark=mark, before=before)
 
     return BrowserTool(

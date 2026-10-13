@@ -13,11 +13,12 @@ import pytest
 import pytest_asyncio
 
 from my_agent_crew import texts_browser as t
+from my_agent_crew import texts_browser_fence as f
 from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser import screenshot as s
+from my_agent_crew.browser.fence import room
 from my_agent_crew.browser.navigate import build_navigate
-from my_agent_crew.browser.report import room
 from my_agent_crew.browser.screenshot import build_screenshot
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import ScriptedProvider, completion
@@ -29,7 +30,7 @@ from my_agent_crew.texts import (
     WORKSPACE_WRITE_OUTSIDE,
 )
 from my_agent_crew.tools.registry import ToolError, ToolResult
-from tests.browser_tools import parts, talking, world
+from tests.browser_tools import parts, talking, under, world
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")
 
@@ -273,8 +274,10 @@ async def test_a_picture_no_model_could_read_is_kept_and_the_tab_is_free_meanwhi
 
     answer = await shot(w, w.kit(vision=chain))
 
-    assert answer == saved(f"{STAMP}-t1.png") + "\n" + (
-        t.SHOT_UNREAD.format(error="vis/eyes: 503 quá tải " + "x" * 178)
+    # What a route answers when it fails may repeat the page it was sent: inside the fence.
+    assert under(answer) == (
+        saved(f"{STAMP}-t1.png") + "\n" + t.SHOT_UNREAD,
+        f.VISION_SAID.format(error="vis/eyes: 503 quá tải " + "x" * 178),
     )
     assert pictures(w) == [f"{STAMP}-t1.png"]
     assert chain.saw == [(False, 0)]  # reading a picture holds neither the tab nor the browser

@@ -16,10 +16,11 @@ from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts_browser as t
+from my_agent_crew import texts_browser_fence as f
 from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import kit as k
+from my_agent_crew.browser.fence import ERROR_CHARS, answer, room, with_data
 from my_agent_crew.browser.kit import BrowserTool, Kit, one_line, text_of
-from my_agent_crew.browser.report import fenced, room
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.texts import IMAGE_EMPTY, WORKSPACE_ESCAPE, WORKSPACE_WRITE_OUTSIDE
 from my_agent_crew.tools.image import data_url, describe
@@ -110,13 +111,19 @@ def build_screenshot(kit: Kit, write_paths: Sequence[str] = ()) -> Tool:
         saved = t.SHOT_SAVED.format(label=label, path=f"{shown}/{path.name}")
         if kit.vision is None:
             return "\n".join([saved, t.SHOT_NO_VISION])
+        # Sized like a page: what was read out of a picture is the page's words. Under a
+        # cap with no room for any of them, no model is paid to read it.
+        most = room(kit.limit, saved)
+        if not most:
+            return "\n".join([saved, f.NO_ROOM.format(limit=kit.limit)])
         try:
             url = data_url(path, MIME[kind])
             text, cost = await describe(kit.vision, url, text_of(args, "question"))
         except ProviderError as exc:
-            return "\n".join([saved, t.SHOT_UNREAD.format(error=one_line(str(exc), k.ERROR_CHARS))])
-        # Sized like a page: an answer the registry cut would lose its closing fence.
-        output = "\n".join([saved, fenced((text or IMAGE_EMPTY)[: room(kit.limit, saved)])])
+            # What a route answers when it fails may repeat what it was sent.
+            why = f.VISION_SAID.format(error=one_line(str(exc), ERROR_CHARS))
+            return with_data(kit.limit, "\n".join([saved, t.SHOT_UNREAD]), why)
+        output = answer(kit.limit, [saved], (text or IMAGE_EMPTY)[:most])
         return ToolResult(ok=True, output=output, cost_usd=cost, metered=True)
 
     return BrowserTool(

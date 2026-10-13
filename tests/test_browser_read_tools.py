@@ -12,6 +12,7 @@ import pytest_asyncio
 from playwright.async_api import Error
 
 from my_agent_crew import texts_browser as t
+from my_agent_crew import texts_browser_fence as f
 from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser import tools_read
@@ -20,7 +21,7 @@ from my_agent_crew.browser.tools_read import build_snapshot, build_tabs, build_t
 from my_agent_crew.config_browser import BrowserSettings
 from my_agent_crew.script.scope import only_reads
 from my_agent_crew.tools.registry import ToolError, ToolRegistry
-from tests.browser_tools import parts, ref_of, talking, world
+from tests.browser_tools import parts, ref_of, talking, under, world
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")
 
@@ -352,7 +353,9 @@ async def test_a_tab_that_does_not_answer_is_given_up_listed_and_can_be_closed(w
 
 
 @talking("read-broken")
-async def test_what_the_browser_raises_is_told_in_its_first_line(w, monkeypatch):
+async def test_what_the_browser_raises_is_told_by_its_kind_and_its_first_line_is_fenced(
+    w, monkeypatch
+):
     await opened(w)
     tab, snapshot = w.tab("read-broken"), build_snapshot(w.kit())
 
@@ -390,8 +393,16 @@ async def test_what_the_browser_raises_is_told_in_its_first_line(w, monkeypatch)
     with pytest.raises(ToolError) as never:
         await snapshot.run({})
 
-    assert str(waiting.value) == t.BROWSER_FAILED.format(error="Locator.wait_for: Target crashed")
-    assert str(failed.value) == t.BROWSER_FAILED.format(error="Page.title: Target crashed")
+    # The line may quote the page (an error the page threw is in it), so it goes inside.
+    kind = t.BROWSER_FAILED.format(error="Error")
+    assert under(str(waiting.value)) == (
+        kind,
+        f.BROWSER_SAID.format(error="Locator.wait_for: Target crashed"),
+    )
+    assert under(str(failed.value)) == (
+        kind,
+        f.BROWSER_SAID.format(error="Page.title: Target crashed"),
+    )
     assert parts(listed)[1] == f"- t1: {w.site.url('/')} — "
     assert str(never.value) == t.BROWSER_DOWN.format(error="Executable doesn't exist at /x/chrome")
 
