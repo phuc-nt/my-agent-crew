@@ -900,6 +900,10 @@ async def test_every_ref_the_browser_draws_is_one_the_model_can_name(w):
     for path in ("/", "/khoa", "/form", "/tep"):
         await opened(w, path)
         tab = w.tab("act-refs")
+        # A picture still coming changes what the browser draws: the form's image button has
+        # no size until its picture fails. The page is read again once everything has come.
+        await tab.page.wait_for_load_state("load")
+        await build_snapshot(w.kit()).run({})
         drawn = set(re.findall(r"\[ref=(\w+)\]", await tab.page.aria_snapshot(mode="ai")))
 
         assert drawn == set(tab.shown.nodes) and len(drawn) >= 5
