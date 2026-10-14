@@ -2,10 +2,11 @@
 something on it is clicked, and the page itself printed as a PDF.
 
 Either file lands in a folder the tools make up, under a name cleaned down to plain letters
-(`saved.py`). A download is a click, so it is judged as `browser_act` judges one: the element
-has to be the one the model was shown still, and a person is asked first for the same hosts
-and the same words. Only the file that click set off is kept (`downloads.py`): one the tab
-itself sends, or a window that tab opened meanwhile does."""
+(`saved.py`) and said under the fence, as whatever a page had a say in is. A download is a
+click, so it is judged as `browser_act` judges one: the element has to be the one the model
+was shown still, and a person is asked first for the same hosts and the same words. Only the
+file that click set off is kept (`downloads.py`): one the tab itself sends, or a window that
+tab opened meanwhile does."""
 
 from __future__ import annotations
 
@@ -22,6 +23,7 @@ from my_agent_crew.browser import act as a
 from my_agent_crew.browser import downloads as dl
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser.act_page import NAME_CHARS, current, guard, perform
+from my_agent_crew.browser.fence import with_data
 from my_agent_crew.browser.kit import BrowserTool, Kit, one_line, text_of, timed_out
 from my_agent_crew.browser.policy import host_allowed, host_of
 from my_agent_crew.browser.saved import file_name, keep, place
@@ -51,6 +53,13 @@ async def put(folder: Path, name: str, content: bytes | Path) -> tuple[Path, int
 
 def why(exc: OSError) -> str:
     return exc.strerror or type(exc).__name__
+
+
+def kept(kit: Kit, said: str, folder: str, *chosen: str) -> str:
+    """What a tool that kept a file answers: its own words, and fenced under them the lines
+    a page had a say in. Under a cap with no room for those, where to look for the file."""
+    missing = f.SAVED_UNNAMED.format(folder=folder)
+    return with_data(kit.limit, said, "\n".join(chosen), missing=missing)
 
 
 @contextlib.contextmanager
@@ -127,8 +136,9 @@ def build_download(kit: Kit, write_paths: Sequence[str] = ()) -> Tool:
                     path, size = await put(folder, name, held)
                 except OSError as exc:
                     raise ToolError(f.DOWNLOAD_NOT_SAVED.format(ref=ref, error=why(exc))) from exc
-        where = f"{shown}/{path.name}"
-        return f.DOWNLOAD_SAVED.format(ref=ref, host=host, path=where, size=size_said(size))
+        said = f.DOWNLOAD_SAVED.format(ref=ref, folder=shown, size=size_said(size))
+        where = f.SAVED_AS.format(path=f"{shown}/{path.name}")
+        return kept(kit, said, shown, where, f.SAVED_FROM.format(host=host))
 
     return BrowserTool(
         name=k.DOWNLOAD,
@@ -162,8 +172,8 @@ def build_pdf(kit: Kit, write_paths: Sequence[str] = ()) -> Tool:
             path, size = await put(folder, name, data)
         except OSError as exc:
             raise ToolError(f.PDF_NOT_SAVED.format(error=why(exc))) from exc
-        where = f"{shown}/{path.name}"
-        return f.PDF_SAVED.format(label=label, path=where, size=size_said(size))
+        said = f.PDF_SAVED.format(label=label, folder=shown, size=size_said(size))
+        return kept(kit, said, shown, f.SAVED_AS.format(path=f"{shown}/{path.name}"))
 
     return BrowserTool(
         name=k.PDF,
