@@ -19,6 +19,8 @@ describe("a waiting desktop action", () => {
     [{ kind: "scroll", x: 700, y: 450, dx: 2, dy: 0 }, "Cuộn 2 dòng ngang, 0 dòng dọc tại điểm (700, 450) trong Notes"],
     [{ kind: "type", text: "Mua sữa\nvà bánh" }, "Gõ «Mua sữa và bánh» vào chỗ đang có con trỏ trong Notes"],
     [{ kind: "set_value", ref: "e7", text: "42" }, "Đặt «42» vào phần tử e7 trong Notes"],
+    [{ kind: "set_value", ref: "e7", name: "Số tiền", text: "42" }, "Đặt «42» vào ô «Số tiền» (e7) trong Notes"],
+    [{ kind: "set_value", ref: "e7", name: "  ", text: "42" }, "Đặt «42» vào phần tử e7 trong Notes"],
     [{ kind: "key", keys: "cmd+s" }, "Nhấn cmd+s trong Notes"],
     [{ kind: "focus_app" }, "Đưa Notes lên trước màn hình"],
   ])("reads %j as one line", (args, said) => {
@@ -38,6 +40,23 @@ describe("a waiting desktop action", () => {
 
   it("keeps its marks of a quote out of what it quotes", () => {
     expect(line({ kind: "type", text: "«hi»" })).toBe("Gõ «hi» vào chỗ đang có con trỏ trong Notes");
+  });
+
+  // A backspace typed in a word makes it another word: `sudx⌫o` reads as sudx and runs as sudo.
+  it.each([
+    [{ kind: "type", text: "sudx\bo ls" }, "Gõ «sudx[U+0008]o ls» vào chỗ đang có con trỏ trong Notes"],
+    [{ kind: "type", text: "echo ok\x0f" }, "Gõ «echo ok[U+000F]» vào chỗ đang có con trỏ trong Notes"],
+    [{ kind: "type", text: "\x1b[A a\x7f b\x85" }, "Gõ «[U+001B][A a[U+007F] b[U+0085]» vào chỗ đang có con trỏ trong Notes"],
+    [{ kind: "type", text: "a\x0bb\x0cc" }, "Gõ «a[U+000B]b[U+000C]c» vào chỗ đang có con trỏ trong Notes"],
+    [{ kind: "set_value", ref: "e7", name: "Xoá\x1b[2K", text: "\x00" }, "Đặt «[U+0000]» vào ô «Xoá[U+001B][2K» (e7) trong Notes"],
+    [{ kind: "click", ref: "e2", name: "Lưu\x08\x08Xoá" }, "Bấm «Lưu[U+0008][U+0008]Xoá» (e2) trong Notes"],
+    [{ kind: "key", keys: "cmd+s\x03", app: "Notes\x07" }, "Nhấn cmd+s[U+0003] trong Notes[U+0007]"],
+  ])("writes out each control character of %j", (args, said) => {
+    expect(line(args)).toBe(said);
+  });
+
+  it("reads a tab and a line break as the blanks they are", () => {
+    expect(line({ kind: "type", text: "a\tb\r\nc" })).toBe("Gõ «a b c» vào chỗ đang có con trỏ trong Notes");
   });
 
   it.each([

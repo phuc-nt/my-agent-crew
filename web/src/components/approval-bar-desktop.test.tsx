@@ -1,11 +1,12 @@
 // A desktop action that waits for a person: one line saying what it does, the server's reason
 // when it gave one, and the picture the agent chose it on with the point marked and when that
-// picture was taken; the raw arguments stay under all of it. The picture is the one the
-// conversation's screenshot saved, else the agent's folder, and none where it cannot be had.
+// picture was taken; the raw arguments stay under all of it. The picture is asked of the server
+// by frame, as the tool took it, never as the file of the agent's folder; none where it cannot
+// be had.
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
-import { agentFileUrl } from "../api/client";
+import { desktopPictureUrl } from "../api/client";
 import { App } from "../app";
 import { vi } from "../i18n/vi";
 import { FakeBackend, coachAgent, fakeAgent, fakeApproval, fakeRun, storedMessage } from "../test/fake-backend";
@@ -91,13 +92,13 @@ describe("the line of a waiting desktop action", () => {
 });
 
 describe("the picture a waiting desktop action was chosen on", () => {
-  it("is the one the conversation's screenshot saved, with when it was taken", async () => {
-    const path = `records/kept/desktop/${F}.png`;
-    const chat = conversation(path);
+  it("is the frame the conversation's screenshot took, as the tool took it, with when", async () => {
+    const chat = conversation(`records/kept/desktop/${F}.png`);
     bar(CLICK, { conversationId: chat.id });
 
     const shown = await frame();
-    const url = agentFileUrl("coach", path);
+    const url = desktopPictureUrl("coach", F);
+    expect(url).toBe(`/api/agents/coach/desktop/pictures/${F}`);
     expect(within(shown).getByRole("img")).toHaveAttribute("src", url);
     expect(within(shown).getByRole("img")).toHaveAttribute("alt", vi.desktop.frame.alt(1456, 910));
     expect(within(shown).getByRole("link")).toHaveAttribute("href", url);
@@ -108,13 +109,29 @@ describe("the picture a waiting desktop action was chosen on", () => {
     expect(before(shown, raw())).toBe(true);
   });
 
-  it("is the agent's folder where no screenshot of the conversation saved it, and says no time", async () => {
+  it("is asked by its frame where no screenshot of the conversation saved it, and says no time", async () => {
     bar(CLICK, { conversationId: conversation(null).id });
 
     const shown = await frame();
-    expect(within(shown).getByRole("img")).toHaveAttribute("src", agentFileUrl("coach", `records/kept/desktop/${F}.png`));
+    expect(within(shown).getByRole("img")).toHaveAttribute("src", desktopPictureUrl("coach", F));
     expect(screen.queryByTestId("desktop-frame-time")).not.toBeInTheDocument();
-    expect(asked("/agents/coach")).toBe(1);
+    // The server knows where the tool put it: the agent's row is not read to find its folder.
+    expect(asked("/agents/coach")).toBe(0);
+  });
+
+  it("is never the file of the agent's folder, which the agent may have rewritten", async () => {
+    bar(CLICK, { conversationId: conversation(`desktop/${F}.png`).id });
+
+    const shown = await frame();
+    for (const at of [within(shown).getByRole("img").getAttribute("src"), within(shown).getByRole("link").getAttribute("href")]) {
+      expect(at).toBe(desktopPictureUrl("coach", F));
+      expect(at).not.toContain("/files");
+    }
+  });
+
+  it("writes the agent and the frame into the address as parts of it, never as more of the path", () => {
+    expect(desktopPictureUrl("a/b c", F)).toBe(`/api/agents/a%2Fb%20c/desktop/pictures/${F}`);
+    expect(desktopPictureUrl("coach", "../x?y#z")).toBe("/api/agents/coach/desktop/pictures/..%2Fx%3Fy%23z");
   });
 
   it("is left out once the picture cannot be loaded, and the card reads as it does without one", async () => {
@@ -185,7 +202,7 @@ describe("the picture a waiting desktop action was chosen on", () => {
     const next = "00000000000000b2-1456x910-1";
     const chat = conversation(`desktop/${F}.png`);
     const view = bar(CLICK, { conversationId: chat.id });
-    expect(within(await frame()).getByRole("img")).toHaveAttribute("src", agentFileUrl("coach", `desktop/${F}.png`));
+    expect(within(await frame()).getByRole("img")).toHaveAttribute("src", desktopPictureUrl("coach", F));
 
     // The next read of the conversation is answered, but its answer is held on the way back.
     const real = backend.fetch;
@@ -208,7 +225,7 @@ describe("the picture a waiting desktop action was chosen on", () => {
     expect(screen.queryByTestId("desktop-frame")).not.toBeInTheDocument();
 
     await act(async () => release());
-    await waitFor(() => expect(within(screen.getByTestId("desktop-frame")).getByRole("img")).toHaveAttribute("src", agentFileUrl("coach", `records/kept/desktop/${next}.png`)));
+    await waitFor(() => expect(within(screen.getByTestId("desktop-frame")).getByRole("img")).toHaveAttribute("src", desktopPictureUrl("coach", next)));
   });
 
   it("is not looked for beside another tool's call", async () => {
@@ -238,7 +255,7 @@ describe("a desktop action waiting where a person decides", () => {
     const dialog = await screen.findByRole("alertdialog", { name: vi.awaitingApproval });
     expect(line(dialog)).toHaveTextContent(/^Bấm tại điểm \(728, 455\) trong Notes$/);
     const shown = await within(dialog).findByTestId("desktop-frame");
-    expect(within(shown).getByRole("img")).toHaveAttribute("src", agentFileUrl("default", `desktop/${F}.png`));
+    expect(within(shown).getByRole("img")).toHaveAttribute("src", desktopPictureUrl("default", F));
   });
 
   it("shows its picture in its row of the list of requests", async () => {
@@ -250,7 +267,7 @@ describe("a desktop action waiting where a person decides", () => {
 
     const row = await screen.findByRole("group", { name: new RegExp(`^${vi.attentionAwaiting("Coach")}`) });
     const shown = await within(row).findByTestId("desktop-frame");
-    expect(within(shown).getByRole("img")).toHaveAttribute("src", agentFileUrl("coach", `desktop/${F}.png`));
+    expect(within(shown).getByRole("img")).toHaveAttribute("src", desktopPictureUrl("coach", F));
     expect(within(row).getByTestId("desktop-frame-time")).toHaveTextContent(formatDateTime(SHOT_AT));
   });
 });

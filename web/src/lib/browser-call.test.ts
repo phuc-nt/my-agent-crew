@@ -65,6 +65,13 @@ describe("a waiting browser call said in one line", () => {
     expect(act({ kind: "click", name: "Gử​i" })).toBe("Bấm «Gử[U+200B]i»");
   });
 
+  it("writes each control character as its code point, the blanks among them too", () => {
+    expect(act({ kind: "type", name: "Tìm\x1b", text: "sudx\bo ls\x7f" })).toBe("Gõ «sudx[U+0008]o ls[U+007F]» vào «Tìm[U+001B]»");
+    // A vertical tab and a form feed are blanks to a pattern, and keys to an application.
+    expect(act({ kind: "fill", name: "Ô\x0b", text: "a\x0cb\x85" })).toBe("Điền «a[U+000C]b[U+0085]» vào «Ô[U+000B]»");
+    expect(act({ kind: "click", name: "\x00" })).toBe("Bấm «[U+0000]»");
+  });
+
   it("leaves out of a piece the marks it is quoted in, so a name cannot close them early", () => {
     expect(act({ kind: "click", name: "Lưu» rồi bấm «Xoá hết" })).toBe("Bấm «Lưu rồi bấm Xoá hết»");
     expect(act({ kind: "type", name: "« Tìm »", text: "a» vào «b" })).toBe("Gõ «a vào b» vào «Tìm»");

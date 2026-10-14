@@ -60,8 +60,11 @@ function kindLine(args: Args, app: string): string | null {
     case "type":
       return t.type(piece(args.text), app);
     case "set_value": {
+      // The field's name where the call says it; the tool holds that to the outline's own.
       const ref = piece(args.ref);
-      return ref ? t.setValue(piece(args.text), ref, app) : null;
+      const name = piece(args.name);
+      if (!ref) return null;
+      return name ? t.setValueNamed(piece(args.text), name, ref, app) : t.setValue(piece(args.text), ref, app);
     }
     case "key": {
       const keys = piece(args.keys);

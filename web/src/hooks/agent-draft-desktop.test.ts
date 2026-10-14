@@ -8,10 +8,10 @@ import { EDITABLE, toDraft } from "./agent-draft-shape";
 
 describe("the desktop keys the form starts from", () => {
   it("are the two the file has", () => {
-    const draft = toDraft({ ...fakeAgent, computer: "on", computer_apps: ["Notes", "com.apple.Safari"] });
+    const draft = toDraft({ ...fakeAgent, computer: "on", computer_apps: ["Notes", "com.apple.TextEdit"] });
 
     expect(draft.computer).toBe("on");
-    expect(draft.computer_apps).toEqual(["Notes", "com.apple.Safari"]);
+    expect(draft.computer_apps).toEqual(["Notes", "com.apple.TextEdit"]);
   });
 
   it("read an agent that reports a mode and no list as one that only looks", () => {

@@ -142,11 +142,20 @@ function readTelegram(value: unknown): Read<TelegramBlock | null> {
   return { ok: block };
 }
 
+/** A few of the browsers the server knows (`desktop/browsers.py`), by name whatever its case
+ *  and by bundle id or one that goes on from it after a dot: enough for a page to be refused. */
+function isBrowser(name: string): boolean {
+  const lowered = name.toLowerCase();
+  if (["safari", "google chrome", "chrome", "firefox"].includes(lowered)) return true;
+  return ["com.apple.safari", "com.google.chrome", "org.mozilla.firefox"].some((id) => lowered === id || lowered.startsWith(`${id}.`));
+}
+
 /**
  * `profile_desktop`: `computer` is the word "on" or "off" and nothing a parser made of another
  * word, with a bare true refused in a sentence of its own; null and false read as off.
  * `computer_apps` is a list of names, each trimmed, kept once, one printable line of 1 to 200
- * characters; null reads as none. A refusal names the agent, as the server's does.
+ * characters, and no web browser's; null reads as none. A refusal names the agent, as the
+ * server's does.
  */
 function readDesktop(agentId: string, patch: Record<string, unknown>): Read<Record<string, unknown>> {
   const ok: Record<string, unknown> = {};
@@ -166,6 +175,8 @@ function readDesktop(agentId: string, patch: Record<string, unknown>): Read<Reco
     for (const entry of value) {
       const name = typeof entry === "string" ? entry.trim() : "";
       if (name.length === 0 || name.length > 200 || /[\p{C}\p{Z}]/u.test(name.replace(/ /g, ""))) return refusal;
+      if (isBrowser(name))
+        return { error: `agent ${agentId}: computer_apps cannot name a web browser (${name}): the desktop never acts in one; the web is for the browser tools (browser: read or act)` };
       if (!apps.includes(name)) apps.push(name);
     }
     ok.computer_apps = apps;

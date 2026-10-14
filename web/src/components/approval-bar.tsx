@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { vi } from "../i18n/vi";
 import { browserCallLine } from "../lib/browser-call";
 import { desktopCallLine } from "../lib/desktop-call";
+import { showControlChars } from "../lib/hidden-chars";
 import type { PendingApproval } from "../state/thread-reducer";
 import { DesktopFrameThumb } from "./desktop-frame-thumb";
 import { formatClock } from "./run-timeline";
@@ -25,6 +26,9 @@ interface Props {
 export function ApprovalBar({ pending, busy, onDecide, onAlways, deadline, labelledBy, conversationId }: Props) {
   // A browser or desktop call in plain words, where its arguments can be read as one.
   const call = browserCallLine(pending.name, pending.arguments) ?? desktopCallLine(pending.name, pending.arguments);
+  // A control character draws as nothing and reaches an application as a key: what a person
+  // approves shows each one as its code point, here and in the arguments' full view.
+  const summary = showControlChars(summarizeArguments(pending.arguments));
   return (
     <div
       className="approval-bar callout"
@@ -37,14 +41,14 @@ export function ApprovalBar({ pending, busy, onDecide, onAlways, deadline, label
       </span>
       <div className="approval-text">
         <strong>{vi.approvalTitle(pending.name)}</strong>
-        {pending.reason && <span className="approval-reason">{pending.reason}</span>}
+        {pending.reason && <span className="approval-reason">{showControlChars(pending.reason)}</span>}
         {call && (
           <span className="approval-call" data-testid="approval-call">
             {call}
           </span>
         )}
         <DesktopFrameThumb conversationId={conversationId} name={pending.name} args={pending.arguments} />
-        <code>{summarizeArguments(pending.arguments) || "—"}</code>
+        <code>{summary || "—"}</code>
         <ToolArgsDetail args={pending.arguments} />
         {deadline ??
           (pending.expiresAt && (
