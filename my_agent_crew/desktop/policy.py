@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-from my_agent_crew import texts_desktop as t
+from my_agent_crew import texts_desktop_act as ta
 
 SPOTLIGHT_NAME, SPOTLIGHT_BUNDLE = "Spotlight", "com.apple.Spotlight"
 # A frame id as the helper makes it: the pixels' hash, the picture's size, the display.
@@ -89,9 +89,9 @@ def _fetched_into_shell(text: str) -> bool:
 def typed_refusal(text: str) -> str:
     """The sentence a text is refused with before anyone is asked, or ""."""
     if SUDO.search(text):
-        return t.ACT_TEXT_SUDO
+        return ta.ACT_TEXT_SUDO
     if any(_removes_all(found.group(1)) for found in RM.finditer(text)):
-        return t.ACT_TEXT_RM
+        return ta.ACT_TEXT_RM
     if _fetched_into_shell(text):
-        return t.ACT_TEXT_PIPE
+        return ta.ACT_TEXT_PIPE
     return ""
