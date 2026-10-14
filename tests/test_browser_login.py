@@ -5,6 +5,8 @@ every way it closes. Real Chromium, one nobody sees in place of the one a person
 from __future__ import annotations
 
 import asyncio
+import os
+import signal
 import threading
 import time
 from collections.abc import AsyncIterator, Callable
@@ -17,6 +19,7 @@ from typing import Any
 import pytest
 
 from my_agent_crew import texts_browser as t
+from my_agent_crew.browser import launch as launch_module
 from my_agent_crew.browser import login as login_module
 from my_agent_crew.browser.console import LOCKED, NONE, OPEN, read_console
 from my_agent_crew.browser.launch import launch
@@ -27,6 +30,7 @@ from my_agent_crew.browser.login import (
     NO_CONSOLE,
     OPEN_SECONDS,
     SCREEN_LOCKED,
+    STOPPING,
     LoginWindows,
     Refused,
 )
@@ -38,7 +42,7 @@ from my_agent_crew.config_browser import BrowserSettings, profile_dir
 from my_agent_crew.texts_browser_login import LOGIN_OPEN
 from my_agent_crew.tools.registry import ToolError
 from tests.browser_crew import Screen
-from tests.browser_servers import Site, browsers, sites
+from tests.browser_servers import Site, browsers, drivers, sites
 from tests.browser_tools import talking, world
 
 SIGNED_IN = "phien=bi-mat-123; Max-Age=3600; HttpOnly; SameSite=Lax; Path=/"
@@ -564,5 +568,110 @@ async def test_a_call_of_the_agent_is_told_a_person_is_signing_in_and_reads_sign
             assert await windows.done("coach") is True
 
             assert "khách quen" in await go.run({"url": w.site.url("/toi")})
+        finally:
+            await shut(windows)
+
+
+async def test_no_window_is_opened_once_the_server_is_going_down(tmp_path):
+    """One opened then would be left on the screen: nobody closes windows after the stop."""
+    async with desk(tmp_path) as d:
+        d.pool.shut = True
+
+        with pytest.raises(Refused) as refused:
+            await d.windows.open("coach")
+
+        assert refused.value.why == STOPPING == "stopping"
+        assert d.opener.asked == [] and d.pool.reserved == set()
+        assert d.windows.window("coach") is None
+        # The web is told what it can act on: a server going down is no state of the screen.
+        assert d.windows.why_not("coach") == ""
+
+
+async def test_a_window_whose_driver_went_away_is_closed_for_the_crew_at_once(
+    tmp_path, monkeypatch
+):
+    """No browser says a word when the driver dies: without this the agent would be off its
+    browser until the window's time ran out."""
+    monkeypatch.setattr(login_module, "LOOK_SECONDS", 0.05)
+    async with desk(tmp_path, seconds=3_600) as d:
+        window = await d.windows.open("coach")
+        port = window.proxy.port
+        await window.context.pages[0].goto(d.site.url("/vao"))
+        await until(lambda: bool(window.held))
+        (driver,) = drivers()
+
+        os.kill(driver, signal.SIGKILL)
+        await until(lambda: "coach" not in d.pool.reserved, 20)
+
+        assert d.windows.window("coach") is None and await gone(port)
+        assert window.timer.cancelled() or window.timer.done()
+        # It can no longer be asked: what it was last seen to hold is what is written.
+        assert recalled(d.profile()).keys() == {"127.0.0.1"}
+        again = await d.pool.session("coach")
+        assert [cookie["name"] for cookie in await again.context.cookies()] == ["phien"]
+
+
+async def test_a_window_that_never_answers_a_close_still_gives_the_agent_its_browser_back(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(launch_module, "CLOSE_SECONDS", 0.05)
+
+    class Deaf(Quit):
+        async def close(self) -> None:
+            await asyncio.Event().wait()
+
+    async def opener(driver: Any, profile: Path, channel: str, proxy: Any) -> Deaf:
+        return Deaf([])
+
+    async with browsers(tmp_path / "browser") as pool:
+        windows = LoginWindows(pool, console=Screen(), opener=opener)
+        try:
+            window = await windows.open("coach")
+            port = window.proxy.port
+            assert pool.reserved == {"coach"}
+
+            async with asyncio.timeout(5):
+                assert await windows.done("coach") is True
+
+            assert pool.reserved == set() and windows.window("coach") is None
+            assert await gone(port)
+        finally:
+            await shut(windows)
+
+
+async def test_a_window_whose_driver_is_gone_is_asked_nothing_as_it_is_closed(tmp_path):
+    """Nothing answers behind a driver that went away: a question would be waited for in vain,
+    and whatever came back would be no word of the browser's."""
+    soon = time.time() + 3_600
+
+    class Counted(Quit):
+        closes = 0
+
+        async def close(self) -> None:
+            self.closes += 1
+
+    held = {"name": "sid", "value": "bi-mat-123", "domain": "bank.example", "expires": soon}
+    browser = Counted([{**held, "httpOnly": True, "sameSite": "Lax"}])
+
+    async def opener(driver: Any, profile: Path, channel: str, proxy: Any) -> Counted:
+        profile.mkdir(parents=True)
+        return browser
+
+    async with browsers(tmp_path / "browser") as pool:
+        windows = LoginWindows(pool, console=Screen(), opener=opener)
+        try:
+            window = await windows.open("coach")
+            port = window.proxy.port
+            # What a look saw of it, set before the first look of this window is due.
+            window.held = {"shop.example": soon}
+
+            for told in pool.on_lost:  # as the pool tells whoever listens, its driver gone
+                told()
+            await until(lambda: "coach" not in pool.reserved)
+
+            assert (browser.asked, browser.closes) == (0, 0)
+            assert recalled(profile_dir(pool.root, "coach")) == {"shop.example": soon}
+            assert windows.window("coach") is None and await gone(port)
+            assert window.timer.cancelled()
         finally:
             await shut(windows)

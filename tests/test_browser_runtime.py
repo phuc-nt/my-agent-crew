@@ -404,6 +404,7 @@ class Rounds:
     def __init__(self, *rounds: list[str] | Exception) -> None:
         self.rounds, self.asked, self.all_stopped = list(rounds), 0, 0
         self.shut, self.shut_when_stopped = False, False
+        self.on_lost: list = []
         self.done = asyncio.Event()
 
     def running(self, agent_id: str) -> None:

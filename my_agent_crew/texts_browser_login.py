@@ -21,4 +21,5 @@ LOGIN_BUSY = (
     "Agent đang dùng trình duyệt cho một lần gọi. Chờ lần gọi đó xong rồi bấm lại, hoặc dừng "
     "trình duyệt trước."
 )
+LOGIN_STOPPING = "Máy chủ của đội đang dừng nên không mở cửa sổ nào nữa. Bấm lại khi nó chạy lại."
 LOGIN_FAILED = "Không mở được cửa sổ trình duyệt: {error}"

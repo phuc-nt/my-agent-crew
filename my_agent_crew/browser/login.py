@@ -5,8 +5,9 @@ A profile is one browser's at a time. The agent's own browser is stopped before 
 opens, the agent has none while it is open (`pool.reserved`), and no window opens under a
 call that is using the browser. The window goes out through a proxy of its own that refuses
 private addresses, as the agent's browser does. It closes when the person says they are done,
-when they close it themselves, and by itself after a while: one left open would keep the
-agent off its browser for good."""
+when they close it themselves, when the driver it was started through goes away, and by
+itself after a while: one left open would keep the agent off its browser for good. None is
+opened once the server is going down."""
 
 from __future__ import annotations
 
@@ -15,13 +16,12 @@ import functools
 import logging
 from collections import defaultdict
 from collections.abc import Callable, Coroutine
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from my_agent_crew.browser.console import LOCKED, NONE, read_console
 from my_agent_crew.browser.launch import launch
-from my_agent_crew.browser.logins import read, remember
+from my_agent_crew.browser.login_window import Window
 from my_agent_crew.browser.network import check_url
 from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.browser.proxy import FilteringProxy
@@ -30,7 +30,7 @@ from my_agent_crew.config_browser import profile_dir
 log = logging.getLogger(__name__)
 
 # Why no window is opened now, as the web is told.
-NO_CONSOLE, SCREEN_LOCKED, BUSY = "no_console", "locked", "busy"
+NO_CONSOLE, SCREEN_LOCKED, BUSY, STOPPING = "no_console", "locked", "busy", "stopping"
 OPEN_SECONDS = 15 * 60
 # How often an open window is asked what it holds.
 LOOK_SECONDS = 5.0
@@ -42,17 +42,6 @@ class Refused(Exception):
     def __init__(self, why: str) -> None:
         super().__init__(why)
         self.why = why
-
-
-@dataclass
-class Window:
-    agent_id: str
-    context: Any
-    proxy: FilteringProxy
-    until: datetime
-    timer: asyncio.Task[None] | None = None
-    # What it was last seen to hold: a browser the person quits cannot be asked afterwards.
-    held: dict[str, float] | None = None
 
 
 class LoginWindows:
@@ -73,6 +62,7 @@ class LoginWindows:
         self._windows: dict[str, Window] = {}
         self._locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._tasks: set[asyncio.Future[Any]] = set()
+        pool.on_lost.append(self._lost)
 
     def window(self, agent_id: str) -> Window | None:
         return self._windows.get(agent_id)
@@ -121,7 +111,8 @@ class LoginWindows:
             window = self._windows.get(agent_id)
             if window is not None:
                 return window
-            why = self.why_not(agent_id)
+            # A window opened under a server that is stopping would be left on the screen.
+            why = STOPPING if self.pool.shut else self.why_not(agent_id)
             if why:
                 raise Refused(why)
             # Taken before the first await: from here on no call starts the agent's browser.
@@ -171,26 +162,24 @@ class LoginWindows:
         end = loop.time() + self.seconds
         while (left := end - loop.time()) > 0:
             await asyncio.sleep(min(LOOK_SECONDS, left))
-            seen = await read(window.context)
-            window.held = window.held if seen is None else seen
+            await window.look()
         log.info("login window of agent %s closed: nobody said they were done", window.agent_id)
         await self.done(window.agent_id, window)
 
-    async def _done(self, agent_id: str, only: Window | None) -> bool:
+    def _lost(self) -> None:
+        """The driver went away and every window with it, without a word: each is closed for
+        the crew as one that can no longer be asked anything."""
+        for agent_id, window in list(self._windows.items()):
+            self._kept(self._done(agent_id, window, gone=True))
+
+    async def _done(self, agent_id: str, only: Window | None, gone: bool = False) -> bool:
         async with self._locks[agent_id]:
             window = self._windows.get(agent_id)
             if window is None or (only is not None and window is not only):
                 return False
             del self._windows[agent_id]
-            if window.timer is not None:
-                window.timer.cancel()
             try:
-                profile = profile_dir(self.pool.root, agent_id)
-                await remember(window.context, profile, window.held)
-                await window.context.close()
-            except Exception:  # noqa: BLE001 - a window the person already closed is closed
-                pass
+                await window.close(profile_dir(self.pool.root, agent_id), gone=gone)
             finally:
-                await window.proxy.stop()
                 self.pool.reserved.discard(agent_id)
             return True

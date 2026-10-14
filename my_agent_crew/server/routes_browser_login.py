@@ -21,7 +21,15 @@ from pydantic import BaseModel
 from my_agent_crew import texts_browser_login as t
 from my_agent_crew.browser import logins
 from my_agent_crew.browser.kit import first_line, from_browser
-from my_agent_crew.browser.login import BUSY, NO_CONSOLE, SCREEN_LOCKED, LoginWindows, Refused
+from my_agent_crew.browser.launch import Stuck
+from my_agent_crew.browser.login import (
+    BUSY,
+    NO_CONSOLE,
+    SCREEN_LOCKED,
+    STOPPING,
+    LoginWindows,
+    Refused,
+)
 from my_agent_crew.config_browser import profile_dir
 from my_agent_crew.server.agent_edit_common import existing
 from my_agent_crew.server.deps import Rt
@@ -32,7 +40,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["agents"])
 # The agent has no browser to sign in on: its own file gives it none, or the machine has none.
 OFF = "off"
-SAID = {NO_CONSOLE: t.LOGIN_NO_CONSOLE, SCREEN_LOCKED: t.LOGIN_LOCKED, BUSY: t.LOGIN_BUSY}
+SAID = {
+    NO_CONSOLE: t.LOGIN_NO_CONSOLE,
+    SCREEN_LOCKED: t.LOGIN_LOCKED,
+    BUSY: t.LOGIN_BUSY,
+    STOPPING: t.LOGIN_STOPPING,
+}
 
 
 class LoginRequest(BaseModel):
@@ -95,7 +108,7 @@ async def open_login(agent_id: str, rt: Rt, body: LoginRequest | None = None) ->
     except Refused as error:
         raise HTTPException(409, SAID[error.why]) from error
     except Exception as error:
-        if not from_browser(error):
+        if not (from_browser(error) or isinstance(error, Stuck)):
             raise
         logger.warning("login window of agent %s did not open: %s", agent_id, first_line(error))
         raise HTTPException(409, t.LOGIN_FAILED.format(error=first_line(error))) from error
