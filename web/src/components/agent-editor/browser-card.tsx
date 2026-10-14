@@ -134,7 +134,9 @@ export function BrowserCard({ agentId, savedMode, savedHosts, onOpenConversation
         </div>
       )}
       {browser?.login && <BrowserLogin login={browser.login} control={control} />}
-      {browser && browser.logins !== undefined && <BrowserSignedIn logins={browser.logins} ownHosts={savedHosts} />}
+      {browser && browser.logins !== undefined && (
+        <BrowserSignedIn logins={browser.logins} ownHosts={savedHosts} more={browser.logins_more} />
+      )}
       {note && (
         <p className={`credential-note ${note.tone}`} role="status" data-testid="browser-note">
           {note.text}

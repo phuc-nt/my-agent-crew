@@ -6,6 +6,7 @@ nobody sees in place of the window a person would be shown."""
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from collections.abc import AsyncIterator
 from datetime import datetime, timedelta
@@ -25,7 +26,7 @@ from my_agent_crew.browser.install import NO_BROWSER, Installed
 from my_agent_crew.browser.kit import NAVIGATE, SNAPSHOT, TABS
 from my_agent_crew.browser.launch import Stuck
 from my_agent_crew.browser.login import OPEN_SECONDS
-from my_agent_crew.browser.logins import FILE, read, recalled
+from my_agent_crew.browser.logins import FILE, TOLD, read, recalled
 from my_agent_crew.config_browser import browser_root
 from my_agent_crew.server import browser_runtime
 from my_agent_crew.server.app import create_app
@@ -510,6 +511,29 @@ async def test_where_the_browser_may_be_signed_in_is_told_by_host_and_moment_and
         assert not [secret for secret in SECRETS if secret in text]
     # Another agent's profile is another browser's: it is signed in nowhere.
     assert (await crew.told("reader"))["logins"] is None
+
+
+async def test_the_hosts_a_long_list_leaves_out_are_told_as_a_number_beside_it(crew: Crew):
+    # Nothing is known of the profile yet, so nothing was left out of it either.
+    assert (await crew.told("coach"))["logins_more"] == 0
+    later, profile = time.time() + 3_600, browser_root(crew.home) / "coach"
+    held = {f"h{n:03}.example": later for n in range(TOLD + 7)} | {"a-ran-out.example": 1.0}
+    profile.mkdir(parents=True, exist_ok=True)
+    (profile / FILE).write_text(json.dumps({"hosts": held}))
+
+    told = await crew.told("coach")
+
+    # The first by name, as before, and how many more hold something.
+    assert [row["host"] for row in told["logins"]] == sorted(held)[1 : TOLD + 1]
+    assert told["logins_more"] == 7
+    # A list that was not cut leaves none out.
+    few = dict(sorted(held.items())[: TOLD + 1])
+    (profile / FILE).write_text(json.dumps({"hosts": few}))
+    told = await crew.told("coach")
+    assert (len(told["logins"]), told["logins_more"]) == (TOLD, 0)
+    # An agent that has no browser has no list, and nothing left out of it.
+    told = await crew.told("plain")
+    assert (told["logins"], told["logins_more"]) == (None, 0)
 
 
 async def test_an_agent_with_hosts_of_its_own_is_told_of_each_of_them_signed_in_or_not(

@@ -100,6 +100,7 @@ export const viBrowser = {
       nothing: "chưa thấy đăng nhập",
       none: "Chưa thấy đăng nhập ở máy chủ nào.",
       more: (count: number) => `+${count} máy chủ nữa`,
+      untold: (count: number) => `Còn ${count} máy chủ nữa không kể tên ở đây.`,
       caveat:
         "Đoán từ cookie còn hạn trong hồ sơ trình duyệt: là dấu hiệu, không phải bằng chứng. Trang có thể đã tự đăng xuất, và có trang giữ cookie như vậy cho cả người chưa đăng nhập.",
     },

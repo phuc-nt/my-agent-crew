@@ -9,8 +9,11 @@
 // refused before anything else is looked at; a window closes when a person says they are
 // done and by itself after a while; and of what a profile holds only host names and one
 // moment each are told, the agent's own hosts in the order of its file, or, for an agent with
-// none, the hosts that hold something, by name.
+// none, the hosts that hold something, by name: the first fifty, and how many more there are.
 import type { BrowserLogin, BrowserSignedIn } from "../api/types";
+
+/** The hosts a browser may be signed in to, and how many more there are than are named. */
+type SignedInTold = { logins: BrowserSignedIn[] | null; logins_more: number };
 
 /** `texts_browser_login`, word for word. */
 export const LOGIN_OFF =
@@ -95,10 +98,11 @@ export class FakeBrowserLogin {
     return true;
   }
 
-  /** The two keys of what is read of an agent's browser; neither from a server older than them. */
-  told(agent: LoginAgent): { login?: BrowserLogin; logins?: BrowserSignedIn[] | null } {
+  /** What is read of an agent's browser here: its window, the hosts it may be signed in to and
+   *  how many more of those there are. None of it from a server older than the window. */
+  told(agent: LoginAgent): { login?: BrowserLogin } & Partial<SignedInTold> {
     if (this.old) return {};
-    return { login: this.login(agent), logins: this.logins(agent) };
+    return { login: this.login(agent), ...this.logins(agent) };
   }
 
   /** Opens the agent's window, stopping its own browser first, or says why none opens. */
@@ -136,23 +140,22 @@ export class FakeBrowserLogin {
     return { open: false, until: null, available: !why, why };
   }
 
-  private logins(agent: LoginAgent): BrowserSignedIn[] | null {
+  private logins(agent: LoginAgent): SignedInTold {
     // A browser or a window that is up is asked; one that is down has what was written when
     // it closed, and a profile no browser ever closed on has nothing to tell.
     const asked = agent.up || this.window(agent.id) !== undefined;
     const hosts = this.held.get(agent.id) ?? (asked ? {} : undefined);
-    if (!agent.reads || hosts === undefined) return null;
+    if (!agent.reads || hosts === undefined) return { logins: null, logins_more: 0 };
     const now = this.now();
     const live = Object.entries(hosts).filter(([, until]) => until > now);
     if (agent.hosts.length > 0) {
-      return [...new Set(agent.hosts)].map((pattern) => {
+      const own = [...new Set(agent.hosts)].map((pattern) => {
         const last = live.filter(([host]) => covers(pattern, host)).map(([, until]) => until.getTime());
         return { host: pattern, until: last.length > 0 ? moment(new Date(Math.max(...last))) : null };
       });
+      return { logins: own, logins_more: 0 }; // its own list is told whole
     }
-    return live
-      .sort(([a], [b]) => (a < b ? -1 : 1))
-      .slice(0, TOLD)
-      .map(([host, until]) => ({ host, until: moment(until) }));
+    const named = live.sort(([a], [b]) => (a < b ? -1 : 1)).map(([host, until]) => ({ host, until: moment(until) }));
+    return { logins: named.slice(0, TOLD), logins_more: Math.max(0, named.length - TOLD) };
   }
 }

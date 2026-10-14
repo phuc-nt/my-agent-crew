@@ -78,7 +78,7 @@ async def read_browser(agent_id: str, rt: Rt) -> dict[str, Any]:
         "idle_seconds": _idle(now, session.used) if session else None,
         "tabs": [_told(tab, title, now) for tab, title in zip(tabs, titles, strict=True)],
         "login": login_told(rt, agent_id),
-        "logins": await logins_told(rt, agent_id),
+        **await logins_told(rt, agent_id),
     }
 
 

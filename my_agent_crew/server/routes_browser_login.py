@@ -77,13 +77,15 @@ def login_told(rt: Runtime, agent_id: str) -> dict[str, Any]:
     return {"open": False, "until": None, "available": not why, "why": why}
 
 
-async def logins_told(rt: Runtime, agent_id: str) -> list[dict[str, str | None]] | None:
-    """The hosts the agent's browser may still be signed in to: asked of the browser or the
-    window that is up now, else read from what was written when one last closed. None where
-    the agent has no browser, and where none has ever closed on its profile."""
+async def logins_told(rt: Runtime, agent_id: str) -> dict[str, Any]:
+    """The hosts the agent's browser may still be signed in to (`logins`) and how many more
+    hold something than that list names (`logins_more`): asked of the browser or the window
+    that is up now, else read from what was written when one last closed. No list where the
+    agent has no browser, and where none has ever closed on its profile."""
+    nothing = {"logins": None, "logins_more": 0}
     windows = _windows(rt, agent_id)
     if windows is None:
-        return None
+        return nothing
     pool = windows.pool
     window, session = windows.window(agent_id), pool.running(agent_id)
     context = window.context if window else session.context if session else None
@@ -91,9 +93,9 @@ async def logins_told(rt: Runtime, agent_id: str) -> list[dict[str, str | None]]
     if hosts is None:
         hosts = await asyncio.to_thread(logins.recalled, profile_dir(pool.root, agent_id))
     if hosts is None:
-        return None
-    own = rt.deps_for(agent_id).agent.settings.browser.hosts
-    return logins.told(hosts, own, time.time())
+        return nothing
+    own, now = rt.deps_for(agent_id).agent.settings.browser.hosts, time.time()
+    return {"logins": logins.told(hosts, own, now), "logins_more": logins.untold(hosts, own, now)}
 
 
 @router.post("/agents/{agent_id}/browser/login")

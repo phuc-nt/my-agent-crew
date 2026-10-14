@@ -25,7 +25,8 @@ log = logging.getLogger(__name__)
 
 FILE = "crew-logins.json"
 READ_SECONDS = 2.0
-# An agent with no hosts of its own is told of this many at most, the first by name.
+# An agent with no hosts of its own is told of this many at most, the first by name, and of
+# how many more there are (`untold`).
 TOLD = 50
 
 
@@ -94,10 +95,20 @@ def _when(until: float) -> str:
     return datetime.fromtimestamp(until, UTC).isoformat(timespec="seconds")
 
 
+def _live(hosts: dict[str, float], now: float) -> dict[str, float]:
+    return {host: until for host, until in hosts.items() if until > now}
+
+
+def untold(hosts: dict[str, float], own: Sequence[str], now: float) -> int:
+    """How many hosts that hold something `told` names none of, having named `TOLD`. None
+    for an agent with hosts of its own: its list is told whole."""
+    return 0 if own else max(0, len(_live(hosts, now)) - TOLD)
+
+
 def told(hosts: dict[str, float], own: Sequence[str], now: float) -> list[dict[str, str | None]]:
     """What a person is shown. An agent with hosts of its own is told of each of them, also of
     one that holds nothing; an agent with none is told of the hosts that hold something."""
-    live = {host: until for host, until in hosts.items() if until > now}
+    live = _live(hosts, now)
     if own:
         last = {p: max((u for h, u in live.items() if _covers(p, h)), default=None) for p in own}
         return [{"host": p, "until": _when(u) if u else None} for p, u in last.items()]

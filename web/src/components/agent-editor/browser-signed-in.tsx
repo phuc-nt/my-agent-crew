@@ -11,6 +11,8 @@ interface Props {
   logins: SignedIn[] | null;
   /** The agent's `browser_hosts` as its file has them. */
   ownHosts?: string[];
+  /** How many hosts hold a sign-in beyond the ones `logins` names. */
+  more?: number;
 }
 
 /**
@@ -22,11 +24,13 @@ interface Props {
  * agent with none is told of whatever its browser holds, which can be many: the first few
  * are shown, and a button brings the rest. Once pressed the button is gone and the keyboard
  * is put on the list it filled, since a button that vanishes under it leaves it nowhere.
+ * The server names so many and no more: how many it left out is one line under the list,
+ * which no button brings, so that a list cut short does not read as the whole of it.
  *
  * Nothing here is said aloud when it changes: it changes at a read, not at something the
  * person did.
  */
-export function BrowserSignedIn({ logins, ownHosts }: Props) {
+export function BrowserSignedIn({ logins, ownHosts, more = 0 }: Props) {
   const labelId = useId();
   const list = useRef<HTMLUListElement>(null);
   const [all, setAll] = useState(false);
@@ -67,6 +71,7 @@ export function BrowserSignedIn({ logins, ownHosts }: Props) {
           {t.more(rest)}
         </button>
       )}
+      {more > 0 && <p className="muted field-hint">{t.untold(more)}</p>}
       <p className="muted field-hint">{t.caveat}</p>
     </div>
   );
