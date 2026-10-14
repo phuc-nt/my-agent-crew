@@ -39,7 +39,7 @@ def build_act(kit: Kit) -> Tool:
         return bool(ref_refusal(act, kit.shown()))
 
     def ask(args: dict[str, Any]) -> str | None:
-        return None if doomed(args) else ask_reason(args, kit.apps, kit.ask)
+        return None if doomed(args) else ask_reason(args, kit.apps, kit.ask, kit.shown())
 
     async def run(args: dict[str, Any]) -> str:
         act = read_act(args, kit.apps)

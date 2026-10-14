@@ -51,6 +51,15 @@ HELPER_ERRORS = {
         "Ref này không có trong dàn ý gần nhất của ứng dụng đang ở trước. Gọi computer_observe "
         "rồi dùng ref trong đó."
     ),
+    "point_covered": (
+        "Không bấm gì: thứ nằm trên cùng tại điểm đó không thuộc ứng dụng đang ở trước, hoặc không "
+        "phải phần tử mà ref chỉ tới (có thể một cửa sổ hay hộp thoại khác đang che). Gọi "
+        "computer_screenshot hoặc computer_observe để xem lại màn hình rồi thử lại."
+    ),
+    "browser_app": (
+        "Từ chối: ứng dụng đó là trình duyệt web. Màn hình không thao tác trong trình duyệt và "
+        "không cấu hình nào bật được; trang web dùng các công cụ browser_*."
+    ),
     "secure_input": (
         "Từ chối: đang có ô mật khẩu hoặc chế độ nhập bảo mật. Không gõ vào đó và không cấu hình "
         "nào bật được: nhập mật khẩu là việc của chủ máy. {detail}"

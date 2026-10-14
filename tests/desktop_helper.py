@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from my_agent_crew.desktop.browsers import BUNDLE_IDS
+
 VERSION, PROTOCOL = "0.1.0", 1
 # What each command needs before it does anything, in the order the helper checks.
 NEEDS = {
@@ -31,6 +33,8 @@ NEEDS = {
     "act": ("accessibility",),
 }
 EFFECTS = {"set_value": "set", "focus_app": "focused"}
+# The actions the helper sends to a point, whose topmost element it looks at first.
+POINTED = ("click", "double_click", "right_click", "drag", "scroll")
 
 
 # The screen of the stand-in, small so its pictures are.
@@ -41,6 +45,7 @@ POINTS = {"x": WIDTH, "y": HEIGHT, "to_x": WIDTH, "to_y": HEIGHT}
 # that is not on that picture.
 STALE = "That is not the last frame captured of display 1; take a new screenshot."
 OFF_THE_PICTURE = f"The point is outside the picture, which is {WIDTH} by {HEIGHT} pixels."
+CONTROL_TEXT = "`text` holds a control character other than tab and the line breaks."
 
 
 def png(shade: int = 0, width: int = WIDTH, height: int = HEIGHT) -> bytes:
@@ -84,6 +89,20 @@ class App:
     def named(self, text: str) -> bool:
         return text.lower() in (self.app.lower(), self.bundle_id.lower())
 
+    @property
+    def browser(self) -> bool:
+        """As the helper tells a browser: by its bundle id, whatever the case, or one that
+        goes on from a browser's after a dot."""
+        mine = self.bundle_id.lower()
+        return any(mine == b.lower() or mine.startswith(f"{b.lower()}.") for b in BUNDLE_IDS)
+
+
+def holds_control(text: Any) -> bool:
+    """Whether a text holds a control character the helper refuses: any but tab, LF and CR."""
+    return isinstance(text, str) and any(
+        (ord(char) < 0x20 and char not in "\t\n\r") or 0x7F <= ord(char) <= 0x9F for char in text
+    )
+
 
 class Refused(Exception):
     def __init__(self, code: str, detail: str = "") -> None:
@@ -101,6 +120,8 @@ class FakeHelper:
     screen_recording: bool = True
     accessibility: bool = True
     secure_input: bool = False
+    # Something else lies on top where an action points: another window, a dialog.
+    covered: bool = False
     shot: int = 1  # which picture the screen shows now
     # The last frame handed out. An action is read against that picture and no other: the
     # helper knows of no screen but the one it last pictured. A stand-in starts as one whose
@@ -286,6 +307,12 @@ class FakeHelper:
         if kind != "focus_app" and "ref" in request:
             if not isinstance(request.get("outline"), str):
                 raise Refused("bad_request", "`outline` is required with a `ref`.")
+        if holds_control(request.get("text")):
+            raise Refused("bad_request", CONTROL_TEXT)
+        # A browser is refused whatever the list says: the one asked for, or the one in front.
+        target = app if kind == "focus_app" else self.running(self.front or "")
+        if target is not None and target.browser:
+            raise Refused("browser_app", "That application is a web browser.")
         if kind == "focus_app":
             if app is None:
                 raise Refused("app_not_running", f"{request.get('app')} is not running")
@@ -301,6 +328,8 @@ class FakeHelper:
             raise Refused("ref_unknown", f"no element {request['ref']} in the last outline")
         elif any(not 0 <= request.get(key, 0) < most for key, most in POINTS.items()):
             raise Refused("bad_request", OFF_THE_PICTURE)
+        elif self.covered and kind in POINTED:
+            raise Refused("point_covered", "Another window lies on top at that point.")
         if self.after_act is not None:
             self.after_act(self)
         return {"effect": EFFECTS.get(kind, "posted"), "frontmost": self._frontmost()}
@@ -350,4 +379,4 @@ def desk() -> list[App]:
     )
     bank = App("Ngân hàng", "vn.bank.app", 777, window="Số dư")
     bank.nodes = [{"ref": "a1", "depth": 0, "role": "AXStaticText", "value": "12.345.678 đ"}]
-    return [notes, App("Safari", "com.apple.Safari", 502, window="Trang chủ"), bank]
+    return [notes, App("TextEdit", "com.apple.TextEdit", 502, window="Không tên"), bank]

@@ -7,9 +7,11 @@ outline before it, of one another conversation read, or of a row that did not fi
 is refused here, before anybody is asked and before the helper hears of it. The helper holds
 the same line on its side: it takes a ref only with the name of the outline it gave last.
 
-A click by ref says the name it read beside the ref as well. That is what a person is shown
-on the approval card and what the agent's own words are looked for in, so it has to be the
-name the outline gave, and is refused when it is not.
+A click by ref says the name it read beside the ref as well, and a field that is set may.
+A person is shown that name on the approval card, so it has to be the name the outline gave,
+and is refused when it is not. The agent's own words are looked for in the outline's name
+itself (`asking.py`), so a field that is set is judged by its name whether the call says it
+or not.
 """
 
 from __future__ import annotations
@@ -67,7 +69,9 @@ def ref_refusal(act: Act, shown: Shown | None) -> str:
         return ta.ACT_SECURE_REF.format(ref=act.token)
     if act.ref not in shown.named:
         return ta.ACT_REF_UNSEEN.format(ref=act.token)
-    if act.text is None and not same_name(act.name, shown.named[act.ref]):
+    # A click says its name always, an empty one included; a field that is set, when it will.
+    said = act.text is None or bool(act.name)
+    if said and not same_name(act.name, shown.named[act.ref]):
         name = one_line(act.name, NAME_CHARS)
         return ta.ACT_NAME_MISMATCH.format(ref=act.token, name=name)
     return ""

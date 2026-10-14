@@ -126,17 +126,32 @@ async def test_a_field_set_is_said_to_be_set(helper, tmp_path):
     assert request["outline"] == outline_name(1)
 
 
+async def test_a_field_set_under_a_name_is_held_to_the_outlines_and_the_name_never_sent(
+    helper, tmp_path
+):
+    tools = desk_of(helper, tmp_path)
+    await tools.observe()
+
+    wrong = await tools.refused(ACT, **call("set_value", ref=ref("a3"), name="Ghi mới", text="x"))
+    answer = await tools.act(**call("set_value", ref=ref("a3"), name="Mua  sữa", text="x"))
+
+    assert wrong == ta.ACT_NAME_MISMATCH.format(ref=ref("a3"), name="Ghi mới")
+    assert answer == ta.ACT_SET.format(ref=ref("a3"), app="Notes")
+    (request,) = helper.sent("act")
+    assert "name" not in request and (request["ref"], request["text"]) == ("a3", "x")
+
+
 async def test_bringing_an_application_forward_needs_no_frame_and_asks_for_a_new_one(
     helper, tmp_path
 ):
-    tools = desk_of(helper, tmp_path, ("Notes", "Safari"))
+    tools = desk_of(helper, tmp_path, ("Notes", "TextEdit"))
 
-    answer = await tools.act(kind="focus_app", app="safari", frame_id=frame(1), ref="a2")
+    answer = await tools.act(kind="focus_app", app="textedit", frame_id=frame(1), ref="a2")
 
-    assert answer == ta.ACT_FOCUSED.format(app="safari")
+    assert answer == ta.ACT_FOCUSED.format(app="textedit")
     (request,) = helper.sent("act")
-    assert set(request) == {"id", "cmd", "kind", "app"} and request["app"] == "safari"
-    assert helper.front == "Safari"
+    assert set(request) == {"id", "cmd", "kind", "app"} and request["app"] == "textedit"
+    assert helper.front == "TextEdit"
 
 
 async def test_a_frame_older_than_the_last_picture_taken_is_refused(helper, tmp_path):
@@ -410,9 +425,9 @@ async def test_an_application_outside_the_list_left_in_front_is_told_without_its
 async def test_one_of_the_agents_own_applications_left_in_front_is_not_remarked_on(
     helper, tmp_path
 ):
-    helper.after_act = lambda desktop: setattr(desktop, "front", "Safari")
+    helper.after_act = lambda desktop: setattr(desktop, "front", "TextEdit")
 
-    answer = await desk_of(helper, tmp_path, ("Notes", "com.apple.Safari")).act(
+    answer = await desk_of(helper, tmp_path, ("Notes", "com.apple.TextEdit")).act(
         **call("click", **POINT)
     )
 
@@ -442,7 +457,7 @@ async def test_an_application_that_is_not_in_front_takes_no_action(helper, tmp_p
 def test_every_code_of_the_helper_has_a_sentence_of_its_own():
     codes = helper_codes()
 
-    assert len(codes) == 14 and "internal" in codes
+    assert len(codes) == 16 and {"internal", "point_covered", "browser_app"} <= set(codes)
     assert sorted(t.HELPER_ERRORS) == sorted([*codes, *OURS])
     assert len(set(t.HELPER_ERRORS.values())) == len(t.HELPER_ERRORS)
 

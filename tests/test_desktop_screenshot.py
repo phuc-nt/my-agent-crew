@@ -177,7 +177,7 @@ async def test_a_locked_console_is_named_before_any_picture_is_asked_for(helper,
     assert helper.sent("screenshot") == [] and pictures(tmp_path) == []
 
 
-@pytest.mark.parametrize("front", ["Ngân hàng", "Safari", None])
+@pytest.mark.parametrize("front", ["Ngân hàng", "TextEdit", None])
 async def test_an_agent_given_applications_sees_the_screen_only_with_one_in_front(
     helper, tmp_path, front
 ):

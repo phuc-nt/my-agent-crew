@@ -10,7 +10,7 @@ from my_agent_crew.desktop.kit import STATE
 from tests.desktop_helper import App, desk, listening, socket_folder
 from tests.desktop_tools import FENCE, desk_of, fits, parts, refusal_of
 
-NOTES_LINE, SAFARI_LINE = "Notes (com.apple.Notes)", "Safari (com.apple.Safari)"
+NOTES_LINE, TEXTEDIT_LINE = "Notes (com.apple.Notes)", "TextEdit (com.apple.TextEdit)"
 BANK = ("Ngân hàng", "vn.bank.app", "777")
 
 
@@ -25,17 +25,17 @@ def names_the_bank(answer: str) -> bool:
 
 
 async def test_it_tells_the_helper_the_screen_and_the_agents_own_applications(helper, tmp_path):
-    answer = await desk_of(helper, tmp_path, ("Notes", "com.apple.Safari")).state()
+    answer = await desk_of(helper, tmp_path, ("Notes", "com.apple.TextEdit")).state()
 
     outside, inside = parts(answer)
     assert outside.splitlines()[:3] == [
         t.STATE_HELPER.format(version="0.1.0"),
         t.STATE_CLEAR,
-        t.STATE_APPS_MINE.format(apps="Notes, com.apple.Safari"),
+        t.STATE_APPS_MINE.format(apps="Notes, com.apple.TextEdit"),
     ]
     assert inside.splitlines() == [
         t.STATE_FRONT.format(app=NOTES_LINE),
-        t.STATE_RUNNING.format(apps=f"{NOTES_LINE}, {SAFARI_LINE}"),
+        t.STATE_RUNNING.format(apps=f"{NOTES_LINE}, {TEXTEDIT_LINE}"),
     ]
     assert not names_the_bank(answer)
     assert [request["cmd"] for request in helper.requests] == ["state", "apps"]
@@ -66,7 +66,7 @@ async def test_an_agent_whose_applications_are_closed_is_shown_no_name_at_all(he
 
 
 async def test_an_agent_given_no_application_is_told_every_one(helper, tmp_path):
-    helper.running("Safari").hidden = True
+    helper.running("TextEdit").hidden = True
 
     outside, inside = parts(await desk_of(helper, tmp_path, ()).state())
 
@@ -74,7 +74,7 @@ async def test_an_agent_given_no_application_is_told_every_one(helper, tmp_path)
     assert inside.splitlines() == [
         t.STATE_FRONT.format(app=NOTES_LINE),
         t.STATE_RUNNING.format(
-            apps=f"{NOTES_LINE}, {t.APP_HIDDEN.format(app=SAFARI_LINE)}, Ngân hàng (vn.bank.app)"
+            apps=f"{NOTES_LINE}, {t.APP_HIDDEN.format(app=TEXTEDIT_LINE)}, Ngân hàng (vn.bank.app)"
         ),
     ]
 
