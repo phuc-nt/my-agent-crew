@@ -369,6 +369,29 @@ describe("where an agent's browser may still be signed in, as both fakes tell it
     expect(told[49].host).toBe("h49.example");
   });
 
+  it("says beside the list how many more hold a sign-in than the fifty it tells of", () => {
+    const browser = crewed();
+    const sign = (count: number, extra: Record<string, Date> = {}) =>
+      browser.login.signedIn("coach", { ...Object.fromEntries(Array.from({ length: count }, (_, at) => [`h${at}.example`, NOVEMBER])), ...extra });
+
+    sign(53);
+    expect(read(browser).logins_more).toBe(3);
+    // A host whose sign-in ran out holds nothing: it was not left out.
+    sign(53, { "old.example": new Date("2026-10-13T00:00:00Z") });
+    expect(read(browser).logins_more).toBe(3);
+    // A list that was not cut leaves none out, and where there is no list there is no more of it.
+    sign(50);
+    expect(read(browser).logins_more).toBe(0);
+    expect(read(browser, "reader")).toMatchObject({ logins: null, logins_more: 0 });
+  });
+
+  it("leaves none out of the list of an agent that has hosts of its own", () => {
+    const browser = crewed({ browser_hosts: ["shop.example"] });
+    browser.login.signedIn("coach", Object.fromEntries(Array.from({ length: 53 }, (_, at) => [`h${at}.example`, NOVEMBER])));
+
+    expect(read(browser)).toMatchObject({ logins: [{ host: "shop.example", until: null }], logins_more: 0 });
+  });
+
   it("tells an agent with a list of every host of it, were it longer than fifty", () => {
     const hosts = Array.from({ length: 53 }, (_, at) => `h${at}.example`);
     const browser = crewed({ browser_hosts: hosts });
@@ -400,6 +423,7 @@ describe("a server that has the browser and not yet the sign-in window", () => {
 
     expect(told).not.toHaveProperty("login");
     expect(told).not.toHaveProperty("logins");
+    expect(told).not.toHaveProperty("logins_more");
     expect(told).toMatchObject({ mode: "act", running: true });
   });
 

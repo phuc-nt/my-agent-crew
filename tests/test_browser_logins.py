@@ -13,7 +13,16 @@ from typing import Any
 import pytest
 
 from my_agent_crew.browser import logins
-from my_agent_crew.browser.logins import FILE, TOLD, kept, read, recalled, remember, told
+from my_agent_crew.browser.logins import (
+    FILE,
+    TOLD,
+    kept,
+    read,
+    recalled,
+    remember,
+    told,
+    untold,
+)
 from my_agent_crew.config_browser import profile_dir
 from tests.browser_servers import Site, browsers
 
@@ -232,6 +241,20 @@ def test_an_agent_with_no_hosts_of_its_own_is_told_of_the_hosts_that_hold_someth
     assert told({}, (), NOW) == []
     many = {f"h{n:03}.example": LATER for n in range(TOLD + 7)}
     assert [row["host"] for row in told(many, (), NOW)] == sorted(many)[:TOLD] and TOLD == 50
+
+
+def test_the_hosts_a_long_list_leaves_out_are_counted_beside_it():
+    many = {f"h{n:03}.example": LATER for n in range(TOLD + 7)}
+
+    assert untold(many, (), NOW) == 7 and len(told(many, (), NOW)) == TOLD
+    # As many as are told of, or fewer, leave none out.
+    assert untold(dict(sorted(many.items())[:TOLD]), (), NOW) == 0
+    assert untold({"a.example": LATER}, (), NOW) == 0 and untold({}, (), NOW) == 0
+    # A host whose sign-in ran out was not left out: it holds nothing.
+    assert untold(many | {f"old{n}.example": NOW for n in range(9)}, (), NOW) == 7
+    # An agent with hosts of its own is told of every one of them, however many others hold
+    # something: its list is not cut, so nothing of it is left out.
+    assert untold(many, ("shop.example",), NOW) == 0
 
 
 SIGNS_IN = {

@@ -1,17 +1,22 @@
 // Where an agent's browser may still be signed in, on its browser card: the hosts the server
-// tells of, how many of them are shown, and what is said where there is none.
-import { screen, waitFor, within } from "@testing-library/react";
+// tells of, how many of them are shown, how many it left out, and what is said where there
+// is none.
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi as vitest } from "vitest";
 import { BROWSER_POLL_MS } from "../../hooks/use-agent-browser";
 import { OPEN, READ, buttons, clock, crew, pass, saidAloud, sent, settle, show } from "../../test/browser-card-screen";
 import { browserTab } from "../../test/fake-browser";
+import { moment } from "../../test/fake-browser-login";
+import { BrowserSignedIn } from "./browser-signed-in";
 
 const LABEL = "Có thể đang đăng nhập ở";
 const NONE = "Chưa thấy đăng nhập ở máy chủ nào.";
 const CAVEAT =
   "Đoán từ cookie còn hạn trong hồ sơ trình duyệt: là dấu hiệu, không phải bằng chứng. Trang có thể đã tự đăng xuất, và có trang giữ cookie như vậy cho cả người chưa đăng nhập.";
 const START = "Mở cửa sổ đăng nhập";
+const UNTOLD = (count: number) => `Còn ${count} máy chủ nữa không kể tên ở đây.`;
+const untold = () => screen.queryByText(/không kể tên ở đây/);
 /** Half past midnight on the twelfth in Hanoi, which is still the eleventh in UTC. */
 const NOVEMBER = new Date("2026-11-11T17:30:00Z");
 
@@ -169,6 +174,78 @@ describe("the hosts the browser of an agent with no list holds a sign-in for", (
 
     expect(chips()).toHaveLength(13);
     expect(buttons()).toEqual([START]);
+  });
+});
+
+describe("the hosts a list too long to tell whole leaves out", () => {
+  it("are said as a number in one line under the list and its button, above the caveat", async () => {
+    crew().browser.login.signedIn("coach", held(57));
+    show();
+
+    await screen.findByTestId("browser-signed-in");
+    expect(chips()).toHaveLength(8);
+    expect(buttons()).toEqual([START, "+42 máy chủ nữa"]);
+    const line = screen.getByText(UNTOLD(7));
+    expect(part()).toContainElement(line);
+    expect(hostList().compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(more(42).compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(line.compareDocumentPosition(screen.getByText(CAVEAT)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("are still said once every host that is named is shown", async () => {
+    crew().browser.login.signedIn("coach", held(57));
+    show();
+    await screen.findByTestId("browser-signed-in");
+
+    await userEvent.click(more(42));
+
+    expect(chips()).toHaveLength(50);
+    expect(said()[49]).toBe("h50.example · đến 12/11/2026");
+    expect(buttons()).toEqual([START]);
+    expect(untold()?.textContent).toBe(UNTOLD(7));
+  });
+
+  it("follow the next read, down to none, and are not said aloud", async () => {
+    const server = crew();
+    server.browser.login.signedIn("coach", held(57));
+    clock();
+    show();
+    await settle();
+    expect(untold()?.textContent).toBe(UNTOLD(7));
+    expect(saidAloud(untold() as HTMLElement)).toBe(false);
+
+    server.browser.login.signedIn("coach", held(51));
+    await pass(BROWSER_POLL_MS);
+    expect(untold()?.textContent).toBe(UNTOLD(1));
+
+    server.browser.login.signedIn("coach", held(50));
+    await pass(BROWSER_POLL_MS);
+    expect(untold()).not.toBeInTheDocument();
+    expect(buttons()).toEqual([START, "+42 máy chủ nữa"]);
+  });
+
+  it("have no line where the list holds every host there is", async () => {
+    crew().browser.login.signedIn("coach", held(9));
+    show();
+
+    await screen.findByTestId("browser-signed-in");
+    expect(untold()).not.toBeInTheDocument();
+  });
+
+  it("have no line on the card of an agent with hosts of its own, whatever else its browser holds", async () => {
+    crew({ browser_hosts: ["h01.example"] }).browser.login.signedIn("coach", held(57));
+    show();
+
+    await screen.findByTestId("browser-signed-in");
+    expect(said()).toEqual(["h01.example · đến 12/11/2026"]);
+    expect(untold()).not.toBeInTheDocument();
+  });
+
+  it("have no line where the list comes with no number", () => {
+    render(<BrowserSignedIn logins={[{ host: "shop.example", until: moment(NOVEMBER) }]} />);
+
+    expect(said()).toEqual(["shop.example · đến 12/11/2026"]);
+    expect(untold()).not.toBeInTheDocument();
   });
 });
 

@@ -22,6 +22,7 @@ describe("the browser routes both fakes answer", () => {
         // No window is open on its profile, one can be, and nothing was ever written of what it holds.
         login: { open: false, until: null, available: true, why: "" },
         logins: null,
+        logins_more: 0,
       },
     });
   });

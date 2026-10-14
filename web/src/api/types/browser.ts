@@ -78,4 +78,7 @@ export interface AgentBrowser {
   /** Null where there is nothing to tell: the agent has no browser, or none has ever closed
    * on its profile and none is up. Absent from a server older than the key. */
   logins?: BrowserSignedIn[] | null;
+  /** How many more hosts hold a sign-in than `logins` names: an agent with no hosts of its
+   * own is told of the first few by name. Absent from a server older than the key. */
+  logins_more?: number;
 }

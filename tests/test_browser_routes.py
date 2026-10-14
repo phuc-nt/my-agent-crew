@@ -73,6 +73,7 @@ DOWN = {
     "tabs": [],
     "login": NO_WINDOW,
     "logins": None,
+    "logins_more": 0,
 }
 
 
@@ -273,6 +274,7 @@ async def test_a_running_browser_is_told_by_its_tabs_last_used_first(crew: Crew)
         "login": NO_WINDOW,
         # It can be asked now, and holds nothing a site would know a person by.
         "logins": [],
+        "logins_more": 0,
     }
     # One agent's browser is not another's: asking after it did not start theirs either.
     assert await crew.told("reader") == {"mode": "read", **DOWN}
