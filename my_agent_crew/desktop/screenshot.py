@@ -111,7 +111,7 @@ async def capture(kit: Kit, since: str = "") -> Shot:
     # The helper took its time: the folder is judged again where it is now.
     shown = judged(kit)
     try:
-        save(kit.workspace, shown, frame_id, data)
+        save(kit.workspace, shown, frame_id, data, kit.agent_id)
     except OSError as exc:
         said = exc.strerror or type(exc).__name__
         raise ToolError(t.SHOT_NOT_SAVED.format(error=said)) from exc
