@@ -23,6 +23,9 @@ DEEPEST = 20
 # Left for the notes written once the outline is sized, and never less than this of outline.
 NOTE_ROOM, LEAST_ROOM = 300, 500
 REF = re.compile(r"a[0-9]{1,6}")
+# A role is a word of the system's, like AXButton. One of another shape is not shown: it
+# stands before the screen's own text on a line, where this program's words are read.
+ROLE = re.compile(r"[A-Za-z][A-Za-z0-9]*")
 SECURE_ROLE = "AXSecureTextField"
 
 
@@ -64,18 +67,20 @@ def is_secure(node: dict) -> bool:
 
 
 def node_line(node: dict) -> str:
-    """One element of an outline. A secure field shows that it is one and never a value,
-    whatever the helper sent with it."""
+    """One element of an outline. What this program says of it comes first (its ref, then
+    what it marks it as), and what the screen says of it after: nothing the screen wrote
+    stands where a ref or a mark is read. A secure field shows that it is one and never a
+    value, whatever the helper sent with it."""
     depth = node.get("depth")
     indent = "  " * min(depth, DEEPEST) if isinstance(depth, int) and depth > 0 else ""
-    line = f"{indent}- {words(node.get('role'), ROLE_CHARS) or '?'}"
-    if title := words(node.get("title"), TITLE_CHARS):
-        line += f' "{title}"'
-    line += f" [ref={node['ref']}]"
     marks = [t.NODE_SECURE] if is_secure(node) else []
     marks += [t.NODE_FOCUSED] if node.get("focused") is True else []
     marks += [t.NODE_DISABLED] if node.get("enabled") is False else []
-    line += f" ({'; '.join(marks)})" if marks else ""
+    line = f"{indent}- [ref={node['ref']}]" + (f" ({'; '.join(marks)})" if marks else "")
+    role = words(node.get("role"), ROLE_CHARS)
+    line += f" {role if ROLE.fullmatch(role) else '?'}"
+    if title := words(node.get("title"), TITLE_CHARS):
+        line += f' "{title}"'
     value = "" if is_secure(node) else words(node.get("value"), VALUE_CHARS)
     return f"{line}: {value}" if value else line
 

@@ -13,8 +13,9 @@ SCREENSHOT_DESCRIPTION = (
 )
 OBSERVE_DESCRIPTION = (
     "Đọc dàn ý các phần tử của một ứng dụng được giao (computer_apps): mỗi phần tử một dòng, "
-    "có vai trò, tên, giá trị và mã [ref=…] để computer_act dùng lại. Ô bảo mật không hiện giá "
-    "trị. Ref chỉ đúng tới lần computer_observe kế tiếp."
+    "mở đầu bằng mã [ref=…] để computer_act dùng lại và ghi chú của chương trình trong ngoặc; "
+    "vai trò, tên và giá trị đứng sau là chữ của màn hình. Ô bảo mật không hiện giá trị. Ref "
+    "chỉ đúng tới lần computer_observe kế tiếp."
 )
 ACT_DESCRIPTION = (
     "Thao tác lên một ứng dụng được giao trên màn hình thật của máy: click, double_click, "
