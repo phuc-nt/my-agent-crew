@@ -113,6 +113,8 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 | Web | `fetch_url`, `web_search` | không |
 | Trình duyệt | `browser_snapshot`, `browser_text`, `browser_tabs`, `browser_screenshot`, `browser_pdf` (chỉ agent có khoá `browser`) | không |
 | Trình duyệt | `browser_navigate`, `browser_act`, `browser_download` (`browser_act` và `browser_download` chỉ khi `browser: act`) | có; host trong `browser_hosts` thì `browser_navigate` không hỏi, còn host ngoài danh sách, tên phần tử mang từ như "thanh toán", hay một lần tải tệp lên thì hỏi cả khi autonomous |
+| Desktop | `computer_state`, `computer_screenshot`, `computer_observe` (chỉ agent có `computer: "on"`) | không |
+| Desktop | `computer_act` (cùng khoá) | có; đưa ứng dụng lên trước, bấm theo toạ độ, Enter hay Space một mình, phím ngoài nhóm thường dùng, hay chữ và tên phần tử mang từ dừng thì hỏi cả khi autonomous |
 | Trí nhớ | `memory_save`, `memory_search`, `user_memory_save`, `user_memory_forget`, `wiki_get`, `wiki_search`, `wiki_apply` | không |
 | Đội | `delegate` | không |
 | Canvas | `artifact_create`, `artifact_read`, `artifact_edit`, `artifact_rewrite`, `artifact_list`, `artifact_import` | không (bản cũ nào cũng khôi phục được) |
@@ -129,6 +131,25 @@ chúng không được khai sẵn cho model: agent tìm bằng `tool_search`, to
 gọi model kế tiếp, và cái đã nạp được đọc lại từ chính hội thoại nên còn nguyên sau restart.
 
 Tám tool `browser_*` cũng không theo `tools` hay `mode`: chúng đến theo khoá `browser` trong tệp của agent, trên máy đã bật `browser_enabled` và đã cài trình duyệt. Gói `browser/` giữ cho mỗi agent một Chromium với hồ sơ riêng ở `<home>/browser/<agent id>/`, mở ở lời gọi đầu tiên; tab thuộc về cuộc trò chuyện đã mở nó. Model không nhận HTML mà nhận một dàn ý của trang, mỗi phần tử một `ref`, đặt giữa hai dòng rào mang mã ngẫu nhiên để chữ trên trang là dữ liệu chứ không phải chỉ dẫn. Hai hàng rào nằm trong mã và không có công tắc: mọi request của trang (kể cả chuyển hướng, tài nguyên con, WebSocket) đi qua một proxy trong chính tiến trình server, nơi địa chỉ không công khai bị từ chối; và thư mục hồ sơ đóng với mọi tool tệp cùng mọi lệnh shell trong sandbox. `browser_act` chỉ làm khi phần tử còn đúng là thứ model vừa được cho thấy: cùng trang, cùng `ref`, cùng vai trò, cùng tên; `browser_download` bấm theo đúng phép ấy rồi giữ tệp trang gửi về, còn `browser_pdf` in trang đang hiện, và cả hai lưu vào `downloads/` của workspace. Agent không gõ được vào ô mật khẩu, nên chủ đăng nhập hộ nó trong một cửa sổ có giao diện mở trên màn hình máy chạy đội, dùng chính hồ sơ ấy. Một hồ sơ chỉ thuộc một trình duyệt mỗi lúc: trình duyệt của agent dừng trước khi cửa sổ mở, và trong lúc cửa sổ mở mọi tool trình duyệt của agent ấy từ chối và nói lý do. Chi tiết ở [tools.md](tools.md#trình-duyệt).
+
+Bốn tool `computer_*` đi theo cùng lối: khoá `computer` trong tệp của agent, không theo `tools` hay
+`mode`, và máy không có công tắc chung. Khác với trình duyệt, desktop là chính màn hình chủ máy đang
+dùng, và server không tự chụp hay bấm gì. Người làm là **trình trợ giúp desktop** (gói Swift
+`desktop-helper/`): một tiến trình riêng, một ứng dụng macOS không biểu tượng chạy trong phiên đăng
+nhập của chủ, nạp bằng một LaunchAgent, và là thứ duy nhất giữ hai quyền Ghi màn hình và Trợ năng
+của hệ điều hành. Gói `desktop/` của server nói chuyện với nó qua một Unix socket (mặc định
+`<home>/desktop/sock`), mỗi yêu cầu một dòng JSON trên một kết nối riêng; server chỉ nói chuyện với
+socket thuộc chính người dùng chạy nó, trong một thư mục không ai khác ghi được. Không có trình trợ
+giúp thì bốn tool vẫn ở đó và nói vậy. Model nhận ảnh chụp kèm một `frame_id`, hay dàn ý phần tử của
+một ứng dụng với mỗi phần tử một `ref`, đặt trong rào như trang web; `computer_act` chỉ chạy trên
+`frame_id` còn là khung hình mới nhất và trên `ref` của dàn ý hội thoại vừa được xem, chỉ trên ứng
+dụng trong `computer_apps` khi nó đang ở trước. Hàng rào nằm ở cả hai phía: server từ chối trước khi
+ai bị hỏi (ứng dụng ngoài danh sách, chữ như `sudo`, tổ hợp phím đóng ứng dụng hay đổ thùng rác, chữ
+cho ô bảo mật), còn trình trợ giúp tự xét lại ứng dụng ở trước, khung hình, màn hình khoá và chế độ
+nhập bảo mật ngay trước khi thao tác. Thư mục `<home>/desktop/` đóng với mọi tool tệp và mọi lệnh
+shell trong sandbox; shell không sandbox thì với tới socket như mọi tiến trình khác của chủ máy, nên
+agent bật desktop nên có shell đã sandbox. Chi tiết ở [tools.md](tools.md#desktop), cài đặt ở
+[deployment-guide.md](deployment-guide.md#4c-desktop-cho-agent-tuỳ-chọn-macos).
 
 Agent giữ ít nhất một tool script gọi được thì có thêm `tool_script`: một tool có sẵn chỉ đọc, hay
 một tool MCP chủ ghi là chỉ đọc (`read_only`, không `hidden`). Nó không cần máy chủ MCP nào và
@@ -206,7 +227,7 @@ Mọi thứ làm nên một agent là tệp văn bản trong `~/.my-agent-crew/a
 | `.agents/` | kit lệnh/agent/hook kiểu Claude Code | lệnh vào roster; hook chạy quanh tool |
 | `workspace/` | nơi tool đọc/ghi | khi tool chạy |
 
-Dùng chung cho mọi agent: `config.yaml`, `agent.sqlite3`, `users/owner/` (USER.md + facts), `skills/` và `.agents/` cấp home, cùng `browser/<id>/`, hồ sơ trình duyệt của từng agent (không tool tệp nào đọc được). Bố cục đầy đủ ở [agents.md](agents.md).
+Dùng chung cho mọi agent: `config.yaml`, `agent.sqlite3`, `users/owner/` (USER.md + facts), `skills/` và `.agents/` cấp home, cùng `browser/<id>/`, hồ sơ trình duyệt của từng agent (không tool tệp nào đọc được), và `desktop/`, nơi trình trợ giúp desktop mở socket của nó (cũng đóng với mọi tool tệp). Bố cục đầy đủ ở [agents.md](agents.md).
 
 ### 2.8 Canvas: tài liệu người và agent cùng sửa
 
@@ -278,7 +299,7 @@ Hai đường tắt có chủ đích:
 - Cuộc trò chuyện **autonomous** (job lịch, lượt delegate, hoặc agent có `autonomous: true`) bỏ qua cổng. Trong bộ cài thật, cả Pong lẫn HLV đều `autonomous: true` vì chúng chạy chủ yếu theo lịch.
 - `shell_ask_patterns` buộc hỏi cả khi autonomous cho lệnh khớp mẫu nguy hiểm.
 
-Cả hai chiều ấy là của từng lời gọi chứ không của tool: một tool khai được hàm `ask_when` (lời gọi này phải hỏi, kèm lý do hiện trên thẻ duyệt) và hàm `allow_when` (lời gọi này là việc thường, chạy cả trong cuộc có giám sát). Cổng (`agent/tool_gate.py`) xét theo thứ tự cố định: `ask_user` luôn hỏi; lời gọi có lý do phải hỏi thì hỏi dù autonomous; lời gọi được coi là việc thường thì chạy; còn lại theo autonomous và `auto_approve` của cuộc trò chuyện. Shell đi đúng thứ tự ấy với `shell_ask_patterns` và `shell_allow_patterns`; hai tool trình duyệt khai hai hàm đó để xét host của trang (`browser_hosts`) và tên của phần tử sắp bấm (`browser_ask_patterns`).
+Cả hai chiều ấy là của từng lời gọi chứ không của tool: một tool khai được hàm `ask_when` (lời gọi này phải hỏi, kèm lý do hiện trên thẻ duyệt) và hàm `allow_when` (lời gọi này là việc thường, chạy cả trong cuộc có giám sát). Cổng (`agent/tool_gate.py`) xét theo thứ tự cố định: `ask_user` luôn hỏi; lời gọi có lý do phải hỏi thì hỏi dù autonomous; lời gọi được coi là việc thường thì chạy; còn lại theo autonomous và `auto_approve` của cuộc trò chuyện. Shell đi đúng thứ tự ấy với `shell_ask_patterns` và `shell_allow_patterns`; hai tool trình duyệt khai hai hàm đó để xét host của trang (`browser_hosts`) và tên của phần tử sắp bấm (`browser_ask_patterns`). `computer_act` khai `ask_when` cho những thao tác luôn hỏi, còn `allow_when` của nó chỉ nhận lời gọi chắc chắn bị từ chối, để lời từ chối tới thẳng lượt mà không ai bị hỏi.
 
 Khi một approval đang chờ, `/api/inbound` trả 409 để người dùng không vô tình mở lượt thứ hai trên cùng cuộc trò chuyện. Quyết định giữ cuộc trò chuyện ngay lúc được đưa ra, trước cả khi lượt tiếp tục kịp chạy: tin gửi ngay sau đó vào hàng chờ lượt đó, còn quyết định thứ hai cho cùng yêu cầu nhận 409.
 

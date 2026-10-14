@@ -31,7 +31,7 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 
 ```
 ~/.my-agent-crew/
-├── config.yaml        # routes, cost_cap_usd, max_steps, language, timezone, web_url, autonomous_default, approval_ttl_seconds, mcp_servers, browser_*
+├── config.yaml        # routes, cost_cap_usd, max_steps, language, timezone, web_url, autonomous_default, approval_ttl_seconds, mcp_servers, browser_*, desktop_socket
 ├── env                # KEY=value, chmod 600, KHÔNG nằm trong repo; token đăng nhập MCP cũng ghi ở đây
 ├── agent.yaml         # master
 ├── agent.sqlite3
@@ -40,6 +40,7 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 ├── .agents/           # kit dùng chung (commands, agents, skills, settings.json)
 ├── workspace/inbox/   # ảnh từ Telegram
 ├── browser/<id>/      # hồ sơ trình duyệt của từng agent (cookie, đăng nhập), xem §4b
+├── desktop/           # socket của trình trợ giúp desktop (sock), xem §4c
 └── agents/<id>/       # mỗi agent một thư mục, xem agents.md
 ```
 
@@ -118,6 +119,93 @@ trước màn hình thì không được tính; khi đó thẻ nói lý do thay 
 có màn hình khi môi trường của nó có `DISPLAY` hoặc `WAYLAND_DISPLAY`. Cửa sổ làm gì và đóng khi
 nào ở [tools.md](tools.md#trình-duyệt), đoạn "Cửa sổ đăng nhập".
 
+## 4c. Desktop cho agent (tuỳ chọn, macOS)
+
+Mặc định không agent nào dùng được màn hình của máy. Desktop cần một **trình trợ giúp**:
+`MyAgentCrewDesktop.app`, một ứng dụng macOS nhỏ (macOS 14 trở lên, không có biểu tượng trên
+Dock) chạy trong phiên đăng nhập của chủ máy, giữ hai quyền Ghi màn hình và Trợ năng, và trả lời
+server qua một Unix socket. Server không có công tắc chung nào: agent nào ghi `computer: "on"` thì
+có bốn tool `computer_*`, và mỗi lời gọi tự tìm trình trợ giúp. Tool làm gì và khi nào hỏi người ở
+[tools.md](tools.md#desktop), khoá của agent ở [agents.md](agents.md#agentyaml).
+
+**Giữ mọi agent ở `computer: off`** cho tới khi chủ máy đã mở khoá màn hình và cấp đủ hai quyền,
+tức là thẻ "Desktop" ở Quản lý → **Kết nối** nói trình trợ giúp đang chạy, màn hình không khoá và
+cả hai quyền đã cấp. Bật trước đó thì agent có tool, nhưng thay cho ảnh hay thao tác nó chỉ nhận
+lời báo máy còn thiếu gì.
+
+```bash
+scripts/desktop-helper-pack.sh --install    # cần bộ công cụ Swift (Xcode hoặc Command Line Tools)
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.my-agent-crew.desktop.plist
+```
+
+1. **Đóng gói và cài** bằng lệnh đầu, chạy trong thư mục repo. Script dựng bản release, đóng
+   thành `desktop-helper/dist/MyAgentCrewDesktop.app` (git bỏ qua thư mục này), ký ad hoc với
+   định danh `com.my-agent-crew.desktop` rồi kiểm chữ ký. Không có `--install` thì chỉ đóng gói.
+   Có `--install` thì nó chép ứng dụng vào `~/Applications/MyAgentCrewDesktop.app` và viết tệp
+   dịch vụ `~/Library/LaunchAgents/com.my-agent-crew.desktop.plist`: chạy ngay khi nạp, chỉ
+   trong phiên đồ hoạ của người dùng (không có màn hình thì không có gì để chụp), chỉ được dựng
+   lại sau khi sập, và ghi lời của trình trợ giúp vào
+   `~/Library/Logs/com.my-agent-crew.desktop.log`. Trình trợ giúp tự dừng vì một lý do của nó
+   (thư mục socket mở cho người khác, đã có trình trợ giúp khác ở socket) thì không được dựng
+   lại: lý do nằm trong log, và lần chạy sau cũng dừng y như thế.
+2. **Nạp dịch vụ** bằng lệnh thứ hai. Script không nạp gì; nó in đúng dòng ấy để chủ tự chạy.
+3. **Cấp hai quyền.** Ở trước máy, màn hình mở khoá, bấm "Xin quyền" trên thẻ "Desktop" ở Kết
+   nối. Trình trợ giúp không bao giờ tự bật hộp thoại xin quyền; chỉ nút này làm, và nó từ chối
+   khi màn hình đang khoá vì khi ấy không ai thấy hộp thoại. macOS chỉ hỏi mỗi quyền một lần: sau
+   đó cấp trong Cài đặt hệ thống → Quyền riêng tư & Bảo mật, ở mục Ghi màn hình và mục Trợ năng,
+   cho `MyAgentCrewDesktop`. macOS có thể đòi mở lại ứng dụng sau khi cấp Ghi màn hình; khi đó
+   chạy `launchctl kickstart -k gui/$(id -u)/com.my-agent-crew.desktop`.
+4. **Bật ở từng agent**: ghi `computer: "on"` (có ngoặc) và `computer_apps` vào tệp của agent rồi
+   khởi động lại, hoặc chọn Bật ở trình sửa agent trên web, có hiệu lực từ lượt kế tiếp. Nút "Thử
+   chụp" trên thẻ "Desktop" ở trang agent chụp đúng như agent sẽ chụp, nên là phép thử cuối.
+   Tắt cũng ở hai chỗ ấy.
+
+**Đóng gói lại thì cấp lại quyền.** Mỗi lần đóng gói, chữ ký ad hoc đổi, và macOS quên cả hai
+quyền đã cấp cho bản trước: thẻ Kết nối trở lại "chưa cấp". Trong Cài đặt hệ thống, gỡ dòng
+`MyAgentCrewDesktop` cũ ở mục Ghi màn hình và mục Trợ năng, khởi động lại trình trợ giúp bằng lệnh
+`kickstart` ở trên, rồi bấm "Xin quyền" lần nữa hoặc thêm lại ứng dụng ở
+`~/Applications/MyAgentCrewDesktop.app` vào hai mục ấy.
+
+**Socket.** Mặc định server tìm trình trợ giúp ở `<home>/desktop/sock`. Đặt chỗ khác bằng
+`desktop_socket` trong `config.yaml` hoặc `MY_AGENT_DESKTOP_SOCKET` (biến thắng tệp): đường dẫn
+tuyệt đối (`~` được mở rộng), không quá 103 byte, sai thì server dừng lúc khởi động. Tệp dịch vụ
+do `--install` viết ghi cứng socket `~/.my-agent-crew/desktop/sock` (dạng đường dẫn đầy đủ) sau
+`--socket`, nên với home khác hay socket khác, sửa đối số ấy trong tệp dịch vụ cho trùng rồi nạp
+lại (`launchctl bootout` rồi `bootstrap`); mỗi lần chạy `--install` viết lại tệp và xoá mất chỗ
+đã sửa.
+
+Trình trợ giúp tự tạo thư mục chứa socket với quyền 700 khi chưa có, để socket ở quyền 600, và
+không chịu chạy khi thư mục ấy không thuộc người dùng đang chạy nó hay mở cho nhóm hay người khác,
+khi một trình trợ giúp khác đang trả lời ở socket, hoặc khi đường dẫn là một tệp không phải
+socket. Phía server, socket không thuộc người dùng chạy server, nằm trong thư mục người khác ghi
+được hay là symlink thì mọi lời gọi từ chối với `untrusted`.
+
+**Trước khi bật cho một agent**, như với trình duyệt:
+
+- Xem shell của agent. `<home>/desktop/` đóng với mọi tool tệp và mọi `shell_run` trong sandbox,
+  nhưng shell không sandbox với tới socket như mọi tiến trình khác của người dùng máy, và qua đó
+  vòng qua cả `computer_apps` lẫn cổng duyệt. Agent bật desktop nên có shell trong sandbox hoặc
+  không có `shell_run` ([tools.md](tools.md#desktop), đoạn "Thư mục giữ riêng").
+- Xem ảnh chụp rơi vào đâu. `computer_screenshot` lưu ảnh cả màn hình vào `desktop/` trong
+  workspace của agent, hoặc dưới thư mục đầu tiên của `write_paths` khi agent có danh sách đó, và
+  giữ 40 ảnh mới nhất. Ảnh màn hình là dữ liệu riêng: workspace là một repo git thì cho `desktop/`
+  vào `.gitignore` của repo.
+- Desktop là màn hình thật chủ đang dùng: thao tác của agent và của chủ đi qua cùng một con trỏ,
+  cùng một bàn phím, và một ứng dụng chủ đưa lên trước giữa chừng làm thao tác của agent bị từ
+  chối (`app_mismatch`).
+
+**Gỡ.** Đưa mọi agent về `computer: off`, rồi:
+
+```bash
+launchctl bootout gui/$(id -u)/com.my-agent-crew.desktop
+rm ~/Library/LaunchAgents/com.my-agent-crew.desktop.plist
+rm -rf ~/Applications/MyAgentCrewDesktop.app
+```
+
+Gỡ hai dòng `MyAgentCrewDesktop` trong Cài đặt hệ thống → Quyền riêng tư & Bảo mật. Server không
+cần khởi động lại: agent còn `computer: "on"` vẫn giữ bốn tool, và mỗi lời gọi trả `absent`. Ảnh
+đã chụp nằm lại trong `desktop/` của từng workspace cho tới khi có người xoá.
+
 ## 5. Chạy thường trực (launchd, macOS)
 
 Bộ cài thật dùng một script và một plist:
@@ -185,6 +273,12 @@ Kiểm bản sao bằng cách mở nó bình thường và chạy `PRAGMA integr
 **Agent có danh sách `tools:`.** Agent khai `tools:` trong `agent.yaml` chỉ có đúng những tool nó liệt kê, nên muốn nó dùng canvas thì thêm tên các tool canvas vào danh sách ([canvas.md](canvas.md#6-bảy-tool-của-agent)); agent không khai `tools:` thì có sẵn. Cuộc trò chuyện giao việc đã mở từ trước lần nâng cấp không có kênh gốc được ghi lại, nên agent con trong đó không ghi được canvas ([canvas.md](canvas.md#7-phạm-vi-và-kênh)).
 
 **Máy đã bật trình duyệt cho agent.** Chromium đi theo phiên bản của gói Playwright: sau một lần `uv sync` đổi phiên bản gói đó, chạy lại `uv run playwright install chromium` trước khi khởi động lại. Quên bước này thì server vẫn lên, thẻ "Trình duyệt" ở Kết nối báo thiếu trình duyệt kèm đúng lệnh ấy, và các agent mất tool `browser_*` cho tới lần khởi động sau khi cài (§4b).
+
+**Máy đã cài trình trợ giúp desktop.** Trình trợ giúp không tự nâng cấp theo server. Khi bản mới
+đổi trình trợ giúp (CHANGELOG nói vậy, hoặc lời gọi `computer_*` trả `unknown_command`), chạy lại
+`scripts/desktop-helper-pack.sh --install`, rồi
+`launchctl kickstart -k gui/$(id -u)/com.my-agent-crew.desktop`, rồi cấp lại hai quyền vì chữ ký
+đã đổi (§4c). Bản mới không đổi trình trợ giúp thì không cần làm gì.
 
 Bản này khác bản trước ở đâu: [CHANGELOG.md](../CHANGELOG.md).
 

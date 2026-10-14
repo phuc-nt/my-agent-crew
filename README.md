@@ -325,6 +325,56 @@ the sign-in window and lists the sites the browser may still be signed in to.
 Details: [docs/tools.md](docs/tools.md#trình-duyệt), and what to check before turning it on in
 [docs/deployment-guide.md](docs/deployment-guide.md).
 
+## The machine's own screen (macOS)
+
+An agent can also see and work the real screen of the Mac the crew runs on: take a picture of
+it, read the elements of an application, click, drag, scroll, type and press keys. Unlike the
+browser, this is the owner's own screen, with the applications the owner has open and is signed
+in to. The server never touches it itself: it asks the **desktop helper**, a small macOS app
+that runs in the owner's login session, holds the system's Screen Recording and Accessibility
+permissions, and listens on a Unix socket under `<home>/desktop/`. There is no machine-wide
+switch; an agent's own file decides:
+
+```yaml
+# agents/<id>/agent.yaml — the agent
+computer: "on"               # off (the default) · "on", quoted, so YAML reads it as a word
+computer_apps:               # the applications it may read and act on, by name or bundle id
+  - Notes
+  - com.apple.TextEdit
+```
+
+The helper is built, signed ad hoc and installed as a LaunchAgent with
+`scripts/desktop-helper-pack.sh --install` (it needs the Swift toolchain), then loaded with
+`launchctl bootstrap`. It never asks macOS for a permission on its own: the owner presses the
+button for it on the **Kết nối** page while sitting at the unlocked screen, or grants both in
+System Settings. Rebuilding the app changes its signature, so both permissions are granted again.
+
+`computer: "on"` gives the agent `computer_state`, `computer_screenshot`, `computer_observe` and
+`computer_act`, whether or not the helper is there; with none, each call says so. Only
+`computer_act` asks before it runs, and some actions ask even in an autonomous conversation:
+bringing an application forward, a click at a point rather than on an element, Enter or Space
+alone, a key outside the everyday few, and text or an element name holding one of
+`browser_ask_patterns`. An empty `computer_apps` lets the agent look and never act. Pictures land
+in `desktop/` in the agent's workspace (under its first write path when it has `write_paths`),
+each named after the frame it shows; an action needs the frame it was planned on to still be the
+latest one, and the helper checks again that the agent's application is in front just before it
+acts.
+
+Some things no setting or approval allows: an application outside the list, text holding `sudo`,
+an `rm` that recurses without asking or a download piped into a shell, the key combinations that
+quit an application, empty the Trash, force-quit, lock the screen or log out, any text for a
+password field, and any typing, key press or value set while macOS has secure input on. The
+helper's folder is closed to every file tool and every sandboxed shell; **an unsandboxed shell
+reaches the socket like any other program of the owner's, past the app list and the approval
+gate**, so give an agent with the desktop a sandboxed shell or none.
+
+**Kết nối** shows whether the helper is there, whether the screen is locked and which permission
+is missing; the agent editor sets the level and the applications; an agent's page tells whether
+it can work now and takes a trial picture; an approval card for `computer_act` puts the action
+in words over the picture the agent planned on, when that picture is still there, with the point
+marked. Details: [docs/tools.md](docs/tools.md#desktop), and installing the helper in
+[docs/deployment-guide.md](docs/deployment-guide.md#4c-desktop-cho-agent-tuỳ-chọn-macos).
+
 ## Canvas
 
 A canvas is a versioned document that you and an agent edit together. The agent writes one for
@@ -561,6 +611,16 @@ cd web && npm ci
 npm run typecheck && npm test    # frontend unit
 npm run e2e                      # Playwright (mocks /api in the browser)
 npm run bundle                   # rebuild the bundle into my_agent_crew/server/static (committed)
+```
+
+The desktop helper is a Swift package of its own, checked by a macOS job in CI that
+`./scripts/gates.sh` does not run. On a Mac with the Swift toolchain:
+
+```bash
+scripts/desktop-helper-check.sh             # build the helper and run its tests (no dialog)
+scripts/desktop-helper-pack.sh              # build the app and sign it ad hoc
+scripts/desktop-helper-pack.sh --install    # and copy it to ~/Applications, write the LaunchAgent;
+                                            # loads nothing
 ```
 
 Playwright's dev server listens on 4173; `E2E_PORT=<port> npm run e2e` moves it when two

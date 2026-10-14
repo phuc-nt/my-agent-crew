@@ -18,6 +18,7 @@ MY_AGENT_HOME/                      ~/.my-agent-crew by default
 ├── skills/                         skills of the master
 ├── telegram.offset                 poll offset of the master's bot, with the bot's id
 ├── browser/<id>/                   an agent's browser profile (cookies, logins); closed to every file tool
+├── desktop/                        the desktop helper's socket (`sock`); closed to every file tool
 ├── users/owner/                    what the crew knows about the person (see memory.md)
 │   ├── USER.md                     read by every agent, every turn
 │   └── facts/<name>.md  INDEX.md   one fact each, plus the generated index
@@ -73,11 +74,13 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `script_llm` | bool | `true` | script của agent có được tự hỏi model bằng `llm.classify` / `llm.summarise` không ([tools.md](tools.md#gọi-tool-từ-script), bullet "Script tự hỏi model"). `false`: script không hỏi được model nào, trong lượt của agent lẫn trong job `script` của nó; mô tả của `tool_script` không nhắc tới `llm` nữa, và script vẫn gọi `llm.` thì nhận một lỗi bắt được ("không hỏi model được ở đây."), không model nào được gọi và không đồng nào bị tính. Dùng cho agent mà chủ muốn script chỉ là code: lọc, đếm, gọi tool, không có khoản tiền nào nằm ngoài lượt của model. Chỉ đọc từ `agent.yaml` của chính agent, như `script_calls`: không có khoá toàn cục, không có biến môi trường, không thừa hưởng của master. Phải là đúng/sai thật của YAML; `"false"` trong dấu nháy, `0` hay để trống là lỗi khởi động ("script_llm must be true or false"), còn lưu qua API thì bị từ chối (422). Viết tay `off`, `no`, `on`, `yes` trần thì bộ đọc lúc khởi động hiểu là đúng/sai: agent lên được, và lần lưu khoá khác từ web giữ nguyên chữ đó ([Sửa agent từ web/API](#sửa-agent-từ-webapi)); lần lưu tự gửi một chữ (`"off"`) thì vẫn là 422. Sửa qua API có hiệu lực không cần khởi động lại, từ lượt kế tiếp của agent và từ lần chạy kế tiếp của một lịch; lượt hay job đang chạy lúc lưu thì kết thúc như lúc nó bắt đầu. Sửa tay cần khởi động lại |
 | `browser` | `off`, `read` hoặc `act` | `off` | agent có được trao tool trình duyệt không ([tools.md](tools.md#trình-duyệt)). `read`: sáu tool mở, đọc và in trang (`browser_navigate`, `browser_snapshot`, `browser_text`, `browser_tabs`, `browser_screenshot`, `browser_pdf`). `act`: thêm `browser_act`, tool bấm và gõ vào trang, và `browser_download`, tool bấm để giữ tệp trang gửi về. Khoá này chỉ có tác dụng trên máy đã bật `browser_enabled` và đã cài trình duyệt (bảng cài đặt toàn cục bên dưới); trên máy chưa bật, agent vẫn khởi động, vẫn trả `browser` như tệp viết, và không được trao tool nào trong số đó. Danh sách `tools` không đem tool nào trong số này tới và cũng không lấy đi tool nào. Chỉ đọc từ `agent.yaml` của chính agent: không có khoá toàn cục cho mức này, không có biến môi trường, không agent nào thừa hưởng của master, nên trình duyệt chỉ bật ở agent mà có người đã ghi như vậy. `off`, `no`, `false` viết trần và khoá để trống đều đọc là `off`. `on`, `yes`, `true` viết trần là lỗi khởi động, vì YAML đọc chúng thành đúng/sai và không nói được là `read` hay `act` ("browser must be off, read or act, not a bare on, yes or true: write read to let it open and read pages, or act to let it click and type as well"); chữ nào khác ba chữ đó cũng là lỗi khởi động, còn lưu qua API thì bị từ chối (422). Sửa qua API có hiệu lực từ lượt kế tiếp của agent, không cần khởi động lại; lần lưu để agent ở `off` còn dừng luôn trình duyệt nó đang chạy và đóng cửa sổ đăng nhập đang mở trên hồ sơ của nó, và lượt đang chạy của agent không mở lại được nó (tool `browser_*` của lượt ấy trả một lỗi nói agent đã bị tắt trình duyệt). Sửa tay cần khởi động lại |
 | `browser_hosts` | danh sách tên host | `[]` | những host agent tới mà không ai bị hỏi. Mỗi dòng là `shop.example` (đúng host đó) hoặc `*.shop.example` (host đó và mọi host bên dưới nó): chữ thường, không có `https://`, cổng hay đường dẫn; tên có dấu viết ở dạng punycode. Khi danh sách có dòng: `browser_navigate` tới một host trong danh sách chạy không hỏi, kể cả trong cuộc trò chuyện có giám sát, còn tới host ngoài danh sách thì hỏi người, kể cả ở agent tự chủ; `browser_act` và `browser_download` trên một trang ngoài danh sách cũng hỏi. Danh sách rỗng thì ba tool hỏi như mọi tool đổi trạng thái: hỏi trong cuộc trò chuyện có giám sát, chạy ở agent tự chủ. Danh sách chặn lời gọi trực tiếp, không chặn nơi trang tự chuyển tới sau một lần bấm ([tools.md](tools.md#trình-duyệt), "Giới hạn đã biết"). Chỉ đọc từ `agent.yaml` của chính agent, như `browser`. Một dòng sai dạng là lỗi khởi động ("browser_hosts must be a list of host names such as shop.example or *.shop.example, in lowercase, with no scheme, port or path"), còn lưu qua API thì bị từ chối (422); `null` hay `[]` xoá danh sách. Sửa qua API có hiệu lực từ lượt kế tiếp; sửa tay cần khởi động lại |
+| `computer` | `off` hoặc `"on"` | `off` | agent có được trao bốn tool desktop không (`computer_state`, `computer_screenshot`, `computer_observe`, `computer_act`), tức nhìn và thao tác trên màn hình thật của máy qua trình trợ giúp desktop ([tools.md](tools.md#desktop)). `"on"` trao cả bốn ngay, kể cả khi máy chưa có trình trợ giúp hay chưa cấp quyền: mỗi lời gọi tự nói thiếu gì. Không có công tắc của máy, không có khoá toàn cục, không có biến môi trường và không agent nào thừa hưởng của master, nên desktop chỉ bật ở agent mà có người đã ghi như vậy. Danh sách `tools` không đem tool nào trong số này tới và cũng không lấy đi tool nào. `off`, `no`, `false` viết trần và khoá để trống đều đọc là `off`. `on`, `yes`, `true` viết trần là lỗi khởi động, vì YAML đọc chúng thành đúng/sai: phải viết `"on"` trong ngoặc ("computer must be off or on, written as a text: put "on" in quotes, since YAML reads a bare on, yes or true as a switch and not as that word"); chữ khác hai chữ đó là lỗi khởi động ("computer must be off or on"), còn lưu qua API thì bị từ chối (422). Sửa qua API có hiệu lực từ lượt kế tiếp, không cần khởi động lại; khác với `browser`, lần lưu về `off` không dừng gì của lượt đang chạy. Sửa tay cần khởi động lại |
+| `computer_apps` | danh sách tên ứng dụng hay bundle id | `[]` | những ứng dụng agent được đọc dàn ý và thao tác: tên (`Notes`, không phân biệt hoa thường và cách viết dấu) hoặc bundle id (`com.apple.Notes`, đúng từng chữ). Mỗi dòng được bỏ khoảng trắng hai đầu, phải dài 1–200 ký tự in được, và dòng trùng hệt chỉ giữ một. Rỗng là **chỉ nhìn**: agent chụp được màn hình nhưng không đọc dàn ý và không thao tác trong ứng dụng nào; cách mỗi tool dùng danh sách ở [tools.md](tools.md#desktop). Chỉ đọc từ `agent.yaml` của chính agent, như `computer`; khoá vẫn được giữ khi `computer` là `off`. Một dòng sai là lỗi khởi động ("computer_apps must be a list of application names or bundle ids, such as Notes or com.apple.Notes"), còn lưu qua API thì bị từ chối (422); `null` hay `[]` xoá danh sách. Sửa qua API có hiệu lực từ lượt kế tiếp; sửa tay cần khởi động lại |
 | `schedules` | danh sách | `[]` | job, xem [Lịch](#lịch) |
 | `memory_consolidate` | chuỗi cron | không có | theo lịch này, viết lại `MEMORY.md` từ ghi chú ngày rồi biên dịch wiki vault từ chính các ghi chú đó, xem [memory.md](memory.md) |
 | `telegram` | map | không có | `token_env` + `chat_id`, tuỳ chọn `approval_ttl_seconds` (60–43200) cho cuộc trò chuyện mở từ chat đó; chỉ đọc trên `agent.yaml` của master, ở nơi khác bị bỏ qua kèm cảnh báo, xem [channels.md](channels.md) |
 | `delegates` | danh sách id agent | `[]` | agent mà agent này được giao việc cho; id không trỏ tới agent nào là lỗi khởi động. Rỗng trên master nghĩa là mọi agent khác, xem [Agent master](#agent-master) |
-| `tools` | danh sách tên tool | `[]` | khi đặt, là những tool duy nhất agent này có; rỗng nghĩa là mọi thứ mode của nó mang lại. Tên không tool nào mang là một dòng cảnh báo lúc khởi động (`tools lists unknown tool …`), không phải lỗi, nên profile viết cho phiên bản mới hơn vẫn khởi động được. Tên của một tool có thật mà danh sách không đem lại thì cảnh báo nói lý do thay vì gọi nó là lạ: `tool_script`, `tool_search` và tool MCP (`mcp__…`) không do danh sách quyết, chúng đến theo tool agent đang giữ và máy chủ khai ở `mcp`, có tên trong danh sách hay không cũng vậy; `workspace_edit`, `workspace_grep`, `workspace_glob` chỉ agent `mode: work` có; `delegate` ở một agent không giao việc cho ai (không phải master, không phải agent work, không khai `delegates`) thì không được trao. `delegate` ở agent có giao việc không sinh cảnh báo nào: khai tên nó là cách giữ quyền giao việc dưới một danh sách tự chọn. `image_read` trên máy chưa có tuyến đọc ảnh cũng không cảnh báo. Những tên danh sách đem lại được cho agent như nó đang chạy thì server kể ở `listable_tools` ([bảng profile trả về](#sửa-agent-từ-webapi)), xét bằng cùng một chỗ với cảnh báo này, nên trình sửa trên web mời đúng những tên ấy và không tự giữ luật nào. Tool canvas cũng theo danh sách này: agent có `tools:` chỉ dùng được những tool canvas nó liệt kê ([canvas.md](canvas.md#6-bảy-tool-của-agent)) |
+| `tools` | danh sách tên tool | `[]` | khi đặt, là những tool duy nhất agent này có; rỗng nghĩa là mọi thứ mode của nó mang lại. Tên không tool nào mang là một dòng cảnh báo lúc khởi động (`tools lists unknown tool …`), không phải lỗi, nên profile viết cho phiên bản mới hơn vẫn khởi động được. Tên của một tool có thật mà danh sách không đem lại thì cảnh báo nói lý do thay vì gọi nó là lạ: `tool_script`, `tool_search` và tool MCP (`mcp__…`) không do danh sách quyết, chúng đến theo tool agent đang giữ và máy chủ khai ở `mcp`, có tên trong danh sách hay không cũng vậy; tool `browser_*` và `computer_*` cũng thế, chúng đến theo khoá `browser` và `computer`; `workspace_edit`, `workspace_grep`, `workspace_glob` chỉ agent `mode: work` có; `delegate` ở một agent không giao việc cho ai (không phải master, không phải agent work, không khai `delegates`) thì không được trao. `delegate` ở agent có giao việc không sinh cảnh báo nào: khai tên nó là cách giữ quyền giao việc dưới một danh sách tự chọn. `image_read` trên máy chưa có tuyến đọc ảnh cũng không cảnh báo. Những tên danh sách đem lại được cho agent như nó đang chạy thì server kể ở `listable_tools` ([bảng profile trả về](#sửa-agent-từ-webapi)), xét bằng cùng một chỗ với cảnh báo này, nên trình sửa trên web mời đúng những tên ấy và không tự giữ luật nào. Tool canvas cũng theo danh sách này: agent có `tools:` chỉ dùng được những tool canvas nó liệt kê ([canvas.md](canvas.md#6-bảy-tool-của-agent)) |
 | `mcp` | danh sách tên máy chủ MCP | `[]` | những máy chủ khai ở `mcp_servers` của `config.yaml` mà agent này dùng tool. Tool của chúng đến theo danh sách này, không theo `tools` hay `mode`, và hỏi trước khi chạy trừ khi chủ ghi là chỉ đọc. Sửa từ web có hiệu lực ngay; tên không có trong `config.yaml` bị từ chối khi sửa, và chỉ là cảnh báo khi viết tay. Xem [Máy chủ MCP](tools.md#máy-chủ-mcp) |
 
 Mọi giá trị không đặt sẽ rơi về cài đặt toàn cục, lấy từ biến môi trường
@@ -106,6 +109,7 @@ và `config.yaml`:
 | `MY_AGENT_BROWSER_IDLE_MINUTES` | `browser_idle_minutes` | `10`; phải ≥ 1. Trình duyệt của một agent không được gọi tới trong khoảng này thì bị dừng; lần gọi kế tiếp mở lại, vẫn đăng nhập như trước |
 | `MY_AGENT_BROWSER_MAX_TABS` | `browser_max_tabs` | `5`; phải ≥ 1. Số tab một agent giữ được cùng lúc, tính trên mọi cuộc trò chuyện của nó |
 | `MY_AGENT_BROWSER_ASK_PATTERNS` | `browser_ask_patterns` | danh sách trong [tools.md](tools.md#trình-duyệt) ("mua", "thanh toán", "pay", "delete"…): những từ mà khi nằm trong tên của phần tử sắp bấm thì `browser_act` dừng lại hỏi người, kể cả ở agent tự chủ. Giá trị env phân cách bằng `;`; giá trị rỗng (hay danh sách rỗng trong `config.yaml`) tắt hàng rào này, chỉ khoá vắng hẳn mới rơi về danh sách mặc định |
+| `MY_AGENT_DESKTOP_SOCKET` | `desktop_socket` | `<home>/desktop/sock`; Unix socket nơi server tìm trình trợ giúp desktop ([tools.md](tools.md#desktop)). Phải là đường dẫn tuyệt đối (`~` được mở rộng) và không dài quá 103 byte, giá trị khác là lỗi khởi động; giá trị rỗng là mặc định. Không bật desktop cho ai: việc đó là khoá `computer` của từng agent. Đặt ở chỗ khác thì phải sửa cả tệp dịch vụ của trình trợ giúp, xem [deployment-guide.md](deployment-guide.md#4c-desktop-cho-agent-tuỳ-chọn-macos) |
 | `OLLAMA_BASE_URL` | — | `http://127.0.0.1:11434/v1`; nơi ollama cục bộ lắng nghe. Nó không cần khoá, nên provider này luôn được dựng, xem [tools.md](tools.md#provider-không-cần-khoá) |
 | `OPENROUTER_API_KEY` | — | bật provider OpenRouter |
 | `BRAVE_API_KEY` / `TAVILY_API_KEY` | — | bật `web_search` |
@@ -248,6 +252,7 @@ chạy, kèm khối `declared` là những gì tệp viết:
 | `listable_tools` | những tên mà một danh sách `tools:` đem lại được cho agent này như nó đang chạy, xếp theo tên: mọi tool được dựng cho nó trước khi danh sách lọc (theo `mode`; `image_read` chỉ khi máy có tuyến đọc ảnh dùng được), cùng `delegate` khi agent có giao việc (master, agent work, agent khai `delegates`). Không bao giờ có `tool_script`, `tool_search` hay tool MCP, dù agent đang giữ chúng. Không co lại theo danh sách agent đang khai, và đổi ngay trong câu trả lời của lần lưu đổi `mode` hay `delegates`. Tên nằm ở đây thì danh sách nêu nó không nhận dòng cảnh báo nào lúc khởi động; tên không nằm ở đây thì nhận một dòng, trừ `image_read` trên máy chưa có tuyến đọc ảnh (không được kể, cũng không bị cảnh báo) | không có: đây không phải khoá của tệp |
 | `delegates` | những agent nó giao việc được lúc này (master không khai ai thì là cả đội) | danh sách tệp viết |
 | `browser`, `browser_hosts` | mức trình duyệt và danh sách host của agent, đúng như tệp viết (`off` và `[]` khi tệp không ghi). `browser` là điều agent xin, không phải điều nó đang có: agent ghi `act` trên máy chưa bật `browser_enabled` vẫn trả `act`, còn tool nó thật sự giữ thì đọc ở `tools`, và trình duyệt của nó đang ra sao thì đọc ở `GET /api/agents/{id}/browser` ([tools.md](tools.md#trình-duyệt)) | không có trong `declared`: giá trị ở cột bên đã là điều tệp viết, form đọc thẳng từ đó |
+| `computer`, `computer_apps` | mức desktop và danh sách ứng dụng của agent, đúng như tệp viết (`off` và `[]` khi tệp không ghi). Máy đang ra sao (trình trợ giúp, màn hình, hai quyền) thì đọc ở `GET /api/agents/{id}/desktop` ([tools.md](tools.md#desktop)) | không có trong `declared`, như `browser` |
 | `schedules` | job đang chạy, kể cả job củng cố bộ nhớ sinh từ `memory_consolidate` | lịch tệp viết, không có job sinh ra |
 
 Form của trình sửa mở từ `declared`. Ghi ngược phần "đang chạy" vào tệp sẽ biến một agent không
@@ -511,11 +516,42 @@ chạy.
 - Thẻ tự đọc lại mỗi 5 giây khi trang đang được xem, và đọc ngay khi trang được xem lại; trang bị
   che thì không hỏi gì.
 
+**Mục "Desktop"** đứng ngay sau mục Trình duyệt và ghi hai khoá của `agent.yaml`; các tool và các
+rào ở [tools.md](tools.md#desktop):
+
+- "Dùng desktop của máy" là `computer`, "Tắt" (`off`) hoặc "Bật" (`"on"`, lưu thành chữ trong
+  ngoặc). Dưới ô chọn là một dòng nói mức đang chọn đem tới tool nào và thao tác nào luôn hỏi.
+- "Ứng dụng agent được dùng" là `computer_apps`, mỗi dòng một tên (`Notes`) hay bundle id
+  (`com.apple.Notes`); để trống là chỉ nhìn. Form bỏ khoảng trắng hai đầu, bỏ dòng trống và dòng
+  trùng, như server. Ô này hiện khi mức là "Bật"; đặt về "Tắt" thì danh sách vẫn được giữ trong
+  tệp, và xoá trắng ô là gửi danh sách rỗng.
+- Lời nhắc cuối mục nói trình trợ giúp desktop và hai quyền macOS của nó là việc của chủ máy, và
+  trỏ sang mục Kết nối.
+
+Form không tự xét tên ứng dụng: lần lưu bị server từ chối (422) hiện lời từ chối ngay cạnh ô của
+khoá ấy, và chữ đã gõ vẫn còn đó để sửa. Như mọi lần lưu, hai khoá có hiệu lực từ lượt kế tiếp,
+không cần khởi động lại. Bốn tool `computer_*` không có ô chọn trong danh sách công cụ, và dưới
+danh sách có một dòng nói vì sao: chúng đi kèm mục này, không kèm `tools:`.
+
+**Thẻ "Desktop"** nằm dưới thẻ Trình duyệt, ngoài form. Thẻ nói mức của agent; ở agent "Bật" thì
+kể các ứng dụng của nó, hoặc nói nó chỉ nhìn. Dưới đó là máy như agent sẽ gặp: chưa có trình trợ
+giúp đang chạy, màn hình đang khoá, màn hình đang tắt, thiếu quyền nào hay chưa rõ đã có quyền
+nào, hoặc "Sẵn sàng". Thẻ đọc khi mở trang, sau mỗi lần lưu đổi một trong hai khoá, và sau mỗi
+lần thử chụp; nó không tự đọc lại theo nhịp.
+
+- "Thử chụp" (chỉ ở agent "Bật") chụp màn hình như agent tự chụp, trong giới hạn `computer_apps`
+  của nó, lưu vào workspace của agent và hiện ảnh ngay trên thẻ; bấm vào ảnh là mở cỡ thật. Dòng
+  gợi ý cạnh nút nói ảnh thử là ảnh mới nhất của máy, nên khung hình agent đang dùng thành cũ và
+  lần thao tác kế tiếp của agent phải nhìn lại.
+- Không chụp được thì thẻ hiện câu 409 của server (agent đang "Tắt", ứng dụng ở trước nằm ngoài
+  danh sách, hay câu theo mã của trình trợ giúp). Không có câu trả lời sau 35 giây thì trang thôi
+  chờ và nói vậy.
+
 **Danh sách công cụ đọc `listable_tools`.** Dưới "Chỉ dùng các công cụ được chọn", mỗi tên trong
 `listable_tools` của agent là một dòng, kèm mô tả của tool khi bảng công cụ có nó; form không giữ
 luật riêng nào về việc một danh sách `tools:` có tác dụng với tên nào. Vì vậy không có dòng cho tool
-MCP, `tool_search`, `tool_script` hay các tool `browser_*`, còn `delegate` có dòng ở agent có giao
-việc, kể cả lúc không agent nào còn giữ nó, để đánh dấu lại được.
+MCP, `tool_search`, `tool_script`, các tool `browser_*` hay `computer_*`, còn `delegate` có dòng ở
+agent có giao việc, kể cả lúc không agent nào còn giữ nó, để đánh dấu lại được.
 
 - Agent không viết danh sách mở ở "Dùng tất cả công cụ hợp lệ". Bật danh sách lên thì nó bắt đầu từ
   những tool agent đang giữ trong số các dòng ấy, theo thứ tự các dòng; agent không giữ dòng nào thì
@@ -596,6 +632,12 @@ dưới danh sách công cụ, và lần lưu không gửi `browser` hay `browse
 không trả `login` hay `logins`: thẻ khi đó không có nút mở cửa sổ và không có danh sách "Có thể
 đang đăng nhập ở", phần còn lại như trên.
 
+Server chưa có desktop không trả khoá `computer`, không có khối `desktop` trong
+`GET /api/connections`, và trả 404 cho `GET /api/agents/{id}/desktop`. Trên server như thế web
+không vẽ gì của desktop: trình sửa không có mục "Desktop" và không có dòng dưới danh sách công cụ,
+lần lưu không gửi `computer` hay `computer_apps`, trang agent không có thẻ "Desktop", mục Kết nối
+không có thẻ "Desktop", và bảng công cụ không có nhãn nào.
+
 ## Agent master
 
 Agent `default` luôn tồn tại và là cài đặt cấp cao nhất: dir = `MY_AGENT_HOME`,
@@ -654,7 +696,7 @@ lần lắp system prompt (tức là trước mỗi lần gọi model, không l�
 | Dịch vụ ngoài (MCP) | khoá `mcp` của agent, đối chiếu với tool MCP nó đang cầm và trạng thái kết nối | xem bảng dưới |
 | Kỹ năng | các skill agent nạp được | skill master không có thì kèm mô tả, cắt còn 80 ký tự; skill cần một lệnh máy này không có thì mang `[thiếu: …]` đứng trước mô tả, như trong mục lục skill của chính agent đó |
 | Việc tự chạy theo lịch | job của agent trong bộ lập lịch, cả job khai trong `agent.yaml` lẫn job tạo từ chat | chỉ job đang bật; bỏ job gom trí nhớ, vì agent nào cũng có |
-| Công cụ | tool trong hộp đồ của agent | bỏ `delegate` (lượt được giao việc không bao giờ cầm nó) và tool MCP (đã có dòng dịch vụ); `tool_search`, `tool_script` và các tool `browser_*` được kể như mọi tool khác, nên master biết agent nào mở được trang web; agent có `script_calls: gated` thì dòng có thêm một câu ở cuối, xem dưới |
+| Công cụ | tool trong hộp đồ của agent | bỏ `delegate` (lượt được giao việc không bao giờ cầm nó) và tool MCP (đã có dòng dịch vụ); `tool_search`, `tool_script`, các tool `browser_*` và `computer_*` được kể như mọi tool khác, nên master biết agent nào mở được trang web và agent nào dùng được màn hình của máy; agent có `script_calls: gated` thì dòng có thêm một câu ở cuối, xem dưới |
 | Mô hình | tuyến đầu trong `routes` | kèm model của `escalation_route` khi tuyến đó dùng được |
 
 Một máy chủ MCP được kể theo đúng thứ agent với tới lúc đó. Trạng thái kết nối được xét trước,
