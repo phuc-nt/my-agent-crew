@@ -58,7 +58,9 @@ def desk_of(
     **own: Any,
 ) -> Desk:
     """The tools of an agent whose file says `computer: on` and gives it `apps`. A path in
-    place of a helper is a socket nobody listens on."""
+    place of a helper is a socket nobody listens on. The workspace is there, as a running
+    agent's always is."""
+    workspace.mkdir(parents=True, exist_ok=True)
     path = helper.path if isinstance(helper, FakeHelper) else helper
     settings = DesktopSettings(socket=str(path), mode=COMPUTER_ON, apps=tuple(apps))
     return Desk(

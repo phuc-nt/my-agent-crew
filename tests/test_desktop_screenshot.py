@@ -5,6 +5,7 @@ is not a whole picture of the size the helper named."""
 from __future__ import annotations
 
 import base64
+import errno
 import os
 from pathlib import Path
 
@@ -13,7 +14,8 @@ import pytest
 from my_agent_crew import texts_desktop as t
 from my_agent_crew.agent.turn_context import reading_as
 from my_agent_crew.config import Route
-from my_agent_crew.desktop import screenshot as s
+from my_agent_crew.desktop import pictures as s
+from my_agent_crew.desktop import screenshot
 from my_agent_crew.desktop.kit import SCREENSHOT
 from my_agent_crew.desktop.report import room
 from my_agent_crew.llm.fake import ScriptedProvider, completion
@@ -125,6 +127,23 @@ async def test_a_frame_is_held_per_conversation_and_only_while_its_file_is_there
     assert other.splitlines()[0] == gone.splitlines()[0] == told(t.SHOT_SAVED)
     assert outside_any.splitlines()[0] == told(t.SHOT_SAVED)
     assert (tmp_path / s.FOLDER / f"{frame(1)}.png").read_bytes() == png(1)
+
+
+async def test_a_link_in_the_place_of_a_picture_is_not_the_picture(helper, tmp_path):
+    tools, elsewhere = desk_of(helper, tmp_path), tmp_path / "elsewhere.png"
+    elsewhere.write_bytes(png(1))
+
+    with reading_as("c1"):
+        await tools.screenshot()
+        held = tmp_path / s.FOLDER / f"{frame(1)}.png"
+        held.unlink()
+        held.symlink_to(elsewhere)
+        again = await tools.screenshot()
+
+    # The frame was not held: its file had gone, whatever the name leads to now.
+    assert [request.get("since") for request in helper.sent("screenshot")] == [None, None]
+    assert again.splitlines()[0] == told(t.SHOT_SAVED)
+    assert not held.is_symlink() and held.read_bytes() == png(1)
 
 
 @pytest.mark.parametrize("apps", [("Notes",), ()])
@@ -285,7 +304,7 @@ async def test_an_answer_that_is_no_whole_picture_saves_nothing(helper, tmp_path
 
 
 async def test_a_picture_over_the_cap_is_not_saved(helper, tmp_path, monkeypatch):
-    monkeypatch.setattr(s, "MAX_IMAGE_BYTES", len(png(1)) - 1)
+    monkeypatch.setattr(screenshot, "MAX_IMAGE_BYTES", len(png(1)) - 1)
 
     said = await desk_of(helper, tmp_path).refused(SCREENSHOT)
 
@@ -328,6 +347,29 @@ async def test_only_the_last_pictures_of_the_tool_are_kept_and_nothing_else_is_t
     assert sorted(found.name for found in folder.iterdir()) == sorted(theirs + mine)
 
 
+async def test_a_folder_or_a_link_named_like_a_picture_is_neither_counted_nor_removed(
+    helper, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(s, "KEPT", 2)
+    folder, theirs = tmp_path / s.FOLDER, tmp_path / "theirs.txt"
+    folder.mkdir()
+    theirs.write_text("của chủ", encoding="utf-8")
+    (folder / f"{frame(900)}.png").mkdir()
+    (folder / f"{frame(901)}.png").symlink_to(theirs)
+    for number in (902, 903):
+        (folder / f"{frame(number)}.png").write_bytes(b"x")
+    # The folder and the link are the oldest: counted, they would be the first to go.
+    for age, number in enumerate((900, 901, 902, 903)):
+        os.utime(folder / f"{frame(number)}.png", (age, age), follow_symlinks=False)
+
+    answer = await desk_of(helper, tmp_path).screenshot()
+
+    assert answer.splitlines()[0] == told(t.SHOT_SAVED)
+    kept = [f"{frame(number)}.png" for number in (900, 901, 903, 1)]
+    assert sorted(found.name for found in folder.iterdir()) == sorted(kept)
+    assert theirs.read_text(encoding="utf-8") == "của chủ"
+
+
 async def test_the_newest_forty_pictures_stay(helper, tmp_path):
     folder = tmp_path / s.FOLDER
     folder.mkdir()
@@ -363,6 +405,36 @@ async def test_a_picture_is_written_inside_the_workspace_or_not_at_all(helper, t
     assert pictures(inner / "pics") == [f"{frame(1)}.png"]
 
 
+@pytest.mark.parametrize("leads", ["out", "in"])
+async def test_a_folder_moved_while_the_picture_was_taken_is_judged_again(
+    helper, tmp_path, monkeypatch, leads
+):
+    workspace, outside = tmp_path / "ws", tmp_path / "outside"
+    for folder in (workspace / s.FOLDER, workspace / "pics", outside):
+        folder.mkdir(parents=True)
+    take = helper._screenshot
+
+    def meanwhile(request: dict) -> dict:
+        # The folder judged before the helper was asked is a link by the time it answers.
+        (workspace / s.FOLDER).rmdir()
+        to = outside if leads == "out" else workspace / "pics"
+        (workspace / s.FOLDER).symlink_to(to, target_is_directory=True)
+        return take(request)
+
+    monkeypatch.setattr(helper, "_screenshot", meanwhile)
+    tools = desk_of(helper, workspace)
+
+    if leads == "out":
+        assert await tools.refused(SCREENSHOT) == WORKSPACE_ESCAPE
+    else:
+        # Where the link leads is judged as the first time: inside, it is followed, and the
+        # answer names where the file really is.
+        answer = await tools.screenshot()
+        assert answer.splitlines()[0] == told(t.SHOT_SAVED, folder="pics")
+    assert list(outside.iterdir()) == []
+    assert pictures(workspace) == ([] if leads == "out" else [f"{frame(1)}.png"])
+
+
 async def test_an_agent_held_to_some_folders_keeps_its_pictures_under_the_first(helper, tmp_path):
     for folder in ("data", "notes"):
         (tmp_path / folder).mkdir()
@@ -386,6 +458,35 @@ async def test_a_picture_is_never_written_through_a_name_already_there(helper, t
     assert not outside.exists()
     saved = folder / f"{frame(1)}.png"
     assert not saved.is_symlink() and saved.read_bytes() == png(1)
+
+
+async def test_a_picture_that_could_not_be_written_whole_is_taken_away(
+    helper, tmp_path, monkeypatch
+):
+    real = open
+
+    class Full:
+        """A disk that fills up a few bytes into the picture."""
+
+        def __init__(self, fd: int, mode: str) -> None:
+            self.file = real(fd, mode)
+
+        def __enter__(self) -> Full:
+            return self
+
+        def __exit__(self, *_exc) -> None:
+            self.file.close()
+
+        def write(self, data: bytes) -> None:
+            self.file.write(data[:10])
+            raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+
+    monkeypatch.setattr(s, "open", Full, raising=False)
+
+    said = await desk_of(helper, tmp_path).refused(SCREENSHOT)
+
+    assert said == t.SHOT_NOT_SAVED.format(error=os.strerror(errno.ENOSPC))
+    assert pictures(tmp_path) == []
 
 
 async def test_a_capture_the_helper_could_not_make_is_told_with_its_reason(helper, tmp_path):
