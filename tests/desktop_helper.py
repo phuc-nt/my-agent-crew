@@ -60,6 +60,17 @@ def frame(number: int) -> str:
     return f"{number:016x}-{WIDTH}x{HEIGHT}-1"
 
 
+def outline_name(number: int) -> str:
+    """What the stand-in names its outlines: the real helper draws a name at random, this
+    one counts, so a test knows the tag each of its outlines shows."""
+    return f"{number:04x}" + "0" * 12
+
+
+def ref(node: str, number: int = 1) -> str:
+    """A ref as the stand-in's outline `number` shows it: with the tag of that outline."""
+    return f"{node}-{number:04x}"
+
+
 @dataclass
 class App:
     app: str
@@ -95,6 +106,11 @@ class FakeHelper:
     # helper knows of no screen but the one it last pictured. A stand-in starts as one whose
     # first screen was looked at already.
     latest: str | None = frame(1)
+    # How many outlines were given, the name of the last and the application it was read
+    # of: a ref means an element only as one of that outline.
+    outlines: int = 0
+    outline: str | None = None
+    outline_of: str | None = None
     # A code a command is refused with whatever the state says, as (code, detail).
     fail: dict[str, tuple[str, str]] = field(default_factory=dict)
     # Whole answers given instead of the real one, first in first out, per command.
@@ -247,16 +263,29 @@ class FakeHelper:
         app = self.running(request.get("app") or self.front or "")
         if app is None:
             raise Refused("app_not_running", f"{request.get('app')} is not running")
+        self.outlines += 1
+        self.outline, self.outline_of = outline_name(self.outlines), app.app
         return {
             "app": app.app,
             "pid": app.pid,
             "window": app.window,
             "truncated": app.truncated,
             "nodes": app.nodes,
+            "outline": self.outline,
         }
+
+    def _names(self, app: App, request: dict) -> bool:
+        """Whether the ref of a request means an element: only as one of the outline that
+        was given last, and only when that outline was read of this application."""
+        if request.get("outline") != self.outline or self.outline_of != app.app:
+            return False
+        return any(node["ref"] == request["ref"] for node in app.nodes)
 
     def _act(self, request: dict) -> dict:
         kind, app = request.get("kind"), self.running(request.get("app", ""))
+        if kind != "focus_app" and "ref" in request:
+            if not isinstance(request.get("outline"), str):
+                raise Refused("bad_request", "`outline` is required with a `ref`.")
         if kind == "focus_app":
             if app is None:
                 raise Refused("app_not_running", f"{request.get('app')} is not running")
@@ -268,7 +297,7 @@ class FakeHelper:
             )
         elif "frame_id" in request and request["frame_id"] != self.latest:
             raise Refused("frame_mismatch", STALE)
-        elif "ref" in request and not any(node["ref"] == request["ref"] for node in app.nodes):
+        elif "ref" in request and not self._names(app, request):
             raise Refused("ref_unknown", f"no element {request['ref']} in the last outline")
         elif any(not 0 <= request.get(key, 0) < most for key, most in POINTS.items()):
             raise Refused("bad_request", OFF_THE_PICTURE)

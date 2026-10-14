@@ -98,8 +98,9 @@ extension Dispatcher {
         refs.forget()
         let snapshot = try system.accessibilityTree(pid: target.pid, maxNodes: query.maxNodes)
         let tree = AXShaping.shape(snapshot, limit: query.maxNodes)
-        refs.remember(pid: target.pid, tree.targets)
+        let outline = refs.remember(pid: target.pid, tree.targets)
         return [
+            "outline": .string(outline),
             "app": .string(target.name),
             "pid": .int(Int(target.pid)),
             "window": snapshot.window.map { JSONValue.string(TextTools.cut($0)) } ?? .null,

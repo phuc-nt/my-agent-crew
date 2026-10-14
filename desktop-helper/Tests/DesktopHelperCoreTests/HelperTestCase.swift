@@ -4,8 +4,13 @@ import XCTest
 
 /// A dispatcher over a fake machine, and the few words the tests share for asking it things.
 class HelperTestCase: XCTestCase {
+    /// The form of a tree's name, held by no tree.
+    static let noOutline = "0000000000000000"
+
     var system: FakeSystem!
     var dispatcher: Dispatcher!
+    /// The name of the tree `readTree` read last: `act` sends it with a ref that names none.
+    var outline = HelperTestCase.noOutline
 
     override func setUp() {
         super.setUp()
@@ -24,6 +29,7 @@ class HelperTestCase: XCTestCase {
         system?.onCall = nil
         system = FakeSystem()
         dispatcher = Dispatcher(system: system)
+        outline = Self.noOutline
     }
 
     /// Sends raw text as one request line and reads the answer line.
@@ -58,6 +64,7 @@ class HelperTestCase: XCTestCase {
         var request = arguments
         request["kind"] = kind
         if let app { request["app"] = app }
+        if request["ref"] != nil, request["outline"] == nil { request["outline"] = outline }
         return ask("act", request)
     }
 
@@ -107,6 +114,7 @@ class HelperTestCase: XCTestCase {
         system.snapshot = AXSnapshot(window: "Untitled", nodes: nodes, truncated: false)
         let answer = ask("ax", app.map { ["app": $0] } ?? [:])
         assertOK(answer, file: file, line: line)
+        outline = answer["outline"] as? String ?? ""
         return answer
     }
 

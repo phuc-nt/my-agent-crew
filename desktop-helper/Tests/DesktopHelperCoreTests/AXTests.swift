@@ -25,13 +25,15 @@ final class AXTests: HelperTestCase {
 
     func testTreeOfTheFrontmostApplicationAsTheContractWritesIt() {
         system.snapshot = AXSnapshot(window: "Untitled", nodes: exampleNodes, truncated: false)
+        let written = dispatcher.respond(to: Data(#"{"id":"9","cmd":"ax"}"#.utf8))
+        let name = decode(written)["outline"] as? String ?? "none"
         XCTAssertEqual(
-            dispatcher.respond(to: Data(#"{"id":"9","cmd":"ax"}"#.utf8)),
+            written,
             #"{"id":"9","ok":true,"app":"TextEdit","nodes":["#
                 + #"{"depth":0,"ref":"a1","role":"AXWindow","title":"Untitled"},"#
                 + #"{"depth":1,"enabled":true,"focused":true,"frame":[120,96,800,600],"#
                 + #""ref":"a2","role":"AXTextArea","value":"hello"}],"#
-                + #""pid":4242,"truncated":false,"window":"Untitled"}"#
+                + #""outline":"\#(name)","pid":4242,"truncated":false,"window":"Untitled"}"#
         )
         XCTAssertEqual(system.calls, [
             .isLocked, .isDisplayAsleep, .hasAccessibility, .frontmostApp,
@@ -41,7 +43,9 @@ final class AXTests: HelperTestCase {
 
     func testAnswerHasEveryKeyOfTheContract() {
         let reply = readTree(exampleNodes)
-        XCTAssertEqual(Set(reply.keys), ["id", "ok", "app", "pid", "window", "truncated", "nodes"])
+        XCTAssertEqual(
+            Set(reply.keys), ["id", "ok", "app", "pid", "window", "truncated", "nodes", "outline"]
+        )
         XCTAssertEqual(reply["app"] as? String, "TextEdit")
         XCTAssertEqual(reply["pid"] as? Int, 4242)
         XCTAssertEqual(reply["window"] as? String, "Untitled")
@@ -165,6 +169,7 @@ final class AXTests: HelperTestCase {
         )
         let reply = ask("ax", ["max_nodes": 50])
         assertOK(reply)
+        outline = reply["outline"] as? String ?? ""
         XCTAssertEqual(reply["truncated"] as? Bool, true)
         XCTAssertEqual(nodes(reply).count, 50)
         XCTAssertEqual(nodes(reply).last?["ref"] as? String, "a50")
@@ -252,6 +257,39 @@ final class AXTests: HelperTestCase {
             system.actions, [.postClick(ScreenPoint(x: 205, y: 5), .left, 1)],
             "a1 is the first element of the new answer, not of the old one"
         )
+    }
+
+    func testEveryAnswerGoesByANameOfItsOwn() {
+        var names: Set<String> = []
+        for _ in 0..<20 {
+            let name = readTree([button(11)])["outline"] as? String ?? ""
+            XCTAssertNotNil(
+                name.range(of: "^[0-9a-f]{16}$", options: .regularExpression), "<\(name)>"
+            )
+            names.insert(name)
+        }
+        XCTAssertEqual(names.count, 20, "the same tree read again is another answer")
+    }
+
+    func testRefOfAnOlderAnswerIsUnknownThoughTheNewestHasOneOfThatNumber() {
+        system.elementFrames = [
+            11: ScreenRect(x: 0, y: 0, width: 10, height: 10),
+            21: ScreenRect(x: 200, y: 0, width: 10, height: 10),
+        ]
+        let older = readTree([button(11, title: "Cancel")])["outline"] as? String ?? ""
+        let newest = readTree([button(21, title: "Delete")])["outline"] as? String ?? ""
+        system.forgetCalls()
+
+        assertRefused(act("click", ["ref": "a1", "outline": older]), .refUnknown)
+        assertRefused(act("set_value", ["ref": "a1", "text": "x", "outline": older]), .refUnknown)
+        let others = [Self.noOutline, "", newest.uppercased(), newest + "0", " " + newest]
+        for name in others where name != newest {
+            assertRefused(act("click", ["ref": "a1", "outline": name]), .refUnknown, "<\(name)>")
+        }
+        XCTAssertEqual(system.touches, [], "a ref of an older answer reaches no element")
+
+        assertOK(act("click", ["ref": "a1", "outline": newest]))
+        XCTAssertEqual(system.actions, [.postClick(ScreenPoint(x: 205, y: 5), .left, 1)])
     }
 
     func testReadThatFailsLeavesNoRefsBehind() {

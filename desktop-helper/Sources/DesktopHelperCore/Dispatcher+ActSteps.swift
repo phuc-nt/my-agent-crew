@@ -15,7 +15,7 @@ extension Dispatcher {
     /// point (`bad_request` when it is outside the picture).
     func resolve(_ action: ActRequest, front: AppInfo) throws -> ActStep {
         let frame = try action.frameID.map { try frames.frame($0, now: system.now()) }
-        let target = try action.ref.map { try element(named: $0, front: front) }
+        let target = try action.ref.map { try element(named: $0, of: action.outline, front: front) }
         switch action.kind {
         case .click:
             return .click(try clickPoint(action, frame, target), .left, 1)
@@ -46,9 +46,14 @@ extension Dispatcher {
     }
 
     /// A ref counts only while its tree is the frontmost application's: the action is held to
-    /// that application, and an element of another one would be outside it.
-    private func element(named ref: String, front: AppInfo) throws -> RefTarget {
-        guard refs.pid == front.pid, let target = refs.target(for: ref) else {
+    /// that application, and an element of another one would be outside it. And only as a ref
+    /// of the last answer, named by the request: the same ref of an answer before it meant
+    /// another element.
+    private func element(named ref: String, of outline: String?, front: AppInfo) throws
+        -> RefTarget {
+        guard refs.pid == front.pid, let outline,
+            let target = refs.target(for: ref, of: outline)
+        else {
             throw Refusal(
                 .refUnknown, "That ref is not in the last ax answer for the frontmost application."
             )

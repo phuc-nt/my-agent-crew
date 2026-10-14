@@ -54,8 +54,8 @@ extension Dispatcher {
                 "The focused element is a secure text field, or the application would not say what holds the focus."
             )
         }
-        if action.kind == .setValue, let ref = action.ref, refs.pid == front.pid,
-           refs.target(for: ref)?.secure == true {
+        if action.kind == .setValue, let ref = action.ref, let outline = action.outline,
+           refs.pid == front.pid, refs.target(for: ref, of: outline)?.secure == true {
             throw Refusal(.secureInput, "That element is a secure text field.")
         }
     }

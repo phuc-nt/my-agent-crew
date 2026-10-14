@@ -14,17 +14,19 @@ SCREENSHOT_DESCRIPTION = (
 OBSERVE_DESCRIPTION = (
     "Đọc dàn ý các phần tử của một ứng dụng được giao (computer_apps): mỗi phần tử một dòng, "
     "mở đầu bằng mã [ref=…] để computer_act dùng lại và ghi chú của chương trình trong ngoặc; "
-    "vai trò, tên và giá trị đứng sau là chữ của màn hình. Ô bảo mật không hiện giá trị. Ref "
-    "chỉ đúng tới lần computer_observe kế tiếp."
+    "vai trò, tên (trong ngoặc kép) và giá trị (sau dấu hai chấm) đứng sau là chữ của màn "
+    "hình. Ô bảo mật không hiện giá trị. Ref chỉ đúng trong dàn ý vừa đọc, tới lần "
+    "computer_observe kế tiếp."
 )
 ACT_DESCRIPTION = (
     "Thao tác lên một ứng dụng được giao trên màn hình thật của máy: click, double_click, "
-    "right_click (theo `ref` hoặc theo `x`,`y`), drag (từ `x`,`y` tới `to_x`,`to_y`), scroll "
-    "(tại `x`,`y`, cuộn `dx`,`dy` dòng), type (gõ `text` vào ô đang giữ con trỏ), key (một tổ "
-    "hợp phím trong `keys`), set_value (thay nội dung của ô `ref` bằng `text`), focus_app (đưa "
-    "ứng dụng lên trước). Mọi thao tác trừ focus_app cần `frame_id` của lần computer_screenshot "
-    "gần nhất; toạ độ tính theo điểm ảnh của ảnh đó. Không gõ được vào ô mật khẩu. Sau thao "
-    "tác hãy chụp hoặc đọc lại để biết kết quả."
+    "right_click (theo `ref` kèm `name`, hoặc theo `x`,`y`), drag (từ `x`,`y` tới "
+    "`to_x`,`to_y`), scroll (tại `x`,`y`, cuộn `dx`,`dy` dòng), type (gõ `text` vào ô đang giữ "
+    "con trỏ; không nhận `ref`), key (một tổ hợp phím trong `keys`), set_value (thay nội dung "
+    "của ô `ref` bằng `text`), focus_app (đưa ứng dụng lên trước). Mọi thao tác trừ focus_app "
+    "cần `frame_id` của lần computer_screenshot gần nhất; toạ độ tính theo điểm ảnh của ảnh "
+    "đó. `ref` phải lấy từ lần computer_observe gần nhất của chính hội thoại này. Không gõ "
+    "được vào ô mật khẩu. Sau thao tác hãy chụp hoặc đọc lại để biết kết quả."
 )
 
 PARAM_QUESTION = "Điều cần biết về ảnh chụp; bỏ trống để mô tả chung."
@@ -32,7 +34,14 @@ PARAM_OBSERVE_APP = "Tên hoặc bundle id của ứng dụng; bỏ trống là 
 PARAM_KIND = "Loại thao tác."
 PARAM_APP = "Tên hoặc bundle id của ứng dụng nhận thao tác; phải nằm trong computer_apps."
 PARAM_FRAME = "frame_id của lần computer_screenshot gần nhất. Mọi thao tác trừ focus_app đều cần."
-PARAM_REF = "Mã ref của phần tử trong dàn ý computer_observe gần nhất, ví dụ a12."
+PARAM_REF = (
+    "Mã ref của phần tử, chép nguyên từ dàn ý computer_observe gần nhất, ví dụ a12-3f9c. Cho "
+    "click, double_click, right_click và set_value."
+)
+PARAM_NAME = (
+    "Tên của phần tử như dàn ý ghi, bắt buộc khi click, double_click, right_click theo `ref`: "
+    "chữ trong ngoặc kép; không có thì là phần sau dấu hai chấm; không có cả hai thì bỏ trống."
+)
 PARAM_X = "Hoành độ, tính bằng điểm ảnh của ảnh chụp mang frame_id đó."
 PARAM_Y = "Tung độ, tính bằng điểm ảnh của ảnh chụp mang frame_id đó."
 PARAM_TO_X = "Hoành độ điểm thả, cho drag."

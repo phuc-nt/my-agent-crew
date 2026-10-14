@@ -19,6 +19,7 @@ from my_agent_crew.browser.policy import AskWords
 from my_agent_crew.config_desktop import DesktopSettings
 from my_agent_crew.desktop.client import DesktopClient, DesktopError
 from my_agent_crew.desktop.policy import app_allowed
+from my_agent_crew.desktop.seen import Shown
 from my_agent_crew.tools.registry import Tool, ToolError
 
 STATE, SCREENSHOT = "computer_state", "computer_screenshot"
@@ -66,8 +67,10 @@ class Kit:
     ask: AskWords = field(default_factory=lambda: AskWords(()))
     # Where the agent's file tools may write; its pictures go under the first of them.
     write_paths: tuple[str, ...] = ()
-    # The refs the last outline marked as secure fields.
-    secure: frozenset[str] = frozenset()
+    # The last outline the helper gave this agent, and the conversation that was shown it.
+    # One for the agent and not one a conversation: the helper keeps only its newest, so
+    # what another conversation was shown before it names nothing any more.
+    seen: tuple[str, Shown] | None = None
     # The last frame each conversation was given, so an unchanged screen costs no picture.
     frames: dict[str, str] = field(default_factory=dict)
 
@@ -93,6 +96,17 @@ class Kit:
             return await self.client.request(cmd, **args)
         except DesktopError as exc:
             raise ToolError(said(exc)) from exc
+
+    def showed(self, shown: Shown | None) -> None:
+        """The outline this conversation was just shown; None once the helper made a new
+        one that nobody was shown yet."""
+        self.seen = None if shown is None else (self.owner(), shown)
+
+    def shown(self) -> Shown | None:
+        """What this conversation was last shown, while that is still the helper's newest."""
+        if self.seen is None or self.seen[0] != self.owner():
+            return None
+        return self.seen[1]
 
     def gave(self, frame_id: str) -> None:
         self.frames.pop(self.owner(), None)
