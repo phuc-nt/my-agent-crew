@@ -53,7 +53,9 @@ class Sent:
     def __init__(self, page: Page, path: Path | None = None) -> None:
         self.page, self.did = page, []
         self._path, self._failure, self._ended = path, None, asyncio.Event()
-        self.removing = asyncio.Event()
+        # Shut by a test, either holds the file where it is: being stopped, or being removed.
+        self.asked, self.stopping, self.removing = asyncio.Event(), asyncio.Event(), asyncio.Event()
+        self.stopping.set()
         self.removing.set()
 
     def ends(self, failure: str | None = None) -> None:
@@ -66,6 +68,8 @@ class Sent:
         return self._failure
 
     async def cancel(self) -> None:
+        self.asked.set()
+        await self.stopping.wait()
         self.did.append("cancel")
         if not self._ended.is_set() and self._path:
             self._path.unlink(missing_ok=True)
@@ -213,6 +217,48 @@ async def test_a_second_caller_is_told_at_once_and_comes_once_the_first_is_wholl
     sent.removing.set()
     await leaving
     assert sent.did == ["cancel", "delete"] and await second() == "in"
+
+
+@pytest.mark.parametrize("held_at", ["stopping", "removing"])
+async def test_a_caller_stopped_again_on_its_way_out_still_has_the_browser_s_copy_removed(
+    tmp_path, held_at
+):
+    page = Page()
+    downloads = Downloads(Context(page), tmp_path)
+    (tmp_path / "whole").write_bytes(b"x" * 10)
+    inside, files = asyncio.Event(), []
+
+    async def caller() -> None:
+        async with downloads.expecting(lambda sent: True):
+            files.append(page.sends(tmp_path / "whole", whole=True))
+            inside.set()
+            await asyncio.Event().wait()  # for as long as nobody stops it
+
+    async def next_caller() -> str:
+        try:
+            async with downloads.expecting(lambda sent: True):
+                return "in"
+        except ToolError as error:
+            return str(error)
+
+    calling = asyncio.ensure_future(caller())
+    await inside.wait()
+    (sent,) = files
+    getattr(sent, held_at).clear()
+    calling.cancel()  # stopped once: on its way out it takes the browser's copy away
+    await sent.asked.wait()
+    calling.cancel()  # and stopped again while it does
+    with pytest.raises(asyncio.CancelledError):
+        await calling
+
+    meanwhile = (await next_caller(), downloads.held())
+    getattr(sent, held_at).set()
+    await stopped(sent)
+
+    assert sent.did == ["cancel", "delete"] and downloads.held() == 0
+    # While the caller was gone and the copy was not, nobody else came.
+    assert meanwhile == (f.DOWNLOAD_BUSY, 10)
+    assert await next_caller() == "in"
 
 
 async def test_a_file_is_measured_while_it_comes_and_given_up_over_the_limit(tmp_path, quick):

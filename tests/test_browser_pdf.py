@@ -3,6 +3,7 @@ workspace, under a cleaned name that ends in `.pdf` whatever it was called. It o
 
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 
@@ -13,8 +14,10 @@ from my_agent_crew import texts_browser as t
 from my_agent_crew import texts_browser_files as f
 from my_agent_crew.browser import downloads as dl
 from my_agent_crew.browser import kit as k
+from my_agent_crew.browser import tools_files
 from my_agent_crew.browser.navigate import build_navigate
-from my_agent_crew.browser.tools_files import FOLDER, build_pdf, size_said
+from my_agent_crew.browser.tools_files import FOLDER, size_said
+from my_agent_crew.browser.tools_pdf import build_pdf
 from my_agent_crew.texts import WORKSPACE_ESCAPE, WORKSPACE_WRITE_OUTSIDE
 from my_agent_crew.tools.registry import ToolError
 from tests.browser_tools import talking, under, world
@@ -214,6 +217,45 @@ async def test_a_print_is_written_inside_the_workspace_or_not_at_all(w, tmp_path
         paths="data", path=f"data/{FOLDER}"
     )
     assert list((w.workspace / "src").iterdir()) == []
+
+
+@pytest.mark.parametrize(("paths", "planted"), [((), FOLDER), (("data",), "data")])
+@talking("pdf-swap")
+async def test_a_folder_that_became_a_link_while_the_page_was_printed_takes_no_print(
+    w, tmp_path: Path, paths, planted
+):
+    await opened(w)
+    tab = w.tab("pdf-swap")
+
+    printing = asyncio.ensure_future(printed(w, paths))
+    # The folder was judged before the tab was taken: by now the page is being printed.
+    while not tab.lock.locked() and not printing.done():
+        await asyncio.sleep(0)
+    os.symlink(tmp_path, w.workspace / planted)
+    with pytest.raises(ToolError) as error:
+        await printing
+
+    assert str(error.value) == WORKSPACE_ESCAPE
+    assert list(tmp_path.iterdir()) == []  # nothing was made outside, not even a folder
+    assert [p.name for p in w.workspace.iterdir()] == [planted]
+
+
+@talking("pdf-full")
+async def test_a_folder_that_holds_all_it_may_takes_no_new_print(w, monkeypatch):
+    await opened(w)
+    label = w.tab("pdf-full").label
+    (w.workspace / FOLDER).mkdir()
+    (w.workspace / FOLDER / "cu.pdf").write_bytes(b"x" * 600)
+
+    monkeypatch.setattr(tools_files, "FOLDER_BYTES", 600)  # what it holds, exactly
+    said = await refused(w)
+    monkeypatch.setattr(tools_files, "FOLDER_BYTES", 601)
+    out = await printed(w)
+
+    assert said == f.FOLDER_FULL.format(folder=FOLDER, limit=600 / 1024**3)
+    kept = files(w)
+    assert sorted(kept) == ["Hoa-don-thang-10.pdf", "cu.pdf"]
+    assert out == told(label, "Hoa-don-thang-10.pdf", kept["Hoa-don-thang-10.pdf"])
 
 
 @talking("pdf-unsaved")

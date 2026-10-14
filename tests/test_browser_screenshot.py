@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import os
+import shutil
 import struct
 from datetime import UTC, datetime
 from pathlib import Path
@@ -317,6 +318,27 @@ async def test_only_the_last_pictures_of_the_tool_are_kept_and_nothing_else_is_t
     assert pictures(w) == sorted(theirs + mine)
 
 
+@talking("shot-kept-folder")
+async def test_a_folder_named_like_a_picture_is_no_picture_and_stops_nothing(w, monkeypatch):
+    await opened(w)
+    monkeypatch.setattr(s, "KEPT", 1)
+    folder = w.workspace / s.FOLDER
+    folder.mkdir(exist_ok=True)
+    # Older than every picture: the first to go, were it counted as one.
+    held = folder / "20200101T000000Z-t1.png"
+    held.mkdir()
+    (held / "ghi-chu.txt").write_bytes(b"x")
+    os.utime(held, (1_000, 1_000))
+    try:
+        await shot(w)
+        await shot(w)
+
+        assert pictures(w) == sorted([held.name, f"{STAMP}-t1-2.png"])
+        assert (held / "ghi-chu.txt").read_bytes() == b"x"
+    finally:
+        shutil.rmtree(held)
+
+
 @talking("shot-where")
 async def test_a_picture_is_written_inside_the_workspace_or_not_at_all(w, tmp_path: Path):
     await opened(w)
@@ -392,6 +414,59 @@ async def test_an_agent_held_to_some_folders_keeps_its_pictures_under_the_first(
     # And one that is not there yet is made.
     assert made.splitlines()[0] == told(f"moi/noi/screenshots/{name}")
     assert (plain / "moi" / "noi" / s.FOLDER / name).is_file()
+
+
+@pytest.mark.parametrize(("paths", "planted"), [((), s.FOLDER), (("data",), "data")])
+@talking("shot-swap")
+async def test_a_folder_that_became_a_link_after_it_was_judged_takes_no_picture(
+    w, tmp_path: Path, monkeypatch, paths, planted
+):
+    await opened(w)
+    workspace, outside = tmp_path / "ws", tmp_path / "outside"
+    workspace.mkdir()
+    outside.mkdir()
+    # Two that read as the tool's own, in a folder that is not: neither is the tool's to prune.
+    theirs = ["20200101T000000Z-t1.png", "20200101T000001Z-t1.png"]
+    for name in theirs:
+        (outside / name).write_bytes(b"theirs")
+    monkeypatch.setattr(s, "KEPT", 1)
+    judged = s.place
+
+    def then_linked(*asked):
+        found = judged(*asked)
+        (workspace / planted).symlink_to(outside, target_is_directory=True)
+        return found
+
+    monkeypatch.setattr(s, "place", then_linked)
+
+    with pytest.raises(ToolError) as error:
+        await at(w, workspace, *paths).run({})
+
+    assert str(error.value) == WORKSPACE_ESCAPE
+    assert sorted(found.name for found in outside.iterdir()) == theirs
+    assert [found.name for found in workspace.iterdir()] == [planted]
+
+
+@talking("shot-read-as-taken")
+async def test_a_model_reads_the_picture_that_was_taken_whatever_its_name_holds_by_then(
+    w, monkeypatch
+):
+    await opened(w)
+    chain, provider = eyes(completion("Trang ảnh."))
+    kept, taken = s.save, []
+
+    def then_changed(workspace, shown, label, data, kind):
+        name = kept(workspace, shown, label, data, kind)
+        taken.append(data)
+        (workspace / shown / name).write_bytes(PNG + b"another picture under the name")
+        return name
+
+    monkeypatch.setattr(s, "save", then_changed)
+
+    await shot(w, w.kit(vision=chain))
+
+    sent = provider.requests[0].messages[-1].images
+    assert sent == ("data:image/png;base64," + base64.b64encode(taken[0]).decode("ascii"),)
 
 
 @talking("shot-link")

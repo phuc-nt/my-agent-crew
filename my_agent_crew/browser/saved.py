@@ -2,15 +2,16 @@
 
 The folder is the tool's own: neither the model nor a page chooses it. A name may come from
 the model or from the site that sent the file, and either way only its plain letters are
-kept, so no name leads out of the folder, hides the file, or reads as anything but a name.
-A file is made new or not at all: nothing already in the folder is ever written over."""
+kept, so no name leads out of the folder or hides the file. Plain letters still spell words,
+and a name can be one a program goes looking for (`conftest.py`, `Makefile`). So a name is
+said to the model only under the fence, and a name that does not end as data does is given
+`.bin` after it (`inert`): the file is whole, and nothing loads or runs it for its name.
+How a file is then put there, new or not at all and through no link, is `folder.py`."""
 
 from __future__ import annotations
 
-import itertools
 import os
 import re
-import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -22,6 +23,11 @@ STEM_CHARS, ENDING_CHARS = 80, 10
 PARTS = re.compile(r"[/\\]")
 NOT_NAME = re.compile(r"[^A-Za-z0-9._]+")
 EDGES = ".-_"
+# How data ends. No other ending is left on a file whose name the model or a site chose.
+DATA_ENDINGS = frozenset(
+    "pdf csv tsv txt json xml xlsx xls docx doc pptx ppt zip png jpg jpeg gif webp".split()
+)
+INERT = "bin"
 
 
 def place(workspace: Path, write_paths: Sequence[str], name: str) -> tuple[Path, str]:
@@ -61,30 +67,9 @@ def file_name(said: str, fallback: str, ending: str = "") -> str:
     return f"{stem}.{own}" if own else stem
 
 
-def keep(folder: Path, name: str, content: bytes | Path) -> Path:
-    """Put `content` (the bytes, or the file that holds them) in the folder under `name`, or
-    under that name with a number when it is taken. Made new or not at all: never over a
-    file, nor through a link, already there; and a file that could not be written whole is
-    taken away again."""
-    folder.mkdir(parents=True, exist_ok=True)
-    stem, dot, ending = name.rpartition(".")
-    if not dot:
-        stem, ending = name, ""
-    for n in itertools.count(1):
-        path = folder / f"{stem}{f'-{n}' if n > 1 else ''}{dot}{ending}"
-        try:
-            file = open(path, "xb")  # ours to take away again only once this did not raise
-        except FileExistsError:
-            continue
-        try:
-            with file:
-                if isinstance(content, bytes):
-                    file.write(content)
-                else:
-                    with open(content, "rb") as source:
-                        shutil.copyfileobj(source, file)
-        except BaseException:
-            path.unlink(missing_ok=True)
-            raise
-        return path
-    raise AssertionError("unreachable")
+def inert(name: str) -> str:
+    """`name` when it ends as data does, whatever the case of its ending, and with `.bin`
+    after it when it does not: a name with no ending at all, or one a program reads a file
+    by. A name that ends in `.bin` already is as it would be made."""
+    ending = name.rpartition(".")[2].casefold() if "." in name else ""
+    return name if ending in DATA_ENDINGS or ending == INERT else f"{name}.{INERT}"
