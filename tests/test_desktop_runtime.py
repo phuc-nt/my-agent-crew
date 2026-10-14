@@ -156,6 +156,21 @@ def test_what_is_closed_is_the_helpers_folder_and_a_socket_put_elsewhere(tmp_pat
     assert not is_private(settings.home) and not is_private(settings.home / "desktops")
 
 
+def test_a_socket_that_climbs_out_of_the_helpers_folder_is_closed_where_it_leads(
+    tmp_path: Path,
+):
+    settings = load_settings(env={"MY_AGENT_HOME": str(tmp_path)})
+    root, climbed = settings.home / "desktop", str(settings.home / "desktop/../other/sock")
+    moved = replace(settings, desktop=DesktopSettings(socket=climbed))
+
+    assert desktop_private(moved) == (root, Path(climbed))
+
+    close_desktop(moved)
+
+    assert is_private(settings.home / "other" / "sock") and is_private(root)
+    assert not is_private(settings.home / "other" / "note.md")
+
+
 @pytest.mark.parametrize("own", ["description: x\n", ON], ids=["nobody uses it", "one agent does"])
 async def test_the_folder_is_closed_to_the_file_tools_whoever_uses_the_desktop(
     tmp_path: Path, own: str
