@@ -25,7 +25,7 @@ from my_agent_crew.browser.kit import one_line, schema, text_of
 from my_agent_crew.browser.screenshot import place
 from my_agent_crew.desktop import kit as k
 from my_agent_crew.desktop.kit import DesktopTool, Kit
-from my_agent_crew.desktop.policy import FRAME_ID
+from my_agent_crew.desktop.policy import FRAME_ID, frame_size
 from my_agent_crew.desktop.report import fenced, room
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.texts import IMAGE_EMPTY
@@ -135,6 +135,9 @@ async def capture(kit: Kit, since: str = "") -> Shot:
     if not isinstance(frame_id, str) or not FRAME_ID.fullmatch(frame_id):
         raise ToolError(t.SHOT_BROKEN)
     width, height = _size(answer, "width"), _size(answer, "height")
+    if frame_size(frame_id) != (width, height):
+        # A point is judged by the size its frame id names: it is the picture's or no use.
+        raise ToolError(t.SHOT_BROKEN)
     path = f"{shown}/{frame_id}.png"
     if answer.get("unchanged") is True:
         if frame_id != held:

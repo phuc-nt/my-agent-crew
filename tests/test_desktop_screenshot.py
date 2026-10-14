@@ -98,6 +98,16 @@ async def test_a_screen_that_did_not_change_costs_no_picture_and_no_reading(help
     assert pictures(tmp_path) == [f"{frame(1)}.png", f"{frame(2)}.png"]
 
 
+async def test_an_unchanged_screen_told_at_another_size_than_its_frame_is_refused(helper, tmp_path):
+    tools = desk_of(helper, tmp_path)
+
+    with reading_as("c1"):
+        await tools.screenshot()
+        helper.scripted["screenshot"] = [sent("", unchanged=True, width=WIDTH * 2)]
+
+        assert await tools.refused(SCREENSHOT) == t.SHOT_BROKEN
+
+
 async def test_a_frame_is_held_per_conversation_and_only_while_its_file_is_there(helper, tmp_path):
     tools = desk_of(helper, tmp_path)
 
@@ -249,6 +259,9 @@ async def test_a_picture_no_model_could_read_is_kept(helper, tmp_path):
         sent(b"\x00" + png(1)[1:]),
         sent(png(1, WIDTH // 2, HEIGHT)),  # another size than the answer names
         sent(png(1), width=WIDTH * 2, height=HEIGHT * 2),
+        # A picture and an answer that agree on a size the frame id does not name.
+        sent(png(1, WIDTH * 2, HEIGHT), width=WIDTH * 2),
+        sent(png(1, WIDTH, HEIGHT + 1), height=HEIGHT + 1),
         sent(png(1), png_base64=None),
         sent(png(1), png_base64=7),
         sent(png(1), frame_id="../../outside"),
