@@ -12,7 +12,7 @@ import pytest
 from my_agent_crew import texts_desktop as t
 from my_agent_crew import texts_desktop_act as ta
 from my_agent_crew.agent.turn_context import reading_as
-from my_agent_crew.desktop.client import ABSENT, BAD_ANSWER, TIMEOUT, DesktopError
+from my_agent_crew.desktop.client import ABSENT, BAD_ANSWER, TIMEOUT, UNTRUSTED, DesktopError
 from my_agent_crew.desktop.kit import ACT, OBSERVE, said
 from tests.desktop_helper import (
     HEIGHT,
@@ -28,7 +28,7 @@ from tests.desktop_helper import (
 from tests.desktop_tools import desk_of
 
 PROTOCOL = Path(__file__).parents[1] / "desktop-helper/Sources/DesktopHelperCore/Protocol.swift"
-OURS = (ABSENT, TIMEOUT, BAD_ANSWER)
+OURS = (ABSENT, TIMEOUT, BAD_ANSWER, UNTRUSTED)
 BANK = ("Ngân hàng", "vn.bank.app")
 WHY = "what the helper said of it"
 POINT = {"x": 3, "y": 4}

@@ -10,6 +10,11 @@ HELPER_ERRORS = {
         "trên màn hình. Việc cài và mở nó là của chủ máy."
     ),
     "timeout": "Trình trợ giúp desktop không trả lời trong thời hạn. Thử lại sau ít phút.",
+    "untrusted": (
+        "Không nói chuyện với trình trợ giúp desktop: socket của nó không thuộc chủ máy, hoặc "
+        "nằm trong thư mục người khác ghi được, nên ai đó khác có thể đang nghe ở đó. Chủ máy "
+        "đặt desktop_socket vào một thư mục của riêng mình."
+    ),
     "bad_answer": (
         "Trình trợ giúp desktop trả lời không đọc được. Thử lại; nếu vẫn vậy thì báo chủ máy."
     ),
