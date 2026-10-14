@@ -7291,11 +7291,12 @@ dựng một đội có agent giữ trình duyệt.
     là Chrome của máy, phiên bản đọc từ ứng dụng mà không khởi động nó; thư mục trình duyệt tìm đúng
     nơi Playwright để).
   - pytest: `tests/test_browser_tool_set.py`, `tests/test_browser_runtime.py` (máy tắt hay agent không
-    xin thì không có tool nào; `read` được năm tool, `act` thêm một; master nhận theo tệp của nó như
-    mọi agent; `tools:` không đem tới cũng không lấy đi tool trình duyệt; bật mà thiếu trình duyệt là
-    một dòng cảnh báo và server vẫn chạy; pool dựng theo cấu hình của máy và tìm đúng kênh; server
-    đang chạy thì quét trình duyệt nhàn rỗi theo chu kỳ, một vòng hỏng không làm dừng việc quét, và
-    khi tắt thì đánh dấu pool đã đóng trước rồi mới dừng mọi trình duyệt).
+    xin thì không có tool nào; `read` được sáu tool, `act` thêm hai (`browser_act`,
+    `browser_download`), và chỉ `browser_navigate` cùng hai tool ấy cần duyệt; master nhận theo tệp
+    của nó như mọi agent; `tools:` không đem tới cũng không lấy đi tool trình duyệt; bật mà thiếu
+    trình duyệt là một dòng cảnh báo và server vẫn chạy; pool dựng theo cấu hình của máy và tìm đúng
+    kênh; server đang chạy thì quét trình duyệt nhàn rỗi theo chu kỳ, một vòng hỏng không làm dừng
+    việc quét, và khi tắt thì đánh dấu pool đã đóng trước rồi mới dừng mọi trình duyệt).
 - **một Chromium cho mỗi agent, hồ sơ riêng**:
   - pytest: `tests/test_browser_pool.py` (chưa ai gọi thì chưa có gì chạy; hai lời gọi cùng lúc chờ
     một trình duyệt; đăng nhập của agent này không phải của agent kia và còn qua lần khởi động lại;
@@ -7307,7 +7308,8 @@ dựng một đội có agent giữ trình duyệt.
     khởi động; lệnh dừng thứ hai chờ lệnh thứ nhất; cổng duyệt đọc tab mà không khởi động gì; trình
     duyệt không tự chạy việc riêng nào ra mạng; pool đã bị đánh dấu đóng thì không khởi động trình
     duyệt nào và không để lại hồ sơ, trình duyệt đang chạy vẫn là của agent cho tới khi mọi thứ
-    dừng; dừng mọi thứ chưa phải là đóng).
+    dừng; dừng mọi thứ chưa phải là đóng; trình duyệt không bao giờ trả lời lệnh đóng vẫn trả lại
+    proxy của nó).
   - pytest: `tests/test_browser_launch.py` (trang không gửi được gói UDP nào vòng qua proxy, kể cả
     trên hồ sơ đã dùng trước đó; địa chỉ viết `http` được hỏi ở đúng cổng của nó, không thử cổng
     https trước; trình duyệt nhận đúng một danh sách tính năng bị tắt, gồm của driver và của đội;
@@ -7316,7 +7318,12 @@ dựng một đội có agent giữ trình duyệt.
     của đội, thứ trình duyệt đã ghi được giữ còn thiết lập của đội được ghi đè lên, tệp thiết lập
     không đọc được thì được thay, tệp đã đúng thì không ghi lại; driver không khởi động được thì
     không bị giữ và lần sau khởi động cái khác; driver biến mất kéo theo các trình duyệt của nó và
-    lời gọi sau bắt đầu lại từ đầu).
+    lời gọi sau bắt đầu lại từ đầu; trình duyệt của agent khởi động không ai thấy với trang một cỡ,
+    còn cửa sổ đăng nhập khởi động có giao diện, cỡ do người kéo, sau proxy và với cùng các công
+    tắc, thiết lập như trình duyệt của agent; tệp trang gửi về chỉ được giữ khi có một thư mục dành
+    cho nó; lần khởi động mà driver không bao giờ trả lời bị bỏ sau một lúc, không giữ chỗ, và lời
+    gọi sau khởi động cái mới; trình duyệt không trả lời lệnh đóng chỉ được chờ một lúc, còn trình
+    duyệt đã biến mất thì được đóng không một lời).
 - **chỉ tới địa chỉ công khai**:
   - pytest: `tests/test_browser_network.py` (địa chỉ không công khai là nội bộ, kể cả địa chỉ riêng
     viết trong IPv6; dải mà `fetch_url` cho qua thì trình duyệt vẫn chặn; một tên chỉ tới được khi
@@ -7384,7 +7391,8 @@ dựng một đội có agent giữ trình duyệt.
     động trình duyệt; trang dẫn tới địa chỉ riêng bị từ chối và để lại tab trắng; lời từ chối của
     chính trang web là một trang như mọi trang; trang tự viết dấu của proxy chỉ tự từ chối mình; máy
     chủ không trả lời được nêu tên; trang tải quá chậm bị bỏ mà tab vẫn dùng được; lỗi của trình
-    duyệt được kể không kèm địa chỉ; địa chỉ lẽ ra tải tệp về thì không tải gì; thứ trang với tới mà
+    duyệt được kể không kèm địa chỉ; địa chỉ lẽ ra tải tệp về thì không tải gì, để lại tab trắng và
+    được nói là một tệp chứ không phải trang hỏng, kèm tool nào lấy được tệp; thứ trang với tới mà
     bị từ chối được kể trong rào; agent có danh sách host mở các host ấy không hỏi và hỏi với host
     khác; không ai bị hỏi về một địa chỉ bị từ chối bất kể họ trả lời gì; trình duyệt được giao địa
     chỉ đúng như đã kiểm).
@@ -7394,6 +7402,20 @@ dựng một đội có agent giữ trình duyệt.
     với tới được từ cuộc đã mở nó; chữ của cả trang hay của một phần tử; `ref` trang không còn nhận
     thì bị từ chối; liệt kê tab không khởi động trình duyệt, tab không trả lời vẫn được kể và đóng
     được; các tool đọc không đổi gì và không hỏi ai).
+- **dấu `[new]` trên thứ vừa tới trang**:
+  - pytest: `tests/test_browser_snapshot.py` (phần tử mới có, hay đã đổi chữ, từ lần xem trước là
+    mới; trang vẽ lại được ghép với lần trước theo vai trò và chữ, theo thứ tự vẽ; `ref` nay tìm ra
+    phần tử khác là mới, còn phần tử đã đi không ghép với phần tử nào; lần xem đầu, lần xem ở địa
+    chỉ khác hay khi không gì ở lại thì không gì là mới; dấu là thuộc tính cuối của dòng và dòng vẫn
+    đọc là phần tử của nó; phần tử mới được đánh dấu ở khung nhìn nào đưa ra dòng của nó; dấu chiếm
+    chỗ trong trần và chỉ những dấu đã đưa ra mới được đếm).
+  - pytest: `tests/test_browser_new_marks.py` (trên Chromium thật: thứ một thao tác đem tới trang
+    được đánh dấu và được đếm ngoài rào; trang tự vẽ lại chỉ đánh dấu phần nó có thêm; trang tải lại
+    ở cùng địa chỉ đánh dấu phần nó hiện thêm; mở một trang không đánh dấu gì, thao tác dẫn sang nơi
+    khác cũng vậy; trang đã thành trang khác ở cùng địa chỉ không đánh dấu gì; thứ tới trong lúc
+    không ai thao tác được đánh dấu ở danh sách phần tử thao tác được lẫn ở kết quả tìm; trang dài
+    nói nó bị cắt thế nào, có gì mới, và nằm trong trần), `tests/test_browser_fence.py` (chỗ để
+    dành sau trang chứa cả dòng đếm dấu `[new]`).
 - **thao tác trúng đúng thứ model đã thấy**:
   - pytest: `tests/test_browser_act_rules.py` (mỗi `kind` được đọc với đúng thứ nó cần; `kind` lạ
     và tham số thiếu được nêu tên; chỉ `fill` được viết rỗng; phím là một trong vài phím hay một ký
@@ -7410,13 +7432,14 @@ dựng một đội có agent giữ trình duyệt.
     lại; mỗi `kind` làm đúng một việc với phần tử được nêu; `ref` ở lại với phần tử khi trang mọc
     thêm quanh nó; từ dừng xuất hiện dưới phần tử sau khi model nhìn thì chặn thao tác; mật khẩu, mã
     và số thẻ không bao giờ được gõ, kể cả ô chỉ markup nói nó là gì và ô mã một ký tự; phím tới
-    phần tử được nêu hoặc không tới đâu; Enter không gửi
-    form mà người sẽ được hỏi; tệp của workspace đi vào hộp chọn tệp mà phần tử mở; cổng duyệt không
-    khởi động trình duyệt và hỏi về tải lên ở mọi nơi; agent có danh sách host được hỏi cho mọi thao
-    tác trên trang ngoài danh sách; thao tác dành cho tab được nêu hay tab của lời gọi trước và
-    không bao giờ chuyển sang tab khác khi tab của nó mất; thứ trang với tới và hộp thoại trang nói
-    trong lúc thao tác được kể cùng trang sau thao tác; phần tử không bao giờ sẵn sàng bị bỏ sau thời
-    gian đã xin; thao tác đã làm được kể là đã làm khi không đọc lại được trang).
+    phần tử được nêu hoặc không tới đâu; Enter không gửi form mà người sẽ được hỏi; tệp của
+    workspace đi vào hộp chọn tệp mà phần tử mở; cổng duyệt không khởi động trình duyệt và hỏi về
+    tải lên ở mọi nơi; agent có danh sách host được hỏi cho mọi thao tác trên trang ngoài danh
+    sách; tên phần tử không đóng được cặp dấu «» đứng quanh nó trong lý do hỏi người; thao tác dành
+    cho tab được nêu hay tab của lời gọi trước và không bao giờ chuyển sang tab khác khi tab của nó
+    mất; thứ trang với tới và hộp thoại trang nói trong lúc thao tác được kể cùng trang sau thao
+    tác; phần tử không bao giờ sẵn sàng bị bỏ sau thời gian đã xin; thao tác đã làm được kể là đã
+    làm khi không đọc lại được trang).
   - pytest: `tests/test_tool_gate_conditional.py` (lời gọi mà tool nêu lý do thì hỏi dù cuộc trò
     chuyện cho phép gì; lời gọi tool không nêu thì theo quy tắc thường; lý do hiện ra đúng như tool
     viết và đọc lại sau vẫn còn; tool hỏng khi xét có hỏi không thì vẫn hỏi, hỏng khi xét điều gì là
@@ -7428,11 +7451,73 @@ dựng một đội có agent giữ trình duyệt.
     ảnh của đúng tab được nêu; ảnh quá lớn ở PNG được giữ ở JPEG, còn quá lớn thì bị từ chối; điều
     model đọc từ ảnh được kể giữa hai dòng rào, bài đọc dài bị cắt sao cho rào vẫn đóng; ảnh không
     model nào đọc được vẫn được giữ và tab rảnh trong lúc chờ; chỉ những ảnh gần nhất của tool được
-    giữ, thứ khác trong thư mục không bị đụng; ảnh được ghi trong workspace hoặc không ghi; agent bị
-    giữ trong vài thư mục thì ảnh nằm dưới thư mục đầu tiên; không bao giờ ghi qua một tên đã có).
+    giữ, thứ khác trong thư mục không bị đụng, kể cả một thư mục mang tên như một ảnh; ảnh được ghi
+    trong workspace hoặc không ghi; agent bị giữ trong vài thư mục thì ảnh nằm dưới thư mục đầu
+    tiên; thư mục hoá thành liên kết sau khi đã được xét thì không có ảnh nào được chụp và không gì
+    bên ngoài bị xoá; model đọc đúng ảnh đã chụp, dù lúc ấy tên của nó chứa gì; không bao giờ ghi
+    qua một tên đã có).
+- **tải tệp về và in trang thành PDF**:
+  - pytest: `tests/test_browser_download_tool.py` (tool là một thao tác, người được hỏi như với một
+    lần bấm; lần bấm giữ đúng một tệp nó gây ra, dưới tên đã làm sạch; tên đã có thì được đánh số,
+    và model đặt được tên; tệp tới từ cửa sổ lần bấm mở, từ trang lần bấm mở gửi về một lúc sau,
+    hay bắt đầu một lúc sau lần bấm đều được lấy; trang không đặt được tên đưa tệp ra ngoài thư
+    mục; tên và host do trang chọn chỉ được kể dưới rào, và dưới trần không còn chỗ cho rào thì
+    tệp vẫn được giữ, tên không được nói, còn đuôi được thêm vẫn được nói; lần bấm không đem tệp
+    nào về nói là đã bấm; tệp vượt giới hạn bị dừng ngay lúc đang tới, tệp không tới kịp bị bỏ,
+    tệp không tới trọn không được giữ, và cả ba không để lại gì; tệp được chờ lâu đúng như xin,
+    từ năm giây tới năm phút; tệp không ai xin bị dừng ngay khi bắt đầu, tệp đã tới trọn trước khi
+    kịp dừng thì bị xoá; tệp mà tab khác, hay cửa sổ tab khác mở, gửi trong lúc ấy không phải của
+    lời gọi; trang chỉ được nghe chừng nào lời gọi còn chờ; lần tải trong lúc lời gọi khác đang
+    chờ tệp của nó không bấm gì; không tệp nào được nghe trước khi phần tử được xét là đúng phần
+    tử để bấm, và chỉ phần tử model đã được cho xem mới được bấm; người được hỏi về host và từ
+    dừng như với một lần bấm, tên không đóng được cặp dấu «» quanh nó trong lý do hỏi, và cổng
+    duyệt không khởi động trình duyệt; agent bị giữ trong vài thư mục giữ tệp dưới thư mục đầu;
+    thư mục dẫn ra ngoài workspace bị từ chối trước mọi lần bấm, thư mục hoá thành liên kết trong
+    lúc tệp đang tới thì không nhận tệp, thư mục đã giữ tới giới hạn thì không nhận tệp mới và
+    không gì được bấm, tệp đã tới mà không đặt được vào workspace thì được nói vậy; host đã gửi
+    tệp được kể cạnh host của trang; tên không tận cùng như dữ liệu được giữ với `.bin` thêm sau;
+    địa chỉ trả lời bằng một tệp không phải trang và không giữ tệp nào).
+  - pytest: `tests/test_browser_downloads.py` (thư mục giữ tạm là riêng tư và được dọn những gì
+    trình duyệt đã chết để lại; tệp không ai chờ bị dừng khi bắt đầu, tệp đã tới trọn trước khi
+    kịp dừng bị lấy đi; lời gọi chỉ được trao tệp đầu tiên nó nhận là của nó; bản của trình duyệt
+    bị xoá cả khi lời gọi hỏng, cả khi lời gọi bị dừng thêm lần nữa trên đường ra; tệp bắt đầu
+    sau khi lời gọi bỏ cuộc bị dừng; lời gọi thứ hai được nói ngay, và chỉ vào được khi lời gọi
+    đầu đã ra hẳn; tệp được đo trong lúc tới và bị bỏ khi vượt giới hạn, mọi tệp trình duyệt đang
+    giữ đều tính vào giới hạn; tệp không tới kịp bị bỏ; tệp trình duyệt báo hỏng nói lý do trong
+    một dòng ngắn; thư mục giữ tạm đã mất thì không giữ gì).
+  - pytest: `tests/test_browser_pdf.py` (tool chỉ nhìn nên không ai được hỏi và script gọi được;
+    cuộc trò chuyện chưa có tab thì không có gì để in; trang được in dưới tiêu đề viết bằng chữ
+    không dấu; tên luôn tận cùng `.pdf` dù được gọi là gì và không bao giờ chiếm chỗ tệp khác;
+    trang không đặt được tên ra ngoài thư mục, trang không có tiêu đề vẫn có tên; tên do tiêu đề
+    trang chọn chỉ được kể dưới rào, và dưới trần không còn chỗ cho rào thì bản in vẫn được giữ
+    còn tên không được nói; in đúng tab được nêu; bản in quá cỡ một tệp được phép có thì không
+    được giữ; agent bị giữ trong vài thư mục giữ bản in dưới thư mục đầu; bản in được ghi trong
+    workspace hoặc không ghi; thư mục hoá thành liên kết trong lúc in thì không nhận bản in, thư
+    mục đã giữ tới giới hạn thì không nhận bản mới; bản in không đặt được vào workspace thì được
+    nói vậy).
+  - pytest: `tests/test_browser_saved.py` (tên là phần cuối của điều được nói, viết bằng chữ không
+    dấu, không mở đầu bằng thứ giấu tệp hay đọc như một tuỳ chọn; tên tận cùng bằng đuôi tool nói,
+    dù được gọi là gì; tên không tận cùng như dữ liệu thì thêm `.bin`, và chỉ thêm một lần; đuôi
+    của dữ liệu là một danh sách ngắn có cả thứ các tool làm ra; thư mục được tạo cho tệp; tệp
+    được chép trọn từ tệp giữ nó; tên đã có thì được đánh số và không gì bị ghi đè; không bao giờ
+    ghi qua một liên kết đã nằm ở tên ấy; tệp không ghi trọn được thì bị xoá đi; thư mục không tạo
+    được, hay hoá thành liên kết sau khi được xét, thì không nhận tệp; liên kết tới thư mục khác
+    của workspace không phải thư mục để đi qua; đường đi không bao giờ rời thư mục nó bắt đầu;
+    workspace tới qua một liên kết được ghi ở nơi nó thật sự nằm; không descriptor nào bị để mở dù
+    tệp được giữ hay không; thư mục giữ bao nhiêu là tổng các tệp nằm ngay trong nó; tệp được giữ
+    mang dấu của tệp tới từ bên ngoài, dấu không đặt được thì chỉ được ghi vào log, còn ngoài
+    macOS thì không có dấu và không làm gì; thư mục là của workspace hay của thư mục đầu agent bị
+    giữ trong đó; thư mục mà một liên kết dẫn ra ngoài workspace, hay ra ngoài các thư mục của
+    agent, không nhận tệp).
 - **gọi từ script**:
-  - pytest: `tests/test_browser_runtime.py` (script gọi được các tool chỉ nhìn; `browser_navigate` và
-    `browser_act` chỉ gọi được từ script của agent `script_calls: gated`, qua cổng duyệt).
+  - pytest: `tests/test_browser_runtime.py` (script gọi được các tool chỉ nhìn, kể cả `browser_pdf`;
+    `browser_navigate`, `browser_act` và `browser_download` chỉ gọi được từ script của agent
+    `script_calls: gated`, qua cổng duyệt).
+- **skill mẫu `browser-use`**:
+  - pytest: `tests/test_browser_skill.py` (`docs/examples/skills/browser-use/SKILL.md` nêu đúng các
+    tool mà agent mức `act` giữ, có lời gọi mẫu cho `browser_navigate`, `browser_act` và
+    `browser_tabs`, và mỗi tham số trong lời gọi mẫu là tham số tool ấy nhận; phần thân dưới 4.000
+    ký tự và có nói tới dấu `[new]`).
 - **thư mục hồ sơ đóng với mọi tool**:
   - pytest: `tests/test_private_paths.py` (chưa giữ thư mục nào thì chưa gì là riêng; thư mục được
     giữ và mọi thứ dưới nó là riêng, thứ bên cạnh thì không; liên kết dẫn vào thư mục được giữ là
@@ -7465,16 +7550,70 @@ dựng một đội có agent giữ trình duyệt.
     được, còn bộ tool mới của agent được bật lại thì duyệt được; agent bị tệp của nó đưa về `off`
     thì bị dừng trình duyệt ở lần đội được dựng lại, hồ sơ còn nguyên, agent khác không bị đụng;
     agent thêm vào hay dựng lại lúc server đang chạy dùng cùng một pool; lời gọi đến sau khi server
-    đã dừng không khởi động trình duyệt nào và nhận đúng câu báo không khởi động được;
-    bảng tool của đội đánh dấu `with_browser` cho đúng sáu tool; dòng đầu của `browser_screenshot`
-    nêu một đường dẫn mà `GET /api/agents/{id}/files` trả về như một ảnh, cả khi dòng ấy đã bị rút
-    thành bản xem trước của step).
+    đã dừng không khởi động trình duyệt nào và nhận đúng câu báo không khởi động được; bảng tool
+    của đội đánh dấu `with_browser` cho đúng tám tool, và chỉ `browser_navigate`, `browser_act`,
+    `browser_download` cần duyệt; trạng thái kể thêm `login` (chưa có cửa sổ đăng nhập nào mở và mở
+    được ngay, còn agent không có trình duyệt thì không mở được với lý do `off`) cùng `logins`,
+    `logins_more` (chưa trình duyệt nào đóng trên hồ sơ thì chưa biết gì; sau khi một trình duyệt
+    đóng hay đang chạy mà chưa đăng nhập đâu thì là danh sách rỗng); dòng đầu của
+    `browser_screenshot` nêu một đường dẫn mà `GET /api/agents/{id}/files` trả về như một ảnh, cả
+    khi dòng ấy đã bị rút thành bản xem trước của step).
 - **agent bị gỡ hay bị tắt trình duyệt giữa lượt**:
   - pytest: `tests/test_browser_retire.py` (bộ tool có từ trước khi agent bị gỡ không khởi động
     lại trình duyệt và không để lại hồ sơ, còn agent mới cùng mã và agent khác thì dùng được;
     dừng thường để chính lượt ấy khởi động lại, còn tắt hẳn thì không và đăng nhập được giữ; lời
-    gọi đang khởi động trình duyệt lúc agent bị gỡ chỉ khởi động đúng một lần và không để lại
-    gì; lời gọi đến lúc trình duyệt của agent bị gỡ còn đang đóng thì bị từ chối ngay).
+    gọi đang khởi động trình duyệt lúc agent bị gỡ chỉ khởi động đúng một lần, không để lại gì, và
+    được nói ngay là agent đã bị gỡ; lời gọi mà người bấm dừng trình duyệt của nó đúng lúc trình
+    duyệt đang khởi động được nói ngay như vậy, và lời gọi kế tiếp của cùng lượt khởi động lại; lời
+    gọi đến lúc trình duyệt của agent bị gỡ còn đang đóng thì bị từ chối ngay).
+- **cửa sổ đăng nhập, và nơi trình duyệt có thể còn đăng nhập**:
+  - pytest: `tests/test_browser_login.py` (để mặc định, cửa sổ là một cửa sổ người thấy trên chính
+    màn hình của máy; cửa sổ dùng hồ sơ của agent và trong lúc ấy agent không có trình duyệt;
+    trình duyệt nhàn rỗi của agent bị dừng trước và các đăng nhập còn nguyên; không cửa sổ nào mở
+    dưới một lời gọi, trong lúc trình duyệt đang khởi động cho một lời gọi, hay giữa lúc trình
+    duyệt lên và lúc lời gọi giữ nó; nơi không ai thấy được thì không thử mở; hai lần xin cùng lúc
+    mở một cửa sổ, lần xin sau được trao cửa sổ ấy như nó đang là; cửa sổ không ai đóng tự đóng
+    sau một lúc; người đóng trang cuối thì với đội cửa sổ cũng đã đóng; người thoát trình duyệt
+    thì cửa sổ kết thúc và điều nó giữ được ghi lại, trình duyệt thôi trả lời thì điều nó được
+    thấy giữ lần cuối được ghi; cửa sổ không mở được để lại trình duyệt cho agent, trình duyệt đã
+    lên mà không thành cửa sổ được thì bị đóng lại; yêu cầu bỏ chờ giữa chừng vẫn để lại một cửa
+    sổ đội biết; địa chỉ đầu được kiểm như một lời gọi của agent, và cửa sổ là của người trước khi
+    địa chỉ ấy trả lời; agent rời đội trong lúc tra địa chỉ thì không được cửa sổ nào; lệnh đóng
+    dành cho cửa sổ đã mất để nguyên cửa sổ đang mở; cửa sổ không tới được nơi nào trình duyệt của
+    agent không tới; đóng tất cả là đóng cả cửa sổ còn đang mở dở; lời gọi của agent được nói là
+    có người đang đăng nhập, và sau đó đọc được trang đã đăng nhập; lời gọi đã bỏ trình duyệt không
+    cản cửa sổ nào về sau; server đang tắt thì không mở cửa sổ nào; driver mất thì với đội cửa sổ
+    đóng ngay, và không bị hỏi gì khi đóng; cửa sổ không bao giờ trả lời lệnh đóng vẫn trả trình
+    duyệt lại cho agent).
+  - pytest: `tests/test_browser_login_routes.py` (mở cửa sổ trả thời điểm nó tự đóng, giờ UTC tới
+    từng giây, mở lại thì nhận đúng cửa sổ ấy, và người nói xong thì đóng; agent chỉ đọc cũng có
+    hồ sơ để đăng nhập; cửa sổ mở ở địa chỉ được gửi, không có thì mở trang trống; nơi không ai
+    thấy được thì không mở và nói lý do; không mở dưới lời gọi của agent, và màn hình khoá được nói
+    trước; agent không có trình duyệt, hay máy không có trình duyệt để khởi động, thì không có hồ
+    sơ để đăng nhập; agent không có trong đội là 404; agent rời đội trong lúc tra địa chỉ thì không
+    được cửa sổ; địa chỉ mà trình duyệt nào của đội cũng không tới là 422; trình duyệt không chịu
+    hiện cửa sổ được kể bằng chính những chữ đầu của nó; server đang tắt thì không mở và nói vậy;
+    dừng trình duyệt, đưa agent về `off` hay gỡ agent thì cửa sổ bị đóng; server tắt thì đóng cửa
+    sổ lúc nó còn nói được nó giữ gì; trong lúc cửa sổ mở lời gọi của agent được nói là có người
+    đang đăng nhập; cửa sổ tự đóng không một lời được kể là đã đóng và agent duyệt tiếp; nơi trình
+    duyệt có thể còn đăng nhập được kể bằng host và thời điểm, không gì hơn; host danh sách dài bỏ
+    ra được kể bằng một con số; agent có danh sách host riêng được kể từng host, đã đăng nhập hay
+    chưa).
+  - pytest: `tests/test_browser_console.py` (ba trạng thái màn hình web dựa vào; cửa sổ chỉ hiện
+    trong phiên đang ở trước màn hình và khi màn hình không khoá; hệ không chịu nói thì không thử
+    mở cửa sổ; ngoài macOS thì `DISPLAY` hay `WAYLAND_DISPLAY` trong môi trường là có màn hình;
+    phiên của chính máy Mac được đọc mà không xin quyền gì).
+  - pytest: `tests/test_browser_logins.py` (một cookie được tính khi không script nào đọc được nó,
+    nó sống lâu hơn trình duyệt và không đi theo sang site khác; mỗi host được giữ một lần, viết
+    thường, với thời điểm muộn nhất mà một cookie của nó hết hạn; của cookie chỉ lấy host và thời
+    điểm; trình duyệt không chịu nói thì không kể gì, điều đã ghi được để nguyên hay điều nó được
+    thấy giữ lần cuối được ghi; trình duyệt đã mất thì không bị hỏi, còn điều đã thấy được ghi;
+    trình duyệt không có hồ sơ thì không ghi và không bị hỏi; hồ sơ không ghi được thì vào log và
+    không làm dừng gì; hồ sơ chưa trình duyệt nào đóng trên đó, hay tệp không đúng dạng, thì không
+    nhớ ra gì; agent có host riêng được kể từng host, kể cả host không giữ gì; host chỉ trùng phần
+    đuôi không tính là nằm dưới host khác; agent không có host riêng được kể bằng tên các host
+    đang giữ gì đó; danh sách dài kể phần bỏ ra bằng một con số; điều trình duyệt giữ được ghi cạnh
+    hồ sơ mỗi lần nó đóng).
 - **web: thẻ của máy ở mục Kết nối**:
   - vitest: `web/src/components/connections-browser-card.test.tsx` (server không nói gì về trình
     duyệt thì không vẽ thẻ; máy tắt thì thẻ nói chỗ bật; máy bật nói kênh và phiên bản, không có
@@ -7495,19 +7634,21 @@ dựng một đội có agent giữ trình duyệt.
     động lúc trang đang mở thì được kể; ở 390px thẻ không làm trang tràn ngang).
 - **web: mức dùng và danh sách host trong trình sửa agent**:
   - vitest: `web/src/components/agent-editor/browser-controls.test.tsx` (ba mức, mỗi mức một dòng
-    gợi ý; lần lưu chỉ gửi khoá đã đổi, và về Tắt chỉ gửi mức, để nguyên danh sách đã lưu; ô host
-    hiện ở hai mức khác Tắt, danh sách còn nguyên như đã lưu và như đã gõ khi về Tắt rồi quay lại;
-    host được gửi viết thường và trần, ô xoá trắng là danh sách rỗng; dòng không phải host được
-    nêu tên dưới ô và giữ lần lưu, sửa xong thì lưu được, và ô vẫn hiện khi mức về Tắt; dòng sai
-    đã có sẵn trong tệp không giữ lần lưu của thứ khác; máy tắt hay chưa cài được nói ngay khi
-    chọn mức, trước mọi lần lưu, máy tắt nêu trước, và không nói gì khi máy chưa được đọc; agent
-    không sửa được ở đây thì chỉ xem; server chưa có khoá thì không vẽ gì và không gửi khoá nào),
+    gợi ý: dòng của mức đọc nêu sáu tool mà không nêu `browser_act` hay `browser_download`, dòng
+    của mức thao tác nêu cả hai; lần lưu chỉ gửi khoá đã đổi, và về Tắt chỉ gửi mức, để nguyên
+    danh sách đã lưu; ô host hiện ở hai mức khác Tắt, danh sách còn nguyên như đã lưu và như đã gõ
+    khi về Tắt rồi quay lại; host được gửi viết thường và trần, ô xoá trắng là danh sách rỗng; dòng
+    không phải host được nêu tên dưới ô và giữ lần lưu, sửa xong thì lưu được, và ô vẫn hiện khi
+    mức về Tắt; dòng sai đã có sẵn trong tệp không giữ lần lưu của thứ khác; máy tắt hay chưa cài
+    được nói ngay khi chọn mức, trước mọi lần lưu, máy tắt nêu trước, và không nói gì khi máy chưa
+    được đọc; agent không sửa được ở đây thì chỉ xem; server chưa có khoá thì không vẽ gì và không
+    gửi khoá nào),
     `web/src/hooks/browser-hosts.test.ts` (một dòng một host, viết thường, bỏ dòng trống; luật của
     server cho một tên host, một địa chỉ dán vào bị từ chối trọn),
     `web/src/hooks/agent-draft-browser.test.ts` (hai khoá đọc từ tệp, server không biết trình
     duyệt thì bản nháp không giữ khoá nào; dòng sai đầu tiên được nêu tên; danh sách chưa đổi thì
     không bị xét; lần lưu là mức, danh sách, cả hai hoặc không gì).
-  - vitest: `web/src/components/agent-editor/tool-picker-browser.test.tsx` (sáu tool `browser_*`
+  - vitest: `web/src/components/agent-editor/tool-picker-browser.test.tsx` (tám tool `browser_*`
     không có ô chọn trong danh sách công cụ, dù server có trả `listable_tools` hay không; dưới
     danh sách có dòng nói vì sao, agent ở mức nào cũng vậy).
   - Playwright: `web/e2e/browser.spec.ts` (chọn mức và gõ host thì lần lưu gửi đúng `browser` và
@@ -7518,29 +7659,84 @@ dựng một đội có agent giữ trình duyệt.
     chạy thì không có thẻ, còn agent đã về Tắt mà trình duyệt còn chạy thì vẫn có thẻ để dừng;
     dòng trạng thái theo thứ tự đang chạy, máy tắt, chưa cài, chưa chạy; tab theo thứ tự của
     server, mỗi tab kể nhãn, tiêu đề, host, cuộc trò chuyện hay việc theo lịch, đang dùng hay rảnh;
-    đóng tab và dừng làm ngay rồi đọc lại; trong lúc một yêu cầu đang đi mọi nút chờ; tab đã mất
-    được nêu bằng câu của server; câu trả lời tới lệch thứ tự không ghi đè cái mới hơn; lần đọc
-    hỏng giữ điều đang hiện và nói vậy; đọc lại mỗi 5 giây, cả với agent chưa có thẻ, trang bị
-    che thì thôi và đọc ngay khi được xem lại; lần lưu đổi mức thì đọc lại ngay; server chưa có
-    route thì không có thẻ và không hỏi nữa).
+    đóng tab và dừng làm ngay rồi đọc lại, và khi không còn gì để dừng hay đóng thì nút duy nhất
+    là nút mở cửa sổ đăng nhập; trong lúc một yêu cầu đang đi mọi nút chờ; tab đã mất được nêu
+    bằng câu của server; câu trả lời tới lệch thứ tự không ghi đè cái mới hơn; lần đọc hỏng giữ
+    điều đang hiện và nói vậy; đọc lại mỗi 5 giây, cả với agent chưa có thẻ, trang bị che thì thôi
+    và đọc ngay khi được xem lại; lần lưu đổi mức thì đọc lại ngay; server chưa có route thì không
+    có thẻ và không hỏi nữa).
   - Playwright: `web/e2e/browser.spec.ts` (các tab được liệt kê; "Đóng tab" gửi `DELETE` tới đúng
     tab và "Dừng trình duyệt" gửi `POST …/browser/stop`; ở 390px mục và thẻ nằm trong trang, mọi
     nút đủ lớn cho ngón tay).
+- **web: cửa sổ đăng nhập và các host còn đăng nhập, trên thẻ trình duyệt**:
+  - vitest: `web/src/components/agent-editor/browser-card-login.test.tsx` (thẻ mời mở cửa sổ ở nơi
+    mở được, với ô địa chỉ không bắt buộc, nút, và câu nói việc mở làm gì; cửa sổ đang mở được kể
+    kèm giờ nó tự đóng theo đồng hồ người xem, hay không kèm giờ khi server không nêu, cùng nút
+    "Xong"; trong lúc ấy dòng trạng thái nói agent không dùng được trình duyệt, còn trình duyệt
+    đang chạy cạnh cửa sổ vẫn được kể trước và dừng được; màn hình không có phiên, màn hình khoá
+    hay một lời gọi đang chạy thì không có ô, không có nút, chỉ một câu nói điều đang cản, chữ lạ
+    đọc là chưa mở được lúc này; máy không cho agent trình duyệt, agent ở Tắt, hay server không
+    nói gì về cửa sổ thì không có gì về cửa sổ và thẻ như trước; lần mở gửi địa chỉ đã bỏ khoảng
+    trắng hai đầu, hay thân rỗng khi không gõ gì, rồi đọc lại, và ô được xoá khi cửa sổ mở; mở thì
+    trình duyệt của agent dừng và tab đi khỏi thẻ; 422 và 409 hiện đúng câu của server như một lời
+    cảnh báo và giữ điều đã gõ, kể cả qua lần màn hình khoá rồi mở lại; "Xong" đóng cửa sổ, đọc lại
+    và nút mở trở về, cửa sổ đã tự đóng trước khi bấm thì không nói gì; mọi nút của thẻ chờ từ lúc
+    bấm mở, đóng, dừng hay đóng tab cho tới khi lần đọc sau đó về; cửa sổ tự đóng hay được mở từ
+    trang khác hiện ra ở lần đọc kế tiếp, không cần yêu cầu riêng).
+  - vitest: `web/src/components/agent-editor/browser-card-signed-in.test.tsx` (agent có danh sách
+    host riêng thấy mọi host theo thứ tự trong tệp, bao nhiêu cũng vậy, kèm ngày đăng nhập hết hạn
+    theo lịch người xem, host không giữ đăng nhập nào thì mờ đi, dưới một câu nói các ngày ấy đọc
+    từ đâu, và tên host hiện đúng như chữ, kể cả markup; agent không có danh sách thấy tám host đầu
+    bằng tên cùng nút nói còn bao nhiêu, bấm thì hiện hết, nút đi mất và bàn phím nằm ở danh sách,
+    chưa bấm thì bàn phím không bị lấy, và danh sách giữ nguyên mở qua các lần đọc sau; số host
+    danh sách dài bỏ ra được nói trong một dòng dưới danh sách và nút, theo lần đọc kế tiếp, không
+    đọc to, và không có dòng ấy khi không gì bị bỏ, khi agent có danh sách riêng hay khi server
+    không nêu số; trình duyệt đã đóng trên hồ sơ mà không giữ đăng nhập nào, hay mọi đăng nhập đã
+    hết hạn, thì có một câu, còn hồ sơ chưa trình duyệt nào đóng trên đó, máy không cho agent trình
+    duyệt hay server không kể host thì không vẽ gì; các host đổi theo lần đọc kế tiếp mà không đọc
+    to, và hiện cả cạnh trình duyệt đang chạy lẫn dưới cửa sổ đang mở),
+    `web/src/lib/relative-time.test.ts` (`calendarDate`: ngày/tháng/năm theo múi giờ người xem;
+    chuỗi không đọc được thì trả lại nguyên).
+  - vitest: `web/src/test/fake-browser-login.test.ts` (server giả của test và của Playwright trả
+    lời về cửa sổ như server thật: mở mười lăm phút, giờ UTC tới từng giây, mở lại thì trả đúng
+    cửa sổ ấy, dừng trình duyệt của agent khi mở, không mở dưới lời gọi đang chạy, nói màn hình
+    trước lời gọi, nói agent không có trình duyệt trước khi xét địa chỉ và từ chối địa chỉ sai
+    trước khi xét cửa sổ hay màn hình, tự đóng khi tới giờ, đóng theo lần dừng hay lần lưu về
+    `off`, mỗi agent một cửa sổ; kể host như server thật, tối đa năm mươi tên cùng con
+    số phần còn lại, agent có danh sách riêng thì không bỏ host nào; server có trình duyệt mà chưa
+    có cửa sổ đăng nhập thì không có hai khoá, không có hai route và chỉ có sáu tool).
+  - Playwright: `web/e2e/browser-sign-in.spec.ts` (màn hình khoá thì thẻ không có cách mở và nói
+    vì sao, mở khoá thì lần đọc kế tiếp có; cửa sổ mở ở địa chỉ đã gõ, nói giờ tự đóng, và đóng
+    bằng một lần bấm; không gõ địa chỉ thì yêu cầu không mang địa chỉ nào; địa chỉ bị từ chối hiện
+    bằng câu của server và ở lại trong ô; host của danh sách riêng hiện từng host với ngày hết hạn
+    hay là không giữ gì; agent không có danh sách thấy tám host rồi phần còn lại sau một lần bấm;
+    trình duyệt không giữ đăng nhập nào nói vậy trong một câu, hồ sơ chưa trình duyệt nào đóng thì
+    không nói gì; server chưa có cửa sổ đăng nhập thì thẻ như trước; ở 390px ô, nút và danh sách
+    host nằm trong trang, mọi nút đủ lớn cho ngón tay, và cửa sổ đang mở hay điều đang cản xuống
+    dòng trong trang).
 - **web: bảng công cụ**:
-  - vitest: `web/src/components/tools-matrix-browser.test.tsx` (sáu dòng mang nhãn "đi kèm trình
-    duyệt"; ô của agent đặt Tắt và ô `browser_act` của agent chỉ đọc nói lý do bằng khoá `browser`,
-    không bằng danh sách cho phép hay chế độ; agent của server bản trước đọc là không có trình
-    duyệt; đội không có tool trình duyệt nào thì không có dòng; chú thích chỉ có dòng cho dấu
-    đang dùng).
+  - vitest: `web/src/components/tools-matrix-browser.test.tsx` (tám dòng mang nhãn "đi kèm trình
+    duyệt"; `browser_navigate`, `browser_act`, `browser_download` hỏi khi cuộc trò chuyện không
+    autonomous, các tool khác thì không; ô của agent đặt Tắt, và ô của từng tool thao tác ở agent
+    chỉ đọc ("công cụ này cần mức Thao tác"), nói lý do bằng khoá `browser`, không bằng danh sách
+    cho phép hay chế độ; ô `browser_pdf` của agent chỉ đọc là có; agent của server bản trước đọc là
+    không có trình duyệt; đội không có tool trình duyệt nào thì không có dòng, đội không agent nào
+    thao tác thì không có dòng của tool thao tác; chú thích chỉ có dòng cho dấu đang dùng).
 - **web: lời gọi chờ duyệt đọc thành một câu**:
   - vitest: `web/src/lib/browser-call.test.ts` (mỗi `kind` của `browser_act` và `browser_navigate`
-    thành một câu; địa chỉ chỉ được kể bằng host; mỗi phần trên một dòng và cắt ở 80 ký tự; ký tự
-    đảo chiều hay giấu chữ được viết bằng mã của nó; tham số thiếu hay sai kiểu thì không có câu
-    nào), `web/src/components/approval-bar-browser.test.tsx` (câu ấy đứng dưới lý do của server và
-    trên phần tham số thô, ở thanh duyệt của khung chat, kể cả khi cuộc trò chuyện mở lên từ một
-    yêu cầu đã lưu, lẫn ở dòng của thẻ "Cần bạn xử lý"; tool khác không có dòng này).
+    thành một câu; `browser_download` thành "Bấm «…» để tải tệp về", thêm ", lưu thành …" khi lời
+    gọi đặt tên tệp, không có câu nào khi lời gọi không nêu phần tử, và câu ấy chỉ đọc từ đúng tool
+    này; địa chỉ chỉ được kể bằng host; mỗi phần trên một dòng và cắt ở 80 ký tự; ký tự đảo chiều
+    hay giấu chữ được viết bằng mã của nó; dấu «» trong một phần bị bỏ, để tên không đóng sớm được
+    cặp dấu quanh nó; tham số thiếu hay sai kiểu thì không có câu nào),
+    `web/src/components/approval-bar-browser.test.tsx` (câu ấy đứng dưới lý do của server và trên
+    phần tham số thô, ở thanh duyệt của khung chat, kể cả khi cuộc trò chuyện mở lên từ một yêu cầu
+    đã lưu, lẫn ở dòng của thẻ "Cần bạn xử lý", với lần tải tệp cũng vậy; tool khác, kể cả
+    `browser_pdf`, không có dòng này).
   - Playwright: `web/e2e/browser.spec.ts` ("Bấm «Thanh toán»" phía trên tham số thô ở thanh duyệt;
-    "Mở trang shop.example" dưới lý do của server ở mục Duyệt; ở 390px câu dài xuống dòng).
+    "Mở trang shop.example" dưới lý do của server ở mục Duyệt; lần tải tệp đang chờ đọc thành câu
+    nêu phần tử và tên tệp ở thanh duyệt, và thành câu không có tên tệp ở danh sách yêu cầu khi lời
+    gọi không đặt tên; ở 390px câu dài xuống dòng).
 - **web: ảnh nhỏ của một lần chụp**:
   - vitest: `web/src/lib/screenshot-path.test.ts` (đường dẫn đọc từ dòng đầu của
     `browser_screenshot`, cả khi dòng đã bị rút; tool khác hay dòng khác thì không có gì),
@@ -7557,8 +7753,12 @@ dựng một đội có agent giữ trình duyệt.
     sau khi trang đã đọc máy thì được kể, cả hai không cần tải lại; trạng thái của máy tới được
     trình sửa từ lần đọc Kết nối đã có, chỉ hỏi một lần; thẻ của trang agent mở đúng cuộc trò chuyện
     của một tab; lần lưu về Tắt dừng trình duyệt và thẻ đi mất; ảnh nhỏ được hỏi ở agent của cuộc
-    trò chuyện hay agent đã chạy; trên server bản trước không có thẻ ở Kết nối, không có mục và thẻ
-    ở agent, không có dòng, nhãn hay chú thích ở bảng công cụ),
+    trò chuyện hay agent đã chạy; cửa sổ đăng nhập mở ở địa chỉ đã gõ rồi đóng khi người bấm xong,
+    và trình sửa không có gì để lưu; thẻ của agent có danh sách host riêng hiện mọi host trong
+    danh sách, theo tệp của agent chứ không theo điều đang gõ trong form; bảng công cụ có tám dòng
+    mang nhãn trình duyệt; trên server bản trước không có thẻ ở Kết nối, không có mục và thẻ ở
+    agent, không có dòng, nhãn hay chú thích ở bảng công cụ; trên server có trình duyệt mà chưa có
+    cửa sổ đăng nhập, thẻ của agent như trước, không ô, không host, và bảng công cụ có sáu tool),
     `web/src/components/agent-editor/editor-on-older-server.test.tsx` (server không trả `browser`
     thì trình sửa không có mục, không có thẻ, không có dòng dưới danh sách công cụ, và lần lưu thứ
     khác không gửi khoá nào của trình duyệt).
@@ -7567,4 +7767,6 @@ dựng một đội có agent giữ trình duyệt.
   - vitest: `web/src/test/fake-browser.test.ts`, `web/src/test/schedule-contract.test.ts` (server
     giả của test và của Playwright trả lời như server thật: tab mới dùng đứng trước, tab đã mất là
     404 bằng câu của server, mã tab không phải số là 422, `browser: true` trần bị từ chối, host sai
-    bị từ chối).
+    bị từ chối; trạng thái mang `login`, `logins`, `logins_more`; agent không có trong đội là 404
+    trên cả năm route, `GET` tới hai route của cửa sổ là 405; tám tool, ba tool hỏi, mức đọc giữ
+    sáu tool).

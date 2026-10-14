@@ -85,7 +85,7 @@ uv run playwright install chromium     # tải bản Chromium mà gói Playwrigh
 
 1. **Cài trình duyệt** bằng lệnh trên, chạy trong thư mục repo. Bản tải về nằm trong thư mục cache của Playwright (`~/Library/Caches/ms-playwright` trên macOS, `~/.cache/ms-playwright` trên Linux, hoặc nơi `PLAYWRIGHT_BROWSERS_PATH` chỉ), không nằm trong repo hay home. Muốn dùng Chrome đã cài trên máy thì bỏ bước này và ghi `browser_channel: chrome`.
 2. **Bật trên máy**: ghi `browser_enabled: true` vào `<home>/config.yaml` (hoặc đặt `MY_AGENT_BROWSER_ENABLED=1`), rồi khởi động lại. Server xem trình duyệt đã cài hay chưa một lần, lúc khởi động, nên cài xong cũng phải khởi động lại. Bật mà còn thiếu thì server vẫn lên, ghi một dòng cảnh báo nêu thứ thiếu và lệnh cài, và không agent nào được trao tool trình duyệt.
-3. **Bật ở từng agent**: ghi `browser: read` (mở và đọc trang) hoặc `browser: act` (thêm bấm và gõ) vào `agent.yaml` của agent, hoặc chọn ở trình sửa agent trên web; `browser_hosts` là những host nó tới mà không ai bị hỏi ([agents.md](agents.md#agentyaml)). Sửa từ web không cần khởi động lại.
+3. **Bật ở từng agent**: ghi `browser: read` (mở, đọc và in trang) hoặc `browser: act` (thêm bấm, gõ và tải tệp về) vào `agent.yaml` của agent, hoặc chọn ở trình sửa agent trên web; `browser_hosts` là những host nó tới mà không ai bị hỏi ([agents.md](agents.md#agentyaml)). Sửa từ web không cần khởi động lại.
 
 Quản lý → **Kết nối** có thẻ "Trình duyệt" nói máy đang ở đâu trong ba bước đó: đã bật hay chưa, kênh và phiên bản, hoặc thứ còn thiếu kèm lệnh cài, và agent nào đang có trình duyệt chạy. Thẻ này chỉ để xem: công tắc của máy nằm trong `config.yaml`. Mọi khoá `browser_*` của máy ở [agents.md](agents.md#agentyaml), còn tool làm gì và khi nào hỏi người ở [tools.md](tools.md#trình-duyệt).
 
@@ -93,11 +93,30 @@ Quản lý → **Kết nối** có thẻ "Trình duyệt" nói máy đang ở đ
 
 - Home là một repo git thì tự thêm dòng `browser/` vào `.gitignore` của home. Server không viết tệp đó hộ.
 - Xem shell của agent. Tool tệp nào cũng từ chối đường dẫn dẫn vào `<home>/browser`, và lệnh `shell_run` chạy trong sandbox cũng vậy. Nhưng shell chỉ có sandbox khi agent ghi `shell_network: false` hoặc có `shell_write_paths`; một agent có `shell_run` không sandbox thì đọc được hồ sơ của mọi agent bằng một lệnh `cat`. Agent giữ trình duyệt nên có shell trong sandbox, hoặc không có `shell_run` (danh sách `tools:` không nêu nó). Shell trong sandbox cũng không kết nối được tới cổng `--port` của chính server, nên không gọi API của đội để đổi hồ sơ hay dừng trình duyệt của agent nào. Máy chủ MCP và job kiểu `command` chạy ngoài hàng rào này.
-- Xem ảnh chụp rơi vào đâu. `browser_screenshot` lưu ảnh vào `screenshots/` trong workspace của agent, hoặc trong thư mục đầu tiên của `write_paths` khi agent có danh sách đó. Ảnh của một trang đã đăng nhập là dữ liệu riêng: workspace là một repo git thì cho thư mục ấy vào `.gitignore` của repo.
+- Xem ảnh chụp và tệp tải về rơi vào đâu. `browser_screenshot` lưu ảnh vào `screenshots/`,
+  còn `browser_download` và `browser_pdf` lưu tệp vào `downloads/`, trong workspace của agent,
+  hoặc trong thư mục đầu tiên của `write_paths` khi agent có danh sách đó. Ảnh, hoá đơn hay
+  bản in của một trang đã đăng nhập là dữ liệu riêng: workspace là một repo git thì cho hai thư
+  mục ấy vào `.gitignore` của repo. Server không tự dọn `downloads/`: khi các tệp nằm thẳng
+  trong nó đã chiếm tới 1 GB thì hai tool từ chối lưu thêm cho tới khi có người dọn bớt.
 
+Trong hồ sơ còn có `crew-logins.json` (chế độ 600), nơi server ghi host và hạn của các cookie
+đăng nhập mỗi lần một trình duyệt trên hồ sơ ấy đóng, để thẻ trên trang agent kể lại được khi
+trình duyệt không chạy; tệp không có tên hay giá trị cookie nào.
 Bản sao lưu cả home mang theo các phiên đăng nhập ấy; giữ nó như giữ tệp `env`. Gỡ một agent khỏi đội (web hoặc `DELETE /api/agents/{id}`) xoá luôn hồ sơ trình duyệt của nó. Tắt `browser_enabled` thì các hồ sơ vẫn nằm nguyên và vẫn đóng với mọi tool; muốn đăng xuất hẳn thì dừng server rồi xoá `<home>/browser/<agent id>/`.
 
 Trình duyệt chạy ẩn (headless), mỗi agent một tiến trình Chromium, mở ở lời gọi đầu tiên và tự dừng sau `browser_idle_minutes` phút không ai gọi. Nó chỉ tới địa chỉ công khai: địa chỉ nội bộ, loopback và mạng riêng bị từ chối trong mã, không có công tắc nào mở ra.
+
+**Đăng nhập hộ agent.** Agent không gõ vào ô mật khẩu, mã xác thực hay số thẻ, nên chủ đăng nhập
+hộ nó bằng nút "Mở cửa sổ đăng nhập" trên thẻ Trình duyệt ở trang agent
+([agents.md](agents.md#trình-sửa-trên-web)). Cửa sổ là một Chromium có giao diện, mở trên màn
+hình của chính máy chạy đội, không trên thiết bị đang xem web, nên người đăng nhập phải ở trước
+máy ấy; nó tự đóng sau 15 phút. Trên macOS, server chỉ mở được cửa sổ khi tiến trình của nó thuộc
+phiên đang ở trước màn hình và màn hình không khoá. Server khởi động qua SSH hay như một daemon
+không có phiên màn hình nào, còn server chạy trong phiên của một người dùng khác với người đang ở
+trước màn hình thì không được tính; khi đó thẻ nói lý do thay cho nút. Trên hệ khác, server coi là
+có màn hình khi môi trường của nó có `DISPLAY` hoặc `WAYLAND_DISPLAY`. Cửa sổ làm gì và đóng khi
+nào ở [tools.md](tools.md#trình-duyệt), đoạn "Cửa sổ đăng nhập".
 
 ## 5. Chạy thường trực (launchd, macOS)
 

@@ -11,6 +11,80 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- `browser_download`, brought by `browser: act`, clicks an element the way `browser_act` clicks
+  one (the same `ref`, `name` and checks just before the click) and keeps the file that click
+  makes the page send: the first file the tab sends after it, or one sent by a window the tab
+  opens meanwhile. It is judged as a click is: it always asks a person on a page outside the
+  agent's `browser_hosts` and on an element that carries a stop word, and otherwise asks in a
+  supervised conversation and runs in an autonomous one. A file must begin to arrive within 15
+  seconds and arrive whole within `timeout_s` (5 to 300, 60 by default), and is dropped as it
+  arrives once it passes 50 MB. A browser has one call waiting for a file at a time. A script
+  calls the tool only under `script_calls: gated`, through the gate first.
+- `browser_pdf`, brought by `browser: read` as well, prints the page of a tab to an A4 PDF. It
+  only looks at the page, so nobody is asked, and a script calls it like any tool that only
+  reads. A print over 50 MB is not kept.
+- Both tools save into `downloads/` in the agent's workspace, or under the first of its
+  `write_paths`. A name comes from `save_as`, else from the name the site suggests or the
+  page's title, and keeps only plain letters, digits, dots, underscores and hyphens. A
+  downloaded file whose ending is not one data has (pdf, csv, xlsx, png and a few more) gets
+  `.bin` after its name, so nothing loads or runs it by its name. A file never replaces another
+  (`-2`, `-3`, … instead), is written through no symbolic link, and on macOS carries the
+  quarantine mark from before its first byte. A folder that a link leads out of the workspace or
+  its `write_paths`, or whose files already take 1 GB, takes no file, and both are checked
+  before anything is clicked or printed. The answer names the folder and the size outside the
+  fence; the file's name and the hosts it came from, which a page chose, stand inside it.
+- The outlines `browser_act` and `browser_snapshot` return mark with `[new]` what appeared or
+  changed its text since the model last saw that tab, with one line outside the fence that
+  counts them. Nothing is marked once the tab went to another address, and `browser_navigate`
+  marks nothing.
+- A person can sign in for an agent. `POST /api/agents/{id}/browser/login`, with an optional
+  `url`, stops the agent's browser and opens a Chromium window on its profile, on the screen of
+  the machine the crew runs on, behind a proxy of its own with the same fence on addresses and
+  keeping no file a page sends; `POST /api/agents/{id}/browser/login/done` closes it. The window
+  also closes when its last page is closed, after 15 minutes, on `POST …/browser/stop`, when the
+  agent is removed or set to `off`, and when the server stops. While it is open every
+  `browser_*` call of the agent is told that the owner is signing in and to call
+  `browser_navigate` again once the window is closed. It cannot open (409, with the reason) when
+  the server runs in no screen session that is open, when the screen is locked, while the
+  agent's browser is busy with a call, while the server stops, or when the agent was edited as
+  the window was opening; an address the browser would refuse is a 422.
+  `GET /api/agents/{id}/browser` tells of the window in `login`: open until when, or whether one
+  can open and why not.
+- `GET /api/agents/{id}/browser` also tells in `logins` where the agent's browser may still be
+  signed in: each host holding an `httpOnly` cookie that outlives the browser and is not sent
+  along to other sites, with the time the last such cookie expires. Only a cookie's host and
+  expiry are read, never its name or value. An agent with `browser_hosts` is told each line of
+  that list; another is told at most 50 hosts, and `logins_more` counts the rest. With no
+  browser up the server reads `<home>/browser/<agent id>/crew-logins.json`, which a browser on
+  the profile writes as it closes. It is a sign, not proof: a site may have signed the person
+  out on its side.
+- The browser card on an agent's page has a button that opens the sign-in window, with an
+  optional address; while the window is open it says when the window closes by itself and has a
+  "Xong" button, and when none can open it says why. Under it the card lists the hosts the
+  browser may still be signed in to, each with its date. The approval bar reads a
+  `browser_download` call as the element it presses and the name the file is to be kept under,
+  and the tools grid marks `browser_download`, like `browser_act`, as needing `act`.
+- `docs/examples/skills/browser-use/` is a sample skill that teaches an agent the browser's
+  working loop; a test keeps the tools and parameters it names in step with the tools.
+
+### Changed
+
+- `browser_navigate` to an address that answers with a file no longer fails with the browser's
+  own line: it says the address is a file, leaves the tab blank, and tells the model to open the
+  page that links to the file and press the link with `browser_download`.
+- An element's name loses its own « and » before it is quoted on the line a person is asked
+  with, at the server and on the web, so a name a page chose cannot close the quote early and go
+  on in words that read as the crew's.
+- `browser_screenshot` writes its picture the way the new tools write files, through no link and
+  on macOS with the quarantine mark, and a folder or a link under a picture's name is neither
+  counted among the 40 kept nor removed. The vision route reads the picture as it was taken,
+  not whatever stands under its name by then.
+- Starting a browser is given up after 40 seconds, and closing one is waited for no longer
+  than 10, so a Chromium whose driver fell silent no longer holds a stop or the server's
+  shutdown.
+
 ### Fixed
 
 - A browser call whose browser was stopped, or whose agent was removed or taken off the browser,

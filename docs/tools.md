@@ -5,7 +5,7 @@
 Tool là một hàm mà model có thể gọi trong một lượt. Bộ tool của mỗi agent
 được lắp lúc khởi động từ đường dẫn workspace và memory của agent, rồi được định hình bởi
 profile của nó: `mode: work` thêm bốn tool, một vision route thêm `image_read`, khoá `browser`
-thêm năm hoặc sáu tool trình duyệt, và danh sách cho phép `tools` giới hạn kết quả.
+thêm sáu hoặc tám tool trình duyệt, và danh sách cho phép `tools` giới hạn kết quả.
 System prompt liệt kê tên các tool có sẵn; model thấy JSON schema của từng tool.
 
 ## Quy tắc chung
@@ -54,14 +54,14 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
   pattern nào khớp. Chiều ngược lại cũng đúng: cuộc trò chuyện *không* autonomous vẫn
   chạy lệnh `shell_run` khớp `settings.shell_allow_patterns` mà không hỏi, để
   agent được giám sát vẫn làm được phần việc thường ngày của mình. Danh sách hỏi được kiểm tra
-  trước, nên nêu một lệnh ở cả hai danh sách nghĩa là nó hỏi. Hai tool trình duyệt
-  `browser_navigate` và `browser_act` có cùng hai chiều ấy, xét theo host của trang và tên của
-  phần tử thay vì dạng lệnh (xem [Trình duyệt](#trình-duyệt)). Từ chối cứng, thoát khỏi workspace và đích mạng riêng, không
-  thể duyệt. Yêu cầu không ai trả lời trong `approval_ttl_seconds` (mặc định 600; lịch và
-  khối `telegram` đặt được hạn riêng, xem [agents.md](agents.md#lịch)) bị từ chối: kết quả
-  tool nói hành động không chạy và chưa có gì thay đổi, dặn không làm lại hay làm một việc
-  tương đương bằng tool khác mà nói với người việc gì đang chờ duyệt; lượt tiếp tục và câu trả
-  lời được gửi như thường.
+  trước, nên nêu một lệnh ở cả hai danh sách nghĩa là nó hỏi. Ba tool trình duyệt
+  `browser_navigate`, `browser_act` và `browser_download` có cùng hai chiều ấy, xét theo host
+  của trang và tên của phần tử thay vì dạng lệnh (xem [Trình duyệt](#trình-duyệt)).
+  Từ chối cứng, thoát khỏi workspace và đích mạng riêng, không thể duyệt. Yêu cầu không ai
+  trả lời trong `approval_ttl_seconds` (mặc định 600; lịch và khối `telegram` đặt được hạn
+  riêng, xem [agents.md](agents.md#lịch)) bị từ chối: kết quả tool nói hành động không chạy và
+  chưa có gì thay đổi, dặn không làm lại hay làm một việc tương đương bằng tool khác mà nói với
+  người việc gì đang chờ duyệt; lượt tiếp tục và câu trả lời được gửi như thường.
   Duyệt bằng `always` đưa tool vào danh sách `auto_approve` của cuộc trò chuyện, nên các
   lời gọi sau trong cuộc trò chuyện đó chạy không hỏi; rào danh sách hỏi vẫn áp dụng.
 - **Nội dung là dữ liệu.** Khung prompt bảo model rằng bất cứ thứ gì tool trả về là dữ liệu,
@@ -110,8 +110,8 @@ chúng và mỗi spec tool thêm vào đều tốn token prompt:
 | `workspace_glob` | không | 500 đường dẫn | liệt kê tệp khớp một glob, cùng danh sách bỏ qua |
 | `delegate` | không | 8 mỗi cuộc trò chuyện, 8 cùng lúc | giao trọn một việc cho agent khác và chờ câu trả lời, xem bên dưới |
 
-Sáu tool nữa đi kèm khoá `browser` trong tệp của agent, khi máy đã bật `browser_enabled` và đã
-cài trình duyệt: `read` trao năm tool đầu, `act` trao cả sáu. Danh sách `tools:` không đem tool
+Tám tool nữa đi kèm khoá `browser` trong tệp của agent, khi máy đã bật `browser_enabled` và đã
+cài trình duyệt: `read` trao sáu tool đầu, `act` trao cả tám. Danh sách `tools:` không đem tool
 nào trong số này tới và cũng không lấy đi tool nào, xem [Trình duyệt](#trình-duyệt):
 
 | Tool | Duyệt | Giới hạn | Việc nó làm |
@@ -121,7 +121,9 @@ nào trong số này tới và cũng không lấy đi tool nào, xem [Trình duy
 | `browser_text` | không | `max_chars`, không quá trần đầu ra của agent | chữ của cả trang hoặc của một `ref`, như người đọc thấy |
 | `browser_tabs` | không | `browser_max_tabs` tab mỗi agent (mặc định 5) | liệt kê các tab của hội thoại, hoặc đóng một tab theo nhãn; không bao giờ khởi động trình duyệt |
 | `browser_screenshot` | không | 2 MB mỗi ảnh; giữ 40 ảnh mới nhất của chính nó | chụp tab vào `screenshots/` trong workspace; có vision route thì kèm lời mô tả ảnh, hoặc câu trả lời cho `question` |
+| `browser_pdf` | không | 50 MB mỗi tệp; cả lời gọi 50 s; thư mục `downloads/` giữ tới 1 GB | in trang của một tab thành một tệp PDF khổ A4 trong `downloads/` của workspace; `save_as` đặt tên tệp |
 | `browser_act` | **có**; luôn hỏi khi phần tử mang một từ dừng, khi tải tệp lên, khi trang nằm ngoài `browser_hosts` | chờ phần tử 8 s (`timeout_s` 1–30 s); một thao tác mỗi lời gọi | `click`, `type`, `fill`, `press`, `select`, `hover`, `scroll` hoặc `upload` lên đúng phần tử model vừa được cho thấy, rồi trả về dàn ý sau thao tác |
+| `browser_download` | **có**; luôn hỏi khi phần tử mang một từ dừng, khi trang nằm ngoài `browser_hosts` | 50 MB mỗi tệp; tệp phải bắt đầu tới trong 15 s sau lần bấm và tới trọn trong `timeout_s` (5–300 s, mặc định 60); thư mục `downloads/` giữ tới 1 GB | bấm đúng phần tử model vừa được cho thấy và lưu tệp trang gửi về vào `downloads/` của workspace; `save_as` đặt tên tệp |
 
 ### Đọc lại đầu ra dài
 
@@ -239,11 +241,12 @@ thoát ra ngoài bị từ chối, symlink ở lại bên trong được đi the
 `agent.yaml: workspace`, mặc định `<agent dir>/workspace`. Không gì bên ngoài nó chạm tới được
 qua các tool này; `shell_run` là lối thoát, và nó cần duyệt.
 
-`write_paths` thu hẹp thêm chỗ `workspace_write`, `workspace_edit` và `artifact_export` được ghi. Cuộc trò
-chuyện autonomous (và mọi cuộc được giao việc từ một master autonomous) không dừng để duyệt,
-nên với một workspace là repo git, đây là rào duy nhất giữa một đường dẫn đoán sai và một
-thư mục dữ liệu cá nhân mới nằm ngoài `.gitignore`. Đường dẫn so theo dạng chữ, nên
-`data/../x` là `x` và bị từ chối.
+`write_paths` thu hẹp thêm chỗ `workspace_write`, `workspace_edit` và `artifact_export` được ghi,
+và đưa tệp mà `browser_screenshot`, `browser_pdf`, `browser_download` lưu vào dưới thư mục đầu
+của nó ([Trình duyệt](#trình-duyệt)). Cuộc trò chuyện autonomous (và mọi cuộc được giao việc từ
+một master autonomous) không dừng để duyệt, nên với một workspace là repo git, đây là rào duy nhất
+giữa một đường dẫn đoán sai và một thư mục dữ liệu cá nhân mới nằm ngoài `.gitignore`. Đường dẫn
+so theo dạng chữ, nên `data/../x` là `x` và bị từ chối.
 
 ### Trí nhớ người dùng dùng chung
 
@@ -310,7 +313,8 @@ bấm hay gõ mới tới được.
    `browser_channel: chrome`. Server đọc điều này một lần lúc khởi động. Bật mà thiếu thì log
    có một dòng cảnh báo kèm lệnh cài, không agent nào được trao tool trình duyệt, và server vẫn
    chạy.
-3. Tệp của agent ghi `browser: read` (năm tool đọc) hoặc `browser: act` (thêm `browser_act`).
+3. Tệp của agent ghi `browser: read` (sáu tool đọc) hoặc `browser: act` (thêm
+   `browser_act` và `browser_download`).
    Mặc định là `off`. Khoá này chỉ đọc từ tệp của chính agent; `config.yaml` của máy không bật
    được nó cho cả đội. `browser: on`, `yes` hay `true` làm dừng khởi động, vì chưa nói agent
    được đi xa tới đâu.
@@ -336,7 +340,9 @@ nhất của một *hội thoại khác* bị đóng để nhường chỗ; khô
 chối kèm lời dặn đóng bớt bằng `browser_tabs(close=…)`. Cửa sổ trang tự bật ra trở thành tab kế
 tiếp của hội thoại đã mở nó, hoặc bị đóng khi đã hết chỗ. Tab không được dùng trong 30 phút bị
 đóng dù trình duyệt còn chạy. Hộp thoại của trang (`alert`, `confirm`, `prompt`) không bao giờ
-được đồng ý: nó bị đóng và lời của nó được kể cho model. Trang không tải được tệp nào về máy.
+được đồng ý: nó bị đóng và lời của nó được kể cho model. Tệp trang gửi về bị huỷ ngay khi bắt
+đầu tới, trừ tệp mà một lời gọi `browser_download` đang chờ (xem **Tải tệp về và in PDF** bên
+dưới).
 
 **Dàn ý và `ref`.** `browser_navigate`, `browser_snapshot` và `browser_act` trả về trang dưới
 dạng dàn ý: mỗi phần tử một dòng có vai trò, tên và một mã `[ref=e12]`. Model thao tác bằng mã
@@ -346,6 +352,15 @@ bao nhiêu phần tử đã được liệt kê và cách tìm phần còn lại
 khớp không phân biệt hoa thường và dấu, và giữ cả các dòng cha của dòng khớp. `wait_for` chờ
 tới 30 giây cho một đoạn chữ *hiện ra* (chữ trang giấu đi không tính) rồi mới lấy dàn ý; chưa
 thấy thì câu trả lời nói vậy và vẫn kèm trang lúc ấy.
+
+**Dấu `[new]`.** Dàn ý mà `browser_act` và `browser_snapshot` trả về đánh dấu `[new]` lên những
+phần tử mới có, hoặc đã đổi chữ, từ lần model được cho xem tab này ngay trước, và thêm một dòng
+ngoài rào nói có bao nhiêu dòng mang dấu. Dấu là thuộc tính cuối của dòng, nên dòng vẫn đọc như
+phần tử của nó. Phần tử được ghép với lần xem trước theo vai trò và chữ; phần tử còn giữ `ref` cũ
+được ghép với chính nó trước, nên trong mấy phần tử giống nhau thì cái mới tới mới mang dấu. Dấu
+có cả khi dàn ý bị rút gọn và khi lọc bằng `query`. Không phần tử nào mang dấu khi tab đã ở một
+địa chỉ khác, hoặc khi không còn phần tử có chữ nào của lần xem trước. `browser_navigate` không
+đánh dấu gì, kể cả khi mở lại đúng địa chỉ đang xem.
 
 **Trang là dữ liệu.** Mọi thứ trang có quyền viết nằm giữa hai dòng rào, dưới một dòng nói rõ
 đó là dữ liệu chứ không phải chỉ dẫn: địa chỉ, tiêu đề, dàn ý, lời trong hộp thoại, tên các máy
@@ -400,10 +415,17 @@ duyệt.
   ô đánh dấu, nút chọn một, công tắc, mục của cây, và mọi thứ trang vẽ với con trỏ hình bàn tay.
   Ngoài ba trường hợp ấy, thao tác hỏi trong hội thoại được giám sát và chạy trong hội thoại
   autonomous.
+- `browser_download` là một lần bấm, nên được xét như `browser_act` xét một lần `click`: luôn
+  hỏi, kể cả trong hội thoại autonomous, khi agent có `browser_hosts` và trang đang hiện nằm
+  ngoài danh sách, hoặc khi phần tử mang một từ dừng. Ngoài hai trường hợp ấy, nó hỏi trong hội
+  thoại được giám sát và chạy trong hội thoại autonomous. Một `ref` không có trong dàn ý model
+  vừa được cho thấy thì không ai bị hỏi, vì lời gọi tự từ chối.
 
 Thẻ duyệt của một thao tác ngoài ba trường hợp ấy đọc lên thao tác và tên phần tử (bấm «Xem đơn»),
 không kèm dòng lý do: nó không nêu host của trang và không nói một liên kết dẫn tới đâu. Ba trường
-hợp luôn hỏi thì có dòng lý do, nêu host. Duyệt bằng "Luôn cho phép" đưa `browser_act` vào
+hợp luôn hỏi thì có dòng lý do, nêu host. Tên phần tử do trang đặt, nên trước khi vào giữa hai
+dấu « » nó bị bỏ mọi dấu « » của chính nó: một cái tên không đóng được ngoặc sớm để viết tiếp
+những chữ đọc như lời của đội. Duyệt bằng "Luôn cho phép" đưa `browser_act` vào
 `auto_approve` của hội thoại: các thao tác thường ngày sau đó chạy không hỏi, ba trường hợp luôn hỏi
 vẫn hỏi. `browser_hosts` xét trang đang hiện lúc thao tác, không xét nơi một lần bấm dẫn tới: bấm
 một liên kết trên trang trong danh sách có thể đưa tab sang host ngoài danh sách mà không ai bị hỏi
@@ -504,14 +526,54 @@ lưu ở đâu. Có vision route thì theo sau là lời đọc ảnh (trả l�
 nằm trong rào như nội dung trang và được giữ vừa chỗ còn lại dưới trần đầu ra, và tiền của lần
 đọc được tính vào run. Trần không còn chỗ cho lời đọc thì ảnh vẫn được lưu nhưng không model nào
 được gọi. Vision route báo lỗi thì lời báo của nó nằm trong rào. Không có vision route thì câu
-trả lời nói ảnh đã lưu nhưng chưa ai đọc.
+trả lời nói ảnh đã lưu nhưng chưa ai đọc. Ảnh được ghi theo cùng cách với tệp tải về ở đoạn dưới
+(không qua symlink nào, mang dấu cách ly trên macOS), và vision đọc đúng những byte vừa chụp,
+không đọc lại tệp đang nằm dưới tên ấy.
 
-**Từ script.** Bốn tool đọc (`browser_snapshot`, `browser_text`, `browser_tabs`,
-`browser_screenshot`) gọi được từ script của `tool_script` như mọi tool chỉ đọc.
-`browser_navigate` và `browser_act` chỉ gọi được khi agent có `script_calls: gated`, mỗi lời gọi
-qua cổng duyệt trước (xem [Gọi tool từ script](#gọi-tool-từ-script)). Script giữ được 200.000 ký
-tự của một câu trả lời, bất kể trần của agent; tool trình duyệt đo câu trả lời theo mức nhỏ hơn
-trong hai mức ấy, nên script cũng luôn nhận đủ cả hai dòng rào.
+**Tải tệp về và in PDF.** `browser_download` bấm một phần tử như `browser_act` bấm (cùng `ref`,
+`name`, `tab` và cùng các kiểm tra ngay trước lần bấm), rồi giữ tệp mà lần bấm ấy làm trang gửi
+về. Tệp được giữ là tệp đầu tiên tab ấy gửi sau lần bấm, hoặc tệp của một cửa sổ mà tab ấy mở ra
+trong lúc đó; tệp của tab khác, hay của cửa sổ do tab khác mở, không tính. Tool chỉ bắt đầu chờ
+tệp sau khi phần tử đã qua kiểm tra. Không tệp nào bắt đầu tới trong 15 giây thì câu trả lời nói
+lần bấm đã xảy ra và dặn đừng bấm lại khi chưa xem. Mỗi trình duyệt chỉ có một lời gọi chờ tệp
+một lúc: lời gọi thứ hai bị từ chối trước khi bấm gì. Tệp được đo trong lúc nó đang tới, tính
+chung mọi tệp trình duyệt đang giữ, và bị huỷ ngay khi vượt 50 MB; tệp chưa tới trọn sau
+`timeout_s` cũng bị bỏ. Không cấu hình nào nâng được mức 50 MB. Trình duyệt giữ tệp trong thư
+mục `crew-downloads` bên trong hồ sơ của agent cho tới khi tool nhận đủ, và bản ấy bị xoá sau
+lời gọi dù lời gọi thành hay không. `browser_navigate` tới một địa chỉ trả về tệp thì không mở và
+không giữ gì: tab ở lại trang trống, và câu trả lời dặn mở trang có liên kết tới tệp rồi bấm liên
+kết ấy bằng `browser_download`.
+
+`browser_pdf` in trang của một tab (không nêu `tab` thì tab hội thoại vừa dùng) thành PDF khổ A4,
+có in màu nền. Nó chỉ nhìn trang nên không ai bị hỏi, và có ở mức `read`. Bản in quá 50 MB không
+được giữ.
+
+Cả hai tool lưu tệp vào `downloads/` trong workspace, hoặc trong thư mục đầu của `write_paths`
+khi agent có khoá ấy. Thư mục mà symlink dẫn ra ngoài workspace, hay ra ngoài `write_paths`, bị
+từ chối; thư mục mà các tệp nằm thẳng trong nó đã chiếm tới 1 GB thì không nhận tệp mới. Hai điều
+ấy được xét trước khi bấm hay in gì. Mức 1 GB không phải một cấu hình: chỉ người quyết định dọn
+gì khỏi thư mục. Tên tệp lấy từ `save_as`, không có thì từ tên trang gợi ý (`browser_download`)
+hay tiêu đề trang (`browser_pdf`), và chỉ còn chữ không dấu, số, dấu chấm, gạch dưới và gạch nối
+(`browser/saved.py`); không còn chữ nào thì là `download` hay `page`. Bản in luôn có đuôi `.pdf`.
+Tệp tải về có đuôi không phải đuôi dữ liệu (pdf, csv, tsv, txt, json, xml, xlsx, xls, docx, doc,
+pptx, ppt, zip, png, jpg, jpeg, gif, webp) được thêm `.bin` vào sau tên, để không chương trình
+nào nạp hay chạy nó theo tên, và câu trả lời nói vậy. Tên đã có thì tệp mới mang `-2`, `-3`, …,
+không tệp nào bị ghi đè. Thư mục được mở từng bậc từ workspace mà không theo symlink nào, tệp
+được tạo mới và không qua symlink, tệp ghi dở bị xoá. Trên macOS tệp mang dấu cách ly
+(`com.apple.quarantine`) từ trước byte đầu tiên; đặt dấu không được thì tệp vẫn được giữ.
+
+Câu trả lời ngoài rào nói thư mục và cỡ tệp, với `browser_download` kèm lời dặn nội dung tệp là
+dữ liệu chứ không phải chỉ dẫn. Tên tệp, host của trang và host đã gửi tệp do trang chọn, nên nằm
+trong rào. Trần không đủ chỗ cho rào thì tệp vẫn được giữ và câu trả lời nói thư mục nào cần liệt
+kê.
+
+**Từ script.** Năm tool đọc (`browser_snapshot`, `browser_text`, `browser_tabs`,
+`browser_screenshot`, `browser_pdf`) gọi được từ script của `tool_script` như mọi tool chỉ đọc.
+`browser_navigate`, `browser_act` và `browser_download` chỉ gọi được khi agent có
+`script_calls: gated`, mỗi lời gọi qua cổng duyệt trước (xem
+[Gọi tool từ script](#gọi-tool-từ-script)). Script giữ được 200.000 ký tự của một câu trả lời,
+bất kể trần của agent; tool trình duyệt đo câu trả lời theo mức nhỏ hơn trong hai mức ấy, nên
+script cũng luôn nhận đủ cả hai dòng rào.
 
 **Thư mục giữ riêng.** `<home>/browser/` chứa những gì các trình duyệt đang đăng nhập, nên không
 tool tệp nào đọc hay ghi được ở đó, dù trình duyệt có bật hay không: đường dẫn được xét theo nơi
@@ -530,8 +592,13 @@ quy tắc nào trong các quy tắc này.
 GET    /api/agents/{id}/browser               → {"mode", "enabled", "installed", "running", "busy",
                                                   "idle_seconds", "tabs": [{"id", "label",
                                                   "conversation_id", "host", "title",
-                                                  "idle_seconds", "busy"}]}
+                                                  "idle_seconds", "busy"}],
+                                                  "login": {"open", "until", "available", "why"},
+                                                  "logins": null | [{"host", "until"}],
+                                                  "logins_more"}
 POST   /api/agents/{id}/browser/stop          → {"stopped": true|false}
+POST   /api/agents/{id}/browser/login         ← {"url"} (không bắt buộc) → {"open": true, "until"}
+POST   /api/agents/{id}/browser/login/done    → {"closed": true|false}
 DELETE /api/agents/{id}/browser/tabs/{tab_id} → {"closed": tab_id}; 404 khi tab không còn
 ```
 
@@ -551,30 +618,67 @@ duyệt, và chính lượt đang chạy mở lại được. Lúc server dừng
 không lời gọi nào đến sau đó mở lại được: một lượt chưa kịp kết thúc nhận lỗi không khởi động
 được trình duyệt, và không tiến trình Chromium nào ở lại sau server.
 
+**Cửa sổ đăng nhập.** Agent không gõ vào ô mật khẩu, nên người đăng nhập hộ nó.
+`POST …/browser/login` dừng trình duyệt của agent (các tab của nó đóng, đăng nhập còn nguyên)
+rồi mở một Chromium có cửa sổ trên chính hồ sơ ấy. Cửa sổ hiện trên màn hình của máy chạy đội,
+không trên thiết bị đang xem web. Nó ra mạng qua một proxy riêng với cùng rào địa chỉ công khai,
+nên không tới được nơi nào trình duyệt của agent không tới được, và không giữ tệp nào trang gửi
+về. `url`, nếu có, được xét như địa chỉ của `browser_navigate` (bị từ chối thì là 422) rồi được
+mở mà không chờ trang tải xong. Trong lúc cửa sổ mở, mọi lời gọi `browser_*` của agent nhận một
+câu nói chủ đang đăng nhập và dặn gọi lại `browser_navigate` khi cửa sổ đã đóng. Cửa sổ đóng khi
+người bấm Xong (`…/login/done`), khi người đóng trang cuối cùng hay thoát trình duyệt, sau 15
+phút, khi `stop`, khi agent bị gỡ hay về `off`, và khi server dừng. Lời gọi kế tiếp của agent
+khởi động trình duyệt của nó, đăng nhập như cửa sổ để lại. Xin mở lần nữa khi cửa sổ đang mở thì
+nhận lại đúng cửa sổ ấy, hạn không dài thêm. Cửa sổ không mở được thì là 409 kèm lý do: agent
+không có trình duyệt, server không chạy trong phiên màn hình nào đang mở, màn hình đang khoá,
+agent đang dùng trình duyệt cho một lời gọi (hay trình duyệt đang khởi động cho một lời gọi),
+server đang dừng, agent vừa được sửa, hoặc trình duyệt không mở được cửa sổ (kèm dòng đầu của lời
+lỗi). Agent lạ là 404. Khối `login` của `GET` nói cửa sổ đang mở tới lúc nào (`until`), hoặc có
+mở được không (`available`) và vì sao không (`why`: `off`, `no_console`, `locked`, `busy`).
+
+**Nơi có thể còn đăng nhập.** `logins` của `GET` đoán trình duyệt của agent còn đăng nhập ở host
+nào, từ cookie trong hồ sơ. Một cookie được tính khi không script nào trên trang đọc được nó
+(`httpOnly`), nó còn hạn sau khi trình duyệt đóng, và nó không được gửi kèm sang site khác (không
+phải `SameSite=None`). Của một cookie chỉ host và lúc hết hạn được lấy, không bao giờ tên hay giá
+trị. Trình duyệt hay cửa sổ đang chạy thì được hỏi thẳng; không thì server đọc
+`<home>/browser/<id agent>/crew-logins.json` (chế độ 600), tệp được ghi lại mỗi lần một trình
+duyệt trên hồ sơ ấy đóng. Agent có `browser_hosts` được kể từng dòng của danh sách theo thứ tự
+trong tệp, `until` là `null` ở dòng không có cookie nào được tính. Agent không có danh sách được
+kể tối đa 50 host theo thứ tự chữ cái, và `logins_more` đếm số host còn lại. `logins` là `null`
+khi agent không có trình duyệt, hoặc chưa trình duyệt nào trên hồ sơ của nó đóng. Đây là dấu
+hiệu, không phải bằng chứng: site có thể đã đăng xuất người ở phía nó, và có site đặt cookie như
+thế cho cả khách chưa đăng nhập.
+
 - **Kết nối.** Thẻ **Trình duyệt** nói máy đang bật hay tắt, kênh và phiên bản, hoặc thứ đang
   thiếu kèm lệnh cài, và agent nào đang có trình duyệt chạy. Riêng dòng cuối ấy đổi mà không ai
   ở trang này làm gì, nên thẻ tự đọc lại nó: lúc được vẽ, rồi năm giây một lần khi trang đang
   được nhìn, và ngay khi tab trở lại trước mắt; máy đang tắt trình duyệt hay chưa cài thì thẻ
   không hỏi gì. Thẻ không đặt gì: `browser_enabled` là tệp của máy, đọc lúc khởi động.
 - **Trình sửa agent.** Mục Công cụ có phần "Trình duyệt": Tắt, Đọc hoặc Thao tác, và danh sách
-  host. Sáu tool `browser_*` không nằm trong danh sách cho phép, vì danh sách không quyết định
+  host. Tám tool `browser_*` không nằm trong danh sách cho phép, vì danh sách không quyết định
   chúng. Chọn một mức trên máy đang tắt trình duyệt hay chưa cài thì form nói ngay điều đó; một
   dòng host không phải tên host được nêu tên dưới ô và giữ lần lưu lại. Chi tiết ở
   [agents.md](agents.md#trình-sửa-trên-web).
 - **Trang agent.** Thẻ **Trình duyệt** cho thấy trình duyệt đang dừng hay chạy và từng tab (nhãn,
   tiêu đề, host, hội thoại, đang bận hay rảnh), với nút "Dừng trình duyệt" và "Đóng tab". Thẻ tự
-  đọc lại mỗi 5 giây khi đang hiện.
-- **Công cụ.** Sáu dòng `browser_*` mang nhãn "đi kèm trình duyệt"; ô của agent không giữ tool
+  đọc lại mỗi 5 giây khi đang hiện. Thẻ có nút "Mở cửa sổ đăng nhập" kèm ô địa chỉ không bắt
+  buộc; khi cửa sổ đang mở, thẻ nói nó tự đóng lúc nào và có nút "Xong". Khi không mở được, thẻ
+  thay nút bằng câu nói vì sao. Dưới đó là danh sách "Có thể đang đăng nhập ở" từ `logins`, mỗi
+  host kèm ngày hết hạn, với một dòng nhắc đó chỉ là dấu hiệu. Chi tiết ở
+  [agents.md](agents.md#trình-sửa-trên-web).
+- **Công cụ.** Tám dòng `browser_*` mang nhãn "đi kèm trình duyệt"; ô của agent không giữ tool
   được giải thích bằng khoá `browser` của agent ấy, không bằng danh sách cho phép hay chế độ.
 - **Thẻ duyệt.** Lời gọi trình duyệt chờ duyệt có một dòng đọc được ("Mở trang shop.example",
-  "Bấm «Đặt hàng»", "Điền «…» vào «Mã giảm giá»") phía trên phần tham số thô, cùng lý do của
-  server khi lời gọi dừng vì host, từ dừng hay tải tệp lên.
+  "Bấm «Đặt hàng»", "Điền «…» vào «Mã giảm giá»", "Bấm «Tải hoá đơn» để tải tệp về") phía trên
+  phần tham số thô, cùng lý do của server khi lời gọi dừng vì host, từ dừng hay tải tệp lên.
 - **Dòng thời gian của run và thẻ tool.** Bước `browser_screenshot` hiện ảnh nhỏ, đọc qua
   `GET /api/agents/{id}/files?path=` (xem [Media và tệp](#media-và-tệp)); bấm vào mở tệp trong
   một tab riêng. Chỉ bước đã xong mới có ảnh, và ảnh không tải được (tệp đã bị dọn) thì không
   để lại gì trên dòng.
 - **Server của bản trước.** Web đọc bundle mới trước lần khởi động lại; server chưa biết trình
-  duyệt không trả khoá `browser`, và web khi đó không vẽ mục, thẻ hay nhãn nào ở trên.
+  duyệt không trả khoá `browser`, và web khi đó không vẽ mục, thẻ hay nhãn nào ở trên. Server
+  chưa có cửa sổ đăng nhập không trả `login` hay `logins`, và thẻ trên trang agent khi đó không
+  vẽ hai phần ấy.
 
 **Giới hạn đã biết.**
 
@@ -605,9 +709,13 @@ không lời gọi nào đến sau đó mở lại được: một lượt chưa
 - Agent bị tắt trình duyệt bằng cách sửa tay tệp (không qua `PATCH`) giữ trình duyệt đang chạy
   cho tới lần đội được dựng lại kế tiếp (lưu một khoá hay một tuyến model, hoặc khởi động lại)
   hoặc tới khi nó hết hạn rảnh. Lượt đang chạy lúc agent bị sửa giữ bộ tool của nó tới hết
-  lượt: đưa agent từ `act` về `read` không lấy `browser_act` khỏi lượt ấy. Chỉ lần đưa về `off`
-  và lần gỡ mới chặn các tool `browser_*` của lượt đang chạy.
+  lượt: đưa agent từ `act` về `read` không lấy `browser_act` hay `browser_download` khỏi lượt
+  ấy. Chỉ lần đưa về `off` và lần gỡ mới chặn các tool `browser_*` của lượt đang chạy.
 - Thứ máy đã cài được đọc một lần lúc server khởi động: cài trình duyệt xong phải khởi động lại.
+- Cửa sổ đăng nhập chỉ hiện trên màn hình của máy chạy đội, khi server chạy trong phiên của
+  người đang ở trước màn hình ấy và màn hình không khoá. Trên máy khác hệ macOS, server chỉ coi
+  là có màn hình khi môi trường của nó có `DISPLAY` hoặc `WAYLAND_DISPLAY` (xem
+  [deployment-guide.md](deployment-guide.md#4b-trình-duyệt-cho-agent-tuỳ-chọn)).
 - Trang nhận ra được đây là trình duyệt tự động (`navigator.webdriver` là `true`, user agent ghi
   HeadlessChrome), nên có site sẽ từ chối.
 - Bước của run chỉ giữ 160 ký tự đầu của kết quả, nên ảnh nhỏ trên dòng thời gian cần dòng "Đã
@@ -2141,10 +2249,10 @@ nó nhờ các tool chỉ đọc của mình, có sẵn hay MCP, nên `agents` c
 [Gọi tool từ script](#gọi-tool-từ-script)). Lời mô tả của `tool_script` khác nhau theo agent, vì
 nó nêu tool của chính agent đó; dòng này mang lời mô tả của agent đầu tiên giữ nó.
 
-Sáu dòng `browser_*` cũng không theo danh sách cho phép: mỗi dòng mang `with_browser: true` và
+Tám dòng `browser_*` cũng không theo danh sách cho phép: mỗi dòng mang `with_browser: true` và
 `optional: false`, vì agent giữ chúng nhờ khoá `browser` của mình (xem
 [Trình duyệt](#trình-duyệt)). Một dòng chỉ được liệt kê khi có agent đang giữ tool đó: đội mà máy
-tắt trình duyệt, hoặc không agent nào xin trình duyệt, không liệt kê dòng nào trong sáu dòng.
+tắt trình duyệt, hoặc không agent nào xin trình duyệt, không liệt kê dòng nào trong tám dòng.
 
 Endpoint `/prompt` trả về system prompt đầy đủ như đã lắp cho agent (hữu ích để
 debug agent thấy gì, hoặc cho người dùng xem agent biết gì). Trường `opening` (kèm
