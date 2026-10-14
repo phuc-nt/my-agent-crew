@@ -102,6 +102,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 - `browser_ask_patterns` is now the stop-word list of the desktop as well: one list for the
   pages a browser opens and for the screen.
 
+### Fixed
+
+- A file `browser_download` gave up, as too slow or too large, could leave its half in the
+  browser's holding folder for a moment after the call returned: Chromium says a file stopped
+  before it has removed the half, and under load the next download counted those bytes toward
+  its own limit. The folder is now emptied when a call is done with it, before the next may
+  start.
+
 ### Security
 
 - `<home>/desktop/`, and the socket wherever `desktop_socket` puts it, judged where the path

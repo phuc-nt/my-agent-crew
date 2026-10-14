@@ -6,7 +6,8 @@ disk by itself or leaves anything behind. What is kept is held in a folder insid
 profile, which no tool reads, until the tool that asked has seen it whole and under the size
 it may have; when that tool is done the browser's own copy goes, whatever came of it. A small
 file may be whole before the browser hears it is to stop, so a file is stopped and then
-removed, never only stopped. And that is work the browser keeps to the end by itself: a
+removed, never only stopped; and since a browser says a file stopped a moment before the half
+of it is gone, the folder is emptied when a caller is done. That is work kept to the end: a
 caller that is stopped, and stopped again on its way out, does not take it along."""
 
 from __future__ import annotations
@@ -47,11 +48,25 @@ async def _quietly(work: Any) -> None:
         pass
 
 
-async def _drop(download: Any) -> None:
+async def _drop(download: Any, emptied: Path | None = None) -> None:
     """Stop a file and take the browser's copy of it away. Stopping removes one still on its
-    way; one that came whole first is only removed by being asked for that."""
+    way; one that came whole first is only removed by being asked for that. A browser says a
+    file stopped before it has taken the half of it away, so the end of a caller's turn
+    empties the folder as well: nothing still in it then is anybody's."""
     await _quietly(download.cancel())
     await _quietly(download.delete())
+    if emptied is not None:
+        _empty(emptied)
+
+
+def _empty(folder: Path) -> None:
+    with contextlib.suppress(OSError):
+        for entry in list(os.scandir(folder)):
+            with contextlib.suppress(OSError):
+                if entry.is_dir(follow_symlinks=False):
+                    shutil.rmtree(entry.path)
+                else:
+                    os.unlink(entry.path)
 
 
 class Downloads:
@@ -73,10 +88,10 @@ class Downloads:
             return
         self._dropped(download)
 
-    def _dropped(self, download: Any) -> asyncio.Future[None]:
+    def _dropped(self, download: Any, emptied: Path | None = None) -> asyncio.Future[None]:
         """The dropping of a file, held here until it is done: whoever waits for it may be
         stopped, and it goes on."""
-        task = asyncio.ensure_future(_drop(download))
+        task = asyncio.ensure_future(_drop(download, emptied))
         self._dropping.add(task)
         task.add_done_callback(self._dropping.discard)
         return task
@@ -90,7 +105,7 @@ class Downloads:
         the caller's own is kept, and given through the future. One caller a browser at a
         time: a second is told so at once, before it clicked anything, since two could not
         tell whose file a new window brought. On the way out the browser's copy of the file
-        is stopped and removed, and only then may the next caller come."""
+        is stopped and removed, the folder emptied, and only then may the next caller come."""
         if self._wanted is not None:
             raise ToolError(f.DOWNLOAD_BUSY)
         began: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
@@ -99,7 +114,7 @@ class Downloads:
             yield began
         finally:
             if began.done() and not began.cancelled():
-                gone = self._dropped(began.result())
+                gone = self._dropped(began.result(), emptied=self.folder)
                 gone.add_done_callback(self._free)  # whether this caller is still here or not
                 await asyncio.shield(gone)
             else:

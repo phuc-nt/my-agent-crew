@@ -7488,8 +7488,10 @@ dựng một đội có agent giữ trình duyệt.
     bị xoá cả khi lời gọi hỏng, cả khi lời gọi bị dừng thêm lần nữa trên đường ra; tệp bắt đầu
     sau khi lời gọi bỏ cuộc bị dừng; lời gọi thứ hai được nói ngay, và chỉ vào được khi lời gọi
     đầu đã ra hẳn; tệp được đo trong lúc tới và bị bỏ khi vượt giới hạn, mọi tệp trình duyệt đang
-    giữ đều tính vào giới hạn; tệp không tới kịp bị bỏ; tệp trình duyệt báo hỏng nói lý do trong
-    một dòng ngắn; thư mục giữ tạm đã mất thì không giữ gì).
+    giữ đều tính vào giới hạn; tệp không tới kịp bị bỏ; nửa tệp trình duyệt chưa kịp xoá dù đã
+    báo dừng (như Chromium khi máy bận) cũng hết khi lời gọi ra, nên lời gọi sau đo từ số không,
+    còn tệp bị dừng trong lúc lời gọi đang chờ thì không đụng tới nửa tệp của lời gọi; tệp trình
+    duyệt báo hỏng nói lý do trong một dòng ngắn; thư mục giữ tạm đã mất thì không giữ gì).
   - pytest: `tests/test_browser_pdf.py` (tool chỉ nhìn nên không ai được hỏi và script gọi được;
     cuộc trò chuyện chưa có tab thì không có gì để in; trang được in dưới tiêu đề viết bằng chữ
     không dấu; tên luôn tận cùng `.pdf` dù được gọi là gì và không bao giờ chiếm chỗ tệp khác;

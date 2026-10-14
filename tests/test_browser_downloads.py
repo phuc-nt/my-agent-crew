@@ -48,10 +48,12 @@ class Context:
 class Sent:
     """A file on its way: it ends when it is told to, or when it is stopped. As with a real
     browser, stopping takes away a file still on its way and does nothing to one that came
-    whole; removing takes away one that came whole and refuses for one that did not."""
+    whole; removing takes away one that came whole and refuses for one that did not. One that
+    `lingers` is stopped as a real browser under load stops it: it says so, and its half is
+    still there when the caller hears it."""
 
     def __init__(self, page: Page, path: Path | None = None) -> None:
-        self.page, self.did = page, []
+        self.page, self.did, self.lingers = page, [], False
         self._path, self._failure, self._ended = path, None, asyncio.Event()
         # Shut by a test, either holds the file where it is: being stopped, or being removed.
         self.asked, self.stopping, self.removing = asyncio.Event(), asyncio.Event(), asyncio.Event()
@@ -71,7 +73,7 @@ class Sent:
         self.asked.set()
         await self.stopping.wait()
         self.did.append("cancel")
-        if not self._ended.is_set() and self._path:
+        if not self._ended.is_set() and self._path and not self.lingers:
             self._path.unlink(missing_ok=True)
         self.ends("canceled")
 
@@ -305,6 +307,38 @@ async def test_a_file_not_here_in_time_is_given_up(tmp_path, quick):
 
     assert str(error.value) == f.DOWNLOAD_SLOW.format(ref="e7", seconds=0)
     assert sent.did == ["cancel", "delete"]
+
+
+async def test_a_half_the_browser_has_not_taken_away_yet_is_gone_when_the_caller_is(
+    tmp_path, quick
+):
+    page = Page()
+    downloads = Downloads(Context(page), tmp_path)
+    half = tmp_path / "f1b2.crdownload"
+    half.write_bytes(b"x" * 10)
+
+    async with taken(downloads, page, half) as sent:
+        sent.lingers = True
+        with pytest.raises(ToolError):
+            await asyncio.wait_for(downloads.receive(sent, "e7", 0), 5)
+
+    assert sent.did == ["cancel", "delete"]
+    # The next caller measures from nothing: no half of a file given up counts against it.
+    assert list(tmp_path.iterdir()) == [] and downloads.held() == 0
+
+
+async def test_a_file_stopped_while_a_caller_waits_leaves_the_caller_s_own_half_alone(tmp_path):
+    mine, other = Page(), Page()
+    downloads = Downloads(Context(mine, other), tmp_path)
+    (tmp_path / "mine.crdownload").write_bytes(b"x" * 10)
+
+    async with downloads.expecting(lambda sent: sent.page is mine) as began:
+        first = mine.sends(tmp_path / "mine.crdownload")
+        theirs = other.sends()
+        assert await stopped(theirs) and began.result() is first
+        assert downloads.held() == 10  # still on its way for the caller
+
+    assert list(tmp_path.iterdir()) == []
 
 
 async def test_a_file_the_browser_failed_on_says_why_in_one_short_line(tmp_path, quick):

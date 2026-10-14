@@ -553,7 +553,8 @@ một lúc: lời gọi thứ hai bị từ chối trước khi bấm gì. Tệp
 chung mọi tệp trình duyệt đang giữ, và bị huỷ ngay khi vượt 50 MB; tệp chưa tới trọn sau
 `timeout_s` cũng bị bỏ. Không cấu hình nào nâng được mức 50 MB. Trình duyệt giữ tệp trong thư
 mục `crew-downloads` bên trong hồ sơ của agent cho tới khi tool nhận đủ, và bản ấy bị xoá sau
-lời gọi dù lời gọi thành hay không. `browser_navigate` tới một địa chỉ trả về tệp thì không mở và
+lời gọi dù lời gọi thành hay không; thư mục được dọn sạch trước khi lời gọi sau vào, cả nửa tệp
+Chromium đã báo dừng mà chưa kịp xoá. `browser_navigate` tới một địa chỉ trả về tệp thì không mở và
 không giữ gì: tab ở lại trang trống, và câu trả lời dặn mở trang có liên kết tới tệp rồi bấm liên
 kết ấy bằng `browser_download`.
 
