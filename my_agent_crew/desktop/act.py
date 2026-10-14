@@ -69,7 +69,8 @@ def _point(args: dict[str, Any], kind: str, frame_id: str, *names: str) -> dict[
         number = isinstance(value, (int, float)) and not isinstance(value, bool)
         if value is None:
             raise ToolError(ta.ACT_NEEDS.format(kind=kind, what=name))
-        if not number or not math.isfinite(value) or value < 0:
+        # A whole number is compared as it is: one too large for a float is just off.
+        if not number or (isinstance(value, float) and not math.isfinite(value)) or value < 0:
             raise ToolError(ta.ACT_NUMBER.format(kind=kind, what=name))
         if value >= (width if name.endswith("x") else height):
             off = ta.ACT_OUTSIDE.format(kind=kind, what=name, width=width, height=height)
@@ -92,6 +93,10 @@ def _text(args: dict[str, Any], kind: str) -> str:
     most = MAX_TYPED if kind == TYPE else MAX_SET
     if len(text) > most:
         raise ToolError(ta.ACT_TEXT_LONG.format(kind=kind, limit=most))
+    try:
+        text.encode()
+    except UnicodeEncodeError as exc:  # half of a pair, which no request can carry
+        raise ToolError(ta.ACT_TEXT_BROKEN.format(kind=kind)) from exc
     if refusal := typed_refusal(text):
         raise ToolError(refusal)
     return text

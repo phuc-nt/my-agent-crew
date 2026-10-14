@@ -162,7 +162,9 @@ def test_a_drag_needs_all_four(name) -> None:
     assert refused(without(call("drag"), name)) == ta.ACT_NEEDS.format(kind="drag", what=name)
 
 
-@pytest.mark.parametrize("value", [-1, -0.5, float("nan"), float("inf"), "3", True, False, [1]])
+@pytest.mark.parametrize(
+    "value", [-1, -0.5, -(10**400), float("nan"), float("inf"), "3", True, False, [1]]
+)
 @pytest.mark.parametrize(("kind", "name"), [("click", "x"), ("drag", "to_y"), ("scroll", "y")])
 def test_a_point_is_a_number_on_the_picture(kind, name, value) -> None:
     said = refused(call(kind, **{name: value}))
@@ -179,6 +181,9 @@ def test_a_point_is_a_number_on_the_picture(kind, name, value) -> None:
         ("drag", "to_x", 4000),
         ("drag", "to_y", 10),
         ("scroll", "y", 1e12),
+        # Whole numbers too large for a float: what JSON may carry, read as they are.
+        ("click", "x", 10**400),
+        ("drag", "to_y", 2**1024),
     ],
 )
 def test_a_point_off_the_picture_its_frame_names_is_refused(kind, name, value) -> None:
@@ -229,6 +234,17 @@ def test_what_is_typed_is_kept_to_what_the_helper_takes() -> None:
     assert refused(call("set_value", text="a" * (MAX_SET + 1))) == ta.ACT_TEXT_LONG.format(
         kind="set_value", limit=MAX_SET
     )
+
+
+@pytest.mark.parametrize("text", ["a\ud800b", "\udfff", "ok \ud83d"])
+@pytest.mark.parametrize("kind", ["type", "set_value"])
+def test_a_text_holding_half_a_pair_is_refused_before_anyone_is_asked(kind, text) -> None:
+    assert refused(call(kind, text=text)) == ta.ACT_TEXT_BROKEN.format(kind=kind)
+
+
+@pytest.mark.parametrize("text", ["😀", "𝕏 xin chào", "\U0001f600"])
+def test_a_whole_character_beyond_the_first_plane_is_typed(text) -> None:
+    assert read_act(call("type", text=text), MINE).send["text"] == text
 
 
 def test_the_longest_text_typed_and_the_farthest_scroll_are_the_helpers_own() -> None:

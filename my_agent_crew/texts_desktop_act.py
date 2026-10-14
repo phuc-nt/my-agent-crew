@@ -36,6 +36,10 @@ ACT_OUTSIDE = (
 )
 ACT_WHOLE = "Tham số `{what}` của scroll phải là số nguyên từ -50 tới 50, và không cùng bằng 0."
 ACT_TEXT_LONG = "Chữ của thao tác {kind} dài hơn {limit} ký tự nên không gửi. Rút ngắn lại."
+ACT_TEXT_BROKEN = (
+    "Chữ của thao tác {kind} có một ký tự hỏng (nửa của một cặp ký tự UTF-16) nên không "
+    "gửi được. Viết lại chữ đó."
+)
 ACT_KEYS = (
     "Không đọc được tổ hợp phím «{keys}». Viết các phím giữ nối bằng dấu + rồi tới một phím, "
     "ví dụ cmd+s, shift+tab, enter. Phím giữ: cmd, shift, opt, ctrl, fn."
