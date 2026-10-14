@@ -2,12 +2,15 @@
 
 The picture is a file in the agent's workspace, in a folder and under a name the tool makes
 up: nothing the model or the page says is part of either. When the machine has a route that
-reads pictures, what that route says of the picture is given too. A picture of a page carries
-the page's words, so what was read out of it stands between fence lines like the page itself."""
+reads pictures, what that route says of the picture is given too: of the picture as it was
+taken, not of whatever stands under its name by then. A picture of a page carries the page's
+words, so what was read out of it stands between fence lines like the page itself."""
 
 from __future__ import annotations
 
 import re
+import stat
+from base64 import b64encode
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,11 +21,12 @@ from my_agent_crew import texts_browser_fence as f
 from my_agent_crew import texts_browser_tools as d
 from my_agent_crew.browser import kit as k
 from my_agent_crew.browser.fence import ERROR_CHARS, answer, room, with_data
+from my_agent_crew.browser.folder import listed, reached, remove, write
 from my_agent_crew.browser.kit import BrowserTool, Kit, one_line, text_of
-from my_agent_crew.browser.saved import keep, place
+from my_agent_crew.browser.saved import place
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.texts import IMAGE_EMPTY
-from my_agent_crew.tools.image import data_url, describe
+from my_agent_crew.tools.image import describe
 from my_agent_crew.tools.registry import Tool, ToolError, ToolResult
 
 FOLDER = "screenshots"
@@ -53,17 +57,20 @@ async def take(page: Any, full: bool) -> tuple[bytes, str]:
     raise ToolError(t.SHOT_TOO_LARGE.format(limit=MAX_BYTES / 1024 / 1024))
 
 
-def save(folder: Path, label: str, data: bytes, kind: str) -> Path:
-    """Write the picture under a name not taken yet, and keep the folder from growing: the
-    oldest of the tool's own pictures go, and nothing else in the folder is touched."""
-    path = keep(folder, f"{now():%Y%m%dT%H%M%SZ}-{label}.{kind}", data)
-    mine = sorted(
-        (found for found in folder.iterdir() if OURS.match(found.name)),
-        key=lambda found: (found.lstat().st_mtime_ns, found.name),
-    )
-    for old in mine[:-KEPT]:
-        old.unlink(missing_ok=True)
-    return path
+def save(workspace: Path, shown: str, label: str, data: bytes, kind: str) -> str:
+    """Write the picture in the folder `shown` names under a name not taken yet, and keep
+    the folder from growing: the oldest of the tool's own pictures go, and nothing else in
+    the folder is touched: a folder or a link under such a name is no picture, and is
+    neither counted nor removed. The folder is opened once and through no link, and both
+    are done under it: no picture is written, and none is removed, anywhere else. The name
+    it has."""
+    with reached(workspace, shown) as folder:
+        name, _size = write(folder, f"{now():%Y%m%dT%H%M%SZ}-{label}.{kind}", data)
+        files = ((old, x) for old, x in listed(folder) if stat.S_ISREG(x.st_mode))
+        mine = sorted((x.st_mtime_ns, old) for old, x in files if OURS.match(old))
+        for _at, old in mine[:-KEPT]:
+            remove(folder, old)
+    return name
 
 
 def build_screenshot(kit: Kit, write_paths: Sequence[str] = ()) -> Tool:
@@ -74,13 +81,13 @@ def build_screenshot(kit: Kit, write_paths: Sequence[str] = ()) -> Tool:
             data, kind = await take(tab.page, full)
             label = tab.label
         # The tab is free again: reading a picture takes a model its time.
-        folder, shown = place(kit.workspace, write_paths, FOLDER)
+        shown = place(kit.workspace, write_paths, FOLDER)[1]
         try:
-            path = save(folder, label, data, kind)
+            name = save(kit.workspace, shown, label, data, kind)
         except OSError as exc:
             said = exc.strerror or type(exc).__name__
             raise ToolError(t.SHOT_NOT_SAVED.format(error=said)) from exc
-        saved = t.SHOT_SAVED.format(label=label, path=f"{shown}/{path.name}")
+        saved = t.SHOT_SAVED.format(label=label, path=f"{shown}/{name}")
         if kit.vision is None:
             return "\n".join([saved, t.SHOT_NO_VISION])
         # Sized like a page: what was read out of a picture is the page's words. Under a
@@ -89,7 +96,7 @@ def build_screenshot(kit: Kit, write_paths: Sequence[str] = ()) -> Tool:
         if not most:
             return "\n".join([saved, f.NO_ROOM.format(limit=kit.limit)])
         try:
-            url = data_url(path, MIME[kind])
+            url = f"data:{MIME[kind]};base64,{b64encode(data).decode('ascii')}"
             text, cost = await describe(kit.vision, url, text_of(args, "question"))
         except ProviderError as exc:
             # What a route answers when it fails may repeat what it was sent.

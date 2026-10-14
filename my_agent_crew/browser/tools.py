@@ -16,7 +16,8 @@ from my_agent_crew.browser.navigate import build_navigate
 from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.browser.screenshot import build_screenshot
 from my_agent_crew.browser.tools_act import build_act
-from my_agent_crew.browser.tools_files import build_download, build_pdf
+from my_agent_crew.browser.tools_download import build_download
+from my_agent_crew.browser.tools_pdf import build_pdf
 from my_agent_crew.browser.tools_read import build_snapshot, build_tabs, build_text
 from my_agent_crew.config_browser import BrowserSettings
 from my_agent_crew.script.limits import RAW_LIMIT

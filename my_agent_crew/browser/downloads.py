@@ -6,7 +6,8 @@ disk by itself or leaves anything behind. What is kept is held in a folder insid
 profile, which no tool reads, until the tool that asked has seen it whole and under the size
 it may have; when that tool is done the browser's own copy goes, whatever came of it. A small
 file may be whole before the browser hears it is to stop, so a file is stopped and then
-removed, never only stopped."""
+removed, never only stopped. And that is work the browser keeps to the end by itself: a
+caller that is stopped, and stopped again on its way out, does not take it along."""
 
 from __future__ import annotations
 
@@ -70,9 +71,18 @@ class Downloads:
         if wanted is not None and not wanted[0].done() and wanted[1](download):
             wanted[0].set_result(download)
             return
+        self._dropped(download)
+
+    def _dropped(self, download: Any) -> asyncio.Future[None]:
+        """The dropping of a file, held here until it is done: whoever waits for it may be
+        stopped, and it goes on."""
         task = asyncio.ensure_future(_drop(download))
         self._dropping.add(task)
         task.add_done_callback(self._dropping.discard)
+        return task
+
+    def _free(self, _gone: Any = None) -> None:
+        self._wanted = None
 
     @contextlib.asynccontextmanager
     async def expecting(self, mine: Callable[[Any], bool]) -> AsyncIterator[asyncio.Future[Any]]:
@@ -88,11 +98,12 @@ class Downloads:
         try:
             yield began
         finally:
-            try:
-                if began.done() and not began.cancelled():
-                    await _drop(began.result())
-            finally:
-                self._wanted = None
+            if began.done() and not began.cancelled():
+                gone = self._dropped(began.result())
+                gone.add_done_callback(self._free)  # whether this caller is still here or not
+                await asyncio.shield(gone)
+            else:
+                self._free()
 
     def held(self) -> int:
         """The bytes the browser holds for this agent now, files still on their way among
