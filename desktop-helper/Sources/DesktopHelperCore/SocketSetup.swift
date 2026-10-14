@@ -90,7 +90,9 @@ enum SocketSetup {
             errno = bindError
             throw failure("The socket cannot be bound at \(path)")
         }
-        guard chmod(path, 0o600) == 0, listen(listener, 16) == 0 else {
+        // As many connections may wait to be accepted as macOS allows: a full queue refuses the
+        // next one at once, and the server would read that as no helper at all.
+        guard chmod(path, 0o600) == 0, listen(listener, SOMAXCONN) == 0 else {
             let reason = failure("The socket at \(path) cannot be set up")
             close(listener)
             unlink(path)
