@@ -5,43 +5,34 @@ Both go one way (`capture`), so what the owner sees on trying is what the agent 
 given. An agent given applications is shown the screen only while one of them is in front;
 the picture is of the whole display all the same, so what stands beside that application is
 in it. The file is named by the frame the helper named, in a folder the tool makes up, and
-nothing that is not a whole PNG is ever saved. What a model read off the picture stands
-between fence lines: a screen carries words from anywhere.
+nothing that is not a whole PNG is ever saved (`pictures.py` keeps it). What a model read off
+the picture stands between fence lines: a screen carries words from anywhere.
 """
 
 from __future__ import annotations
 
 import base64
 import binascii
-import re
 import struct
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts_desktop as t
 from my_agent_crew import texts_desktop_tools as d
 from my_agent_crew.browser.kit import one_line, schema, text_of
-from my_agent_crew.browser.screenshot import place
 from my_agent_crew.desktop import kit as k
 from my_agent_crew.desktop.kit import DesktopTool, Kit
+from my_agent_crew.desktop.pictures import has, judged, save
 from my_agent_crew.desktop.policy import FRAME_ID, frame_size
 from my_agent_crew.desktop.report import fenced, room
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.texts import IMAGE_EMPTY
-from my_agent_crew.texts_workspace import WORKSPACE_PRIVATE
 from my_agent_crew.tools.image import MAX_IMAGE_BYTES, describe
-from my_agent_crew.tools.private_paths import is_private
 from my_agent_crew.tools.registry import Tool, ToolError, ToolResult
 
-FOLDER = "desktop"
-# How many of its own pictures the tool leaves in the folder.
-KEPT = 40
 # How a PNG starts (its signature, then the chunk that gives its size) and how it ends.
 PNG, END = b"\x89PNG\r\n\x1a\n", b"IEND\xaeB`\x82"
 HEAD = struct.Struct(">8sI4sII")
-# The names this tool gives: only files named so are ever removed.
-OURS = re.compile(rf"{FRAME_ID.pattern}\.png\Z")
 
 
 @dataclass(frozen=True)
@@ -53,29 +44,6 @@ class Shot:
     path: str
     # The picture itself; None when the screen is the one the caller already has.
     data: bytes | None = None
-
-
-def file_of(folder: Path, frame_id: str) -> Path:
-    return folder / f"{frame_id}.png"
-
-
-def save(folder: Path, frame_id: str, data: bytes) -> Path:
-    """Write the picture under its frame's name, and keep the folder from growing: the
-    oldest of the tool's own pictures go, and nothing else in the folder is touched."""
-    folder.mkdir(parents=True, exist_ok=True)
-    path = file_of(folder, frame_id)
-    # A frame is named after its pixels, so a file of that name is this picture or something
-    # put in its place: it goes, and the picture is made new, never written through a link.
-    path.unlink(missing_ok=True)
-    with open(path, "xb") as file:
-        file.write(data)
-    others = sorted(
-        (found for found in folder.iterdir() if OURS.match(found.name) and found != path),
-        key=lambda found: (found.lstat().st_mtime_ns, found.name),
-    )
-    for old in others[: max(0, len(others) - (KEPT - 1))]:
-        old.unlink(missing_ok=True)
-    return path
 
 
 async def in_front(kit: Kit, outside: str) -> None:
@@ -119,11 +87,8 @@ def _picture(answer: dict, size: tuple[int, int]) -> bytes:
 async def capture(kit: Kit, since: str = "") -> Shot:
     """One picture of the screen, saved. `since` is a frame the caller already has: while the
     screen is still that frame and its file is still there, no picture is sent again."""
-    folder, shown = place(kit.workspace, kit.write_paths, FOLDER)
-    if is_private(folder):
-        # An agent that works in the crew home: this folder there is the helper's own.
-        raise ToolError(WORKSPACE_PRIVATE)
-    held = since if since and file_of(folder, since).is_file() else None
+    shown = judged(kit)
+    held = since if since and has(kit.workspace, shown, since) else None
     if kit.apps:
         await in_front(kit, t.SHOT_OUTSIDE)
     answer = await kit.ask_helper("screenshot", since=held)
@@ -138,18 +103,19 @@ async def capture(kit: Kit, since: str = "") -> Shot:
     if frame_size(frame_id) != (width, height):
         # A point is judged by the size its frame id names: it is the picture's or no use.
         raise ToolError(t.SHOT_BROKEN)
-    path = f"{shown}/{frame_id}.png"
     if answer.get("unchanged") is True:
         if frame_id != held:
             raise ToolError(t.SHOT_BROKEN)
-        return Shot(frame_id, width, height, path)
+        return Shot(frame_id, width, height, f"{shown}/{frame_id}.png")
     data = _picture(answer, (width, height))
+    # The helper took its time: the folder is judged again where it is now.
+    shown = judged(kit)
     try:
-        save(folder, frame_id, data)
+        save(kit.workspace, shown, frame_id, data)
     except OSError as exc:
         said = exc.strerror or type(exc).__name__
         raise ToolError(t.SHOT_NOT_SAVED.format(error=said)) from exc
-    return Shot(frame_id, width, height, path, data)
+    return Shot(frame_id, width, height, f"{shown}/{frame_id}.png", data)
 
 
 def build_screenshot(kit: Kit) -> Tool:
