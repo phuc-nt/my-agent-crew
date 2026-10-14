@@ -43,7 +43,10 @@ async def try_screenshot(agent_id: str, rt: Rt) -> dict[str, Any]:
     try:
         return await desktop.try_screenshot(profile)
     except ToolError as error:
-        raise HTTPException(409, str(error)) from error
+        # A refusal of the helper reaches a person in one line, its own words beside it.
+        cause = error.__cause__
+        told = said(cause) if isinstance(cause, DesktopError) else str(error)
+        raise HTTPException(409, told) from error
 
 
 @router.post("/desktop/permissions")

@@ -24,7 +24,7 @@ from my_agent_crew.desktop import kit as k
 from my_agent_crew.desktop.kit import DesktopTool, Kit
 from my_agent_crew.desktop.pictures import has, judged, save
 from my_agent_crew.desktop.policy import FRAME_ID, frame_size
-from my_agent_crew.desktop.report import fenced, room
+from my_agent_crew.desktop.report import answer, no_room, room, with_data
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.texts import IMAGE_EMPTY
 from my_agent_crew.tools.image import MAX_IMAGE_BYTES, describe
@@ -132,15 +132,18 @@ def build_screenshot(kit: Kit) -> Tool:
         saved = t.SHOT_SAVED.format(**told)
         if kit.vision is None:
             return "\n".join([saved, t.SHOT_NO_VISION])
+        # Sized to fit: an answer the registry cut would lose its closing fence. Under a cap
+        # with no room for any of what a model would read, no model is paid to read it.
+        if not room(kit.limit, saved):
+            return "\n".join([saved, no_room(kit.limit)])
         try:
             url = f"data:image/png;base64,{base64.b64encode(shot.data).decode('ascii')}"
             text, cost = await describe(kit.vision, url, question)
         except ProviderError as exc:
-            return "\n".join(
-                [saved, t.SHOT_UNREAD.format(error=one_line(str(exc), k.DETAIL_CHARS))]
-            )
-        # Sized to fit: an answer the registry cut would lose its closing fence.
-        output = "\n".join([saved, fenced((text or IMAGE_EMPTY)[: room(kit.limit, saved)])])
+            # What a route answers when it fails may repeat what it was sent.
+            why = t.VISION_SAID.format(error=one_line(str(exc), k.DETAIL_CHARS))
+            return with_data(kit.limit, "\n".join([saved, t.SHOT_UNREAD]), why)
+        output = answer(kit.limit, [saved], text or IMAGE_EMPTY)
         return ToolResult(ok=True, output=output, cost_usd=cost, metered=True)
 
     return DesktopTool(

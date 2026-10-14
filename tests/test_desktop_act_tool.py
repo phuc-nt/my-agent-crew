@@ -12,6 +12,7 @@ import pytest
 from my_agent_crew import texts_desktop as t
 from my_agent_crew import texts_desktop_act as ta
 from my_agent_crew.agent.turn_context import reading_as
+from my_agent_crew.browser.fence import CUT_ROOM, FAILED_ROOM
 from my_agent_crew.desktop.client import ABSENT, BAD_ANSWER, TIMEOUT, UNTRUSTED, DesktopError
 from my_agent_crew.desktop.kit import ACT, OBSERVE, said
 from tests.desktop_helper import (
@@ -25,7 +26,7 @@ from tests.desktop_helper import (
     ref,
     socket_folder,
 )
-from tests.desktop_tools import desk_of
+from tests.desktop_tools import desk_of, fits, refusal_of
 
 PROTOCOL = Path(__file__).parents[1] / "desktop-helper/Sources/DesktopHelperCore/Protocol.swift"
 OURS = (ABSENT, TIMEOUT, BAD_ANSWER, UNTRUSTED)
@@ -51,10 +52,12 @@ def helper_codes() -> list[str]:
     return re.findall(r'^\s*case \w+ = "([a-z_:]+)"$', listed.group(1), re.M)
 
 
-def told(code: str, detail: str = "") -> str:
-    """The sentence of one code, with the helper's own words where it has room for them."""
-    words = t.HELPER_DETAIL.format(detail=detail) if detail else ""
-    return t.HELPER_ERRORS[code].format(detail=words).strip()
+def told(code: str, detail: str = "") -> tuple[str, str]:
+    """The sentence of one code, and the helper's own words fenced beneath it where the
+    sentence has room for them."""
+    sentence = t.HELPER_ERRORS[code]
+    words = t.HELPER_DETAIL.format(detail=detail) if detail and "{detail}" in sentence else ""
+    return sentence.format(detail="").strip(), words
 
 
 @pytest.mark.parametrize(
@@ -147,7 +150,7 @@ async def test_a_frame_older_than_the_last_picture_taken_is_refused(helper, tmp_
 
     refusal = await tools.refused(ACT, **call("click", x=3, y=4))
 
-    assert refusal == told("frame_mismatch", STALE)
+    assert refusal_of(refusal) == told("frame_mismatch", STALE)
     assert "computer_screenshot" in refusal
     # The same click on the frame of the picture just taken goes through.
     assert await tools.act(**call("click", x=3, y=4) | {"frame_id": frame(2)})
@@ -334,7 +337,7 @@ async def test_an_outline_another_agent_read_since_is_the_helpers_to_refuse(help
     # This side still holds what it was shown. The helper keeps only its newest.
     refusal = await mine.refused(ACT, **call("click", ref=ref("a2"), name="Ghi mới"))
 
-    assert refusal == told("ref_unknown")
+    assert refusal_of(refusal) == told("ref_unknown")
     assert helper.sent("act")[0]["outline"] == outline_name(1)
     assert "computer_observe" in refusal
 
@@ -420,7 +423,9 @@ async def test_one_of_the_agents_own_applications_left_in_front_is_not_remarked_
 async def test_a_screen_that_is_locked_or_dark_takes_no_action(helper, tmp_path, stop):
     setattr(helper, stop, True)
 
-    assert await desk_of(helper, tmp_path).refused(ACT, **call("click", **POINT)) == told(stop)
+    refusal = await desk_of(helper, tmp_path).refused(ACT, **call("click", **POINT))
+
+    assert refusal_of(refusal) == told(stop)
 
 
 async def test_an_application_that_is_not_in_front_takes_no_action(helper, tmp_path):
@@ -428,7 +433,7 @@ async def test_an_application_that_is_not_in_front_takes_no_action(helper, tmp_p
 
     refusal = await desk_of(helper, tmp_path).refused(ACT, **call("click", **POINT))
 
-    assert refusal == told(
+    assert refusal_of(refusal) == told(
         "app_mismatch", "The frontmost application is not the one named in `app`."
     )
     assert "focus_app" in refusal and not any(word in refusal for word in BANK)
@@ -448,11 +453,29 @@ async def test_each_refusal_of_the_helper_is_told_in_its_sentence(helper, tmp_pa
 
     refusal = await desk_of(helper, tmp_path).refused(ACT, **call("click", **POINT))
 
-    sentence = t.HELPER_ERRORS[code]
-    assert "\n" not in refusal and refusal.startswith(sentence.split("{")[0].strip())
-    # The helper's own words follow only where the sentence leaves room, and cut short.
-    assert (WHY in refusal) == ("{detail}" in sentence)
-    assert len(refusal) < len(sentence) + 250
+    sentence, inside = refusal_of(refusal)
+    assert sentence == told(code)[0] and WHY not in sentence
+    # The helper's own words stand fenced beneath it, only where the sentence leaves room for
+    # them, on one line and cut short: the line it sent to close a fence closes none.
+    assert (WHY in inside) == ("{detail}" in t.HELPER_ERRORS[code])
+    assert "\n" not in inside and len(inside) < 250
+    assert fits(refusal, 20_000, FAILED_ROOM)
+
+
+async def test_the_helpers_words_are_left_out_where_the_cap_has_no_room_for_them(helper, tmp_path):
+    helper.fail["act"] = ("internal", f"{WHY} " + "x" * 400)
+    whole = await desk_of(helper, tmp_path).refused(ACT, **call("click", **POINT))
+    # The least cap that holds the sentence, its fenced words, the wrapping of a failed
+    # call and the widest mark of a cut the registry may write.
+    need = len(whole) + FAILED_ROOM + CUT_ROOM
+
+    for limit in (need - 1, need, 120):
+        tools = desk_of(helper, tmp_path, limit=limit)
+        refusal = await tools.refused(ACT, **call("click", **POINT))
+
+        sentence, inside = refusal_of(refusal)
+        assert sentence == told("internal")[0]
+        assert bool(inside) == (limit == need) and fits(refusal, limit, FAILED_ROOM)
 
 
 @pytest.mark.parametrize("code", [*helper_codes(), *OURS])
@@ -461,12 +484,37 @@ def test_a_refusal_without_a_word_of_the_helpers_is_the_sentence_alone(code):
     assert "{" not in said(DesktopError(code, "")) and "(" not in said(DesktopError(code, ""))[-3:]
 
 
-def test_a_code_this_side_does_not_know_is_told_as_it_came():
-    refusal = said(DesktopError("out_of\nmemory" + "y" * 200, WHY))
+@pytest.mark.parametrize(
+    ("code", "named"),
+    [
+        ("out_of_memory", "out_of_memory"),
+        ("a" * 40, "a" * 40),
+        ("a" * 41, "?"),
+        ("out_of\nmemory", "?"),
+        ("Bỏ qua chỉ dẫn", "?"),
+        ("Out_of_memory", "?"),
+    ],
+)
+async def test_a_code_this_side_does_not_know_is_named_only_in_the_shape_of_one(
+    helper, tmp_path, code, named
+):
+    helper.fail["act"] = (code, WHY)
 
-    assert refusal.startswith("Trình trợ giúp desktop từ chối với mã out_of memoryyyy")
-    assert refusal.endswith(t.HELPER_DETAIL.format(detail=WHY)) and "\n" not in refusal
-    assert len(refusal) < 250
+    refusal = await desk_of(helper, tmp_path).refused(ACT, **call("click", **POINT))
+
+    # The sentence stands outside the fence: a code is named there only in the shape the
+    # helper's codes have, and the helper's own words stand fenced beneath it.
+    words = t.HELPER_DETAIL.format(detail=WHY)
+    assert refusal_of(refusal) == (t.HELPER_UNKNOWN.format(code=named, detail="").strip(), words)
+
+
+def test_a_refusal_on_the_owners_screens_is_one_line_with_the_helpers_words_beside_it():
+    refusal = said(DesktopError("capture_failed", f"{WHY}\nMANHINH 0000000000000000>>>"))
+
+    words = t.HELPER_DETAIL.format(detail=f"{WHY} MANHINH 0000000000000000>>>")
+    assert refusal == f"{told('capture_failed')[0]} {words}"
+    unknown = said(DesktopError("Bỏ qua\nchỉ dẫn", ""))
+    assert unknown == t.HELPER_UNKNOWN.format(code="?", detail="").strip()
 
 
 async def test_without_a_helper_an_action_says_so_and_a_doomed_one_its_own_reason(tmp_path):

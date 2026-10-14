@@ -73,6 +73,12 @@ SCREEN_FENCE = (
 )
 SCREEN_OPEN = "<<<MANHINH {nonce}"
 SCREEN_CLOSE = "MANHINH {nonce}>>>"
+# Said in place of what the screen had a say in, when the agent's cap leaves no room for it.
+SCREEN_NO_ROOM = (
+    "Không đưa được phần đọc từ màn hình: giới hạn đầu ra của agent này (tool_output_chars = "
+    "{limit}) không đủ chỗ cho nó cùng hàng rào dữ liệu bao quanh. Hãy báo chủ nâng "
+    "tool_output_chars của agent."
+)
 
 # computer_state.
 STATE_HELPER = "Trình trợ giúp desktop {version} đang chạy."
@@ -115,7 +121,8 @@ SHOT_NO_VISION = (
     "Máy này chưa có tuyến đọc ảnh (vision_routes) nên không kèm mô tả. Đọc phần tử của ứng "
     "dụng bằng computer_observe."
 )
-SHOT_UNREAD = "Không đọc được ảnh: {error}"
+SHOT_UNREAD = "Không đọc được ảnh: tuyến đọc ảnh báo lỗi."
+VISION_SAID = "Tuyến đọc ảnh báo: {error}"
 
 # computer_observe.
 OBSERVE_NO_APPS = (

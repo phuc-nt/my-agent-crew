@@ -280,6 +280,17 @@ async def test_a_person_is_shown_no_application_the_agent_itself_would_not_be(cr
     assert helper.sent("screenshot") == [] and crew.pictures("coach") == []
 
 
+async def test_a_refusal_of_the_helper_reaches_a_person_in_one_line(crew, helper):
+    helper.fail["screenshot"] = ("capture_failed", "the display\nwent away")
+
+    status, told = await crew.tries("coach")
+
+    # Not the fenced layout an agent is given: the helper's words beside the sentence.
+    words = t.HELPER_DETAIL.format(detail="the display went away")
+    assert (status, told) == (409, {"detail": f"Không chụp được màn hình. {words}"})
+    assert crew.pictures("coach") == []
+
+
 async def test_an_agent_without_the_desktop_gives_a_person_no_picture_either(crew, helper):
     for without in ("plain", "default"):
         assert await crew.tries(without) == (409, {"detail": t.TRY_OFF}), without
