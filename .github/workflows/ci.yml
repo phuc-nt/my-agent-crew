@@ -40,3 +40,11 @@ jobs:
       - run: npm run bundle
       # The bundle is committed so `python -m my_agent_crew` works from a clone; a stale one fails here.
       - run: git diff --exit-code --stat -- ../my_agent_crew/server/static
+
+  desktop-helper:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      # The helper's tests reach the machine only through a fake: nothing here asks macOS for a
+      # permission or posts an event.
+      - run: scripts/desktop-helper-check.sh
