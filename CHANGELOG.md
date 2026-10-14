@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.20.0] — 2026-10-14
+
 ### Added
 
 - An agent whose own file says `computer: "on"` can see and work the real screen of the Mac the
@@ -3019,6 +3021,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.20.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.20.0
 [0.19.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.19.0
 [0.18.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.18.0
 [0.17.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.17.0
