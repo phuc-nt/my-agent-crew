@@ -125,21 +125,22 @@ class Kit:
             async with asyncio.timeout(seconds):
                 if self.pool.left[self.agent_id] != self.born:
                     raise ToolError(t.BROWSER_GONE)
-                try:
-                    session = await self.pool.session(self.agent_id)
-                except Reserved as exc:  # a person is signing in on the agent's profile
-                    raise ToolError(LOGIN_OPEN) from exc
-                except Exception as exc:  # noqa: BLE001 - whatever kept the browser from starting
-                    raise ToolError(t.BROWSER_DOWN.format(error=first_line(exc))) from exc
-                async with self.pool.hold(session):
-                    tabs = session.tabs
-                    if make:
-                        tab = tabs.find(owner, label) or await tabs.open(owner, label)
-                    else:
-                        tab = tabs.get(owner, label, last=last)
-                    async with tab.lock:
-                        tabs.touch(tab)
-                        yield session, tab
+                with self.pool.calling(self.agent_id):  # from before the first await
+                    try:
+                        session = await self.pool.session(self.agent_id)
+                    except Reserved as exc:  # a person is signing in on the agent's profile
+                        raise ToolError(LOGIN_OPEN) from exc
+                    except Exception as exc:  # noqa: BLE001 - whatever kept it from starting
+                        raise ToolError(t.BROWSER_DOWN.format(error=first_line(exc))) from exc
+                    async with self.pool.hold(session):
+                        tabs = session.tabs
+                        if make:
+                            tab = tabs.find(owner, label) or await tabs.open(owner, label)
+                        else:
+                            tab = tabs.get(owner, label, last=last)
+                        async with tab.lock:
+                            tabs.touch(tab)
+                            yield session, tab
         except ToolError:
             raise
         except TimeoutError as exc:

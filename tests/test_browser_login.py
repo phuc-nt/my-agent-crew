@@ -21,10 +21,12 @@ import pytest
 from my_agent_crew import texts_browser as t
 from my_agent_crew.browser import launch as launch_module
 from my_agent_crew.browser import login as login_module
+from my_agent_crew.browser import pool as pool_module
 from my_agent_crew.browser.console import LOCKED, NONE, OPEN, read_console
 from my_agent_crew.browser.launch import launch
 from my_agent_crew.browser.login import (
     BUSY,
+    GONE,
     HEADED,
     LOOK_SECONDS,
     NO_CONSOLE,
@@ -426,6 +428,55 @@ async def test_a_window_that_would_not_open_leaves_the_agent_its_browser(tmp_pat
         assert d.pool.running("coach") is None and len(stopped) == 1
 
 
+@pytest.mark.parametrize("answers", [True, False])
+async def test_a_browser_that_came_up_and_could_not_be_made_a_window_of_is_closed_again(
+    tmp_path, monkeypatch, answers: bool
+):
+    monkeypatch.setattr(launch_module, "CLOSE_SECONDS", 0.05)
+    stopped: list[int] = []
+
+    class Watched(FilteringProxy):
+        async def stop(self) -> None:
+            stopped.append(self.port)
+            await super().stop()
+
+    monkeypatch.setattr(login_module, "FilteringProxy", Watched)
+
+    class Bare(Quit):
+        """A browser that came up with no page and will open none."""
+
+        closes = 0
+
+        async def new_page(self) -> Any:
+            raise RuntimeError("no page to be had")
+
+        async def close(self) -> None:
+            self.closes += 1
+            if not answers:
+                await asyncio.Event().wait()
+
+    browser = Bare([])
+    browser.pages = []
+
+    async def opener(driver: Any, profile: Path, channel: str, proxy: Any) -> Bare:
+        return browser
+
+    async with browsers(tmp_path / "browser") as pool:
+        windows = LoginWindows(pool, console=Screen(), opener=opener)
+        try:
+            async with asyncio.timeout(5):
+                with pytest.raises(RuntimeError, match="no page to be had"):
+                    await windows.open("coach")
+
+            # Up and nobody's, it would hold the profile, and its proxy would go on answering.
+            assert browser.closes == 1
+            assert len(stopped) == 1 and await gone(stopped[0])
+            assert windows.window("coach") is None and pool.reserved == set()
+            assert browser.heard == {}  # nothing of it is listened to any more
+        finally:
+            await shut(windows)
+
+
 async def test_a_request_that_gives_up_waiting_still_leaves_a_window_the_crew_knows_of(tmp_path):
     async with desk(tmp_path) as d:
         asking = asyncio.ensure_future(d.windows.open("coach"))
@@ -465,6 +516,36 @@ async def test_the_address_a_window_starts_on_is_checked_as_a_call_of_the_agent_
         await until(lambda: "GET /don" in d.site.seen)
         await until(lambda: window.context.pages[0].url == d.site.url("/don"))
         assert d.intranet.seen == []
+
+
+@pytest.mark.parametrize("reopened", [False, True])
+async def test_no_window_is_given_for_an_agent_that_left_while_its_address_was_looked_up(
+    tmp_path, reopened: bool
+):
+    async with desk(tmp_path) as d:
+        loop, named = asyncio.get_running_loop(), d.pool.resolver
+
+        def leaving(host: str) -> list[str]:
+            # As the server notes an agent that is removed, or taken off the browser.
+            d.pool.left["coach"] += 1
+            if reopened:  # and one of that id is back, with a window of its own, already
+                asyncio.run_coroutine_threadsafe(d.windows.open("coach"), loop).result(30)
+            return named(host)
+
+        d.pool.resolver = leaving
+
+        with pytest.raises(Refused) as refused:
+            await d.windows.open("coach", d.site.url("/don"))
+
+        assert refused.value.why == GONE == "gone"
+        # Nothing was started for it, and no window of another's was handed over as its own.
+        assert d.opener.asked == ["coach"] * reopened and d.site.seen == []
+        assert (d.windows.window("coach") is not None) is reopened
+        assert d.pool.reserved == ({"coach"} if reopened else set())
+        assert d.profile().exists() is reopened
+        # Asked of the agent as it is now, a window is given.
+        d.pool.resolver = named
+        assert (await d.windows.open("coach", d.site.url("/don"))).context.pages
 
 
 async def test_a_window_is_the_persons_before_the_address_it_starts_on_has_answered(tmp_path):
@@ -568,6 +649,85 @@ async def test_a_call_of_the_agent_is_told_a_person_is_signing_in_and_reads_sign
             assert await windows.done("coach") is True
 
             assert "khách quen" in await go.run({"url": w.site.url("/toi")})
+        finally:
+            await shut(windows)
+
+
+@talking("coming-up")
+async def test_no_window_opens_between_a_browser_coming_up_for_a_call_and_the_call_holding_it(
+    tmp_path,
+):
+    async with world(tmp_path, PAGES) as w:
+        windows = LoginWindows(w.pool, console=Screen(), opener=launch)
+        go, held, whys = build_navigate(w.kit()), w.pool.hold, []
+
+        @asynccontextmanager
+        async def asked_first(session: Any) -> AsyncIterator[Any]:
+            # The browser is up, for this call, which has not said yet that it is using it.
+            try:
+                await windows.open("coach")
+            except Refused as refused:
+                whys.append(refused.why)
+            async with held(session):
+                yield session
+
+        w.pool.hold = asked_first
+        try:
+            calling = asyncio.ensure_future(go.run({"url": w.site.url("/toi")}))
+            await asyncio.wait({calling})
+
+            assert whys == [BUSY] and windows.window("coach") is None
+            assert "khách lạ" in calling.result() and w.pool.reserved == set()
+            # The call is over: its browser is up and in nobody's way.
+            assert windows.why_not("coach") == ""
+        finally:
+            await shut(windows)
+
+
+@talking("gave-up")
+async def test_a_call_that_gave_up_on_the_browser_is_in_no_window_s_way_afterwards(
+    tmp_path, monkeypatch
+):
+    starting, started, launched = asyncio.Event(), asyncio.Event(), pool_module.launch
+
+    async def slowly(*asked: Any, **named: Any) -> Any:
+        starting.set()
+        await started.wait()
+        return await launched(*asked, **named)
+
+    monkeypatch.setattr(pool_module, "launch", slowly)
+    async with world(tmp_path, PAGES) as w:
+        windows = LoginWindows(w.pool, console=Screen(), opener=launch)
+        go, held = build_navigate(w.kit()), w.pool.hold
+        try:
+            # Stopped while the browser was starting for it.
+            calling = asyncio.ensure_future(go.run({"url": w.site.url("/toi")}))
+            await starting.wait()
+            assert windows.why_not("coach") == BUSY
+            calling.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await calling
+            started.set()
+            session = await w.pool.session("coach")
+            assert windows.why_not("coach") == ""
+
+            # Failed between being given the browser and holding it.
+            def falls(_session: Any) -> Any:
+                raise RuntimeError("fell between the two")
+
+            w.pool.hold = falls
+            with pytest.raises(RuntimeError, match="fell between the two"):
+                await go.run({"url": w.site.url("/toi")})
+            w.pool.hold = held
+            assert w.pool.running("coach") is session and windows.why_not("coach") == ""
+
+            # Told a person is signing in: it never had the browser.
+            window = await windows.open("coach")
+            with pytest.raises(ToolError) as told:
+                await go.run({"url": w.site.url("/toi")})
+            assert str(told.value) == LOGIN_OPEN and await windows.done("coach") is True
+            assert windows.why_not("coach") == "" and window.context.pages == []
+            assert (await windows.open("coach")).context.pages
         finally:
             await shut(windows)
 
