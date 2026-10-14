@@ -8,9 +8,11 @@ import stat
 
 import pytest
 
+from my_agent_crew.browser import launch as launch_module
 from my_agent_crew.browser import pool as pool_module
 from my_agent_crew.browser.proxy import FilteringProxy
-from tests.browser_servers import Clock, browsers, sites
+from my_agent_crew.browser.session import Session
+from tests.browser_servers import Clock, browsers, local_names, sites
 
 SHOP = {
     "/": "<title>Cửa hàng</title><h1>Cửa hàng</h1>",
@@ -360,3 +362,23 @@ async def test_a_browser_runs_no_errand_of_its_own(tmp_path):
             await asyncio.sleep(2.5)
 
     assert {host for host in asked if not host.endswith(".invalid")} == {"127.0.0.1"}
+
+
+async def test_a_browser_that_never_answers_a_close_still_gives_up_its_proxy(monkeypatch):
+    """Its driver went away while it was up: the way out it was given is not left answering."""
+    monkeypatch.setattr(launch_module, "CLOSE_SECONDS", 0.05)
+
+    class Deaf:
+        async def close(self) -> None:
+            await asyncio.Event().wait()
+
+    proxy = FilteringProxy(local_names, None)
+    await proxy.start()
+    port = proxy.port
+    session = Session("coach", Deaf(), proxy, None, 0.0)
+
+    async with asyncio.timeout(5):
+        await session.close()
+
+    with pytest.raises(OSError):
+        await asyncio.open_connection("127.0.0.1", port)

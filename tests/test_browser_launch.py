@@ -33,10 +33,12 @@ from my_agent_crew.browser.launch import (
     PREFERENCES,
     VIEWPORT,
     Driver,
+    Stuck,
     launch,
     prepare,
+    shut_down,
 )
-from tests.browser_servers import browsers, sites
+from tests.browser_servers import browsers, drivers, sites
 
 COOKIE = 0x2112A442
 POLICY = "disable_non_proxied_udp"
@@ -334,16 +336,6 @@ async def test_a_driver_that_did_not_start_is_not_kept_and_the_next_launch_start
     assert starts == [0, 1]
 
 
-def drivers() -> list[int]:
-    """The driver processes this very process started, and no other's."""
-    listing = subprocess.run(
-        ["ps", "-axww", "-o", "pid=,ppid=,args="], capture_output=True, text=True, check=True
-    ).stdout.splitlines()
-    rows = [line.split(None, 2) for line in listing]
-    mine = [r for r in rows if len(r) == 3 and int(r[1]) == os.getpid()]
-    return [int(pid) for pid, _parent, args in mine if "/playwright/driver/" in args]
-
-
 async def test_a_driver_that_went_away_takes_its_browsers_along_and_the_next_call_starts_afresh(
     tmp_path,
 ):
@@ -368,3 +360,81 @@ async def test_a_driver_that_went_away_takes_its_browsers_along_and_the_next_cal
             await tab.page.goto(site.url("/"))
             assert again is not one and await tab.page.title() == "Trang"
             assert len(drivers()) == 1 and drivers() != [pid]
+
+
+class Silent:
+    """A driver whose process went away: it is asked, and never answers."""
+
+    def __init__(self) -> None:
+        self.chromium, self.asked = self, 0
+
+    async def launch_persistent_context(self, _profile: str, **_options) -> None:
+        self.asked += 1
+        await asyncio.Event().wait()
+
+
+async def test_a_start_the_driver_never_answers_is_given_up_after_a_while(tmp_path, monkeypatch):
+    # The driver's own thirty seconds come first: one that is there says what went wrong.
+    assert launch_module.LAUNCH_SECONDS > 30
+    monkeypatch.setattr(launch_module, "LAUNCH_SECONDS", 0.05)
+
+    with pytest.raises(Stuck, match="Chromium did not start within 0.05 seconds"):
+        async with asyncio.timeout(5):
+            await launch(Silent(), tmp_path / "coach", "chromium", PROXY)
+
+
+async def test_a_start_that_was_given_up_leaves_no_place_taken_and_the_next_call_starts_one(
+    tmp_path, monkeypatch
+):
+    """A start nobody ever ended would be handed to every later call of the agent."""
+    monkeypatch.setattr(launch_module, "LAUNCH_SECONDS", 0.05)
+    with sites({"/": "<title>Trang</title>"}) as (site,):
+        async with browsers(tmp_path / "browser", site) as pool:
+            real, silent = pool.driver.get, Silent()
+
+            async def gone_once():
+                return silent if not silent.asked else await real()
+
+            monkeypatch.setattr(pool.driver, "get", gone_once)
+            with pytest.raises(Stuck):
+                async with asyncio.timeout(5):
+                    await pool.session("coach")
+            await asyncio.sleep(0)
+            assert silent.asked == 1 and not pool.in_use("coach")
+
+            monkeypatch.setattr(launch_module, "LAUNCH_SECONDS", 40)
+            tab = await (await pool.session("coach")).tabs.open("c1")
+            await tab.page.goto(site.url("/"))
+            assert await tab.page.title() == "Trang"
+
+
+class Deaf:
+    """A browser whose driver went away: asked to close, it never answers."""
+
+    def __init__(self) -> None:
+        self.asked = 0
+
+    async def close(self) -> None:
+        self.asked += 1
+        await asyncio.Event().wait()
+
+
+async def test_a_browser_that_never_answers_a_close_is_waited_for_only_a_while(monkeypatch, caplog):
+    monkeypatch.setattr(launch_module, "CLOSE_SECONDS", 0.05)
+    deaf = Deaf()
+
+    async with asyncio.timeout(5):
+        await shut_down(deaf)
+
+    assert deaf.asked == 1
+    assert "a browser did not close within 0.05 seconds" in caplog.text
+
+
+async def test_a_browser_that_already_went_away_is_closed_without_a_word(caplog):
+    class Dead:
+        async def close(self) -> None:
+            raise RuntimeError("Target page, context or browser has been closed")
+
+    await shut_down(Dead())
+
+    assert caplog.text == ""

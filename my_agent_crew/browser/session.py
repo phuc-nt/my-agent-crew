@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from my_agent_crew.browser.downloads import Downloads
+from my_agent_crew.browser.launch import shut_down
 from my_agent_crew.browser.logins import remember
 from my_agent_crew.browser.proxy import FilteringProxy
 from my_agent_crew.browser.tabs import Tabs
@@ -31,8 +32,5 @@ class Session:
     async def close(self) -> None:
         # Where it is signed in is read while it can still say (`logins.py`).
         await remember(self.context, self.profile)
-        try:
-            await self.context.close()
-        except Exception:  # noqa: BLE001 - a browser that already died is closed
-            pass
+        await shut_down(self.context)
         await self.proxy.stop()

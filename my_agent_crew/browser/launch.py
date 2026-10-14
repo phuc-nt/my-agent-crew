@@ -1,5 +1,5 @@
-"""How a Chromium of the crew is started, whoever starts it: an agent's own, which nobody
-sees (`pool.py`), and the window a person signs in through (`login.py`).
+"""How a Chromium of the crew is started and closed, whoever does it: an agent's own, which
+nobody sees (`pool.py`), and the window a person signs in through (`login.py`).
 
 Either one runs on the agent's profile and behind a proxy that refuses private addresses
 (`proxy.py`). The switches and the preferences below are what keeps anything from leaving it
@@ -11,14 +11,20 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+log = logging.getLogger(__name__)
+
 VIEWPORT = {"width": 1280, "height": 800}
 ACTION_MS, NAVIGATION_MS = 8_000, 20_000
+# The driver gives a start thirty seconds and says so when they are over. A driver whose
+# process went away says nothing at all, so neither a start nor a close is waited for longer.
+LAUNCH_SECONDS, CLOSE_SECONDS = 40, 10
 # What the driver turns off in every Chromium it starts. Chromium keeps the last
 # `--disable-features` it is given and drops the others, so the crew's switch repeats the
 # driver's names, and the driver's own switch is taken out of the command line.
@@ -56,6 +62,10 @@ ARGS = (
 # WebRTC sends no UDP, which a proxy cannot carry. The switch of the same name reaches no
 # renderer of this Chromium; the preference in the profile is what its pages obey.
 PREFERENCES = {"webrtc": {"ip_handling_policy": "disable_non_proxied_udp"}}
+
+
+class Stuck(RuntimeError):
+    """A Chromium that did not come up in the time a start is given."""
 
 
 def _broken(playwright: Any) -> asyncio.Future[Any] | None:
@@ -151,17 +161,32 @@ async def launch(
     own: dict[str, Any] = {"no_viewport": True} if headed else {"viewport": VIEWPORT}
     if downloads is not None:
         own["downloads_path"] = str(downloads)
-    context = await driver.chromium.launch_persistent_context(
-        str(profile),
-        headless=not headed,
-        channel=channel,
-        proxy=proxy,
-        accept_downloads=downloads is not None,
-        args=list(ARGS),
-        ignore_default_args=[DRIVER_SWITCH],
-        chromium_sandbox=sys.platform == "darwin",
-        **own,
-    )
+    try:
+        async with asyncio.timeout(LAUNCH_SECONDS):
+            context = await driver.chromium.launch_persistent_context(
+                str(profile),
+                headless=not headed,
+                channel=channel,
+                proxy=proxy,
+                accept_downloads=downloads is not None,
+                args=list(ARGS),
+                ignore_default_args=[DRIVER_SWITCH],
+                chromium_sandbox=sys.platform == "darwin",
+                **own,
+            )
+    except TimeoutError as exc:
+        raise Stuck(f"Chromium did not start within {LAUNCH_SECONDS} seconds") from exc
     context.set_default_timeout(ACTION_MS)
     context.set_default_navigation_timeout(NAVIGATION_MS)
     return context
+
+
+async def shut_down(context: Any) -> None:
+    """Close a Chromium, waited for no longer than `CLOSE_SECONDS`. One that already went
+    away is closed; one that does not answer is left to end with its driver."""
+    try:
+        await asyncio.wait_for(context.close(), CLOSE_SECONDS)
+    except TimeoutError:
+        log.warning("a browser did not close within %s seconds", CLOSE_SECONDS)
+    except Exception:  # noqa: BLE001 - a browser that already died is closed
+        pass
