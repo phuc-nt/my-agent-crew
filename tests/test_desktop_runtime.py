@@ -24,6 +24,7 @@ from my_agent_crew.tools.shell_sandbox import private_rules
 from tests.browser_crew import built
 from tests.browser_crew import crew_home as crew
 from tests.desktop_helper import VERSION, FakeHelper, desk, frame, listening, socket_folder
+from tests.test_private_paths import folds_case
 from tests.test_shell_network_sandbox import needs_sandbox, python, run
 
 ASSEMBLY = "my_agent_crew.server.tool_assembly"
@@ -183,6 +184,8 @@ async def test_the_folder_is_closed_to_the_file_tools_whoever_uses_the_desktop(
     (home / "inbox" / "note.md").write_text("thu cua chu\n", encoding="utf-8")
 
     rt = built(env)
+    # Where the disk folds case, as macOS does, another spelling is the same folder.
+    spelt = "DESKTOP" if folds_case(tmp_path) else "desktop"
 
     assert is_private(home / "desktop" / "sock") and not is_private(home / "inbox" / "note.md")
     # An agent whose workspace is the crew home itself walks everything else in it.
@@ -194,7 +197,7 @@ async def test_the_folder_is_closed_to_the_file_tools_whoever_uses_the_desktop(
         ("workspace_read", {"path": "desktop/note.md"}),
         ("workspace_read", {"path": "desktop/sock"}),
         ("workspace_write", {"path": "desktop/sock", "content": "x"}),
-        ("workspace_write", {"path": "DESKTOP/new.md", "content": "x"}),
+        ("workspace_write", {"path": f"{spelt}/new.md", "content": "x"}),
     ):
         answer = await wide.execute(name, args)
 
