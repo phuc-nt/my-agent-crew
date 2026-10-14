@@ -11,6 +11,7 @@ to every sandboxed command whether or not a helper ever runs (`tools/private_pat
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -41,7 +42,9 @@ def desktop_private(settings: Settings) -> tuple[Path, ...]:
     socket in and, where the machine's file puts the socket elsewhere, that socket too. The
     folder such a socket is in is not closed with it: it may be one many things share."""
     root, path = desktop_root(settings.home), socket_path(settings.home, settings.desktop)
-    return (root,) if path.is_relative_to(root) else (root, path)
+    # Judged where the path leads: one that climbs out of the folder with `..` is not in it.
+    inside = Path(os.path.realpath(path)).is_relative_to(os.path.realpath(root))
+    return (root,) if inside else (root, path)
 
 
 def close_desktop(settings: Settings) -> None:
