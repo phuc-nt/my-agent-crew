@@ -7925,7 +7925,8 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     thay, socket có trình trợ giúp trả lời và tệp không phải socket thì để nguyên; đường dẫn 103
     byte được nhận, 104 thì không, đo bằng byte; nhiều yêu cầu trên một kết nối, yêu cầu tới từng
     mảnh; dòng quá 64 KiB bị trả `bad_request` và kết nối đóng; kết nối của người dùng khác bị
-    đóng không lời; dừng thì xoá socket).
+    đóng không lời; 64 kết nối dồn tới khi trình trợ giúp chưa kịp nhận đều được giữ chờ, không bị
+    từ chối như khi hàng chờ chỉ có 16 chỗ; dừng thì xoá socket).
   - XCTest: `RequestParsingTests`, `HelperPiecesTests` (mỗi yêu cầu một đối tượng JSON trên một
     dòng; id tối đa 64 ký tự; bảy lệnh và mười sáu mã lỗi đúng như hợp đồng; khung hình là đầu
     SHA-256 của ảnh, kích thước và màn hình, sống 300 giây và chỉ khi còn mới nhất; ảnh thu nhỏ

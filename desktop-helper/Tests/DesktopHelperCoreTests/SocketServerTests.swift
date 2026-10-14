@@ -500,6 +500,16 @@ final class SocketServerTests: XCTestCase {
         try assertAnswers(connect(path))
     }
 
+    func testABurstOfConnectionsTheHelperHasNotTakenYetIsNotRefused() throws {
+        // Nothing accepts here, as when the helper is slow to: every connection waits in the queue.
+        let listener = try SocketSetup.makeListener(at: path, owner: geteuid())
+        defer { close(listener) }
+
+        let waiting = try (1...64).map { _ in try connect(path) }
+
+        XCTAssertEqual(waiting.count, 64)
+    }
+
     // MARK: stopping
 
     func testStopRemovesTheSocketAndEndsEveryConnection() throws {
