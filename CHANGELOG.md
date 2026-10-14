@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-10-14
+
 ### Added
 
 - `browser_download`, brought by `browser: act`, clicks an element the way `browser_act` clicks
@@ -2882,6 +2884,7 @@ restarting the process.
 
 - One agent, `run_turn` loop with a tool approval gate, web UI, memory on disk.
 
+[0.19.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.19.0
 [0.18.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.18.0
 [0.17.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.17.0
 [0.16.0]: https://github.com/phuc-nt/my-agent-crew/releases/tag/v0.16.0
