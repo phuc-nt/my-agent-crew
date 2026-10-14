@@ -71,8 +71,8 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà `workspace_write`, `workspace_edit` và `artifact_export` (xuất một canvas ra tệp) được ghi; ghi chỗ khác bị từ chối với lỗi nêu danh sách này, và không thư mục nào được tạo. Rỗng thì ghi được mọi nơi trong workspace. Dùng cho agent autonomous có workspace là một repo, nơi tệp lạc chỗ có thể bị commit lên; đường dẫn ra ngoài workspace là lỗi khởi động. Không ảnh hưởng `shell_run`, xem `shell_write_paths` |
 | `script_calls` | `none`, `read_only` hoặc `gated` | `read_only` | agent có được trao `tool_script` không, và script của nó gọi được những tool nào. `none`: agent không được trao `tool_script`, dù nó giữ tool đọc nào và dù một máy chủ MCP có tool cho script gọi; nó không viết script nào trong lượt của mình. Lịch có khoá `script` của nó vẫn chạy, chỉ đọc, vì script đó do chủ viết trong tệp chứ không do agent viết ([Job chạy script](#job-chạy-script)). `read_only`: chỉ tool chỉ đọc. `gated`: thêm cả tool có ghi mà agent đang giữ (`workspace_write`, `shell_run`, tool MCP không nằm trong `read_only`, …); mỗi lời gọi như vậy được cổng duyệt xét **trước khi chạy**, theo đúng luật của một lời gọi trực tiếp, và lời gọi nào cổng phải hỏi người thì script dừng ở đó chứ không chờ ai. Hai tool luôn phải hỏi (`ask_user`, `schedule_create`) vẫn ở ngoài. Agent `gated` còn giữ `delegate` thì script của nó giao việc được cho agent khác (`tools.delegate`), chỉ trong lượt của chính nó: không khi đang làm việc được giao, không trong job. Xem [tools.md](tools.md#gọi-tool-từ-script). Chỉ đọc từ `agent.yaml` của chính agent: không có khoá toàn cục, không có biến môi trường, không agent nào thừa hưởng của agent khác, kể cả của master. Giá trị nào khác ba chữ đó (`Gated`, `"true"`, để trống) là lỗi khởi động, còn lưu qua API thì bị từ chối (422). Một giá trị đúng/sai của YAML cũng vậy, và lỗi nói luôn chữ phải viết: `off`, `no`, `false`, `on`, `yes`, `true` viết trần được YAML đọc thành đúng/sai chứ không thành chữ, nên muốn tắt thì ghi `none` ("script_calls must be none, read_only or gated, not a boolean …: write none to hand the agent no tool_script, or the one of the three meant"). Về mức mặc định bằng cách bỏ khoá hoặc ghi `read_only`. Sửa qua API có hiệu lực không cần khởi động lại, kể cả việc lấy lại và trao lại `tool_script`: từ lượt kế tiếp của agent và từ lần chạy kế tiếp của một lịch, còn lượt hay job đang chạy lúc lưu thì kết thúc như lúc nó bắt đầu ([Sửa agent từ web/API](#sửa-agent-từ-webapi)); sửa tay cần khởi động lại |
 | `script_llm` | bool | `true` | script của agent có được tự hỏi model bằng `llm.classify` / `llm.summarise` không ([tools.md](tools.md#gọi-tool-từ-script), bullet "Script tự hỏi model"). `false`: script không hỏi được model nào, trong lượt của agent lẫn trong job `script` của nó; mô tả của `tool_script` không nhắc tới `llm` nữa, và script vẫn gọi `llm.` thì nhận một lỗi bắt được ("không hỏi model được ở đây."), không model nào được gọi và không đồng nào bị tính. Dùng cho agent mà chủ muốn script chỉ là code: lọc, đếm, gọi tool, không có khoản tiền nào nằm ngoài lượt của model. Chỉ đọc từ `agent.yaml` của chính agent, như `script_calls`: không có khoá toàn cục, không có biến môi trường, không thừa hưởng của master. Phải là đúng/sai thật của YAML; `"false"` trong dấu nháy, `0` hay để trống là lỗi khởi động ("script_llm must be true or false"), còn lưu qua API thì bị từ chối (422). Viết tay `off`, `no`, `on`, `yes` trần thì bộ đọc lúc khởi động hiểu là đúng/sai: agent lên được, và lần lưu khoá khác từ web giữ nguyên chữ đó ([Sửa agent từ web/API](#sửa-agent-từ-webapi)); lần lưu tự gửi một chữ (`"off"`) thì vẫn là 422. Sửa qua API có hiệu lực không cần khởi động lại, từ lượt kế tiếp của agent và từ lần chạy kế tiếp của một lịch; lượt hay job đang chạy lúc lưu thì kết thúc như lúc nó bắt đầu. Sửa tay cần khởi động lại |
-| `browser` | `off`, `read` hoặc `act` | `off` | agent có được trao tool trình duyệt không ([tools.md](tools.md#trình-duyệt)). `read`: năm tool mở và đọc trang (`browser_navigate`, `browser_snapshot`, `browser_text`, `browser_tabs`, `browser_screenshot`). `act`: thêm `browser_act`, tool bấm và gõ vào trang. Khoá này chỉ có tác dụng trên máy đã bật `browser_enabled` và đã cài trình duyệt (bảng cài đặt toàn cục bên dưới); trên máy chưa bật, agent vẫn khởi động, vẫn trả `browser` như tệp viết, và không được trao tool nào trong số đó. Danh sách `tools` không đem tool nào trong số này tới và cũng không lấy đi tool nào. Chỉ đọc từ `agent.yaml` của chính agent: không có khoá toàn cục cho mức này, không có biến môi trường, không agent nào thừa hưởng của master, nên trình duyệt chỉ bật ở agent mà có người đã ghi như vậy. `off`, `no`, `false` viết trần và khoá để trống đều đọc là `off`. `on`, `yes`, `true` viết trần là lỗi khởi động, vì YAML đọc chúng thành đúng/sai và không nói được là `read` hay `act` ("browser must be off, read or act, not a bare on, yes or true: write read to let it open and read pages, or act to let it click and type as well"); chữ nào khác ba chữ đó cũng là lỗi khởi động, còn lưu qua API thì bị từ chối (422). Sửa qua API có hiệu lực từ lượt kế tiếp của agent, không cần khởi động lại; lần lưu để agent ở `off` còn dừng luôn trình duyệt nó đang chạy, và lượt đang chạy của agent không mở lại được nó (tool `browser_*` của lượt ấy trả một lỗi nói agent đã bị tắt trình duyệt). Sửa tay cần khởi động lại |
-| `browser_hosts` | danh sách tên host | `[]` | những host agent tới mà không ai bị hỏi. Mỗi dòng là `shop.example` (đúng host đó) hoặc `*.shop.example` (host đó và mọi host bên dưới nó): chữ thường, không có `https://`, cổng hay đường dẫn; tên có dấu viết ở dạng punycode. Khi danh sách có dòng: `browser_navigate` tới một host trong danh sách chạy không hỏi, kể cả trong cuộc trò chuyện có giám sát, còn tới host ngoài danh sách thì hỏi người, kể cả ở agent tự chủ; `browser_act` trên một trang ngoài danh sách cũng hỏi. Danh sách rỗng thì hai tool hỏi như mọi tool đổi trạng thái: hỏi trong cuộc trò chuyện có giám sát, chạy ở agent tự chủ. Danh sách chặn lời gọi trực tiếp, không chặn nơi trang tự chuyển tới sau một lần bấm ([tools.md](tools.md#trình-duyệt), "Giới hạn đã biết"). Chỉ đọc từ `agent.yaml` của chính agent, như `browser`. Một dòng sai dạng là lỗi khởi động ("browser_hosts must be a list of host names such as shop.example or *.shop.example, in lowercase, with no scheme, port or path"), còn lưu qua API thì bị từ chối (422); `null` hay `[]` xoá danh sách. Sửa qua API có hiệu lực từ lượt kế tiếp; sửa tay cần khởi động lại |
+| `browser` | `off`, `read` hoặc `act` | `off` | agent có được trao tool trình duyệt không ([tools.md](tools.md#trình-duyệt)). `read`: sáu tool mở, đọc và in trang (`browser_navigate`, `browser_snapshot`, `browser_text`, `browser_tabs`, `browser_screenshot`, `browser_pdf`). `act`: thêm `browser_act`, tool bấm và gõ vào trang, và `browser_download`, tool bấm để giữ tệp trang gửi về. Khoá này chỉ có tác dụng trên máy đã bật `browser_enabled` và đã cài trình duyệt (bảng cài đặt toàn cục bên dưới); trên máy chưa bật, agent vẫn khởi động, vẫn trả `browser` như tệp viết, và không được trao tool nào trong số đó. Danh sách `tools` không đem tool nào trong số này tới và cũng không lấy đi tool nào. Chỉ đọc từ `agent.yaml` của chính agent: không có khoá toàn cục cho mức này, không có biến môi trường, không agent nào thừa hưởng của master, nên trình duyệt chỉ bật ở agent mà có người đã ghi như vậy. `off`, `no`, `false` viết trần và khoá để trống đều đọc là `off`. `on`, `yes`, `true` viết trần là lỗi khởi động, vì YAML đọc chúng thành đúng/sai và không nói được là `read` hay `act` ("browser must be off, read or act, not a bare on, yes or true: write read to let it open and read pages, or act to let it click and type as well"); chữ nào khác ba chữ đó cũng là lỗi khởi động, còn lưu qua API thì bị từ chối (422). Sửa qua API có hiệu lực từ lượt kế tiếp của agent, không cần khởi động lại; lần lưu để agent ở `off` còn dừng luôn trình duyệt nó đang chạy và đóng cửa sổ đăng nhập đang mở trên hồ sơ của nó, và lượt đang chạy của agent không mở lại được nó (tool `browser_*` của lượt ấy trả một lỗi nói agent đã bị tắt trình duyệt). Sửa tay cần khởi động lại |
+| `browser_hosts` | danh sách tên host | `[]` | những host agent tới mà không ai bị hỏi. Mỗi dòng là `shop.example` (đúng host đó) hoặc `*.shop.example` (host đó và mọi host bên dưới nó): chữ thường, không có `https://`, cổng hay đường dẫn; tên có dấu viết ở dạng punycode. Khi danh sách có dòng: `browser_navigate` tới một host trong danh sách chạy không hỏi, kể cả trong cuộc trò chuyện có giám sát, còn tới host ngoài danh sách thì hỏi người, kể cả ở agent tự chủ; `browser_act` và `browser_download` trên một trang ngoài danh sách cũng hỏi. Danh sách rỗng thì ba tool hỏi như mọi tool đổi trạng thái: hỏi trong cuộc trò chuyện có giám sát, chạy ở agent tự chủ. Danh sách chặn lời gọi trực tiếp, không chặn nơi trang tự chuyển tới sau một lần bấm ([tools.md](tools.md#trình-duyệt), "Giới hạn đã biết"). Chỉ đọc từ `agent.yaml` của chính agent, như `browser`. Một dòng sai dạng là lỗi khởi động ("browser_hosts must be a list of host names such as shop.example or *.shop.example, in lowercase, with no scheme, port or path"), còn lưu qua API thì bị từ chối (422); `null` hay `[]` xoá danh sách. Sửa qua API có hiệu lực từ lượt kế tiếp; sửa tay cần khởi động lại |
 | `schedules` | danh sách | `[]` | job, xem [Lịch](#lịch) |
 | `memory_consolidate` | chuỗi cron | không có | theo lịch này, viết lại `MEMORY.md` từ ghi chú ngày rồi biên dịch wiki vault từ chính các ghi chú đó, xem [memory.md](memory.md) |
 | `telegram` | map | không có | `token_env` + `chat_id`, tuỳ chọn `approval_ttl_seconds` (60–43200) cho cuộc trò chuyện mở từ chat đó; chỉ đọc trên `agent.yaml` của master, ở nơi khác bị bỏ qua kèm cảnh báo, xem [channels.md](channels.md) |
@@ -475,16 +475,17 @@ duyệt (xem mục Kết nối). Công tắc của máy được nêu trước, 
 
 Như mọi lần lưu, hai khoá có hiệu lực từ lượt kế tiếp, không cần khởi động lại; lần lưu đưa agent về
 "Tắt" thì trình duyệt đang chạy của nó dừng ngay, và lượt đang chạy lúc đó không mở lại được.
-Sáu tool `browser_*` không có ô chọn trong danh sách công cụ, và dưới danh sách có một dòng nói
+Tám tool `browser_*` không có ô chọn trong danh sách công cụ, và dưới danh sách có một dòng nói
 vì sao: chúng đi kèm mục này, không kèm `tools:`.
 
 **Thẻ "Trình duyệt"** nằm dưới phần Công cụ, ngoài form: nó không lưu gì mà tác động ngay lên trình
 duyệt đang chạy. Thẻ hiện ở agent có mức khác "Tắt", và ở agent đã về "Tắt" mà trình duyệt cũ còn
 chạy.
 
-- Dòng trạng thái nói một trong bốn điều, theo thứ tự này: "Đang chạy · N tab" (kèm "đang làm việc"
-  hay "rảnh N giây"), máy đang tắt trình duyệt, máy chưa cài trình duyệt, hoặc "Chưa chạy. Trình
-  duyệt tự mở khi agent gọi một công cụ trình duyệt, và tự tắt sau một lúc không dùng."
+- Dòng trạng thái nói một trong năm điều, theo thứ tự này: "Đang chạy · N tab" (kèm "đang làm việc"
+  hay "rảnh N giây"), agent không dùng được trình duyệt vì cửa sổ đăng nhập đang mở, máy đang tắt
+  trình duyệt, máy chưa cài trình duyệt, hoặc "Chưa chạy. Trình duyệt tự mở khi agent gọi một công
+  cụ trình duyệt, và tự tắt sau một lúc không dùng."
 - Mỗi tab là một dòng: nhãn agent đặt, tiêu đề trang (hoặc "(chưa có tiêu đề)"), host (hoặc "(trang
   trống)"), không bao giờ là địa chỉ đầy đủ; rồi "Mở cuộc trò chuyện" dẫn tới cuộc đã mở tab, hoặc
   "Việc theo lịch" ở tab của một lượt chạy theo lịch; rồi "đang dùng" hay "rảnh N giây".
@@ -492,6 +493,21 @@ chạy.
   nó. Không nút nào hỏi lại: đăng nhập vẫn được giữ, và lời gọi kế tiếp của agent mở lại trình
   duyệt. Trong lúc một yêu cầu đang đi, mọi nút của thẻ chờ. Tab đã mất trước khi bấm thì thẻ nêu
   câu của server và đọc lại danh sách.
+- "Mở cửa sổ đăng nhập", kèm ô "Địa chỉ mở sẵn (không bắt buộc)", mở một cửa sổ trình duyệt trên
+  chính hồ sơ của agent để chủ tự đăng nhập hộ nó ([tools.md](tools.md#trình-duyệt), "Cửa sổ
+  đăng nhập"). Dòng gợi ý cạnh nút nói cửa sổ hiện trên màn hình của máy chạy đội, không trên
+  thiết bị đang xem trang, và trình duyệt của agent dừng trong lúc ấy. Khi cửa sổ đang mở, thẻ nói
+  nó tự đóng lúc mấy giờ và có nút "Xong" để đóng nó. Khi server nói không mở được, thẻ thay nút
+  bằng một câu nói vì sao: server không chạy trong phiên màn hình nào đang mở, màn hình đang khoá,
+  hoặc agent đang dùng trình duyệt cho một lần gọi; lý do mà trang chưa biết đọc là "Lúc này chưa
+  mở được cửa sổ đăng nhập.". Lần mở bị server từ chối (409, 422) hiện câu của server làm lời
+  nhắc và giữ địa chỉ đã gõ để thử lại; ô chỉ được xoá khi cửa sổ đã mở.
+- "Có thể đang đăng nhập ở" kể các host trong `logins`, mỗi host kèm "đến" ngày hết hạn. Agent có
+  `browser_hosts` thấy mọi dòng của danh sách ấy, dòng không có đăng nhập nào ghi "chưa thấy đăng
+  nhập" bằng chữ mờ. Agent không có danh sách thấy tám host đầu và một nút "+N máy chủ nữa" mở
+  phần còn lại; host server không kể tên được đếm ở một dòng riêng ("Còn N máy chủ nữa không kể
+  tên ở đây."). Danh sách rỗng là "Chưa thấy đăng nhập ở máy chủ nào.", và `logins` là `null` thì
+  thẻ không vẽ phần này. Dưới danh sách luôn có một dòng nhắc đây chỉ là dấu hiệu đoán từ cookie.
 - Thẻ tự đọc lại mỗi 5 giây khi trang đang được xem, và đọc ngay khi trang được xem lại; trang bị
   che thì không hỏi gì.
 
@@ -576,7 +592,9 @@ là "Chỉ công cụ đọc", `script_llm` là có đánh dấu), và danh sác
 Server trước 0.18.0 không trả khoá `browser` và sẽ từ chối một lần lưu có nó. Trên server như thế
 web không vẽ gì của trình duyệt: trình sửa không có mục "Trình duyệt", không có thẻ, không có dòng
 dưới danh sách công cụ, và lần lưu không gửi `browser` hay `browser_hosts`; mục Kết nối không có thẻ
-"Trình duyệt"; bảng công cụ không có nhãn nào.
+"Trình duyệt"; bảng công cụ không có nhãn nào. Server có trình duyệt mà chưa có cửa sổ đăng nhập
+không trả `login` hay `logins`: thẻ khi đó không có nút mở cửa sổ và không có danh sách "Có thể
+đang đăng nhập ở", phần còn lại như trên.
 
 ## Agent master
 
@@ -928,6 +946,15 @@ hình dạng của một lần ghi và `goodreads-write` là một mục `shell_
 chỉ đúng vì script đọc có tên khác. Kiểm tra nó theo cách kiểm tra hình dạng
 của bất kỳ danh sách mẫu nào — chạy các lệnh đọc thật và các lệnh ghi thật
 qua `ask_reason` rồi đếm.
+
+### Mẫu thứ ba: `browser-use`
+
+`docs/examples/skills/browser-use/` là một skill chỉ có phần thân, cho agent có khoá `browser`
+(xem [tools.md](tools.md#trình-duyệt)). Nó dạy vòng làm việc với trang: đọc dàn ý trước khi
+bấm, đọc lại sau khi trang đổi, dừng ở đâu và giữ kết quả bằng tool nào. Nó không thay rào nào:
+cổng duyệt, từ dừng và `browser_hosts` vẫn là thứ cưỡng chế, còn phần thân chỉ là lời dặn model.
+Một test (`tests/test_browser_skill.py`) giữ cho phần thân nêu đúng mọi tool `browser_*` và chỉ
+những tham số các tool ấy nhận, nên đổi tên hay bỏ một tool mà quên skill thì bộ test đỏ.
 
 ### Giữ lại script đã chạy tốt
 

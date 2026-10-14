@@ -298,24 +298,30 @@ browser_hosts:               # its own sites: an address there opens without a q
 ```
 
 The browser is installed once with `uv run playwright install chromium`. `read` gives the agent
-`browser_navigate`, `browser_snapshot`, `browser_text`, `browser_tabs` and `browser_screenshot`;
-`act` adds `browser_act`. A page is told to the model as an outline between two fence lines made
-anew for every answer, each thing that can be acted on with a `ref`, so the words of a page stay
-data. Each agent has one headless browser, started at its first call and stopped after ten idle
-minutes, with a profile of its own under `<home>/browser/<agent id>/`: what one agent is signed
-in to is not another's. A tab belongs to the conversation that opened it.
+`browser_navigate`, `browser_snapshot`, `browser_text`, `browser_tabs`, `browser_screenshot` and
+`browser_pdf`, which prints a page to a PDF; `act` adds `browser_act` and `browser_download`,
+which presses a link or a button and keeps the file it brings. Files and prints land in
+`downloads/` in the agent's workspace, under a plain name that never replaces another file. A
+page is told to the model as an outline between two fence lines made anew for every answer, each
+thing that can be acted on with a `ref`, so the words of a page stay data; what appeared or
+changed since the model last looked at the tab is marked `[new]`. Each agent has one headless
+browser, started at its first call and stopped after ten idle minutes, with a profile of its own
+under `<home>/browser/<agent id>/`: what one agent is signed in to is not another's. A tab
+belongs to the conversation that opened it.
 
 Two guards cannot be switched off. Every connection the browser makes goes through a proxy inside
 the server that reaches public addresses only, and the folder that holds the profiles is closed
-to every file tool and every sandboxed shell. `browser_navigate` and `browser_act` ask before
-they run, like any tool that changes something. An agent given `browser_hosts` opens an address
-there without a question and asks before any other host, in an autonomous conversation as well;
-an upload always asks, and so does a click on something whose name holds one of
-`browser_ask_patterns` (buy, pay, order, send, delete and their like). Nothing is ever typed into
-a password, one-time code or card number field.
+to every file tool and every sandboxed shell. `browser_navigate`, `browser_act` and
+`browser_download` ask before they run, like any tool that changes something. An agent given
+`browser_hosts` opens an address there without a question and asks before any other host, in an
+autonomous conversation as well; an upload always asks, and so does a click on something whose
+name holds one of `browser_ask_patterns` (buy, pay, order, send, delete and their like). Nothing
+is ever typed into a password, one-time code or card number field: the owner signs in for the
+agent, in a window the agent's page opens on the screen of the machine the crew runs on.
 
 **Kết nối** shows whether the machine has the browser and whose is up; the agent editor sets the
-level and the hosts; an agent's page lists its open tabs, closes one and stops the browser.
+level and the hosts; an agent's page lists its open tabs, closes one, stops the browser, opens
+the sign-in window and lists the sites the browser may still be signed in to.
 Details: [docs/tools.md](docs/tools.md#trình-duyệt), and what to check before turning it on in
 [docs/deployment-guide.md](docs/deployment-guide.md).
 
