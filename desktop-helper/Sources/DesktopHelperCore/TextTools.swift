@@ -46,6 +46,19 @@ enum TextTools {
         flush()
         return chunks
     }
+
+    /// The first control character (Unicode category Cc) in the text other than tab, line feed
+    /// and carriage return. Cc is fixed by Unicode as U+0000–001F and U+007F–009F; any of those
+    /// can be a terminal's interrupt, erase or escape, so text holding one is never typed or set.
+    static func forbiddenControl(in text: String) -> Unicode.Scalar? {
+        text.unicodeScalars.first { scalar in
+            switch scalar.value {
+            case 0x09, 0x0A, 0x0D: return false
+            case 0x00...0x1F, 0x7F...0x9F: return true
+            default: return false
+            }
+        }
+    }
 }
 
 /// How the contract writes sizes and places: whole numbers, and ratios to four decimals.

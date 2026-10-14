@@ -21,6 +21,8 @@ public enum ErrorCode: String, CaseIterable {
     case appNotRunning = "app_not_running"
     case appMismatch = "app_mismatch"
     case refUnknown = "ref_unknown"
+    case pointCovered = "point_covered"
+    case browserApp = "browser_app"
     case secureInput = "secure_input"
     case blockedKeys = "blocked_keys"
     case captureFailed = "capture_failed"

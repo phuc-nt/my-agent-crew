@@ -21,10 +21,10 @@ final class ListingTests: HelperTestCase {
         assertOK(reply)
         XCTAssertEqual(Set(reply.keys), ["id", "ok", "apps"])
         let apps = rows(reply, "apps")
-        XCTAssertEqual(apps.map { $0["app"] as? String }, ["Notes", "Safari", "TextEdit"])
+        XCTAssertEqual(apps.map { $0["app"] as? String }, ["Notes", "Preview", "TextEdit"])
         XCTAssertEqual(
             apps.map { $0["bundle_id"] as? String },
-            ["com.apple.Notes", "com.apple.Safari", "com.apple.TextEdit"]
+            ["com.apple.Notes", "com.apple.Preview", "com.apple.TextEdit"]
         )
         XCTAssertEqual(apps.map { $0["pid"] as? Int }, [500, 300, 4242])
         XCTAssertEqual(apps.map { $0["frontmost"] as? Bool }, [false, false, true])

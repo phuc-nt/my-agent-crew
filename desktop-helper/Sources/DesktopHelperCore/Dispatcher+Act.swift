@@ -1,8 +1,9 @@
 import Foundation
 
 extension Dispatcher {
-    /// The contract's checks three to six, in that order, and only then the action. The shape
-    /// and the preconditions (one and two) were checked by the caller.
+    /// The checks after the shape and the preconditions, which the caller made: blocked keys,
+    /// the application, a web browser, secure input, the frame and the ref, then what is on top
+    /// at the points. Only then the action.
     func act(_ action: ActRequest) throws -> [String: JSONValue] {
         if let combo = action.combo, BlockedKeys.blocks(combo) {
             throw Refusal(
@@ -16,21 +17,39 @@ extension Dispatcher {
         guard let front = system.frontmostApp(), AppMatch.matches(action.app, front) else {
             throw Refusal(.appMismatch, "The frontmost application is not the one named in `app`.")
         }
+        try refuseBrowser(front)
         try refuseSecureInput(action, front: front)
         let step = try resolve(action, front: front)
+        try checkPoints(of: step, front: front)
         try perform(step, app: action.app)
         return done(effect: action.kind == .setValue ? "set" : "posted")
+    }
+
+    /// A page in a web browser can reach the crew's own web page and the private network, which
+    /// the crew's browser tools hold apart and this helper cannot; so it never acts in one.
+    private func refuseBrowser(_ front: AppInfo) throws {
+        guard Browsers.contains(bundleID: front.bundleID) else { return }
+        throw Refusal(
+            .browserApp, "The frontmost application is a web browser; the helper never acts in one."
+        )
     }
 
     private func done(effect: String) -> [String: JSONValue] {
         ["effect": .string(effect), "frontmost": Shape.frontmost(system.frontmostApp())]
     }
 
-    /// `ok` only once the application is the frontmost one.
+    /// `ok` only once the application is the frontmost one. A browser is never brought forward;
+    /// one in front is left for another application, which sends it nothing, so an agent is not
+    /// stuck behind a browser the owner left in front.
     private func focus(_ wanted: String) throws {
         let front = system.frontmostApp()
         guard let target = AppMatch.find(wanted, among: system.runningApps(), front: front) else {
             throw Refusal(.appNotRunning, "No running application is named that.")
+        }
+        if Browsers.contains(bundleID: target.bundleID) {
+            throw Refusal(
+                .browserApp, "That application is a web browser; the helper never brings one forward."
+            )
         }
         if front?.pid == target.pid { return }
         try system.activate(pid: target.pid)
@@ -62,7 +81,7 @@ extension Dispatcher {
 
     private func perform(_ step: ActStep, app: String) throws {
         switch step {
-        case .click(let point, let button, let count):
+        case .click(let point, let button, let count, _):
             try system.postClick(at: point, button: button, count: count)
         case .drag(let start, let end):
             try system.postDrag(from: start, to: end)
@@ -86,6 +105,11 @@ extension Dispatcher {
                 guard let front = system.frontmostApp(), AppMatch.matches(app, front) else {
                     throw Refusal(
                         .appMismatch, "The frontmost application changed after \(typed) characters were typed."
+                    )
+                }
+                if Browsers.contains(bundleID: front.bundleID) {
+                    throw Refusal(
+                        .browserApp, "A web browser came to the front after \(typed) characters were typed."
                     )
                 }
                 if system.isSecureInputOn() {

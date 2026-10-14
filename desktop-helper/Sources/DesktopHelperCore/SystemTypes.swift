@@ -147,6 +147,19 @@ public enum MouseButton: Equatable {
     case right
 }
 
+/// The element on top at a point of the screen, the one a pointer event there would reach.
+public struct PointHit: Equatable {
+    /// The process that owns it.
+    public let pid: Int32
+    /// It is the element the question named, or inside it; `false` when the question named none.
+    public let insideTarget: Bool
+
+    public init(pid: Int32, insideTarget: Bool) {
+        self.pid = pid
+        self.insideTarget = insideTarget
+    }
+}
+
 /// What the machine can answer instead of doing what was asked.
 public enum SystemError: Error, Equatable {
     case screenRecordingMissing

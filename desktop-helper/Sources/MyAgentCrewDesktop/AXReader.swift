@@ -6,7 +6,7 @@ import Foundation
 /// answer can be clicked or set. Used from the request queue only.
 final class AXReader {
     /// How long one question to an application may take.
-    private static let messagingTimeout: Float = 1
+    static let messagingTimeout: Float = 1
     /// How long a whole tree may take; what was read by then is the answer.
     private static let walkTime: TimeInterval = 5
 
@@ -71,7 +71,7 @@ final class AXReader {
         return nil
     }
 
-    private func element(_ token: Int) throws -> AXUIElement {
+    func element(_ token: Int) throws -> AXUIElement {
         guard elements.indices.contains(token) else { throw SystemError.elementGone }
         return elements[token]
     }

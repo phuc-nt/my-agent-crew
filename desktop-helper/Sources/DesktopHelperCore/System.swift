@@ -33,6 +33,10 @@ public protocol System: AnyObject {
     func elementFrame(_ element: Int) throws -> ScreenRect?
     func focusedElementIsSecure(pid: Int32) -> Bool
     func setValue(_ element: Int, text: String) throws
+    /// What is on top at the point right now, as the accessibility API sees it; `nil` when no
+    /// element is there. Given an element of the last tree, also whether what is on top is that
+    /// element or inside it.
+    func topElement(at point: ScreenPoint, within element: Int?) throws -> PointHit?
 
     func postClick(at point: ScreenPoint, button: MouseButton, count: Int) throws
     func postDrag(from start: ScreenPoint, to end: ScreenPoint) throws

@@ -739,9 +739,10 @@ final class HelperPiecesTests: XCTestCase {
         XCTAssertEqual(Set(ErrorCode.allCases.map(\.rawValue)), [
             "bad_request", "unknown_command", "locked", "display_asleep", "permission_missing:screen",
             "permission_missing:accessibility", "frame_mismatch", "app_not_running", "app_mismatch",
-            "ref_unknown", "secure_input", "blocked_keys", "capture_failed", "internal",
+            "ref_unknown", "point_covered", "browser_app", "secure_input", "blocked_keys",
+            "capture_failed", "internal",
         ])
-        XCTAssertEqual(ErrorCode.allCases.count, 14)
+        XCTAssertEqual(ErrorCode.allCases.count, 16)
     }
 
     func testCommandsAreTheContractsWords() {
