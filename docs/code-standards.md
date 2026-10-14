@@ -33,9 +33,13 @@ title: Quy ước code
 
 ## 4. Cổng phải chạy trước khi commit
 
-Tám cổng dưới đây **là chính xác những gì CI chạy**, theo đúng thứ tự trong
+Tám cổng dưới đây **là chính xác những gì CI chạy** cho Python và web, theo đúng thứ tự trong
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Chạy đủ cả tám ở máy trước khi đẩy;
 cổng nào bỏ qua thì CI sẽ là nơi phát hiện, và đó là lúc đắt nhất.
+
+CI còn một job thứ ba, `desktop-helper`, trên runner macOS: `scripts/desktop-helper-check.sh`
+build và chạy test Swift của trình trợ giúp desktop. `gates.sh` không chạy job này; đổi gì dưới
+`desktop-helper/` thì chạy script ấy trên một máy Mac trước khi đẩy.
 
 Một lệnh chạy hết, dừng ở cổng đỏ đầu tiên và gọi tên nó:
 

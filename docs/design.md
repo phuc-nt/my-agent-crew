@@ -555,8 +555,60 @@ Những lựa chọn dưới đây đều đi từ cùng một câu hỏi: trang
 - **Tab thuộc về cuộc trò chuyện.** Hai cuộc cùng dùng một agent không giẫm lên tab của nhau,
   và một thao tác chỉ chạm vào tab của lời gọi `browser_*` gần nhất trong chính cuộc đó.
 
-Cái chưa có ở bản này: cửa sổ để chủ đăng nhập, tải tệp về, và điều khiển màn hình của máy.
-Từng tool, từng lời từ chối và các giới hạn đã biết ở [tools.md](tools.md#trình-duyệt).
+Từng tool, cửa sổ đăng nhập, tải tệp về, từng lời từ chối và các giới hạn đã biết ở
+[tools.md](tools.md#trình-duyệt). Màn hình của chính máy là một chuyện khác, ở mục dưới.
+
+## Desktop của agent
+
+Có việc chỉ làm được trong một ứng dụng của máy: ứng dụng không có API hay trang web, hoặc chủ
+chỉ đăng nhập ở đó. Desktop trao cho agent chính màn hình chủ đang dùng. Khác với trình duyệt,
+không có hồ sơ riêng nào để cô lập: mỗi thao tác chạm vào máy thật, với mọi ứng dụng và mọi phiên
+đăng nhập của chủ. Những lựa chọn dưới đây đi từ điều đó.
+
+- **Một chương trình riêng giữ quyền.** Chụp màn hình và điều khiển ứng dụng cần hai quyền mà
+  macOS cấp cho từng chương trình: Ghi màn hình và Trợ năng. Server chạy trong một trình thông dịch
+  Python, không phải một chủ thể ổn định để giữ quyền. Nên quyền nằm ở một ứng dụng macOS
+  nhỏ của dự án (`desktop-helper/`) chạy trong phiên đăng nhập của chủ; server chỉ gửi lệnh qua
+  một Unix socket và không tự chụp hay bấm gì. Các sản phẩm cùng loại cũng đặt việc chụp và gõ
+  phím trong một chương trình ký riêng như vậy. Quyền đi theo chữ ký, nên trình trợ giúp được ký
+  một lần rồi để yên: xây lại là phải cấp lại.
+- **Cấp quyền là việc của chủ.** Trình trợ giúp không tự bật hộp thoại xin quyền của hệ điều
+  hành; hộp thoại chỉ hiện khi chủ bấm nút trên web. Mọi lời gọi khác chỉ xem quyền đã có chưa.
+- **Thiếu điều kiện thì từ chối, không đoán.** Màn hình khoá hay tắt, thiếu quyền, không có trình
+  trợ giúp: lời gọi nói đúng điều thiếu và việc ấy của ai, thay vì trả một ảnh trắng mà model có
+  thể đọc như thật. Trình trợ giúp xét lại những điều ấy ngay trước mỗi lệnh, vì màn hình có thể
+  khoá giữa hai lời gọi.
+- **Hai đầu socket nhận ra nhau.** Server chỉ nói chuyện với socket thuộc chính người dùng chạy
+  nó, trong một thư mục không ai khác ghi được: ai đặt được một socket ở đó thì đưa được cho model
+  ảnh và dàn ý giả. Trình trợ giúp chỉ nhận kết nối của chính chủ máy.
+- **Bật ở từng agent, không có công tắc chung.** Khoá `computer` chỉ đọc từ tệp của chính agent,
+  không thừa hưởng từ master, và danh sách `tools:` không đem tool nào tới. Ở mức máy, điều kiện
+  là trình trợ giúp đã được cài, đang chạy và có quyền, mà chỉ người ngồi trước máy làm được.
+  `computer_apps` là danh sách ứng dụng agent được đọc và thao tác; danh sách rỗng là chỉ nhìn.
+- **Thao tác chỉ trên thứ model vừa được cho thấy.** Một toạ độ chỉ có nghĩa với đúng khung hình
+  nó được đọc ra, nên thao tác phải mang `frame_id` của khung hình mới nhất. Một `ref` chỉ có nghĩa
+  với đúng dàn ý nó nằm trong: nếu ref được đánh số chung cho mọi người, một lần đọc của hội thoại
+  khác sẽ làm ref cũ chỉ sang phần tử khác, và một lần bấm đã được duyệt có thể rơi vào nút khác.
+  Vì vậy ref gắn với dàn ý mà chính hội thoại ấy vừa xem, và bấm bằng ref phải nêu tên phần tử như
+  `browser_act`.
+- **Cổng duyệt hỏi khi người duyệt cần thấy tận mắt.** `computer_act` cần duyệt như mọi tool đổi
+  trạng thái. Có những thao tác hỏi cả trong hội thoại tự chủ, vì thẻ duyệt không nói được chúng
+  sẽ làm gì: bấm theo toạ độ, Enter hay Space một mình (bấm thứ đang được chọn), phím ngoài nhóm
+  thường dùng, đưa một ứng dụng lên trước, chữ hay tên phần tử mang một từ dừng. Khi còn tìm được
+  ảnh của khung hình, thẻ duyệt hiện nó với điểm sắp bấm.
+- **Rào cứng nằm trong mã, ở cả hai đầu.** Server từ chối trước khi hỏi ai những gì không duyệt
+  nổi: ứng dụng ngoài danh sách, chữ kiểu `sudo`, tổ hợp phím đóng ứng dụng hay đổ thùng rác, chữ
+  cho ô bảo mật. Trình trợ giúp từ chối khoá máy, đăng xuất, buộc thoát, và mọi lần gõ, nhấn phím
+  hay đặt giá trị khi chế độ nhập bảo mật đang bật. Lời gọi chắc chắn bị từ chối thì tới thẳng lời
+  từ chối, không ai bị hỏi.
+  Những luật chữ này là rào mềm như danh sách của shell; rào cứng là ứng dụng nào được chạm và
+  thao tác nào không bao giờ được gửi.
+- **Thư mục của trình trợ giúp đóng với tool.** `<home>/desktop/` đóng với mọi tool tệp và mọi
+  lệnh shell trong sandbox. Shell không sandbox thì với tới socket như mọi tiến trình khác của chủ
+  máy, nên agent bật desktop nên có shell đã sandbox; tài liệu nói thẳng điều đó
+  ([deployment-guide.md](deployment-guide.md#4c-desktop-cho-agent-tuỳ-chọn-macos)).
+
+Từng tool, từng lời từ chối và các giới hạn đã biết ở [tools.md](tools.md#desktop).
 
 ## Canvas
 
