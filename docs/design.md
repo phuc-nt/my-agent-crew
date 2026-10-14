@@ -594,8 +594,20 @@ không có hồ sơ riêng nào để cô lập: mỗi thao tác chạm vào má
 - **Cổng duyệt hỏi khi người duyệt cần thấy tận mắt.** `computer_act` cần duyệt như mọi tool đổi
   trạng thái. Có những thao tác hỏi cả trong hội thoại tự chủ, vì thẻ duyệt không nói được chúng
   sẽ làm gì: bấm theo toạ độ, Enter hay Space một mình (bấm thứ đang được chọn), phím ngoài nhóm
-  thường dùng, đưa một ứng dụng lên trước, chữ hay tên phần tử mang một từ dừng. Khi còn tìm được
-  ảnh của khung hình, thẻ duyệt hiện nó với điểm sắp bấm.
+  thường dùng, đưa một ứng dụng lên trước, chữ hay tên phần tử mang một từ dừng, và mọi lần bấm
+  đúp (trên một tệp hay chương trình, bấm đúp là mở nó, mà tên không nói được nó mở gì). Khi còn
+  tìm được ảnh của khung hình, thẻ duyệt hiện nó với điểm sắp bấm, đọc qua một route chỉ trả đúng
+  ảnh mà tool đã lưu.
+- **Không bao giờ thao tác trong trình duyệt.** Một trang web mở trong trình duyệt của chủ với tới
+  trang web của đội và mạng riêng, điều mà tool `browser_*` chặn ở từng request; còn chữ trang
+  viết là lời của người lạ. Một cú bấm hay phím gửi vào cửa sổ ấy vòng qua cả hai rào. Nên
+  `computer_apps` không nêu được trình duyệt và trình trợ giúp từ chối khi một trình duyệt ở
+  trước; trang web là việc của trình duyệt riêng của agent.
+- **Cú bấm chỉ tới đúng chỗ đã được duyệt.** Giữa lúc chụp và lúc bấm, một thông báo hay hộp thoại
+  của ứng dụng khác có thể hiện lên đúng chỗ ấy. Trình trợ giúp hỏi macOS thứ gì nằm trên cùng
+  tại điểm bấm ngay trước khi gửi, và từ chối khi đó không phải ứng dụng (hay phần tử) được giao,
+  kể cả khi không biết chắc. Ký tự điều khiển trong chữ gõ cũng bị từ chối, vì chúng không hiện
+  trên thẻ duyệt mà vẫn tới ứng dụng như một phím.
 - **Rào cứng nằm trong mã, ở cả hai đầu.** Server từ chối trước khi hỏi ai những gì không duyệt
   nổi: ứng dụng ngoài danh sách, chữ kiểu `sudo`, tổ hợp phím đóng ứng dụng hay đổ thùng rác, chữ
   cho ô bảo mật. Trình trợ giúp từ chối khoá máy, đăng xuất, buộc thoát, và mọi lần gõ, nhấn phím

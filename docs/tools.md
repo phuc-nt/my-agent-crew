@@ -136,7 +136,7 @@ tool nào trong số này tới và cũng không lấy đi tool nào, xem [Deskt
 | `computer_state` | không | trình trợ giúp trả lời trong 10 s | nói trình trợ giúp có chạy không, màn hình đang khoá hay tắt, quyền nào còn thiếu, ứng dụng nào ở trước và ứng dụng nào của agent đang mở |
 | `computer_screenshot` | không | màn hình chính, cạnh dài tối đa 1 456 điểm ảnh; 8 MB mỗi ảnh; giữ 40 ảnh mới nhất | chụp màn hình vào `desktop/` của workspace và trả về `frame_id`; có vision route thì kèm lời đọc ảnh, hoặc câu trả lời cho `question`; màn hình không đổi từ lần chụp trước thì không gửi ảnh nào |
 | `computer_observe` | không | tối đa 400 phần tử; vừa trần đầu ra của agent | dàn ý của một ứng dụng trong `computer_apps`: mỗi phần tử một dòng có vai trò, tên, giá trị và `ref` |
-| `computer_act` | **có**; luôn hỏi khi đưa ứng dụng lên trước, khi bấm hay kéo theo toạ độ, với Enter, Space và tổ hợp phím ngoài nhóm thường dùng, khi chữ gõ có xuống dòng, khi chữ gõ hay đặt vào ô có một từ dừng, khi phần tử được bấm mang một từ dừng | một thao tác mỗi lời gọi; `type` 2 000 ký tự, `set_value` 8 000; `scroll` −50 tới 50 | `click`, `double_click`, `right_click`, `drag`, `scroll`, `type`, `key`, `set_value` hoặc `focus_app` trên một ứng dụng trong `computer_apps`; câu trả lời không biết thao tác đã làm gì, nên agent phải nhìn lại |
+| `computer_act` | **có**; luôn hỏi khi đưa ứng dụng lên trước, khi bấm hay kéo theo toạ độ, với mọi lần bấm đúp, với Enter, Space và tổ hợp phím ngoài nhóm thường dùng, khi chữ gõ có xuống dòng, khi chữ gõ hay đặt vào ô có một từ dừng, khi phần tử được bấm hay ô được đặt mang một từ dừng | một thao tác mỗi lời gọi; `type` 2 000 ký tự, `set_value` 8 000; `scroll` −50 tới 50 | `click`, `double_click`, `right_click`, `drag`, `scroll`, `type`, `key`, `set_value` hoặc `focus_app` trên một ứng dụng trong `computer_apps`; câu trả lời không biết thao tác đã làm gì, nên agent phải nhìn lại |
 
 ### Đọc lại đầu ra dài
 
@@ -788,6 +788,9 @@ sau khi bỏ khoảng trắng hai đầu, dòng trùng hệt chỉ tính một l
   hỏi người). Sau thao tác mà một ứng dụng ngoài danh sách bị để lại ở trước thì câu trả lời nói
   vậy, không nêu tên.
 
+Danh sách không nêu được trình duyệt web: dòng ấy là lỗi khởi động khi sửa tay tệp, 422 khi lưu
+qua API (lý do ở "Từ chối cứng" bên dưới).
+
 Danh sách rỗng nghĩa là **chỉ nhìn**: `computer_state` kể mọi ứng dụng đang mở,
 `computer_screenshot` chụp bất kể ứng dụng nào đang ở trước, còn `computer_observe` và
 `computer_act` từ chối mọi lời gọi.
@@ -824,8 +827,10 @@ ngoặc kép, giá trị sau dấu hai chấm. Ô bảo mật không bao giờ h
   khi ai bị hỏi và trước khi tới trình trợ giúp.
 - Bấm theo `ref` (`click`, `double_click`, `right_click`) phải kèm `name`: đúng tên dàn ý ghi bên
   cạnh (chữ trong ngoặc kép; không có thì là giá trị; không có cả hai thì để trống), không phân
-  biệt hoa thường, khoảng trắng và cách viết dấu. Tên ấy là thứ thẻ duyệt đọc lên và thứ từ dừng
-  được tìm trong, nên tên khác tên dàn ý thì lời gọi bị từ chối.
+  biệt hoa thường, khoảng trắng và cách viết dấu. Tên ấy là thứ thẻ duyệt đọc lên, nên tên khác
+  tên dàn ý thì lời gọi bị từ chối. `set_value` nên kèm `name` của ô; có thì cũng phải đúng tên
+  dàn ý. Từ dừng được tìm trong chính tên dàn ý ghi, nên một ô được xét theo tên của nó dù lời
+  gọi có nêu tên hay không.
 
 **Màn hình là dữ liệu.** Mọi thứ màn hình có quyền viết nằm giữa hai dòng rào, dưới một dòng nói
 rõ đó là dữ liệu chứ không phải chỉ dẫn: tên ứng dụng mà `computer_state` kể, dàn ý cùng tên ứng
@@ -858,10 +863,13 @@ lời gọi không nói được nó sẽ bấm vào cái gì, hoặc vì việc
 | `focus_app` | "Đưa ứng dụng Notes lên trước màn hình của máy." |
 | `key` là Enter hay Space một mình | "Gửi phím enter tới Notes: phím này xác nhận hoặc bấm thứ đang được chọn." |
 | `key` ngoài nhóm phím thường dùng | "Gửi tổ hợp phím cmd+s tới Notes: tổ hợp này nằm ngoài nhóm phím thường dùng." |
-| `type` hay `set_value` có một từ dừng (xét trước) | "Gõ vào Notes một đoạn có chữ «gửi», là việc phải hỏi chủ." |
+| `type` có một từ dừng (xét trước) | "Gõ vào Notes một đoạn có chữ «gửi», là việc phải hỏi chủ." |
+| `set_value` mà chữ đặt vào có một từ dừng (xét trước) | "Đặt ô «Tiêu đề» trong Notes thành một đoạn có chữ «gửi», là việc phải hỏi chủ." |
+| `set_value` vào ô mà tên có một từ dừng | "Đặt nội dung ô «Xoá sau» trong Notes: tên ô có chữ «xoá», là việc phải hỏi chủ." |
 | `type` có dấu xuống dòng | "Gõ vào Notes một đoạn có dấu xuống dòng: Enter xác nhận thứ đang được chọn." |
 | bấm hay kéo theo toạ độ | "Thao tác click tại điểm (412, 88.5) trong Notes: toạ độ không cho biết ở đó là phần tử nào." |
 | bấm theo `ref` mà tên phần tử có một từ dừng | "Thao tác click lên «Xoá ghi chú» trong Notes: tên có chữ «xoá», là việc phải hỏi chủ." |
+| `double_click`, theo `ref` hay toạ độ, mọi lần | "Bấm đúp «Báo cáo.pdf» trong Finder: bấm đúp có thể mở tệp hoặc chạy chương trình, là việc phải hỏi chủ." (phần tử không tên thì nêu `ref`; theo toạ độ thì nêu điểm) |
 
 Nhóm phím thường dùng, không cần lý do riêng: Tab, Esc, Backspace, Delete, bốn phím mũi tên, Home,
 End, PageUp, PageDown, mỗi phím một mình; `shift+tab` và Shift cùng một phím di chuyển; `cmd+a`,
@@ -873,13 +881,22 @@ không hỏi như `browser_hosts` của trình duyệt.
 **Từ chối cứng.** Không cấu hình và không lần duyệt nào bật được những điều sau. Chúng được quyết
 trước khi ai bị hỏi, nên lời gọi chắc chắn bị từ chối thì chạy thẳng tới lời từ chối:
 
+- Trình duyệt web. `computer_apps` không nêu được một trình duyệt, theo tên hay bundle id, kể cả
+  một trang web được lưu thành ứng dụng riêng ([agents.md](agents.md#agentyaml)); trình trợ giúp
+  không thao tác khi một trình duyệt đang ở trước và không đưa trình duyệt lên trước
+  (`browser_app`), còn đưa một ứng dụng khác lên trước thì được. Trang web đi qua các tool
+  `browser_*`, nơi trang không với tới trang web của đội hay mạng riêng và lời trang viết nằm
+  trong rào; một cú bấm hay phím gửi vào cửa sổ trình duyệt sẽ vòng qua hết những điều ấy.
 - `app` thiếu hoặc nằm ngoài `computer_apps` (xét trước tiên), `kind` lạ, thiếu `frame_id` hợp
   lệ (mọi `kind` trừ `focus_app`), bấm theo cả `ref` lẫn toạ độ hoặc không theo cái nào, toạ độ
   âm hay nằm ngoài ảnh, `drag` thiếu một trong `x`, `y`, `to_x`, `to_y`, `scroll` mà `dx` hay
   `dy` không phải số nguyên từ −50 tới 50 hoặc cả hai bằng 0.
 - `type` rỗng, dài hơn 2 000 ký tự hay kèm `ref` (gõ đi vào ô đang giữ con trỏ, nên bấm vào ô
   trước, hoặc dùng `set_value`); `set_value` thiếu `ref` hay dài hơn 8 000 ký tự; chữ có một
-  ký tự hỏng (nửa của một cặp UTF-16).
+  ký tự hỏng (nửa của một cặp UTF-16); chữ có một ký tự điều khiển, trừ tab và hai dấu xuống
+  dòng. Xoá lùi hay Esc không hiện ra khi đọc mà vẫn tới ứng dụng như một phím, nên chữ được
+  duyệt có thể thành chữ khác; trình trợ giúp cũng từ chối chữ ấy. Tên màn hình đưa ra mà có ký
+  tự điều khiển thì được viết ra, như `[U+0008]`, trên thẻ duyệt và trong câu lý do.
 - Chữ cần gõ có lệnh `sudo`, lệnh `rm` vừa đệ quy vừa không hỏi (`rm -rf` và các cách viết
   khác), hay `curl`/`wget` đưa thẳng vào shell (qua dấu `|` hay `$(…)`). Chữ được đọc như shell
   đọc: dòng nối bằng gạch chéo ngược là một dòng, ngoặc và gạch chéo shell bỏ đi thì được bỏ đi.
@@ -904,6 +921,14 @@ mà dàn ý đánh dấu là ô bảo mật, kể cả khi dòng ấy không v�
 đoạn chữ dài được gõ từng đoạn ngắn; giữa các đoạn, ứng dụng ở trước và chế độ nhập bảo mật
 được xét lại, và đổi thì phần còn lại không được gõ, kèm câu nói đã gõ được bao nhiêu ký tự.
 Bấm vào ô bảo mật thì được: nhập mật khẩu là việc của chủ máy.
+
+**Thứ nằm dưới điểm bấm.** Trước khi gửi một cú bấm, một lần cuộn hay một lần kéo, trình trợ
+giúp hỏi macOS thứ gì đang nằm trên cùng tại điểm ấy (cả hai đầu của `drag`, trước khi nhấn
+chuột). Thứ ấy phải thuộc ứng dụng đang ở trước, và khi bấm theo `ref` thì phải là chính phần tử
+ấy hay một phần tử nằm trong nó. Không thì không gì được gửi (`point_covered`), kể cả khi macOS
+không trả lời được: một thông báo, một hộp thoại hay cửa sổ của ứng dụng khác đang che không nhận
+cú bấm dành cho ứng dụng của agent. Câu từ chối không nêu tên thứ đang che. `type`, `key` và
+`set_value` không xét điểm.
 
 **Câu trả lời của một thao tác.** Trình trợ giúp không biết thao tác đã làm được gì trên màn
 hình, nên câu trả lời chỉ nói thao tác đã được gửi và dặn chụp hoặc đọc lại trước bước kế tiếp;
@@ -943,6 +968,8 @@ theo mã, kèm câu của chính trình trợ giúp (trong rào) khi nó mang m�
 | `app_not_running` | ứng dụng chưa mở | mở ứng dụng nếu muốn agent dùng nó |
 | `app_mismatch` | ứng dụng ở trước không phải `app` | không gì: agent `focus_app` rồi chụp lại |
 | `ref_unknown` | `ref` không còn trong dàn ý mới nhất | không gì: agent đọc lại |
+| `point_covered` | thứ nằm trên cùng tại điểm bấm, cuộn hay kéo không thuộc ứng dụng ở trước (bấm theo `ref` thì không phải phần tử ấy), hoặc macOS không nói được | đóng hộp thoại hay thông báo đang che, nếu có; agent chụp hay đọc lại |
+| `browser_app` | ứng dụng ở trước, hay ứng dụng cần đưa lên trước, là trình duyệt web | không gì: trang web là việc của các tool `browser_*` |
 | `secure_input` | đang có ô mật khẩu hay chế độ nhập bảo mật | tự gõ mật khẩu |
 | `blocked_keys` | tổ hợp khoá màn hình, đăng xuất hay buộc thoát | không gì: không bao giờ được gửi |
 
@@ -956,6 +983,8 @@ GET    /api/agents/{id}/desktop             → {"mode", "apps", "machine": {"pr
                                                 "protocol", "locked", "display_asleep",
                                                 "screen_recording", "accessibility"}}
 POST   /api/agents/{id}/desktop/screenshot  → {"frame_id", "path", "width", "height"}
+GET    /api/agents/{id}/desktop/pictures/{frame_id}
+                                            → ảnh PNG, đúng các byte đã lưu
 POST   /api/desktop/permissions             → {"screen_recording", "accessibility"}
 ```
 
@@ -967,6 +996,12 @@ chụp, giới hạn theo cùng `computer_apps`, lưu vào cùng thư mục, nh�
 không hội thoại nào nhớ nó và không model nào đọc nó. Nó vẫn là khung hình mới nhất của màn hình,
 nên `frame_id` agent đang giữ hết hiệu lực. Không chụp được thì là 409 kèm một câu (agent chưa
 bật `computer`, ứng dụng ở trước ngoài danh sách, hay câu theo mã của trình trợ giúp).
+`GET …/desktop/pictures/{frame_id}` trả ảnh của một khung hình đúng như `computer_screenshot`
+hay nút "Thử chụp" đã lưu cho agent ấy; thẻ duyệt đọc ảnh qua đây. Thư mục `desktop/` là chỗ
+agent ghi được, nên server nhớ dấu SHA-256 của từng ảnh nó ghi (40 ảnh mới nhất của mỗi agent, chỉ
+trong bộ nhớ) và chỉ trả ảnh còn đúng dấu ấy. Ảnh đã bị ghi đè, bị thay bằng một liên kết hay bị
+xoá, khung hình không do server chụp cho agent này, và khung hình chụp trước lần khởi động lại gần
+nhất đều là 404.
 `POST /api/desktop/permissions` nhờ trình trợ giúp hỏi macOS cấp hai quyền, rồi trả về quyền nó
 đang giữ. Trình trợ giúp không có, không trả lời hay từ chối thì là 409 kèm câu theo mã; nó từ
 chối khi màn hình đang khoá, vì khi ấy không ai thấy hộp thoại. `PATCH /api/agents/{id}` nhận
@@ -995,9 +1030,12 @@ của agent thì cần khởi động lại như mọi khoá khác của tệp.
   trỏ trong Notes", "Đưa Notes lên trước màn hình") phía trên phần tham số thô, cùng dòng lý do
   khi lời gọi rơi vào một trường hợp luôn hỏi. Dưới đó là ảnh nhỏ của khung hình agent đã chọn
   thao tác trên, đánh dấu điểm bấm (và điểm thả của `drag`); thao tác theo `ref` hay theo một
-  điểm nằm ngoài ảnh không có dấu điểm. Ảnh tìm thấy trong các lần chụp của hội thoại có thêm
-  dòng nói ảnh chụp lúc nào và màn hình có thể đã đổi từ đó; ảnh chỉ tìm thấy trong thư mục
-  `desktop/` thì không có dòng giờ. Ảnh không tìm được hay không tải được thì thẻ không có ảnh.
+  điểm nằm ngoài ảnh không có dấu điểm. Thẻ luôn đọc ảnh qua
+  `GET …/desktop/pictures/{frame_id}`, không bao giờ qua tệp trong thư mục `desktop/` mà agent ghi
+  được. Khi lần chụp khung hình ấy nằm trong hội thoại, thẻ có thêm dòng nói ảnh chụp lúc nào và
+  màn hình có thể đã đổi từ đó; khung hình không chụp trong hội thoại (như ảnh của nút "Thử
+  chụp") thì không có dòng giờ. Ảnh đã bị ghi đè, bị xoá hay chụp trước lần khởi động lại gần nhất
+  thì thẻ không có ảnh; lời gọi vẫn đọc được bằng chữ phía trên và đủ tham số phía dưới.
 - **Dòng thời gian của run và thẻ tool.** Bước `computer_screenshot` hiện ảnh nhỏ như bước
   `browser_screenshot`; bước "Màn hình không đổi" dùng ảnh mà lần lưu trước của cùng khung hình
   đã nêu.
@@ -1017,6 +1055,15 @@ của agent thì cần khởi động lại như mọi khoá khác của tệp.
   `desktop_socket` khác thì phải sửa tệp dịch vụ (xem
   [deployment-guide.md](deployment-guide.md#4c-desktop-cho-agent-tuỳ-chọn-macos)).
 - Đóng gói lại trình trợ giúp đổi chữ ký của nó, nên macOS quên cả hai quyền đã cấp.
+- Phép xét thứ nằm dưới điểm bấm từ chối khi không chắc. Một bảng do tiến trình khác vẽ bên trong
+  ứng dụng, như hộp thoại Mở/Lưu của một ứng dụng sandbox, đọc là của ứng dụng khác, nên bấm vào
+  đó bị từ chối (`point_covered`); chủ làm bước ấy, hoặc agent dùng phím.
+- Phép xét ấy hỏi đúng điểm, không hỏi điểm ấy là gì: trong 300 giây của một khung hình, một
+  lần bấm vẫn tới được phần tử khác của chính ứng dụng ấy đã dời vào chỗ đó (bấm theo `ref` thì
+  không). Bấm đúp luôn hỏi; bấm phải theo `ref` rồi bấm mục "Mở" của trình đơn thì chỉ hỏi khi
+  tên mục có một từ dừng.
+- Trình duyệt được nhận theo tên và bundle id. Một ứng dụng thường mang đúng tên một trình duyệt
+  (`Arc`, `Dia`, `Zen`…) không nêu được theo tên; nêu nó theo bundle id.
 - Lần lưu đưa agent về `off` có hiệu lực từ lượt kế tiếp, như mọi lần lưu
   ([agents.md](agents.md#sửa-agent-từ-webapi)): lượt đang chạy lúc lưu vẫn giữ bốn tool tới hết
   lượt, khác với trình duyệt, nơi lần lưu dừng luôn trình duyệt đang chạy. Lời gọi đang chờ duyệt

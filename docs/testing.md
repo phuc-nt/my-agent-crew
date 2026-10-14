@@ -7802,7 +7802,8 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     hai đầu, danh sách rỗng là không ứng dụng nào; lần lưu từ web là điều lần khởi động sau đọc,
     `off` được ghi thành chữ và lấy tool đi, xoá hai khoá là bỏ khỏi tệp, danh sách xoá trắng
     để agent chỉ nhìn, giá trị sai bị từ chối và tệp giữ nguyên; agent mới tạo được với hai
-    khoá).
+    khoá; danh sách nêu một trình duyệt web, theo tên hay bundle id, bị từ chối kèm tên ấy: tệp
+    viết tay làm dừng khởi động, lần lưu từ web là 422 kèm lý do).
   - pytest: `tests/test_desktop_runtime.py` (mỗi agent nhận đúng bốn tool khoá của nó xin, có
     hay không có trình trợ giúp; không có trình trợ giúp thì tool vẫn ở đó và nói không có;
     `tools:` không đem tới cũng không lấy đi tool desktop; thư mục của trình trợ giúp, và socket
@@ -7836,7 +7837,8 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
   - pytest: `tests/test_desktop_seen.py` (`ref` chỉ có nghĩa với dàn ý hội thoại vừa được xem;
     `ref` của dàn ý khác hay của dòng không vừa câu trả lời bị từ chối; ô bảo mật không bao giờ
     được đặt chữ, nhưng bấm được theo tên; bấm phải kèm đúng tên dàn ý ghi, không phân biệt hoa
-    thường, khoảng trắng và cách mã hoá dấu, còn tên khác một chữ hay một dấu là tên khác).
+    thường, khoảng trắng và cách mã hoá dấu, còn tên khác một chữ hay một dấu là tên khác; ô được
+    đặt giá trị giữ theo tên lời gọi nêu, và không theo tên nào khi lời gọi không nêu).
 - **trạng thái của máy**:
   - pytest: `tests/test_desktop_state_tool.py` (`computer_state` chỉ nêu tên ứng dụng của agent;
     ứng dụng ngoài danh sách ở trước được nói mà không nêu tên; agent không có ứng dụng nào được
@@ -7852,8 +7854,10 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     dài chữ là của trình trợ giúp; `type` không nhận `ref`; nửa cặp UTF-16 bị từ chối trước khi
     ai bị hỏi; những chữ không bao giờ gõ, những tổ hợp không bao giờ gửi, Spotlight chỉ cho agent
     được giao nó; mỗi lý do luôn hỏi (đưa lên trước, Enter hay Space một mình, tổ hợp ngoài nhóm
-    thường dùng, từ dừng, dấu xuống dòng khi gõ nhưng không khi đặt giá trị, điểm, tên phần tử có
-    từ dừng) và những lời gọi không có lý do nào; toạ độ trên thẻ làm tròn tới phần trăm).
+    thường dùng, từ dừng, dấu xuống dòng khi gõ nhưng không khi đặt giá trị, điểm, bấm đúp, tên
+    phần tử hay tên ô có từ dừng) và những lời gọi không có lý do nào; bấm theo `ref` chỉ đọc tên
+    đi kèm, không đọc gì khác lời gọi mang theo; ký tự đắt nhất còn được nhận (4 byte) vẫn vừa
+    giới hạn của trình trợ giúp; toạ độ trên thẻ làm tròn tới phần trăm).
   - pytest: `tests/test_desktop_keys.py` (tổ hợp phím đọc đúng như trình trợ giúp đọc: bảng phím
     và phím giữ được đọc thẳng từ mã Swift của trình trợ giúp, nên một phím thêm ở đó mà không ở
     đây làm test đỏ; mỗi tổ hợp một cách viết và đọc lại ra chính nó; tổ hợp không bao giờ gửi và
@@ -7863,20 +7867,39 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     danh sách rỗng không nêu ứng dụng nào; dạng của `frame_id`;
     `sudo`, `rm` vừa đệ quy vừa không hỏi, và tải về đưa thẳng vào shell không bao giờ được gõ, kể
     cả viết theo cách shell vẫn đọc ra như thế, còn những dòng gần giống thì gõ được).
+  - pytest: `tests/test_desktop_act_asking.py` (chữ của `type` hay `set_value` có một ký tự điều
+    khiển ngoài tab và hai dấu xuống dòng bị từ chối trước khi ai bị hỏi, xét từng ký tự; tab gõ
+    được, dấu xuống dòng khi gõ vẫn chờ người; `set_value` xét theo tên ô mà dàn ý ghi: tên có từ
+    dừng thì chờ dù chữ đặt vào là gì, từ dừng trong chữ thì lý do nêu tên ô, không có dàn ý thì
+    đọc tên lời gọi nêu; tên lấy từ màn hình hiện mọi ký tự điều khiển thành mã; bấm đúp lên phần
+    tử luôn chờ và nêu tên nó, lên một điểm thì chờ và nói ở đâu).
+  - pytest: `tests/test_desktop_browsers.py` (các trình duyệt server biết đúng là danh sách của
+    trình trợ giúp, đọc thẳng từ mã Swift; trình duyệt được nhận theo tên, không phân biệt hoa
+    thường, theo bundle id hay một id đi tiếp từ nó sau dấu chấm; ứng dụng chỉ giống trình duyệt
+    thì không phải; danh sách nêu trình duyệt theo tên hay bundle id không bao giờ cho nó; mọi tên
+    danh sách ấy biết đều là trình duyệt).
 - **thao tác: khi chạy**:
   - pytest: `tests/test_desktop_act_tool.py` (thao tác được gửi đúng như đã đọc và câu trả lời để
     ngỏ kết quả; `set_value` nói đã đặt; `focus_app` không cần khung hình và dặn chụp lại; khung
     hình cũ hơn lần chụp cuối, điểm ngoài ảnh, chữ cho ô bảo mật và `ref` sai dạng không tới trình
     trợ giúp; dàn ý một hội thoại khác hay agent khác vừa đọc làm `ref` cũ hết hiệu lực; ứng dụng
     ngoài danh sách bị để lại ở trước được nói mà không nêu tên; mỗi mã của trình trợ giúp có câu
-    riêng, câu của trình trợ giúp bị bỏ khi trần không đủ chỗ, mã lạ chỉ được nêu khi đúng dạng).
+    riêng, câu của trình trợ giúp bị bỏ khi trần không đủ chỗ, mã lạ chỉ được nêu khi đúng dạng;
+    `set_value` dưới một tên bị giữ theo tên của dàn ý, và tên ấy không bao giờ được gửi tới trình
+    trợ giúp).
   - pytest: `tests/test_desktop_gate.py` (chỉ `computer_act` qua cổng duyệt; thao tác chờ người
     trừ khi hội thoại autonomous, và các trường hợp luôn hỏi thì chờ dù hội thoại cho phép gì;
     lời gọi chắc chắn bị từ chối không tới ai và không tới trình trợ giúp; `ref` chỉ được đưa ra
     hỏi khi dàn ý của nó vẫn là dàn ý vừa được xem; thao tác được đồng ý sau khi màn hình đã được
     chụp lại, hay sau khi hội thoại khác đọc dàn ý, vẫn bị từ chối; lượt không ai xem dừng ở thao
     tác cần hỏi và chạy phần còn lại; script chỉ đọc được nhìn mà không được thao tác, script
-    `gated` gặp cùng cổng, và script của một lịch dừng ở thao tác cần hỏi).
+    `gated` gặp cùng cổng, và script của một lịch dừng ở thao tác cần hỏi; bấm đúp và đặt giá trị
+    vào ô có tên chứa từ dừng chờ người cả trong hội thoại autonomous).
+  - pytest: `tests/test_desktop_act_helper_guards.py` (điểm có cửa sổ khác nằm trên được nói như
+    thế, không bao giờ như việc đã làm; trình duyệt ở trước dưới một tên riêng là việc trình trợ
+    giúp từ chối; trình duyệt mà danh sách nêu bị từ chối trước khi trình trợ giúp nghe; trình trợ
+    giúp giả từ chối chữ có ký tự điều khiển như trình trợ giúp thật, cho yêu cầu gửi vòng qua
+    tool).
 - **API và trang Kết nối**:
   - pytest: `tests/test_desktop_routes.py` (khối `desktop` của trang Kết nối nói đúng điều trình trợ
     giúp nói; không có trình trợ giúp không phải lỗi; trình trợ giúp không trả lời giữ trang tối
@@ -7888,6 +7911,12 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     `computer_screenshot` nêu ảnh và khung hình, đọc được cả từ dòng ngắn mà bước của run giữ, và
     route tệp trả ảnh ấy dạng PNG; màn hình không đổi được đọc theo khung hình vì dòng của bước
     có thể hết trước đường dẫn sâu dưới `write_paths`).
+  - pytest: `tests/test_desktop_picture_route.py` (thẻ duyệt nhận đúng ảnh tool đã chụp, dạng ảnh
+    không tin cậy; ảnh người thử chụp cũng là ảnh tool chụp; ảnh agent ghi lại là 404 cho tới khi
+    byte của nó lại đúng như lúc chụp; liên kết đặt vào chỗ ảnh là 404, kể cả khi nó dẫn tới đúng
+    các byte ấy; ảnh đã mất hay không phải tệp là 404; khung hình tool không chụp cho agent ấy là
+    404; tên không có dạng khung hình không bao giờ được tìm; agent lạ là 404; chỉ ảnh mới nhất
+    của mỗi agent được nhớ).
   - pytest: `tests/test_api_model_routes.py` (trang Kết nối trả về sau khi lưu tuyến mang cả khối
     `desktop`).
 - **trình trợ giúp: socket, dòng lệnh và giao thức**:
@@ -7898,7 +7927,7 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     mảnh; dòng quá 64 KiB bị trả `bad_request` và kết nối đóng; kết nối của người dùng khác bị
     đóng không lời; dừng thì xoá socket).
   - XCTest: `RequestParsingTests`, `HelperPiecesTests` (mỗi yêu cầu một đối tượng JSON trên một
-    dòng; id tối đa 64 ký tự; bảy lệnh và mười bốn mã lỗi đúng như hợp đồng; khung hình là đầu
+    dòng; id tối đa 64 ký tự; bảy lệnh và mười sáu mã lỗi đúng như hợp đồng; khung hình là đầu
     SHA-256 của ảnh, kích thước và màn hình, sống 300 giây và chỉ khi còn mới nhất; ảnh thu nhỏ
     tới khi cạnh dài vừa và không bao giờ phóng to; chữ gõ chia từng mảnh tối đa 20 đơn vị UTF-16
     mà không mất gì; `--socket`, `--version` và đối số lạ).
@@ -7922,6 +7951,23 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
   - XCTest: `ActAppTests` (mọi `kind` trừ `focus_app` là `app_mismatch` khi ứng dụng khác ở trước;
     `focus_app` chờ tối đa hai giây, đưa được ứng dụng ẩn ra trước, và ứng dụng chưa chạy là
     `app_not_running`).
+  - XCTest: `ActBrowserTests` (mọi `kind` là `browser_app` khi một trình duyệt ở trước, kể cả
+    trang web lưu thành ứng dụng, bundle id viết hoa khác và ứng dụng web của Safari, và không gì
+    được gửi; `focus_app` không bao giờ đưa trình duyệt lên trước, theo tên hay bundle id, nhưng
+    đưa được ứng dụng khác lên trước khi trình duyệt đang ở trước; ứng dụng mà bundle id chỉ bắt
+    đầu giống trình duyệt vẫn thao tác được; trình duyệt ở trước vẫn được kể, chụp và đọc dàn ý;
+    `type` dừng khi trình duyệt lên trước giữa hai mảnh; danh sách bundle id khớp không phân biệt
+    hoa thường và cả phần sau một dấu chấm, và không có dòng trùng).
+  - XCTest: `ActHitTests` (bấm, bấm đúp, bấm phải theo điểm và cuộn là `point_covered` khi ứng
+    dụng khác nằm trên cùng tại điểm ấy, còn trúng bất kỳ phần tử nào của ứng dụng ở trước thì
+    gửi; cửa sổ nằm cạnh điểm không giữ cú bấm lại; kéo hỏi cả hai đầu trước khi nhấn chuột và
+    dừng ở đầu hỏng đầu tiên; bấm theo `ref` phải trúng chính phần tử hay một phần tử con, không
+    phải phần tử khác của cùng ứng dụng; không có gì tại điểm và mọi lỗi của máy là
+    `point_covered`; `type`, `key` và `set_value` không hỏi điểm).
+  - XCTest: `ActControlCharacterTests` (`type` và `set_value` có ký tự điều khiển là
+    `bad_request` và không hỏi máy gì; ký tự bị từ chối đúng là nhóm điều khiển của Unicode trừ
+    tab, LF và CR, xét trên mọi điểm mã; ký tự ở bất kỳ đâu trong chữ dài đều bị tìm thấy và ký
+    tự đầu tiên được nêu; chữ chỉ có tab và xuống dòng được gõ và đặt nguyên vẹn).
   - XCTest: `ActPointerTests` (điểm của ảnh rơi đúng chỗ trên màn hình có gốc khác không và trên
     màn hình Retina; kéo, cuộn trong 50 dòng mỗi chiều; khung hình không còn mới nhất, quá 300
     giây hay của màn hình khác bị từ chối; điểm ngoài ảnh không gửi gì).
@@ -7932,8 +7978,9 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     hình, đăng xuất và buộc thoát bị chặn theo mọi thứ tự phím giữ, kể cả thêm một phím giữ;
     `type` dừng khi ứng dụng khác lên trước hay chế độ nhập bảo mật bật giữa hai mảnh; 2 000 ký tự
     gõ được, 2 001 thì không).
-  - XCTest: `ActOrderTests` (thứ tự các phép kiểm của `act`: hình dạng, điều kiện của máy, phím bị
-    chặn, ứng dụng, nhập bảo mật, khung hình và `ref`, điểm; mỗi phép kiểm một lần, rồi thao tác
+  - XCTest: `ActOrderTests` (thứ tự các phép kiểm của `act`: hình dạng kể cả ký tự điều khiển,
+    điều kiện của máy, phím bị chặn, ứng dụng, trình duyệt ở trước, nhập bảo mật, khung hình,
+    `ref` và điểm ngoài ảnh, rồi thứ nằm trên cùng tại điểm; mỗi phép kiểm một lần, rồi thao tác
     một lần).
   - XCTest: `SourceBudgetTests` (không tệp Swift nào quá 200 dòng; thư viện lõi mà test chạy
     không nêu gì của máy thật và chỉ import thứ không bật được hộp thoại; máy thật chỉ được nêu
@@ -7954,8 +8001,9 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     một mình và danh sách trong tệp giữ nguyên; dòng nói trình trợ giúp là việc của chủ máy và vì
     sao bốn tool không có ô chọn; agent không sửa được thì chỉ xem; ô ứng dụng chỉ hiện khi Bật,
     hay khi danh sách vừa bị từ chối; danh sách lưu đã cắt khoảng trắng, mỗi tên một lần, bỏ dòng
-    trống, ô xoá trắng gửi `[]`; lỗi 422 hiện cạnh ô của nó và giữ chữ đã gõ; server chưa biết
-    desktop thì không có ô nào và không gửi khoá nào).
+    trống, ô xoá trắng gửi `[]`; lỗi 422 hiện cạnh ô của nó và giữ chữ đã gõ, kể cả lời từ chối
+    một trình duyệt web, dưới dòng nói vì sao; server chưa biết desktop thì không có ô nào và
+    không gửi khoá nào).
   - vitest: `web/src/hooks/agent-draft-desktop.test.ts` (bản nháp mang hai khoá của tệp; có mức mà
     không có danh sách là chỉ nhìn; server chưa biết desktop thì không có khoá nào; lần lưu chỉ
     gửi khoá đã đổi, và `[]` cho danh sách đã xoá trắng).
@@ -7971,7 +8019,8 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     có trình trợ giúp thì chỉ nói đó là việc của chủ; màn hình khoá, sẵn sàng, và từng thứ đang
     cản, quyền thiếu tách khỏi quyền chưa rõ; không có ứng dụng nào thì nói agent chỉ nhìn; server
     cũ hay route 404 thì không có thẻ; ảnh thử hiện qua route tệp, theo đúng đường dẫn server nói,
-    cả dưới `write_paths`, rồi máy được đọc lại; các câu 409 hiện đúng câu của server; một lần bấm
+    cả dưới `write_paths`, và dòng dưới nút nói ảnh nằm ở thư mục `desktop/` nào, rồi máy được đọc
+    lại; các câu 409 hiện đúng câu của server; một lần bấm
     là một lần chụp; quá giới hạn của trình trợ giúp thì thôi chờ và câu trả lời muộn không được
     vẽ; lưu mức hay danh sách thì máy được đọc lại, câu trả lời cũ đến sau không thay câu mới
     hơn).
@@ -7985,10 +8034,14 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
 - **web: câu đọc được và ảnh trên thẻ duyệt `computer_act`**:
   - vitest: `web/src/lib/desktop-call.test.ts` (mỗi `kind` thành một câu; thao tác trên phần tử nói
     bằng phần tử, không bằng điểm; dấu ngoặc trong tên không lọt ra ngoài phần trích; tham số
-    thiếu, sai kiểu hay của tool khác thì không có câu; toạ độ làm tròn tới phần trăm).
+    thiếu, sai kiểu hay của tool khác thì không có câu; toạ độ làm tròn tới phần trăm; mỗi ký tự
+    điều khiển được viết thành mã, còn tab và dấu xuống dòng đọc là khoảng trắng; `set_value` có
+    tên ô thì câu nêu tên ấy).
   - vitest: `web/src/components/approval-bar-desktop.test.tsx` (câu nằm trên tham số thô, lý do của
-    server trên câu, lý do rỗng thì không bịa; ảnh là ảnh mà lần chụp của hội thoại đã lưu, kèm giờ
-    chụp, không có thì lấy thư mục của agent và không nói giờ; ảnh không tải được thì bỏ; điểm đánh
+    server trên câu, lý do rỗng thì không bịa; ảnh luôn hỏi server theo khung hình, không bao giờ
+    là tệp trong thư mục của agent; lần chụp của hội thoại có khung hình ấy thì kèm giờ chụp, không
+    có thì không nói giờ; agent và khung hình được viết vào địa chỉ như một phần của nó, không bao
+    giờ thành thêm đường dẫn; ảnh không tải được thì bỏ; điểm đánh
     dấu theo kích thước trong `frame_id`, kéo có hai dấu; thao tác theo `ref`, điểm ngoài ảnh hay
     `kind` không có điểm thì không có dấu nhưng vẫn có ảnh; không bao giờ hiện ảnh của khung hình
     trước; ảnh có ở thanh duyệt của hội thoại và ở dòng của danh sách yêu cầu).
@@ -7997,13 +8050,22 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     bước, ở workspace và dưới `write_paths` sâu; thư mục dự phòng đọc `write_paths` như server;
     trong tin nhắn, lần lưu được ghép với lời gọi của nó, không bao giờ với tool khác).
   - Playwright: `web/e2e/desktop.spec.ts` (thao tác chờ trong chat có câu, ảnh có dấu điểm, rồi
-    tham số; kéo ở danh sách yêu cầu dùng ảnh khung dọc từ thư mục của agent, có dấu ở hai đầu,
-    dưới lý do của server; ảnh không còn thì thẻ có câu và tham số, không có ảnh).
+    tham số, ảnh và liên kết đều qua `GET …/desktop/pictures/{frame_id}`; kéo ở danh sách yêu cầu
+    dùng ảnh khung dọc của khung hình ấy, có dấu ở hai đầu, dưới lý do của server; route trả 404
+    thì thẻ có câu và tham số, không có ảnh).
+- **web: ký tự điều khiển trên thanh duyệt**:
+  - vitest: `web/src/lib/hidden-chars.test.ts` (mọi ký tự điều khiển trừ tab và hai dấu xuống dòng
+    được viết bằng mã; một backspace làm chữ này thành chữ khác hiện ra; nhóm ký tự mà khung xem mã
+    hiện vẫn là của khung ấy), `web/src/lib/browser-call.test.ts` (mỗi ký tự điều khiển được viết
+    bằng mã, kể cả những ký tự trắng trong số đó), `web/src/components/tool-args-detail.test.tsx`
+    (mỗi ký tự điều khiển được viết bằng mã, tab và dấu xuống dòng giữ nguyên; trên thanh duyệt cả
+    lý do, câu và tham số đều viết mã).
 - **web: ảnh của `computer_screenshot` trên bước của run và thẻ tool**:
   - vitest: `web/src/components/desktop-shot-thumb.test.tsx` (ảnh đã lưu đọc từ dòng bước giữ lại
     và từ câu trả lời đầy đủ trên thẻ chat, mở trong tab mới qua route tệp; màn hình không đổi lấy
     ảnh của cùng khung hình mà bước hay lời gọi trước đã lưu, không có thì lấy thư mục của agent;
-    bước hay lời gọi hỏng, chưa xong, hay của tool khác thì không có ảnh).
+    bước hay lời gọi hỏng, chưa xong, hay của tool khác thì không có ảnh; các bước cùng tìm thư mục
+    của một agent đọc dòng của agent ấy một lần, lần tìm sau đọc lại).
   - Playwright: `web/e2e/desktop.spec.ts` (bước chụp hiện ảnh đã lưu, bước "không đổi" hiện cùng
     ảnh ấy).
 - **web: desktop trên điện thoại**:
