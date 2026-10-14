@@ -206,7 +206,8 @@ export interface MockOptions {
   desktop?: FakeDesktop;
   /** The pictures agents saved in their workspaces, each under "<agent id>/<path>" with its
    *  width and height: served as a flat picture of that size. Any other file asked of a
-   *  workspace is not there. */
+   *  workspace is not there. One in the agent's desktop folder is also what the screenshot
+   *  tool took of its frame, which the card that asks about an action shows. */
   pictures?: Record<string, [width: number, height: number]>;
   /** How many messages, from the first, the server takes and then fails to answer: the turn
    *  runs and is stored, and the connection drops before a byte of it reaches the page. */
@@ -356,6 +357,16 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       if (!agents.some((a) => (a as { id: string }).id === agentId)) return json({ detail: "agent not found" }, 404);
       const size = options.pictures?.[`${agentId}/${url.searchParams.get("path") ?? ""}`];
       return size ? route.fulfill({ status: 200, contentType: "image/png", body: flatPng(...size) }) : json({ detail: "file not found" }, 404);
+    }
+    // A frame's picture as the screenshot tool took it: by the server's record of where it
+    // put it, the desktop folder under the agent's first write path or in its workspace.
+    const framePicture = path.match(/^\/agents\/([^/]+)\/desktop\/pictures\/([^/]+)$/);
+    if (framePicture && method === "GET") {
+      const agent = agents.find((a) => (a as { id: string }).id === decodeURIComponent(framePicture[1])) as DesktopCrewMember | undefined;
+      if (!agent) return json({ detail: "agent not found" }, 404);
+      const folder = agent.write_paths?.[0] ? `${agent.write_paths[0]}/desktop` : "desktop";
+      const size = options.pictures?.[`${agent.id}/${folder}/${decodeURIComponent(framePicture[2])}.png`];
+      return size ? route.fulfill({ status: 200, contentType: "image/png", body: flatPng(...size) }) : json({ detail: "no such picture" }, 404);
     }
     const persona = path.match(/^\/agents\/([^/]+)\/files\/([^/]+)$/);
     if (persona) {

@@ -23,7 +23,7 @@ function open(agent: AgentInfo) {
 }
 
 const off: AgentInfo = { ...fakeAgent, computer: "off", computer_apps: [] };
-const on: AgentInfo = { ...fakeAgent, computer: "on", computer_apps: ["Notes", "com.apple.Safari"] };
+const on: AgentInfo = { ...fakeAgent, computer: "on", computer_apps: ["Notes", "com.apple.TextEdit"] };
 
 /** The agent as a server older than the desktop reports it: with neither key. */
 const older: AgentInfo = fakeAgent;
@@ -47,8 +47,11 @@ describe("whether an agent may use the machine's desktop", () => {
       ["on", "Bật"],
     ]);
     expect(mode()).toHaveValue("on");
-    expect(apps()).toHaveValue("Notes\ncom.apple.Safari");
+    expect(apps()).toHaveValue("Notes\ncom.apple.TextEdit");
     expect(section().getByRole("heading", { name: vi.desktop.title })).toBeInTheDocument();
+    // A turn already running keeps the tools it began with: a save is for the next one.
+    expect(section().getByText(d.sectionHint)).toBeInTheDocument();
+    expect(d.sectionHint).toBe("Có hiệu lực từ lượt kế tiếp sau khi lưu, không cần khởi động lại.");
   });
 
   it("says one line for the mode chosen, naming the four tools and the gate when on", async () => {
@@ -83,7 +86,7 @@ describe("whether an agent may use the machine's desktop", () => {
 
     await saved();
     expect(patches()).toEqual([{ profile: { computer: "off" } }]);
-    expect(backend.agents[0]).toMatchObject({ computer: "off", computer_apps: ["Notes", "com.apple.Safari"] });
+    expect(backend.agents[0]).toMatchObject({ computer: "off", computer_apps: ["Notes", "com.apple.TextEdit"] });
   });
 
   it("says the helper and its permissions are the machine owner's, and why the tools have no tick", () => {
@@ -117,12 +120,12 @@ describe("the applications an agent may act in", () => {
   it("are saved trimmed, once each, with blank lines dropped", async () => {
     open({ ...on, computer_apps: [] });
 
-    await userEvent.type(apps(), "  Notes  {Enter}{Enter}com.apple.Safari{Enter}Notes");
-    expect(apps()).toHaveValue("  Notes  \n\ncom.apple.Safari\nNotes");
+    await userEvent.type(apps(), "  Notes  {Enter}{Enter}com.apple.TextEdit{Enter}Notes");
+    expect(apps()).toHaveValue("  Notes  \n\ncom.apple.TextEdit\nNotes");
     await save();
 
     await saved();
-    expect(patches()).toEqual([{ profile: { computer_apps: ["Notes", "com.apple.Safari"] } }]);
+    expect(patches()).toEqual([{ profile: { computer_apps: ["Notes", "com.apple.TextEdit"] } }]);
   });
 
   it("are sent as an empty list once the box is emptied", async () => {
@@ -158,6 +161,22 @@ describe("a save the server refuses", () => {
     expect(apps()).toHaveAttribute("aria-invalid", "true");
     expect(apps()).toHaveAccessibleDescription(`${d.appsHint} ${appsSaid}`);
     expect(screen.getByText(t.dirty(1))).toBeInTheDocument();
+    expect(backend.agents[0].computer_apps).toEqual([]);
+  });
+
+  it.each(["Safari", "com.google.Chrome"])("shows the refusal of a web browser (%s) beside the box, under the line that says why", async (browser) => {
+    open({ ...on, computer_apps: [] });
+    const said = `agent default: computer_apps cannot name a web browser (${browser}): the desktop never acts in one; the web is for the browser tools (browser: read or act)`;
+
+    await userEvent.type(apps(), `Notes{Enter}${browser}`);
+    await save();
+
+    await waitFor(() => expect(controls().getByText(said)).toHaveClass("field-error"));
+    expect(apps()).toHaveValue(`Notes\n${browser}`);
+    expect(apps()).toHaveAttribute("aria-invalid", "true");
+    expect(apps()).toHaveAccessibleDescription(`${d.appsHint} ${said}`);
+    expect(d.appsHint).toContain("Không ghi trình duyệt web (Safari, Chrome, Firefox…)");
+    expect(controls().queryByTestId("desktop-mode-error")).not.toBeInTheDocument();
     expect(backend.agents[0].computer_apps).toEqual([]);
   });
 

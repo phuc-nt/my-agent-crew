@@ -15,6 +15,12 @@ export function agentFileUrl(agentId: string, path: string): string {
   return `/api/agents/${encodeURIComponent(agentId)}/files${query({ path })}`;
 }
 
+/** URL of a desktop frame's picture as the screenshot tool took it for the agent: the server
+ *  answers 404 for one the agent rewrote since, or one it no longer keeps. */
+export function desktopPictureUrl(agentId: string, frame: string): string {
+  return `/api/agents/${encodeURIComponent(agentId)}/desktop/pictures/${encodeURIComponent(frame)}`;
+}
+
 /** A run written out whole, which the server sends as a file to save. */
 export function runTrajectoryUrl(runId: string, format: "json" | "md"): string {
   return `/api/activity/runs/${encodeURIComponent(runId)}/trajectory${query({ format })}`;

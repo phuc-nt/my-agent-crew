@@ -22,6 +22,10 @@ interface Props {
  * one a screenshot beside it saved, else the one in the agent's folder. A line that reads as
  * neither shows nothing, and so does a picture that does not load, removed since or out of
  * reach.
+ *
+ * It is read by the files route, as the file the workspace holds: a step or a tool card tells
+ * what the tool left there, after the fact, and nobody approves anything on it. A card that
+ * asks a person about an action asks for the frame as the tool took it (`DesktopFrameThumb`).
  */
 export function DesktopShotThumb({ agentId, toolName, output, frames }: Props) {
   // The path that failed, not a flag: a row that comes to name another picture tries that one.

@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { vi } from "../i18n/vi";
+import { showControlChars } from "../lib/hidden-chars";
 
 /** The arguments a person reads as text, line by line: a shell command, a file body, the
  *  text an edit replaces and what replaces it. Quoted inside JSON they would lose their line
@@ -59,7 +60,8 @@ function parts(args: Args): { text: [string, string][]; rest: Record<string, unk
 /**
  * The whole of a tool call's arguments, behind a "Xem đầy đủ" disclosure. The summary line
  * cuts each value at sixty characters, which is enough to recognise a call and not enough
- * to judge one: approving a command means reading all of it, not its first words.
+ * to judge one: approving a command means reading all of it, not its first words. A control
+ * character but tab and the line breaks draws as nothing, so each is written as its code point.
  */
 export function ToolArgsDetail({ args }: { args: Args }) {
   const [open, setOpen] = useState(false);
@@ -82,10 +84,10 @@ export function ToolArgsDetail({ args }: { args: Args }) {
           {text.map(([key, value]) => (
             <div key={key} className="args-detail-field">
               {key && <span className="args-detail-key">{key}</span>}
-              <pre className="args-detail-code">{value}</pre>
+              <pre className="args-detail-code">{showControlChars(value)}</pre>
             </div>
           ))}
-          {rest && <pre className="args-detail-code">{JSON.stringify(rest, null, 2)}</pre>}
+          {rest && <pre className="args-detail-code">{showControlChars(JSON.stringify(rest, null, 2))}</pre>}
         </div>
       )}
     </div>

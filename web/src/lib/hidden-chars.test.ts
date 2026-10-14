@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasHiddenChars, showHiddenChars, showPathChars } from "./hidden-chars";
+import { hasHiddenChars, showControlChars, showHiddenChars, showPathChars } from "./hidden-chars";
 
 describe("characters that change how text reads without being seen", () => {
   it("shows a right-to-left override as a visible mark", () => {
@@ -33,6 +33,29 @@ describe("characters that change how text reads without being seen", () => {
 });
 
 const marked = (code: number) => `[U+${code.toString(16).toUpperCase().padStart(4, "0")}]`;
+
+describe("control characters on a call a person approves", () => {
+  const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, at) => from + at);
+  const CONTROLS = [...range(0x00, 0x08), 0x0b, 0x0c, ...range(0x0e, 0x1f), ...range(0x7f, 0x9f)];
+
+  it("writes every control character but tab and the line breaks as its code point", () => {
+    for (let code = 0; code <= 0xa0; code += 1) {
+      const char = String.fromCodePoint(code);
+      const said = showControlChars(`a${char}b`);
+      expect(said).toBe(CONTROLS.includes(code) ? `a${marked(code)}b` : `a${char}b`);
+    }
+  });
+
+  it("shows a backspace that would make one word another", () => {
+    expect(showControlChars("sudx\bo ls")).toBe("sudx[U+0008]o ls");
+    expect(showControlChars("\x1b[A\x1b[A")).toBe("[U+001B][A[U+001B][A");
+  });
+
+  it("leaves the set the code view shows to the code view", () => {
+    expect(showControlChars("a\u202eb\u200bc")).toBe("a\u202eb\u200bc");
+    expect(showHiddenChars("a\bb")).toBe("a\bb");
+  });
+});
 
 describe("what a path holds that nobody would see", () => {
   // Every one of these the server keeps in a path as it was sent: none is a control or a format

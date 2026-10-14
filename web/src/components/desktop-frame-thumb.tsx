@@ -1,5 +1,5 @@
 import { type CSSProperties, useState } from "react";
-import { agentFileUrl } from "../api/client";
+import { desktopPictureUrl } from "../api/client";
 import { useApprovalFrame } from "../hooks/use-frame-picture";
 import { vi } from "../i18n/vi";
 import { ACT_TOOL } from "../lib/desktop-call";
@@ -49,17 +49,21 @@ export function framePoints(args: Args, width: number, height: number): Mark[] {
  * when that picture was taken.
  *
  * It is what the agent saw, not the screen as it is while the card waits, so the time is said
- * under it. A frame id that is not one, a picture no longer kept, or a conversation that cannot
- * be read leaves the card without it: the call is still read in words above and in full below.
+ * under it. It is asked of the server by frame, which answers with the picture only as the
+ * screenshot tool took it: the file of that name sits in a folder the agent writes in. The
+ * tool cards and run steps keep the file route, since they show what the tool left in the
+ * workspace, after the fact, and nobody approves anything on them. A frame id that is not one,
+ * a picture rewritten or no longer kept (404), or a conversation that cannot be read leaves the
+ * card without it: the call is still read in words above and in full below.
  */
 export function DesktopFrameThumb({ conversationId, name, args }: Props) {
   const fields = name === ACT_TOOL && typeof args === "object" && args !== null ? (args as Args) : null;
   const frame = fields && isFrame(fields.frame_id) ? fields.frame_id : null;
   const picture = useApprovalFrame(conversationId, frame);
   const [failed, setFailed] = useState<string | null>(null);
-  if (!fields || !frame || !picture || picture.path === failed) return null;
+  const url = picture && frame ? desktopPictureUrl(picture.agentId, frame) : null;
+  if (!fields || !frame || !url || url === failed) return null;
   const size = frameSize(frame);
-  const url = agentFileUrl(picture.agentId, picture.path);
   const marks = size ? framePoints(fields, size.width, size.height) : [];
   const t = vi.desktop.frame;
   return (
@@ -71,7 +75,7 @@ export function DesktopFrameThumb({ conversationId, name, args }: Props) {
         target="_blank"
         rel="noreferrer"
       >
-        <img src={url} alt={t.alt(size?.width ?? 0, size?.height ?? 0)} onError={() => setFailed(picture.path)} />
+        <img src={url} alt={t.alt(size?.width ?? 0, size?.height ?? 0)} onError={() => setFailed(url)} />
         {size &&
           marks.map((mark, at) => (
             <span
@@ -84,7 +88,7 @@ export function DesktopFrameThumb({ conversationId, name, args }: Props) {
             />
           ))}
       </a>
-      {picture.takenAt && (
+      {picture?.takenAt && (
         <figcaption className="muted" data-testid="desktop-frame-time">
           {t.takenAt(formatDateTime(picture.takenAt))}
         </figcaption>

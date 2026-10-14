@@ -80,11 +80,11 @@ describe("the card of an agent", () => {
   });
 
   it("that is ready says so in one line", async () => {
-    crew("on", desktopReady(), { computer_apps: ["Notes", "com.apple.Safari"] });
+    crew("on", desktopReady(), { computer_apps: ["Notes", "com.apple.TextEdit"] });
     await drawn();
 
     expect(lines()).toEqual([t.ready]);
-    expect(card().getByTestId("desktop-apps-line")).toHaveTextContent(t.apps("Notes, com.apple.Safari"));
+    expect(card().getByTestId("desktop-apps-line")).toHaveTextContent(t.apps("Notes, com.apple.TextEdit"));
   });
 
   it("names each thing in the way, a permission missing apart from one not told", async () => {
@@ -164,6 +164,9 @@ describe("a picture tried from the card", () => {
     expect(shot.getAttribute("href")).toBe(
       `/api/agents/coach/files?path=${encodeURIComponent("records/kept/desktop/0000000000000001-1456x910-1.png")}`,
     );
+    // The line under the button says where, as the server places it.
+    expect(tryButton()).toHaveAccessibleDescription(t.tryHint);
+    expect(t.tryHint).toContain("thư mục desktop/ của agent: trong thư mục đầu tiên của write_paths, hoặc ngay trong workspace khi agent không có write_paths");
   });
 
   it.each([
@@ -308,11 +311,11 @@ describe("the machine read again", () => {
     await waitFor(() => expect(card().getByTestId("desktop-mode")).toHaveTextContent(t.mode.on));
     expect(sent(READ, "GET")).toBe(2);
 
-    saved(view, { computer_apps: ["Notes", "com.apple.Safari"] });
-    await waitFor(() => expect(card().getByTestId("desktop-apps-line")).toHaveTextContent(t.apps("Notes, com.apple.Safari")));
+    saved(view, { computer_apps: ["Notes", "com.apple.TextEdit"] });
+    await waitFor(() => expect(card().getByTestId("desktop-apps-line")).toHaveTextContent(t.apps("Notes, com.apple.TextEdit")));
     expect(sent(READ, "GET")).toBe(3);
 
-    saved(view, { computer_apps: ["Notes", "com.apple.Safari"] });
+    saved(view, { computer_apps: ["Notes", "com.apple.TextEdit"] });
     await settle();
     expect(sent(READ, "GET")).toBe(3);
   });

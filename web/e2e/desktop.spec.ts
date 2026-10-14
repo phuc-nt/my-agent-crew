@@ -18,6 +18,8 @@ const helper = (machine: Parameters<typeof desktopReady>[0] = {}) => Object.assi
 const F = "00000000000000a1-1456x910-1";
 const SHOT_AT = "2026-10-14T02:05:00Z";
 const fileUrl = (path: string) => `/api/agents/coach/files?path=${encodeURIComponent(path)}`;
+/** A frame's picture as the screenshot tool took it: what a card that asks about an action shows. */
+const pictureUrl = (frame: string) => `/api/agents/coach/desktop/pictures/${frame}`;
 const saved = (path: string, frame = F) =>
   `Đã chụp màn hình và lưu vào ${path}. frame_id: ${frame} (1456×910; toạ độ của computer_act tính theo điểm ảnh của ảnh này).\nỨng dụng phía trước: Notes`;
 const unchanged = (path: string) =>
@@ -25,6 +27,14 @@ const unchanged = (path: string) =>
 
 const top = async (of: Locator) => (await of.boundingBox())!.y;
 const loaded = (img: Locator) => expect.poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth));
+/** A card that asks rises a few pixels as it comes in, and its picture may load before it has
+ *  landed: two boxes are compared once it has stopped moving. A spinner's turn never ends, and
+ *  is no part of where a box stands. */
+const settled = (page: Page) =>
+  page.evaluate(() => {
+    const ends = (animation: Animation) => Number.isFinite(Number(animation.effect?.getComputedTiming().endTime));
+    return Promise.all(document.getAnimations().filter(ends).map((animation) => animation.finished));
+  });
 /** Where a mark's centre is on its picture, as fractions of the picture's width and height. */
 async function placed(mark: Locator, picture: Locator): Promise<[number, number]> {
   const [m, p] = [(await mark.boundingBox())!, (await picture.boundingBox())!];
@@ -152,19 +162,19 @@ test("an agent's desktop is turned on with its applications, saved as the word a
   await mode.selectOption("on");
   await expect(mode).toHaveAccessibleDescription(t.editor.modeHint.on);
   await expect(apps).toHaveAccessibleDescription(t.editor.appsHint);
-  await apps.fill("Notes\n\n  com.apple.Safari  \nNotes\n");
+  await apps.fill("Notes\n\n  com.apple.TextEdit  \nNotes\n");
   let patch = patched();
   await save.click();
-  expect((await patch).postDataJSON()).toEqual({ profile: { computer: "on", computer_apps: ["Notes", "com.apple.Safari"] } });
+  expect((await patch).postDataJSON()).toEqual({ profile: { computer: "on", computer_apps: ["Notes", "com.apple.TextEdit"] } });
   await expect(editor.getByText(vi.editor.clean)).toBeVisible();
   // The card reads the agent again as it now is.
   await expect(card.getByTestId("desktop-mode")).toHaveText(t.card.mode.on);
-  await expect(card.getByTestId("desktop-apps-line")).toHaveText(t.card.apps("Notes, com.apple.Safari"));
+  await expect(card.getByTestId("desktop-apps-line")).toHaveText(t.card.apps("Notes, com.apple.TextEdit"));
   await expect(card.getByRole("button", { name: t.card.tryShot })).toBeEnabled();
 
   await page.reload();
   await expect(mode).toHaveValue("on");
-  await expect(apps).toHaveValue("Notes\ncom.apple.Safari");
+  await expect(apps).toHaveValue("Notes\ncom.apple.TextEdit");
   await expect(save).toBeDisabled();
 
   await apps.fill("");
@@ -263,10 +273,12 @@ test("a desktop action that waits in the chat is said in a line, over the pictur
 
   const frame = bar.getByTestId("desktop-frame");
   const picture = frame.getByRole("img", { name: t.frame.alt(1456, 910) });
-  await expect(picture).toHaveAttribute("src", fileUrl(path));
+  // Asked by its frame, never as the file of the agent's folder, which the agent may rewrite.
+  await expect(picture).toHaveAttribute("src", pictureUrl(F));
   await loaded(picture).toBe(1456);
-  await expect(frame.getByRole("link")).toHaveAttribute("href", fileUrl(path));
+  await expect(frame.getByRole("link")).toHaveAttribute("href", pictureUrl(F));
   // Drawn small and in its own shape, and the mark sits on the point the call names.
+  await settled(page);
   const box = (await picture.boundingBox())!;
   expect(box.width).toBeLessThanOrEqual(321);
   expect(box.width / box.height).toBeCloseTo(1456 / 910, 1);
@@ -282,7 +294,7 @@ test("a desktop action that waits in the chat is said in a line, over the pictur
   await expect(bar.getByRole("button", { name: vi.approve, exact: true })).toBeEnabled();
 });
 
-test("a drag that waits in the list of requests marks both ends on the agent's folder picture, under the server's reason", async ({ page }) => {
+test("a drag that waits in the list of requests marks both ends on its frame's picture, under the server's reason", async ({ page }) => {
   const reason = "kéo thả luôn hỏi trước, kể cả khi hội thoại tự chủ";
   // A screen turned on its side: a shape no default could stand in for.
   const tall = "00000000000000b2-1080x1920-2";
@@ -304,6 +316,7 @@ test("a drag that waits in the list of requests marks both ends on the agent's f
   await loaded(picture).toBe(1080);
   // Drawn in the frame's own shape, no taller than a card can hold, and the box the marks are
   // placed in is the picture's.
+  await settled(page);
   const box = (await picture.boundingBox())!;
   expect(box.width / box.height).toBeCloseTo(1080 / 1920, 1);
   expect(box.height).toBeLessThanOrEqual(225);
@@ -322,7 +335,7 @@ test("a drag that waits in the list of requests marks both ends on the agent's f
 
 test("a desktop action whose picture is not kept any more waits with its line and its arguments, and no picture", async ({ page }) => {
   const click = { kind: "click", app: "Notes", frame_id: F, ref: "e12", name: "Lưu" };
-  const gone = page.waitForResponse((r) => r.status() === 404 && r.url().endsWith(fileUrl(`desktop/${F}.png`)));
+  const gone = page.waitForResponse((r) => r.status() === 404 && r.url().endsWith(pictureUrl(F)));
   await mockApi(page, { agents: [master, coach({ computer: "on", computer_apps: ["Notes"] })], conversations: [paused("c1", click, `desktop/${F}.png`)], desktop: helper() });
   await page.goto("/#/chat/c1");
   await gone;

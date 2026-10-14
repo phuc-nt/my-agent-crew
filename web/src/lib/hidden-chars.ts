@@ -19,6 +19,18 @@ export function showHiddenChars(text: string): string {
   return text.replace(new RegExp(HIDDEN, "g"), asCode);
 }
 
+// The control characters but tab and the two line breaks. None of them draws, and each one
+// reaches an application as a key: a backspace in the middle of a word makes the word a person
+// read another. Wherever a person approves a call, each is written as its code point. Kept apart
+// from the set above, which the code view and the diff show and these do not need.
+const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
+
+/** The text with each control character but tab, line feed and carriage return written as its
+ *  code point: "sudx\bo" is "sudx[U+0008]o". */
+export function showControlChars(text: string): string {
+  return text.replace(CONTROL, asCode);
+}
+
 // A path names the file that is read, and the server stores more of one than a person can see
 // (`check_path` in `my_agent_crew/tools/artifact_source_ref.py` refuses only control and format
 // characters): what draws as nothing by default, a code point that means what a font says it

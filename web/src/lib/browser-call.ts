@@ -3,22 +3,25 @@
 // under it; this is the line read first.
 import { vi } from "../i18n/vi";
 import { clip } from "./clip-text";
-import { showHiddenChars } from "./hidden-chars";
+import { showControlChars, showHiddenChars } from "./hidden-chars";
 
 /** The longest a single piece of the arguments is shown at. */
 const PIECE_MAX = 80;
 
 /**
  * One piece of the arguments as text for the line. It was written by a model, often copied
- * from a web page: line breaks and runs of blanks become one space, a character that changes
- * how a line reads without being seen is written as its code point, and a long piece is cut.
+ * from a web page: a control character is written as its code point before anything else, so
+ * none is taken for a blank; then line breaks and runs of blanks become one space, a character
+ * that changes how a line reads without being seen is written as its code point, and a long
+ * piece is cut.
  * The marks a sentence here quotes a piece in are left out of it: a name a page chose that
  * closed them early could go on in words that read as the crew's. Anything that is not a
  * string or a number has no place in a sentence.
  */
 export function piece(value: unknown): string {
   if (typeof value !== "string" && typeof value !== "number") return "";
-  const flat = showHiddenChars(String(value).replace(/[«»]/g, "").replace(/\s+/g, " ").trim());
+  const shown = showControlChars(String(value).replace(/[«»]/g, ""));
+  const flat = showHiddenChars(shown.replace(/\s+/g, " ").trim());
   return flat.length > PIECE_MAX ? `${clip(flat, PIECE_MAX)}…` : flat;
 }
 

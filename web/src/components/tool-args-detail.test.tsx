@@ -70,6 +70,15 @@ describe("ToolArgsDetail", () => {
     expect(pres[0].textContent).toBe(JSON.stringify(args, null, 2));
   });
 
+  // A backspace makes `sudx` run as `sudo`; JSON writes the C0 ones as escapes but not DEL or C1.
+  it("writes each control character as its code point, and keeps tabs and line breaks", async () => {
+    render(<ToolArgsDetail args={{ command: "sudx\bo ls\n\tcd ~", note: `${"a".repeat(70)}\x7f\x9b` }} />);
+    await userEvent.click(screen.getByRole("button", { name: vi.argumentsMore }));
+    const pres = screen.getByTestId("args-detail").querySelectorAll("pre");
+    expect(pres[0].textContent).toBe("sudx[U+0008]o ls\n\tcd ~");
+    expect(pres[1].textContent).toBe(JSON.stringify({ note: `${"a".repeat(70)}[U+007F][U+009B]` }, null, 2));
+  });
+
   it("offers nothing when the summary line already shows every argument", () => {
     render(<ToolArgsDetail args={{ path: "a.txt", n: 2 }} />);
     expect(screen.queryByRole("button", { name: vi.argumentsMore })).not.toBeInTheDocument();
@@ -92,5 +101,18 @@ describe("ToolArgsDetail", () => {
     expect(toggles).toHaveLength(2);
     await userEvent.click(toggles[0]);
     expect(screen.getByTestId("args-detail")).toHaveTextContent(command);
+  });
+
+  it("writes each control character on the approval bar as its code point: reason, line and arguments", () => {
+    const { container } = render(
+      <ApprovalBar
+        pending={toolPending({ name: "browser_act", arguments: { kind: "type", name: "Lệnh\x1b", text: "sudx\bo ls" }, reason: "gõ «sudx\bo»" })}
+        busy={false}
+        onDecide={() => undefined}
+      />,
+    );
+    expect(container.querySelector(".approval-reason")?.textContent).toBe("gõ «sudx[U+0008]o»");
+    expect(screen.getByTestId("approval-call").textContent).toBe("Gõ «sudx[U+0008]o ls» vào «Lệnh[U+001B]»");
+    expect(container.querySelector(".approval-text > code")?.textContent).toBe("kind=type, name=Lệnh[U+001B], text=sudx[U+0008]o ls");
   });
 });

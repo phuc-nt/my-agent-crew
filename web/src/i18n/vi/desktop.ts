@@ -36,18 +36,18 @@ export const viDesktop = {
     },
     // The agent's own setting, with its tools in the editor.
     editor: {
-      sectionHint: "Có hiệu lực ngay sau khi lưu, không cần khởi động lại.",
+      sectionHint: "Có hiệu lực từ lượt kế tiếp sau khi lưu, không cần khởi động lại.",
       mode: "Dùng desktop của máy",
       modeOption: { off: "Tắt", on: "Bật" } satisfies Record<ComputerMode, string>,
       modeHint: {
         off: "Agent không có công cụ desktop.",
-        on: "Agent có computer_state, computer_screenshot, computer_observe và computer_act: nhìn màn hình của máy, đọc phần tử và thao tác trong các ứng dụng của danh sách bên dưới. computer_act qua cổng duyệt; đưa ứng dụng lên trước, bấm theo toạ độ, kéo, Enter, Space và tổ hợp phím lạ thì luôn hỏi, kể cả khi hội thoại tự chủ.",
+        on: "Agent có computer_state, computer_screenshot, computer_observe và computer_act: nhìn màn hình của máy, đọc phần tử và thao tác trong các ứng dụng của danh sách bên dưới. computer_act qua cổng duyệt; đưa ứng dụng lên trước, bấm theo toạ độ, bấm đúp, kéo, Enter, Space và tổ hợp phím lạ thì luôn hỏi, kể cả khi hội thoại tự chủ. Đoạn chữ có ký tự điều khiển (trừ Tab và xuống dòng) không bao giờ được gõ.",
       } satisfies Record<ComputerMode, string>,
       helperNote:
         "Trình trợ giúp desktop và hai quyền macOS của nó là việc của chủ máy: cài, mở và cấp quyền trên máy chạy đội. Xem mục Kết nối.",
       apps: "Ứng dụng agent được dùng",
       appsHint:
-        "Mỗi dòng một ứng dụng: tên (Notes) hoặc bundle id (com.apple.Notes). Để trống: agent chỉ nhìn màn hình, không đọc phần tử và không thao tác trong ứng dụng nào.",
+        "Mỗi dòng một ứng dụng: tên (Notes) hoặc bundle id (com.apple.Notes). Để trống: agent chỉ nhìn màn hình, không đọc phần tử và không thao tác trong ứng dụng nào. Không ghi trình duyệt web (Safari, Chrome, Firefox…): desktop không thao tác trong trình duyệt, trang web là việc của mục Trình duyệt.",
     },
     // Under the tool picker: why the desktop's tools have no tick to give.
     outsideList: "Các công cụ computer_* không có ô chọn ở đây: cả bốn đi kèm mục Desktop của agent (khoá computer).",
@@ -65,7 +65,7 @@ export const viDesktop = {
       tryShot: "Thử chụp",
       shooting: "Đang chụp…",
       tryHint:
-        "Chụp cả màn hình như agent tự chụp, trong giới hạn ứng dụng của agent, và lưu vào workspace của agent. Ảnh thử là ảnh mới nhất của máy: khung hình agent đang dùng thành cũ, và lần thao tác kế tiếp của agent phải nhìn lại.",
+        "Chụp cả màn hình như agent tự chụp, trong giới hạn ứng dụng của agent, và lưu vào thư mục desktop/ của agent: trong thư mục đầu tiên của write_paths, hoặc ngay trong workspace khi agent không có write_paths. Ảnh thử là ảnh mới nhất của máy: khung hình agent đang dùng thành cũ, và lần thao tác kế tiếp của agent phải nhìn lại.",
       shotAlt: (width: number, height: number) => `Ảnh thử chụp màn hình, ${width}×${height}`,
       gaveUp: "Trình trợ giúp không trả lời sau 35 giây nên trang đã thôi chờ.",
       readFailed: (message: string) => `Không đọc được trạng thái desktop: ${message}`,
@@ -88,6 +88,8 @@ export const viDesktop = {
         `Cuộn ${dx} dòng ngang, ${dy} dòng dọc tại điểm ${point} trong ${app}`,
       type: (text: string, app: string) => `Gõ «${text}» vào chỗ đang có con trỏ trong ${app}`,
       setValue: (text: string, ref: string, app: string) => `Đặt «${text}» vào phần tử ${ref} trong ${app}`,
+      setValueNamed: (text: string, name: string, ref: string, app: string) =>
+        `Đặt «${text}» vào ô «${name}» (${ref}) trong ${app}`,
       key: (keys: string, app: string) => `Nhấn ${keys} trong ${app}`,
       focusApp: (app: string) => `Đưa ${app} lên trước màn hình`,
     },

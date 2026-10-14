@@ -11,8 +11,9 @@ interface Props {
 
 const MODES: ComputerMode[] = ["off", "on"];
 
-/** The server's refusal of each key (`agents/profile_desktop.py`), after the agent's id. */
-const REFUSED = { computer: /: computer must be /, computer_apps: /: computer_apps must be / };
+/** The server's refusal of each key (`agents/profile_desktop.py`), after the agent's id: a
+ *  list is refused for its shape, or for naming a web browser. */
+const REFUSED = { computer: /: computer must be /, computer_apps: /: computer_apps (must be|cannot name) / };
 
 const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((line, at) => line === b[at]);
 

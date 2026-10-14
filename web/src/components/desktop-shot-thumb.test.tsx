@@ -102,6 +102,20 @@ describe("a desktop screenshot on the step of a run", () => {
     expect(readsOfAgent()).toBe(1);
   });
 
+  it("reads the agent's row once for the steps that look for its folder together, and again for a later look", async () => {
+    const other = "00000000000000b2-1456x910-1";
+    run(step(preview(UNCHANGED(DEEP_PATH))), step(preview(UNCHANGED(DEEP_PATH).replaceAll(F, other))));
+
+    await waitFor(() => expect(hrefs()).toEqual([url(DEEP_PATH), url(`${DEEP}/desktop/${other}.png`)]));
+    expect(readsOfAgent()).toBe(1);
+
+    // Its write paths may have changed since: a look once that read is answered reads again.
+    backend.agents = [fakeAgent, { ...coachAgent, computer: "on", computer_apps: [], write_paths: [] }];
+    render(<ToolCallCard item={item(UNCHANGED(DEEP_PATH))} agentId="coach" />);
+    await waitFor(() => expect(hrefs()).toContain(url(SHALLOW_PATH)));
+    expect(readsOfAgent()).toBe(2);
+  });
+
   it("is not taken from a step that failed", () => {
     run(step(preview(SAVED("elsewhere/desktop/" + F + ".png")), { ok: false }), step(preview(UNCHANGED(DEEP_PATH))));
 
