@@ -2,15 +2,18 @@
 what is never typed into any of them.
 
 An application is an agent's when the agent's list names it: by its name, whatever the
-case, or by its bundle id, letter for letter. The text rules are hard refusals: they hold
-for every agent and no setting turns them off. They are a tripwire for the plain spellings
-and not a wall, since text can be typed in pieces; what an agent types is still a call a
-person approves unless the conversation runs on its own.
+case and however its accents are encoded, or by its bundle id, letter for letter. The
+text rules are hard refusals: they hold for every agent and no setting turns them off. A
+text is judged as a shell would read it: a line carried on with a backslash is one line,
+and the quotes and backslashes a shell takes out of a word are taken out. They are a
+tripwire for the plain spellings and not a wall, since text can be typed in pieces; what
+an agent types is still a call a person approves unless the conversation runs on its own.
 """
 
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Sequence
 
 from my_agent_crew import texts_desktop_act as ta
@@ -23,11 +26,22 @@ SUDO = re.compile(r"\bsudo\b", re.I)
 RM = re.compile(r"\brm((?:[ \t]+-[-\w]+)+)", re.I)
 FETCH = re.compile(r"(?<![\w.-])(?:curl|wget)(?![\w-])", re.I)
 SUBSTITUTED = re.compile(r"(?:\$\(|<\(|`)\s*(?:curl|wget)(?![\w-])", re.I)
-RUNS = re.compile(r"(?<![\w.-])(?:(?:ba|z|da|k|fi)?sh|eval|source)(?![\w.-])", re.I)
-SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh", "fish"})
+# A shell's name, a word that runs what follows as a shell would, or a lone dot.
+RUNS = re.compile(
+    r"(?<![\w.-])(?:(?:ba|z|da|k|fi|c|tc)?sh|eval|source|\$\{?shell\}?)(?![\w.-])"
+    r"|(?<!\S)\.(?=\s)",
+    re.I,
+)
+SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh", "fish", "csh", "tcsh", "$shell"})
 # Words a command line may put before the program it runs.
-BEFORE = frozenset({"sudo", "exec", "env", "command", "nohup", "time"})
+BEFORE = frozenset({"sudo", "exec", "env", "command", "nohup", "time", "nice", "xargs"})
 ENDS = re.compile(r"[\n;&]+")
+# A line carried on into the next, and what a shell takes out of a word before running it.
+CARRIED = re.compile(r"\\\r?\n")
+UNQUOTED = str.maketrans("", "", "'\"\\")
+BRACKETS = str.maketrans("", "", "(){}")
+# A pipe at the end of a line, which goes on into the next one.
+PIPE_ENDS_LINE = re.compile(r"\|[ \t\r]*\n\s*")
 
 
 def frame_size(frame_id: str) -> tuple[int, int]:
@@ -36,12 +50,16 @@ def frame_size(frame_id: str) -> tuple[int, int]:
     return int(width), int(height)
 
 
+def _folded(name: str) -> str:
+    """A name as it reads: one letter written whole or as a letter and its mark is one."""
+    return unicodedata.normalize("NFD", unicodedata.normalize("NFD", name).casefold())
+
+
 def app_allowed(apps: Sequence[str], name: str = "", bundle_id: str = "") -> bool:
     """Whether the agent's list names this application."""
-    lowered = name.casefold()
+    folded = _folded(name)
     return any(
-        (name and entry.casefold() == lowered) or (bundle_id and entry == bundle_id)
-        for entry in apps
+        (name and _folded(entry) == folded) or (bundle_id and entry == bundle_id) for entry in apps
     )
 
 
@@ -66,32 +84,39 @@ def _removes_all(flags: str) -> bool:
 
 
 def _runs_shell(stage: str) -> bool:
-    words = stage.split()
-    while words and (words[0].lower() in BEFORE or "=" in words[0]):
-        words = words[1:]
-    return bool(words) and words[0].rsplit("/", 1)[-1].lower() in SHELLS
+    """Whether a stage of a pipe runs a shell: its first word that is not one a line puts
+    before a program, an option, a setting or a number, out of any brackets."""
+    for word in stage.translate(BRACKETS).split():
+        name = word.rsplit("/", 1)[-1].lower()
+        if name in BEFORE or name.startswith("-") or "=" in name or name.isdigit():
+            continue
+        return name in SHELLS
+    return False
 
 
 def _fetched_into_shell(text: str) -> bool:
-    """A download handed to a shell: piped into one, or run as what a shell is given."""
-    for line in ENDS.split(text):
+    """A download handed to a shell: piped into one, or run as what a shell is given. Each
+    stage of a pipe is looked at once, however many of them download."""
+    piped = PIPE_ENDS_LINE.sub("| ", text.replace("|&", "|"))
+    for line in ENDS.split(piped):
         stages = line.split("|")
-        for at, stage in enumerate(stages[:-1]):
-            if FETCH.search(stage) and any(_runs_shell(later) for later in stages[at + 1 :]):
-                return True
+        first = next((at for at, stage in enumerate(stages) if FETCH.search(stage)), None)
+        if first is not None and any(_runs_shell(later) for later in stages[first + 1 :]):
+            return True
     for line in text.splitlines():
-        found = SUBSTITUTED.search(line)
-        if found and RUNS.search(line[: found.start()]):
+        runs = RUNS.search(line)
+        if runs and SUBSTITUTED.search(line, runs.end()):
             return True
     return False
 
 
 def typed_refusal(text: str) -> str:
     """The sentence a text is refused with before anyone is asked, or ""."""
-    if SUDO.search(text):
+    read = CARRIED.sub("", text).translate(UNQUOTED)
+    if SUDO.search(read):
         return ta.ACT_TEXT_SUDO
-    if any(_removes_all(found.group(1)) for found in RM.finditer(text)):
+    if any(_removes_all(found.group(1)) for found in RM.finditer(read)):
         return ta.ACT_TEXT_RM
-    if _fetched_into_shell(text):
+    if _fetched_into_shell(read):
         return ta.ACT_TEXT_PIPE
     return ""
