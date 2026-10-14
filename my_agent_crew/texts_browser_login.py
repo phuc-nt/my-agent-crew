@@ -22,4 +22,5 @@ LOGIN_BUSY = (
     "trình duyệt trước."
 )
 LOGIN_STOPPING = "Máy chủ của đội đang dừng nên không mở cửa sổ nào nữa. Bấm lại khi nó chạy lại."
+LOGIN_CHANGED = "Agent vừa được sửa trong lúc cửa sổ đang mở ra, nên chưa mở cửa sổ nào. Bấm lại."
 LOGIN_FAILED = "Không mở được cửa sổ trình duyệt: {error}"

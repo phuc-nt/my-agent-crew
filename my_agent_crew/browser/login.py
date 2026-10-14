@@ -3,11 +3,11 @@ screen for a while, so the person signs in where the agent will later read.
 
 A profile is one browser's at a time. The agent's own browser is stopped before the window
 opens, the agent has none while it is open (`pool.reserved`), and no window opens under a
-call that is using the browser. The window goes out through a proxy of its own that refuses
+call that asked for the browser. The window goes out through a proxy of its own that refuses
 private addresses, as the agent's browser does. It closes when the person says they are done,
 when they close it themselves, when the driver it was started through goes away, and by
 itself after a while: one left open would keep the agent off its browser for good. None is
-opened once the server is going down."""
+opened once the server is going down, nor for an agent that left while it was asked for."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from my_agent_crew.browser.console import LOCKED, NONE, read_console
-from my_agent_crew.browser.launch import launch
+from my_agent_crew.browser.launch import launch, shut_down
 from my_agent_crew.browser.login_window import Window
 from my_agent_crew.browser.network import check_url
 from my_agent_crew.browser.pool import BrowserPool
@@ -31,6 +31,8 @@ log = logging.getLogger(__name__)
 
 # Why no window is opened now, as the web is told.
 NO_CONSOLE, SCREEN_LOCKED, BUSY, STOPPING = "no_console", "locked", "busy", "stopping"
+# The agent was removed, or taken off the browser, while its window was asked for.
+GONE = "gone"
 OPEN_SECONDS = 15 * 60
 # How often an open window is asked what it holds.
 LOOK_SECONDS = 5.0
@@ -78,8 +80,9 @@ class LoginWindows:
         """The agent's window, opened now if none is. An address it is to start on is checked
         as one of the agent's own calls is, and refused in the same words (`ToolError`);
         `Refused` says why none is opened; what the browser raises means it would not open."""
+        left = self.pool.left[agent_id]  # looking an address up takes a while
         address = await check_url(url, self.pool.resolver, self.pool.allow) if url else ""
-        return await asyncio.shield(self._kept(self._open(agent_id, address)))
+        return await asyncio.shield(self._kept(self._open(agent_id, address, left)))
 
     async def done(self, agent_id: str, only: Window | None = None) -> bool:
         """Close the agent's window: `only` that one, where a window is named. Whether there
@@ -106,8 +109,10 @@ class LoginWindows:
         task.add_done_callback(lambda done: done.cancelled() or done.exception())
         return task
 
-    async def _open(self, agent_id: str, address: str) -> Window:
+    async def _open(self, agent_id: str, address: str, left: int) -> Window:
         async with self._locks[agent_id]:
+            if self.pool.left[agent_id] != left:  # not the agent the window was asked for
+                raise Refused(GONE)
             window = self._windows.get(agent_id)
             if window is not None:
                 return window
@@ -133,27 +138,34 @@ class LoginWindows:
         driver = await pool.driver.get()
         proxy = FilteringProxy(pool.resolver, pool.allow)
         await proxy.start()
+        context = None
         try:
             profile, channel = profile_dir(pool.root, agent_id), pool.settings.channel
             context = await self.opener(driver, profile, channel, proxy.launch_option)
+            closes = self.now() + timedelta(seconds=self.seconds)
+            window = Window(agent_id, context, proxy, closes)
+
+            def left(_gone: Any = None) -> None:
+                # The person closed the last of it, or quit the browser.
+                if not context.pages:
+                    self._kept(self._done(agent_id, window))
+
+            def watch(page: Any) -> None:
+                page.on("close", left)
+
+            for page in context.pages or [await context.new_page()]:
+                watch(page)
+            context.on("page", watch)
+            context.on("close", left)
+            window.timer = asyncio.ensure_future(self._expire(window))
         except BaseException:
-            await proxy.stop()
+            # A browser that came up and is no window yet is nobody's to close but ours.
+            try:
+                if context is not None:
+                    await shut_down(context)
+            finally:
+                await proxy.stop()
             raise
-        window = Window(agent_id, context, proxy, self.now() + timedelta(seconds=self.seconds))
-
-        def left(_gone: Any = None) -> None:
-            # The person closed the last of it, or quit the browser.
-            if not context.pages:
-                self._kept(self._done(agent_id, window))
-
-        def watch(page: Any) -> None:
-            page.on("close", left)
-
-        for page in context.pages or [await context.new_page()]:
-            watch(page)
-        context.on("page", watch)
-        context.on("close", left)
-        window.timer = asyncio.ensure_future(self._expire(window))
         log.info("login window opened for agent %s", agent_id)
         return window
 

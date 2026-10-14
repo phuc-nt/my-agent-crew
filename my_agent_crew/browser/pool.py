@@ -15,7 +15,7 @@ import contextlib
 import logging
 import time
 from collections import Counter
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 
 from my_agent_crew.browser.downloads import Downloads, fresh
@@ -54,6 +54,8 @@ class BrowserPool:
         self._closing: dict[str, asyncio.Future[bool]] = {}
         # Times an agent was taken off the browser: tools made before the last start none.
         self.left: Counter[str] = Counter()
+        # Calls that asked for an agent's browser and are not over yet (`calling`).
+        self.calls: Counter[str] = Counter()
         # Set as the server stops: a turn the stop has not ended yet starts no browser.
         self.shut = False
 
@@ -70,6 +72,17 @@ class BrowserPool:
             task = self._sessions[agent_id] = asyncio.ensure_future(start)
             task.add_done_callback(lambda done: self._failed(agent_id, done))
         return await asyncio.shield(task)
+
+    @contextlib.contextmanager
+    def calling(self, agent_id: str) -> Iterator[None]:
+        """The whole of a call that asks for the agent's browser, counted from before its
+        first await: between the browser coming up for it and the call holding it there is
+        no moment the browser looks like nobody's. Given back however the call ends."""
+        self.calls[agent_id] += 1
+        try:
+            yield
+        finally:
+            self.calls[agent_id] -= 1
 
     @contextlib.asynccontextmanager
     async def hold(self, session: Session) -> AsyncIterator[Session]:
@@ -89,10 +102,12 @@ class BrowserPool:
         return task.result()
 
     def in_use(self, agent_id: str) -> bool:
-        """Whether a call is using the agent's browser now, or one is starting for a call."""
+        """Whether a call that asked for the agent's browser is not over yet, or a browser
+        is starting, or held, for one."""
         task = self._sessions.get(agent_id)
         session = self.running(agent_id)
-        return task is not None and (not task.done() or bool(session and session.busy))
+        held = task is not None and (not task.done() or bool(session and session.busy))
+        return held or bool(self.calls[agent_id])
 
     def peek(self, agent_id: str, owner: str, label: str = "") -> Tab | None:
         """A tab as it is now, without starting anything: what the approval gate reads."""

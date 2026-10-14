@@ -240,6 +240,51 @@ async def test_a_window_of_an_agent_the_crew_does_not_have_is_a_404(crew: Crew, 
     assert crew.pool.reserved == set() and not browser_root(crew.home).exists()
 
 
+# What became of the agent while the address its window starts on was looked up (the values
+# its `browser` key was given, None for the agent removed), and what the person is then told.
+LEFT = {
+    "removed": ((None,), 404, texts.AGENT_UNKNOWN.format(agent_id="coach")),
+    "taken off the browser": (("off",), 409, said.LOGIN_OFF),
+    "taken off and put back": (("off", "act"), 409, said.LOGIN_CHANGED),
+}
+
+
+@pytest.mark.parametrize("left", list(LEFT))
+async def test_an_agent_that_left_while_its_address_was_looked_up_is_given_no_window(
+    crew: Crew, left: str
+):
+    edits, status, sentence = LEFT[left]
+    loop, named, replies = asyncio.get_running_loop(), crew.pool.resolver, []
+
+    async def edited() -> None:
+        for mode in edits:
+            if mode is None:
+                replies.append(await crew.client.delete("/api/agents/coach"))
+            else:
+                body = {"profile": {"browser": mode}}
+                replies.append(await crew.client.patch("/api/agents/coach", json=body))
+
+    def leaving(host: str) -> list[str]:
+        # The person's request is waiting for this answer when the agent is edited.
+        asyncio.run_coroutine_threadsafe(edited(), loop).result(30)
+        return named(host)
+
+    crew.pool.resolver = leaving
+
+    reply = await ask(crew, url=crew.site.url("/don"))
+
+    assert [r.is_success for r in replies] == [True] * len(edits)
+    assert (reply.status_code, reply.json()) == (status, {"detail": sentence})
+    # No browser came up on the profile of an agent that is not the one it was asked for.
+    assert crew.windows.window("coach") is None and crew.pool.reserved == set()
+    assert not (browser_root(crew.home) / "coach").exists() and crew.site.seen == []
+    if status == 409 and sentence == said.LOGIN_CHANGED:
+        # Asked again, of the agent as it is now, the window opens.
+        crew.pool.resolver = named
+        assert (await ask(crew, url=crew.site.url("/don"))).status_code == 200
+        assert "Bấm lại" in said.LOGIN_CHANGED
+
+
 async def test_no_window_is_started_on_an_address_no_browser_of_the_crew_goes_to(crew: Crew):
     await crew.call("coach", NAVIGATE, "conv-1", url=crew.site.url("/"))
     session, seen = crew.pool.running("coach"), list(crew.site.seen)

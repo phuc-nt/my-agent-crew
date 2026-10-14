@@ -24,6 +24,7 @@ from my_agent_crew.browser.kit import first_line, from_browser
 from my_agent_crew.browser.launch import Stuck
 from my_agent_crew.browser.login import (
     BUSY,
+    GONE,
     NO_CONSOLE,
     SCREEN_LOCKED,
     STOPPING,
@@ -45,6 +46,7 @@ SAID = {
     SCREEN_LOCKED: t.LOGIN_LOCKED,
     BUSY: t.LOGIN_BUSY,
     STOPPING: t.LOGIN_STOPPING,
+    GONE: t.LOGIN_CHANGED,
 }
 
 
@@ -106,6 +108,10 @@ async def open_login(agent_id: str, rt: Rt, body: LoginRequest | None = None) ->
     except ToolError as error:  # the address is one no browser of the crew goes to
         raise HTTPException(422, str(error)) from error
     except Refused as error:
+        # One that left while it was asked for is answered as the agent is now: the 404 of
+        # an agent the crew does not have, or the words of one that has no browser.
+        if error.why == GONE and _windows(rt, agent_id) is None:
+            raise HTTPException(409, t.LOGIN_OFF) from error
         raise HTTPException(409, SAID[error.why]) from error
     except Exception as error:
         if not (from_browser(error) or isinstance(error, Stuck)):
