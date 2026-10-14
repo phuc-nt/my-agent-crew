@@ -4,20 +4,28 @@ socket, a line of JSON back.
 Every request opens a connection of its own and closes it, so nothing is left to go stale
 when the helper is restarted, and a helper that never answers costs one deadline and no
 more. Whatever goes wrong leaves as a `DesktopError` with a code: the helper's own when it
-answered, one of three made here when it did not answer in a way that can be read.
+answered, one made here when it did not answer in a way that can be read.
+
+Whoever listens on the socket is told every text an agent types and decides what it sees,
+so a socket is talked to only where nobody but the owner of this program could have put
+it: a socket of theirs, in a folder of theirs that nobody else may write in.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import os
 import secrets
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 # No helper to talk to, none that answered in time, and an answer that cannot be trusted.
 ABSENT, TIMEOUT, BAD_ANSWER = "absent", "timeout", "bad_answer"
+# A socket someone other than the owner of this program could have put where it is.
+UNTRUSTED = "untrusted"
 DEADLINE_SECONDS = 10.0
 # A picture of a large display is a few megabytes of base64 on one line: the stream is given
 # room for it, and an answer over this is given up rather than held in memory.
@@ -61,6 +69,7 @@ class DesktopClient:
         return _answer(raw, request_id)
 
     async def _exchange(self, line: bytes) -> bytes:
+        _owned(self.path)
         try:
             reader, writer = await asyncio.open_unix_connection(
                 str(self.path), limit=self.max_bytes
@@ -79,6 +88,22 @@ class DesktopClient:
             raise DesktopError(BAD_ANSWER, _said(exc)) from exc
         finally:
             writer.close()
+
+
+def _owned(path: Path) -> None:
+    """Refuse a socket that is not this program's owner's, or that stands in a folder
+    someone else may write in: whoever could put one there could put theirs."""
+    try:
+        folder, found = os.stat(path.parent), os.lstat(path)
+    except (OSError, ValueError) as exc:
+        raise DesktopError(ABSENT, _said(exc)) from exc
+    if not stat.S_ISSOCK(found.st_mode):
+        raise DesktopError(ABSENT, "there is no socket at that path")
+    me = os.geteuid()
+    if folder.st_uid != me or folder.st_mode & 0o022:
+        raise DesktopError(UNTRUSTED, "the socket's folder is not the owner's alone")
+    if found.st_uid != me:
+        raise DesktopError(UNTRUSTED, "the socket is not the owner's")
 
 
 def _answer(raw: bytes, request_id: str) -> dict:

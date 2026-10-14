@@ -4,6 +4,7 @@ wrong leaving as one error with a code."""
 from __future__ import annotations
 
 import json
+import os
 import socket
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from my_agent_crew.desktop.client import (
     BAD_ANSWER,
     MAX_ANSWER_BYTES,
     TIMEOUT,
+    UNTRUSTED,
     DesktopClient,
     DesktopError,
 )
@@ -102,6 +104,65 @@ async def test_a_file_that_is_no_socket_is_an_absent_helper(tmp_path: Path):
     plain.write_text("not a socket", encoding="utf-8")
 
     assert (await refused(DesktopClient(plain))).code == ABSENT
+
+
+def owned_by(monkeypatch, path: Path, uid: int, *, follow: bool) -> None:
+    """Have `os.stat` (`follow`) or `os.lstat` say that `path` belongs to `uid`."""
+    name = "stat" if follow else "lstat"
+    real = getattr(os, name)
+
+    def told(given, *args, **kwargs):
+        found = real(given, *args, **kwargs)
+        if Path(given) != path:
+            return found
+        fields = list(found[:10])
+        fields[4] = uid
+        return os.stat_result(fields)
+
+    monkeypatch.setattr(os, name, told)
+
+
+@pytest.mark.parametrize("mode", [0o720, 0o702, 0o770, 0o777])
+async def test_a_socket_in_a_folder_others_may_write_in_is_not_talked_to(helper, mode):
+    helper.path.parent.chmod(mode)
+    try:
+        error = await refused(DesktopClient(helper.path))
+    finally:
+        helper.path.parent.chmod(0o700)
+
+    assert error.code == UNTRUSTED and helper.requests == []
+    # The same socket, once nobody else may write beside it, is talked to.
+    helper.path.parent.chmod(0o755)
+    await DesktopClient(helper.path).request("state")
+    assert len(helper.requests) == 1
+
+
+@pytest.mark.parametrize("follow", [True, False], ids=["folder", "socket"])
+async def test_a_socket_or_a_folder_of_someone_else_is_not_talked_to(helper, monkeypatch, follow):
+    other = os.geteuid() + 1
+    owned_by(monkeypatch, helper.path.parent if follow else helper.path, other, follow=follow)
+
+    error = await refused(DesktopClient(helper.path))
+
+    assert error.code == UNTRUSTED and helper.requests == []
+
+
+async def test_no_one_but_this_program_s_owner_is_trusted_whatever_the_folder(helper, monkeypatch):
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+
+    assert (await refused(DesktopClient(helper.path))).code == UNTRUSTED
+    assert helper.requests == []
+
+
+async def test_a_link_to_the_helper_s_socket_is_not_its_socket(helper):
+    link = helper.path.parent / "link"
+    link.symlink_to(helper.path)
+    try:
+        error = await refused(DesktopClient(link))
+    finally:
+        link.unlink()
+
+    assert error.code == ABSENT and helper.requests == []
 
 
 async def test_a_helper_that_never_answers_costs_one_deadline(helper):
