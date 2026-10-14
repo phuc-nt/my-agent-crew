@@ -2,6 +2,7 @@ import type { RunInfo } from "../api/types";
 import { useAutoScroll } from "../hooks/use-auto-scroll";
 import { vi } from "../i18n/vi";
 import type { WritingItem } from "../lib/canvas-writing";
+import { framePaths } from "../lib/desktop-frame";
 import type { ThreadItem } from "../state/thread-reducer";
 import type { CanvasLinks } from "./canvas/canvas-card";
 import { CanvasWritingCard } from "./canvas/canvas-writing-card";
@@ -58,6 +59,8 @@ export function MessageThread({
 }: Props) {
   const scroll = useAutoScroll<HTMLElement>();
   const speaker = agentName?.(agentId) ?? vi.agent;
+  // The desktop pictures the thread's screenshots saved, for a card that says the screen is unchanged.
+  const frames = framePaths(items.flatMap((item) => (item.kind === "tool" && item.status === "done" ? [item] : [])));
 
   if (items.length === 0 && !streaming) {
     const suggestions = [
@@ -101,6 +104,7 @@ export function MessageThread({
             key={item.id}
             item={item}
             agentId={agentId}
+            frames={frames}
             speaker={speaker}
             agentName={agentName}
             onOpenConversation={onOpenConversation}

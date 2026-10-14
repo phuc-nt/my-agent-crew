@@ -10,6 +10,7 @@ import { viConnections } from "./vi/connections";
 import { viConversation } from "./vi/conversation";
 import { viCosts } from "./vi/costs";
 import { viCrew } from "./vi/crew";
+import { viDesktop } from "./vi/desktop";
 import { viEditor } from "./vi/editor";
 import { viJobs } from "./vi/jobs";
 import { viManage } from "./vi/manage";
@@ -37,6 +38,7 @@ export const vi = {
   ...viManage,
   ...viConnections,
   ...viBrowser,
+  ...viDesktop,
   ...viEditor,
   ...viWelcome,
   ...viSettings,

@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { vi } from "../i18n/vi";
 import { browserCallLine } from "../lib/browser-call";
+import { desktopCallLine } from "../lib/desktop-call";
 import type { PendingApproval } from "../state/thread-reducer";
+import { DesktopFrameThumb } from "./desktop-frame-thumb";
 import { formatClock } from "./run-timeline";
 import { summarizeArguments, ToolArgsDetail } from "./tool-args-detail";
 import { Icon } from "./ui/icon";
@@ -16,11 +18,13 @@ interface Props {
   deadline?: ReactNode;
   /** In a list of requests: a group named by its row, not an alert breaking into the page. */
   labelledBy?: string;
+  /** The conversation the call waits in, where a desktop action's frame is found. */
+  conversationId?: string;
 }
 
-export function ApprovalBar({ pending, busy, onDecide, onAlways, deadline, labelledBy }: Props) {
-  // A browser call in plain words, where its arguments can be read as one.
-  const call = browserCallLine(pending.name, pending.arguments);
+export function ApprovalBar({ pending, busy, onDecide, onAlways, deadline, labelledBy, conversationId }: Props) {
+  // A browser or desktop call in plain words, where its arguments can be read as one.
+  const call = browserCallLine(pending.name, pending.arguments) ?? desktopCallLine(pending.name, pending.arguments);
   return (
     <div
       className="approval-bar callout"
@@ -39,6 +43,7 @@ export function ApprovalBar({ pending, busy, onDecide, onAlways, deadline, label
             {call}
           </span>
         )}
+        <DesktopFrameThumb conversationId={conversationId} name={pending.name} args={pending.arguments} />
         <code>{summarizeArguments(pending.arguments) || "—"}</code>
         <ToolArgsDetail args={pending.arguments} />
         {deadline ??

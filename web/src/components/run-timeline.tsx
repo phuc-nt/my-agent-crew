@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { framePaths } from "../lib/desktop-frame";
 import { isSettled, stepProgress } from "../lib/run-progress";
 import { runRows } from "../lib/run-rows";
 import { runSummaryText } from "../lib/run-summary";
@@ -34,6 +35,8 @@ interface Props {
 export function RunCard({ run, agentName, expanded = false, onOpenConversation, onOpenRun }: Props) {
   const [open, setOpen] = useState(expanded);
   const live = !isSettled(run.status);
+  // The desktop pictures the run's screenshots saved, for a step that says the screen is unchanged.
+  const frames = framePaths(run.steps.flatMap((step) => (step.kind === "tool" && step.ok === true ? [step] : [])));
   return (
     <article className={`run-card ${run.status}`} data-testid="run-card" data-status={run.status}>
       <button type="button" className="run-summary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -67,7 +70,7 @@ export function RunCard({ run, agentName, expanded = false, onOpenConversation, 
           ) : (
             <ol className="run-steps">
               {runRows(run).map((row) => (
-                <StepRow key={row.key} row={row} agentId={run.agent_id} onOpenConversation={onOpenConversation} />
+                <StepRow key={row.key} row={row} agentId={run.agent_id} frames={frames} onOpenConversation={onOpenConversation} />
               ))}
             </ol>
           )}

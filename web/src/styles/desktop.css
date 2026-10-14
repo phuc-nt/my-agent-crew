@@ -1,0 +1,123 @@
+/*
+ * The machine's desktop, on the screens that draw it their own way: the helper's row on the
+ * connections page, the agent's card with its trial picture, the mark of the tools grid, and
+ * the frame a waiting action was chosen on, with the point it acts at.
+ */
+
+/* The grid's mark for an agent whose own setting keeps the desktop away reads as the other
+   marks of a choice do: quiet, since nothing is wrong. */
+.matrix td.cell.desktop-off,
+.legend-mark.desktop-off {
+  color: var(--muted);
+}
+
+/* ── The helper's row on the connections page ───────────────────────────── */
+.desktop-ask {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.desktop-ask p {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+/* ── The agent's card ───────────────────────────────────────────────────── */
+.desktop-card p {
+  margin: var(--space-1) 0 0;
+}
+
+.desktop-machine-lines {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+}
+
+/* An application's bundle id comes with no promise of a space to break at. */
+.desktop-card [data-testid="desktop-apps-line"] {
+  overflow-wrap: anywhere;
+}
+
+.desktop-card .credential-note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+}
+
+/* The trial picture: big enough to tell what is on the screen, the whole of it a tab away. */
+.desktop-shot {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: var(--space-3);
+  line-height: 0;
+}
+
+.desktop-shot img {
+  display: block;
+  max-width: min(100%, 28rem);
+  max-height: 18rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* ── The frame on an approval card ──────────────────────────────────────── */
+/* The marks are placed in fractions of the picture, so the box they sit in is exactly the
+   picture's: shaped by the size its frame id names (--frame-ratio, set inline), as wide as
+   fits under the caps, with no border, padding or line box of its own. A point at the
+   picture's edge is clipped to it rather than hanging past the card, and the edge is drawn
+   inside the picture, as an outline that takes no room. */
+.desktop-frame {
+  margin: var(--space-2) 0 0;
+}
+
+.desktop-frame-picture {
+  position: relative;
+  display: block;
+  aspect-ratio: var(--frame-ratio, 1.6);
+  width: min(100%, 20rem, calc(14rem * var(--frame-ratio, 1.6)));
+  overflow: clip;
+  border-radius: var(--radius-sm);
+  line-height: 0;
+}
+
+.desktop-frame-picture img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  outline: 1px solid var(--border);
+  outline-offset: -1px;
+}
+
+/* A ring around the point, its centre on it, in the colour of something about to change. */
+.desktop-frame-point {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--danger);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Where a drag lets go: the same ring, dashed. */
+.desktop-frame-point.drop {
+  border-style: dashed;
+}
+
+.desktop-frame figcaption {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .desktop-shot,
+  .desktop-frame-picture {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+  }
+}

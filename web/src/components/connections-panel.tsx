@@ -3,6 +3,7 @@ import type { CredentialsController } from "../hooks/use-credentials";
 import type { McpController } from "../hooks/use-mcp-servers";
 import { vi } from "../i18n/vi";
 import { ConnectionsBrowserCard } from "./connections-browser-card";
+import { ConnectionsDesktopCard } from "./connections-desktop-card";
 import { CredentialAddForm } from "./credential-add-form";
 import { CredentialRow } from "./credential-row";
 import { GlobalRoutesEditor } from "./global-routes-editor";
@@ -21,7 +22,7 @@ interface Props {
 
 /**
  * What the crew talks to outside itself, one card per kind: model providers, the routes
- * tried in order, web search, Telegram, MCP servers, the browser, and whatever other
+ * tried in order, web search, Telegram, MCP servers, the browser, the desktop, and whatever other
  * variables skills read. Each card carries the keys and hosts that kind needs, set and
  * checked where they are used.
  *
@@ -135,8 +136,9 @@ export function ConnectionsPanel({ connections, credentials, mcp, agentName, onC
         {rows("mcp")}
       </MetricCard>
 
-      {/* A server older than the browser says nothing of one, and gets no card. */}
+      {/* A server older than the browser or the desktop says nothing of one, and gets no card. */}
       {connections.browser && <ConnectionsBrowserCard browser={connections.browser} agentName={agentName} />}
+      {connections.desktop && <ConnectionsDesktopCard desktop={connections.desktop} onChanged={onChanged} />}
 
       {credentials.info && (
         <MetricCard title={t.other}>

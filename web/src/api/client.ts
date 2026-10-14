@@ -3,6 +3,7 @@ import { agentsApi } from "./client/agents";
 import { browserApi } from "./client/browser";
 import { connectionsApi } from "./client/connections";
 import { conversationsApi } from "./client/conversations";
+import { desktopApi } from "./client/desktop";
 import { query } from "./client/http";
 import { memoryApi } from "./client/memory";
 import type { ActivityPayload } from "./types";
@@ -45,6 +46,7 @@ export const api = {
   ...browserApi,
   ...connectionsApi,
   ...conversationsApi,
+  ...desktopApi,
   ...activityApi,
   ...memoryApi,
 };
