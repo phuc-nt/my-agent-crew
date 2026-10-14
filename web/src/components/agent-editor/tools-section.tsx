@@ -4,6 +4,7 @@ import type { AgentDraft } from "../../hooks/use-agent-draft";
 import { useFocusAfterRowLeft } from "../../hooks/use-focus-after-row-left";
 import { vi } from "../../i18n/vi";
 import { BrowserControls, BrowserToolsNote } from "./browser-controls";
+import { DesktopControls, DesktopToolsNote } from "./desktop-controls";
 import { ScriptControls } from "./script-controls";
 import { allowList } from "./tool-allow-list";
 
@@ -29,8 +30,8 @@ const STATUS_TONE: Record<McpStatus, string> = { connected: "ok", idle: "warn", 
  * Which names a list has a say over is the server's to decide, and it says so for each
  * agent as it is saved (`listable_tools`): the picker offers a tick for those and for no
  * other. So the tools of an MCP server, the search that finds them, the script tool and the
- * browser's tools get no row: they come with the server switched on below, with what the
- * agent may read, or with its browser setting, whatever the list says.
+ * browser's and the desktop's tools get no row: they come with the server switched on below,
+ * with what the agent may read, or with its browser or desktop setting, whatever the list says.
  *
  * A name the list holds that the server does not report keeps a row of its own, ticked and
  * said to bring nothing, because only the person takes a name off a list: the form writes
@@ -141,6 +142,7 @@ export function ToolsSection({ form, readOnly, tools, mcpServers, machine }: Pro
         </p>
       )}
       <BrowserToolsNote form={form} />
+      <DesktopToolsNote form={form} />
 
       <h3>{vi.editor.mcp}</h3>
       <p className="muted">{vi.editor.mcpHint}</p>
@@ -186,6 +188,7 @@ export function ToolsSection({ form, readOnly, tools, mcpServers, machine }: Pro
 
       <ScriptControls form={form} readOnly={readOnly} />
       <BrowserControls form={form} readOnly={readOnly} machine={machine} />
+      <DesktopControls form={form} readOnly={readOnly} />
     </section>
   );
 }

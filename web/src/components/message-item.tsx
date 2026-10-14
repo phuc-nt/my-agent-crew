@@ -1,5 +1,6 @@
 import { agentFileUrl } from "../api/client";
 import { vi } from "../i18n/vi";
+import type { FramePaths } from "../lib/desktop-frame";
 import { type ReplyBlock, splitMedia } from "../lib/reply-blocks";
 import { splitScriptHandoff } from "../lib/script-handoff";
 import type { ThreadItem } from "../state/thread-reducer";
@@ -29,6 +30,7 @@ export function Speaker({ id, name, model }: { id: string; name: string; model?:
 export function Item({
   item,
   agentId,
+  frames,
   speaker,
   agentName,
   onOpenConversation,
@@ -37,6 +39,8 @@ export function Item({
 }: {
   item: ThreadItem;
   agentId: string;
+  /** The desktop pictures the thread's screenshots saved, by frame. */
+  frames?: FramePaths;
   speaker: string;
   agentName?: (id: string) => string;
   onOpenConversation?: (conversationId: string) => void;
@@ -50,6 +54,7 @@ export function Item({
       <ToolCallCard
         item={item}
         agentId={agentId}
+        frames={frames}
         agentName={agentName}
         onOpenConversation={onOpenConversation}
         canvas={canvas}

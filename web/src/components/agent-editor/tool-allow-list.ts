@@ -38,7 +38,7 @@ function bare(name: string): RegistryTool {
  */
 export function allowList(tools: RegistryTool[], agent: AgentInfo | null, draft: AgentPatch): AllowList {
   const unmarked = () =>
-    tools.filter((tool) => !tool.server && !tool.with_mcp && !tool.with_reads && !tool.with_browser);
+    tools.filter((tool) => !tool.server && !tool.with_mcp && !tool.with_reads && !tool.with_browser && !tool.with_desktop);
   const listable = agent?.listable_tools ?? unmarked().map((tool) => tool.name);
   const described = new Map(tools.map((tool) => [tool.name, tool]));
   const rows = listable.map((name) => described.get(name) ?? bare(name));

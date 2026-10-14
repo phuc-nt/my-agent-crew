@@ -24,6 +24,7 @@ import type { ArtifactEvent } from "../api/artifact-types";
 import { fold } from "../components/conversation-search";
 import { FakeBrowser } from "./fake-browser";
 import { FakeCanvas, type FakeReply } from "./fake-canvas";
+import { FakeDesktop } from "./fake-desktop";
 import { FakeMcp } from "./fake-mcp";
 import { FakeScriptStore } from "./fake-script-store";
 import { FakeWiki } from "./fake-wiki";
@@ -221,6 +222,9 @@ export class FakeBackend {
   /** The machine's browser and the agents' own: installed and left off until a test turns it
    *  on, and nobody's up until a test starts one. */
   browser: FakeBrowser = Object.assign(new FakeBrowser(), { crew: () => this.agents });
+  /** The machine's desktop helper and the agents' own setting: no helper until a test puts
+   *  one there, and every agent off until its file says on. */
+  desktop: FakeDesktop = Object.assign(new FakeDesktop(), { crew: () => this.agents });
   /** Keepalive body bytes still in flight, which the browser caps. */
   private keepaliveBytes = 0;
   /** Set to a message to make the next PATCH refuse, the way a bad field would. */
@@ -281,11 +285,17 @@ export class FakeBackend {
     if (kept) return json(kept.body, kept.status);
     const browser = this.browser.route(path, method, body);
     if (browser) return json(browser.body, browser.status);
-    // Like the server, what the machine has for a browser is read as the page is answered.
-    if (path === "/connections") return json({ ...this.connections, browser: this.browser.status() });
+    const desktop = this.desktop.route(path, method);
+    if (desktop) {
+      if (desktop.wait) await desktop.wait;
+      return json(desktop.body, desktop.status);
+    }
+    // Like the server, what the machine has for a browser and a desktop is read as the page
+    // is answered.
+    if (path === "/connections") return json({ ...this.connections, ...this.machines() });
     if (path === "/connections/routes" && method === "PUT") {
       this.connections = { ...this.connections, routes: body.routes, routes_source: "config" };
-      return json({ ...this.connections, browser: this.browser.status(), restart_required: null });
+      return json({ ...this.connections, ...this.machines(), restart_required: null });
     }
     // Before the single-agent routes: `/agents/reload` would otherwise read as an agent
     // whose id happens to be "reload".
@@ -485,7 +495,13 @@ export class FakeBackend {
       optional: name === "web_search" || name === "image_read",
       agents: this.agents.filter((a) => a.tools.includes(name)).map((a) => a.id),
     }));
-    return [...own, ...this.browser.registryTools(), ...this.mcp.registryTools()];
+    return [...own, ...this.browser.registryTools(), ...this.desktop.registryTools(), ...this.mcp.registryTools()];
+  }
+
+  /** The keys of GET /connections a server older than them leaves out. */
+  private machines(): Partial<ConnectionsInfo> {
+    const desktop = this.desktop.status();
+    return { browser: this.browser.status(), ...(desktop ? { desktop } : {}) };
   }
 
   private createAgent(agentId: string, profile: Record<string, unknown>): Response {

@@ -30,6 +30,7 @@ export function chatApproval({ state, thread, list }: PendingParts) {
     <ApprovalBar
       pending={state.pending}
       busy={state.busy}
+      conversationId={state.conversationId ?? undefined}
       onDecide={(ok) => void thread.decide(ok)}
       // Withheld whenever a reason stopped the call: that pause cannot be waived (see
       // `tool_gate.needs_decision`), so always-allowing the tool here would not stop

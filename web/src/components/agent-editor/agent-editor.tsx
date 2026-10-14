@@ -7,6 +7,7 @@ import { AgentAvatar } from "../ui/agent-avatar";
 import { BrowserCard } from "./browser-card";
 import { ChannelSection } from "./channel-section";
 import { DeleteAgent } from "./delete-agent";
+import { DesktopCard } from "./desktop-card";
 import { IdentitySection } from "./identity-section";
 import { LimitsSection } from "./limits-section";
 import { ModelSection } from "./model-section";
@@ -139,6 +140,7 @@ export function AgentEditor(props: Props) {
         savedHosts={form.original?.browser_hosts}
         onOpenConversation={props.onOpenConversation}
       />
+      <DesktopCard key={`desktop-${agent.id}`} agentId={agent.id} savedMode={form.original?.computer} savedApps={form.original?.computer_apps} />
       <LimitsSection
         form={form}
         readOnly={readOnly}

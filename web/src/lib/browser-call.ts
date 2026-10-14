@@ -16,7 +16,7 @@ const PIECE_MAX = 80;
  * closed them early could go on in words that read as the crew's. Anything that is not a
  * string or a number has no place in a sentence.
  */
-function piece(value: unknown): string {
+export function piece(value: unknown): string {
   if (typeof value !== "string" && typeof value !== "number") return "";
   const flat = showHiddenChars(String(value).replace(/[«»]/g, "").replace(/\s+/g, " ").trim());
   return flat.length > PIECE_MAX ? `${clip(flat, PIECE_MAX)}…` : flat;

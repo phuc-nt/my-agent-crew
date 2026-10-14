@@ -9,6 +9,7 @@ import type {
   ToolInfo,
 } from "./agents";
 import type { BrowserMode } from "./browser";
+import type { ComputerMode } from "./desktop";
 
 /** One agent profile as listed by GET /api/agents. */
 export interface AgentInfo {
@@ -82,6 +83,15 @@ export interface AgentInfo {
   /** The hosts whose pages open without asking, each `shop.example` or `*.shop.example`.
    * Absent from a server older than the key. */
   browser_hosts?: string[];
+  /** Whether the agent may use the machine's screen and keyboard: the agent's own key,
+   * whatever the machine has. Absent from a server older than the key. */
+  computer?: ComputerMode;
+  /** The applications it may read the elements of and act on, each a name or a bundle id;
+   * none means it may only look. Absent from a server older than the key. */
+  computer_apps?: string[];
+  /** The folders its files are held to, relative to its workspace; the first takes the
+   * pictures of its screen. Absent from a server older than the key. */
+  write_paths?: string[];
 }
 
 export interface InstallRequest {
@@ -136,6 +146,8 @@ export interface AgentPatch {
   script_llm?: boolean;
   browser?: BrowserMode;
   browser_hosts?: string[] | null;
+  computer?: ComputerMode;
+  computer_apps?: string[] | null;
 }
 
 /**

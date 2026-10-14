@@ -174,6 +174,7 @@ export function AttentionRow(props: Props) {
             labelledBy={labelledBy}
             busy={busy}
             deadline={deadline}
+            conversationId={conversationId}
             onDecide={(approve) => void decide(pending.approvalId, approve)}
           />
         )}

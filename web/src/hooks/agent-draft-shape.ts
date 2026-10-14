@@ -24,6 +24,8 @@ export const EDITABLE: DraftKey[] = [
   "script_llm",
   "browser",
   "browser_hosts",
+  "computer",
+  "computer_apps",
   "schedules",
   "telegram",
 ];
@@ -85,6 +87,8 @@ export function toDraft(agent: AgentInfo): AgentPatch {
     // A crew older than the browser reports no such key and would refuse one sent to it, so
     // the form holds neither and has no control for them.
     ...(agent.browser === undefined ? {} : { browser: agent.browser, browser_hosts: agent.browser_hosts ?? [] }),
+    // The desktop the same way: a crew older than it has neither key and no control for them.
+    ...(agent.computer === undefined ? {} : { computer: agent.computer, computer_apps: agent.computer_apps ?? [] }),
     schedules: agent.declared.schedules,
     telegram: agent.telegram,
   };

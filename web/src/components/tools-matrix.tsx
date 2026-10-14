@@ -12,10 +12,11 @@ interface Props {
  * is held only while one of them has to be found, and the script tool only while the
  * agent has a tool that only reads for a script to call, unless its file takes the tool
  * away, which is a choice and not a lack. The browser's tools follow the agent's own
- * `browser` key and nothing else: off brings none, reading all but the two that act. */
+ * `browser` key and nothing else: off brings none, reading all but the two that act. The
+ * desktop's four follow its `computer` key the same way, all four or none. */
 type Cell =
   | ("on" | "excluded" | "missing-key" | "work-mode" | "mcp-off" | "mcp-none" | "no-reads" | "script-off")
-  | ("browser-off" | "browser-read");
+  | ("browser-off" | "browser-read" | "desktop-off");
 
 const MARK: Record<Cell, string> = {
   on: "✓",
@@ -28,6 +29,7 @@ const MARK: Record<Cell, string> = {
   "script-off": "⊘",
   "browser-off": "◌",
   "browser-read": "◐",
+  "desktop-off": "▭",
 };
 
 const TITLE: Record<Cell, string> = {
@@ -41,6 +43,7 @@ const TITLE: Record<Cell, string> = {
   "script-off": vi.tools.legendScriptOff,
   "browser-off": vi.browser.cellOff,
   "browser-read": vi.browser.cellReadOnly,
+  "desktop-off": vi.desktop.cellOff,
 };
 
 /** The browser's tools that reading pages does not bring: each does something to a page. */
@@ -55,6 +58,7 @@ const ONLY_WITH: Partial<Record<Cell, (tool: RegistryTool, agents: AgentInfo[]) 
   "script-off": (tool, agents) => Boolean(tool.with_reads) && agents.some((agent) => agent.script_calls === "none"),
   "browser-off": (tool) => Boolean(tool.with_browser),
   "browser-read": (tool, agents) => actsOnPages(tool) && agents.some((agent) => agent.browser === "read"),
+  "desktop-off": (tool) => Boolean(tool.with_desktop),
 };
 
 /**
@@ -76,6 +80,8 @@ function cellFor(tool: RegistryTool, agent: AgentInfo): Cell {
   if (tool.with_reads) return agent.script_calls === "none" ? "script-off" : "no-reads";
   // Nor over the browser's tools: the agent's `browser` key alone brings them.
   if (tool.with_browser) return actsOnPages(tool) && agent.browser === "read" ? "browser-read" : "browser-off";
+  // Nor over the desktop's, which the agent's `computer` key alone brings.
+  if (tool.with_desktop) return "desktop-off";
   // What the file lists, not what the agent holds: every agent holds something, and an
   // agent that lists nothing has excluded nothing.
   const listed = agent.declared.tools;
@@ -142,6 +148,11 @@ export function ToolsMatrix({ tools, agents }: Props) {
                   {tool.with_browser && (
                     <span className="badge" title={vi.browser.withBrowserTitle}>
                       {vi.browser.withBrowser}
+                    </span>
+                  )}
+                  {tool.with_desktop && (
+                    <span className="badge" title={vi.desktop.withDesktopTitle}>
+                      {vi.desktop.withDesktop}
                     </span>
                   )}
                   {tool.exposure && (

@@ -6,6 +6,7 @@ export type * from "./types/agent-profile";
 export type * from "./types/mcp";
 export type * from "./types/connections";
 export type * from "./types/browser";
+export type * from "./types/desktop";
 export * from "./types/memory";
 export type * from "./types/wiki";
 export type * from "./activity-types";

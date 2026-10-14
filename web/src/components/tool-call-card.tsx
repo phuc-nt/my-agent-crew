@@ -1,4 +1,5 @@
 import { vi } from "../i18n/vi";
+import type { FramePaths } from "../lib/desktop-frame";
 import {
   delegateAgent,
   delegateReason,
@@ -57,6 +58,8 @@ interface Props {
   item: ToolItem;
   /** Whose conversation this is, which is whose workspace a screenshot was saved in. */
   agentId?: string;
+  /** The desktop pictures the thread's screenshots saved, by frame. */
+  frames?: FramePaths;
   /** Names the agent ids the crew knows, so a card can show a name instead of an id. */
   agentName?: (id: string) => string;
   /** Opens the child conversation this call created; absent means the button is hidden. */
@@ -65,7 +68,7 @@ interface Props {
   canvas?: CanvasLinks;
 }
 
-export function ToolCallCard({ item, agentId, agentName, onOpenConversation, canvas }: Props) {
+export function ToolCallCard({ item, agentId, frames, agentName, onOpenConversation, canvas }: Props) {
   if (item.name === DELEGATE) {
     return <DelegateCard item={item} agentName={agentName} onOpenConversation={onOpenConversation} canvas={canvas} />;
   }
@@ -91,7 +94,7 @@ export function ToolCallCard({ item, agentId, agentName, onOpenConversation, can
           onOpenConversation={onOpenConversation}
         />
         {/* As on the run's step: the picture a screenshot saved, once the call went through. */}
-        {item.status === "done" && <ScreenshotThumb agentId={agentId} toolName={item.name} output={item.output} />}
+        {item.status === "done" && <ScreenshotThumb agentId={agentId} toolName={item.name} output={item.output} frames={frames} />}
         {item.output && <ToolOutput text={item.output} failed={didFail(item.status)} />}
       </div>
       {/* A canvas a script wrote has its card under the script's, as one the agent wrote itself has. */}
