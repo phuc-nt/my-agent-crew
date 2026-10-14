@@ -16,7 +16,7 @@ from tests.desktop_helper import desk, frame, listening, outline_name, ref, sock
 from tests.desktop_tools import FENCE, desk_of, fits, parts
 
 BANK = ("Ngân hàng", "vn.bank.app", "12.345.678", "Số dư")
-BOTH = ("Notes", "com.apple.Safari")
+BOTH = ("Notes", "com.apple.TextEdit")
 REFS = re.compile(r"\[ref=([^\]]*)\]")
 
 
@@ -75,13 +75,13 @@ async def test_the_whole_name_of_an_outline_is_not_told(helper, tmp_path):
     assert "[ref=a1-beef]" in answer and outline_name(0xBEEF) not in answer
 
 
-@pytest.mark.parametrize("written", ["Safari", "safari", "com.apple.Safari"])
+@pytest.mark.parametrize("written", ["TextEdit", "textedit", "com.apple.TextEdit"])
 async def test_an_application_of_the_list_is_read_by_name_or_bundle_id(helper, tmp_path, written):
-    tools = desk_of(helper, tmp_path, ("Notes", "Safari", "com.apple.Safari"))
+    tools = desk_of(helper, tmp_path, ("Notes", "TextEdit", "com.apple.TextEdit"))
 
     _outside, inside = parts(await tools.observe(app=f" {written} "))
 
-    assert inside.splitlines()[:2] == ["Ứng dụng: Safari", "Cửa sổ: Trang chủ"]
+    assert inside.splitlines()[:2] == ["Ứng dụng: TextEdit", "Cửa sổ: Không tên"]
     assert helper.sent("ax")[0]["app"] == written
 
 
@@ -97,7 +97,7 @@ async def test_a_secure_field_shows_no_value_whatever_the_helper_sent(helper, tm
     assert line.startswith(f"  - [ref=a9-0001] ({t.NODE_SECURE}) ") and line.endswith(' "PIN"')
 
 
-@pytest.mark.parametrize("written", ["Ngân hàng", "vn.bank.app", "Safari", "Finder", "Notes 2"])
+@pytest.mark.parametrize("written", ["Ngân hàng", "vn.bank.app", "TextEdit", "Finder", "Notes 2"])
 async def test_an_application_outside_the_list_is_refused_before_the_helper_hears(
     helper, tmp_path, written
 ):
@@ -121,7 +121,7 @@ async def test_the_application_in_front_is_read_only_when_it_is_the_agents(helpe
 
     said = await desk_of(helper, tmp_path, BOTH).refused(OBSERVE)
 
-    assert said == t.OBSERVE_FRONT_OUTSIDE.format(apps="Notes, com.apple.Safari")
+    assert said == t.OBSERVE_FRONT_OUTSIDE.format(apps="Notes, com.apple.TextEdit")
     assert not any(word in said for word in BANK)
     assert [request["cmd"] for request in helper.requests] == ["apps"]
 
@@ -132,7 +132,7 @@ async def test_an_application_that_came_forward_in_between_is_not_told(helper, t
 
     said = await desk_of(helper, tmp_path, BOTH).refused(OBSERVE)
 
-    assert said == t.OBSERVE_FRONT_OUTSIDE.format(apps="Notes, com.apple.Safari")
+    assert said == t.OBSERVE_FRONT_OUTSIDE.format(apps="Notes, com.apple.TextEdit")
     assert not any(word in said for word in BANK)
 
 
@@ -219,12 +219,12 @@ async def test_only_an_element_with_a_ref_of_the_helpers_shape_is_listed(helper,
 
 
 async def test_an_application_with_nothing_to_list_says_so(helper, tmp_path):
-    tools = desk_of(helper, tmp_path, ("Safari",))
+    tools = desk_of(helper, tmp_path, ("TextEdit",))
 
-    outside, inside = parts(await tools.observe(app="Safari"))
+    outside, inside = parts(await tools.observe(app="TextEdit"))
 
     assert outside.splitlines()[0] == t.OBSERVE_HEAD.format(shown=0)
-    assert inside.splitlines() == ["Ứng dụng: Safari", "Cửa sổ: Trang chủ", t.OBSERVE_EMPTY]
+    assert inside.splitlines() == ["Ứng dụng: TextEdit", "Cửa sổ: Không tên", t.OBSERVE_EMPTY]
 
 
 async def test_an_application_without_a_window_gives_no_window_line(helper, tmp_path):
@@ -335,9 +335,9 @@ async def test_a_screen_that_cannot_be_read_is_named(helper, tmp_path, stop, val
 
 
 async def test_an_application_of_the_list_that_is_closed_is_said_to_be(helper, tmp_path):
-    helper.apps.remove(helper.running("Safari"))
+    helper.apps.remove(helper.running("TextEdit"))
 
-    said = await desk_of(helper, tmp_path, BOTH).refused(OBSERVE, app="com.apple.Safari")
+    said = await desk_of(helper, tmp_path, BOTH).refused(OBSERVE, app="com.apple.TextEdit")
 
     assert said == t.HELPER_ERRORS["app_not_running"]
 

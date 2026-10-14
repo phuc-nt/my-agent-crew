@@ -48,10 +48,16 @@ ASKED = [
     (call("key", keys="space"), ta.ASK_CONFIRM.format(keys="space", app="Notes")),
     (call("type", text="xin Đặt Hàng giúp"), ta.ASK_WORD.format(app="Notes", word="đặt hàng")),
     (call("type", text="mua sữa\nmua trứng"), ta.ASK_NEWLINE.format(app="Notes")),
+    # A field is named as the outline shows it: this one by what it holds, having no title.
     (
         call("set_value", ref=ref("a3"), text="chuyển khoản 2 triệu"),
-        ta.ASK_WORD.format(app="Notes", word="chuyển khoản"),
+        ta.ASK_SET_WORD.format(name="mua sữa", app="Notes", word="chuyển khoản"),
     ),
+    (
+        call("double_click", ref=ref("a2"), name="Ghi mới"),
+        ta.ASK_DOUBLE_NAMED.format(name="Ghi mới", app="Notes"),
+    ),
+    (call("double_click", x=3, y=4), ta.ASK_DOUBLE_POINT.format(x="3", y="4", app="Notes")),
     (call("click", x=3, y=4), ta.ASK_POINT.format(kind="click", x="3", y="4", app="Notes")),
     (
         call("drag", x=1, y=2, to_x=3, to_y=4.5),

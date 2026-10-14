@@ -20,7 +20,7 @@ from my_agent_crew.desktop.policy import (
 
 @pytest.mark.parametrize("name", ["Notes", "notes", "NOTES", "nOtEs"])
 def test_a_name_in_the_list_is_matched_whatever_its_case(name) -> None:
-    assert app_allowed(("Safari", "Notes"), name, "com.other.app")
+    assert app_allowed(("TextEdit", "Notes"), name, "com.other.app")
 
 
 @pytest.mark.parametrize("name", ["Note", "Notes 2", "Notes ", "My Notes", "Ghi chú", ""])
@@ -65,16 +65,16 @@ def test_an_empty_list_names_nothing() -> None:
     assert not app_named(("Notes",), "")
 
 
-@pytest.mark.parametrize("written", ["Notes", "notes", "com.apple.Safari"])
+@pytest.mark.parametrize("written", ["Notes", "notes", "com.apple.TextEdit"])
 def test_a_call_names_an_application_by_either(written) -> None:
-    assert app_named(("Notes", "com.apple.Safari"), written)
+    assert app_named(("Notes", "com.apple.TextEdit"), written)
 
 
-@pytest.mark.parametrize("written", ["Safari", "com.apple.Notes", "Finder", "Notes,Safari"])
+@pytest.mark.parametrize("written", ["TextEdit", "com.apple.Notes", "Finder", "Notes,TextEdit"])
 def test_a_call_cannot_name_what_the_list_has_not(written) -> None:
-    # The list holds Notes by name and Safari by bundle id: the other spelling of each is
+    # The list holds Notes by name and TextEdit by bundle id: the other spelling of each is
     # not in it, and the helper is never asked which application it would mean.
-    assert not app_named(("Notes", "com.apple.Safari"), written)
+    assert not app_named(("Notes", "com.apple.TextEdit"), written)
 
 
 @pytest.mark.parametrize(

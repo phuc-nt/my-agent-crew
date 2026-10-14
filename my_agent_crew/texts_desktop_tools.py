@@ -39,8 +39,13 @@ PARAM_REF = (
     "click, double_click, right_click và set_value."
 )
 PARAM_NAME = (
-    "Tên của phần tử như dàn ý ghi, bắt buộc khi click, double_click, right_click theo `ref`: "
-    "chữ trong ngoặc kép; không có thì là phần sau dấu hai chấm; không có cả hai thì bỏ trống."
+    "Tên của phần tử như dàn ý ghi, bắt buộc khi click, double_click, right_click theo `ref`, "
+    "nên ghi cả với set_value: chữ trong ngoặc kép; không có thì là phần sau dấu hai chấm; "
+    "không có cả hai thì bỏ trống."
+)
+PARAM_TEXT = (
+    "Chữ cần gõ, cho type và set_value. Tối đa 2000 ký tự với type. Không có ký tự điều "
+    "khiển: chỉ chữ, tab và dấu xuống dòng."
 )
 PARAM_X = "Hoành độ, tính bằng điểm ảnh của ảnh chụp mang frame_id đó."
 PARAM_Y = "Tung độ, tính bằng điểm ảnh của ảnh chụp mang frame_id đó."
@@ -48,7 +53,6 @@ PARAM_TO_X = "Hoành độ điểm thả, cho drag."
 PARAM_TO_Y = "Tung độ điểm thả, cho drag."
 PARAM_DX = "Số dòng cuộn ngang, từ -50 tới 50, cho scroll."
 PARAM_DY = "Số dòng cuộn dọc, từ -50 tới 50, cho scroll."
-PARAM_TEXT = "Chữ cần gõ, cho type và set_value. Tối đa 2000 ký tự với type."
 PARAM_KEYS = (
     "Tổ hợp phím cho key: các phím giữ (cmd, shift, opt, ctrl, fn) nối bằng dấu + rồi tới một "
     "phím, ví dụ cmd+c, shift+tab, enter, esc, pagedown."

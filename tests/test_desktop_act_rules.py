@@ -18,7 +18,7 @@ from my_agent_crew.tools.registry import ToolError
 
 PROTOCOL = Path(__file__).parents[1] / "desktop-helper/Sources/DesktopHelperCore/Protocol.swift"
 FRAME = "0123456789abcdef-16x10-1"
-MINE = ("Notes", "com.apple.Safari")
+MINE = ("Notes", "com.apple.TextEdit")
 # One call of each kind that is carried out, and what the helper is sent of it. A ref is
 # written as an outline shows it, with the tag of that outline, and sent as the helper's own.
 WHOLE = {
@@ -89,7 +89,9 @@ def test_focus_app_is_sent_without_a_frame() -> None:
 
 def test_the_application_is_sent_as_written_less_its_blanks() -> None:
     assert read_act(call("click", app="  notes "), MINE).send["app"] == "notes"
-    assert read_act(call("click", app="com.apple.Safari"), MINE).send["app"] == "com.apple.Safari"
+    assert (
+        read_act(call("click", app="com.apple.TextEdit"), MINE).send["app"] == "com.apple.TextEdit"
+    )
 
 
 @pytest.mark.parametrize("kind", FRAMED)
@@ -111,7 +113,7 @@ def test_a_frame_id_of_another_shape_is_none(kind, frame_id) -> None:
 def test_an_application_outside_the_list_is_refused(kind, app) -> None:
     said = refused(call(kind, app=app))
 
-    assert said == t.APP_OUTSIDE.format(app=app, apps="Notes, com.apple.Safari")
+    assert said == t.APP_OUTSIDE.format(app=app, apps="Notes, com.apple.TextEdit")
 
 
 @pytest.mark.parametrize("kind", [*FRAMED, "focus_app"])
@@ -257,12 +259,27 @@ def test_the_longest_text_typed_and_the_farthest_scroll_are_the_helpers_own() ->
     assert [MAX_SCROLL, MAX_SCROLL] == [int(found) for found in lines.groups()] == [50, 50]
 
 
+def cost(char: str) -> int:
+    """The bytes a character takes of a request's line."""
+    return len(json.dumps(char, ensure_ascii=False).encode()) - 2
+
+
 def test_the_longest_text_a_field_is_set_to_fits_the_one_line_a_request_is() -> None:
     line = re.search(
         r"static let maxLineBytes = (\d+) \* (\d+)$", PROTOCOL.read_text("utf-8"), re.M
     )
-    # The dearest character there is: one that leaves as an escape of six bytes.
-    longest = call("set_value", app="com.apple.Safari", ref="a999999-3f9c", text="\x00" * MAX_SET)
+    # Every character a request writes as an escape, or as more than one byte, is below
+    # U+0800 or takes the three and four bytes of UTF-8. Below it, what a field may be set to
+    # costs two bytes at most: the characters written as escapes of six are refused.
+    below = [chr(code) for code in range(0x800)]
+    taken = [char for char in below if not refusal(call("set_value", text=char), MINE)]
+    assert max(map(cost, taken)) == 2 and max(map(cost, below)) == 6
+    # So the dearest character still taken is one beyond the first plane: four bytes.
+    dearest = "\U0010fffd"
+    assert cost(dearest) == 4 and read_act(call("set_value", text=dearest), MINE).text == dearest
+    longest = call(
+        "set_value", app="com.apple.TextEdit", ref="a999999-3f9c", text=dearest * MAX_SET
+    )
     worst = read_act(longest, MINE).send | {"outline": "f" * 16}
     request = json.dumps({"id": "f" * 16, "cmd": "act", **worst}, ensure_ascii=False)
 
@@ -324,9 +341,11 @@ def test_a_ref_is_taken_apart_and_the_name_read_beside_it_kept_for_judging() -> 
 
     assert (act.ref, act.tag, act.name, act.token) == ("a2", "3f9c", "Ghi mới", "a2-3f9c")
     assert not {"name", "outline"} & set(act.send)
-    # A field is set whatever it is called, and a point names no element.
+    # A field set says its name when the call does, and the name is never sent either.
     field = read_act(call("set_value", name="Ghi chú"), MINE)
-    assert (field.ref, field.tag, field.name, field.token) == ("a3", "3f9c", "", "a3-3f9c")
+    assert (field.ref, field.tag, field.name, field.token) == ("a3", "3f9c", "Ghi chú", "a3-3f9c")
+    assert "name" not in field.send and read_act(call("set_value"), MINE).name == ""
+    # A point names no element.
     pointed = read_act(call("click", name="Ghi mới"), MINE)
     assert (pointed.ref, pointed.tag, pointed.name) == ("", "", "")
 
@@ -427,9 +446,9 @@ def test_spotlight_still_waits_for_a_person_when_the_agent_was_given_it() -> Non
 
 
 def test_focus_app_always_waits_for_a_person() -> None:
-    wanted = {"kind": "focus_app", "app": "com.apple.Safari"}
+    wanted = {"kind": "focus_app", "app": "com.apple.TextEdit"}
 
-    assert ask_reason(wanted, MINE, NO_WORDS) == ta.ASK_FOCUS.format(app="com.apple.Safari")
+    assert ask_reason(wanted, MINE, NO_WORDS) == ta.ASK_FOCUS.format(app="com.apple.TextEdit")
     assert ask_reason({**wanted, "app": "notes"}, MINE, NO_WORDS) == ta.ASK_FOCUS.format(
         app="notes"
     )
@@ -475,7 +494,7 @@ def test_one_of_the_agents_words_is_told_before_a_line_break() -> None:
     assert asked == ta.ASK_WORD.format(app="Notes", word="đặt hàng")
 
 
-@pytest.mark.parametrize("kind", ["click", "double_click", "right_click", "drag"])
+@pytest.mark.parametrize("kind", ["click", "right_click", "drag"])
 def test_a_point_does_not_say_what_lies_there_so_it_waits_for_a_person(kind) -> None:
     args = without(call(kind), "ref", "name") | {"x": 3, "y": 4.5}
 
@@ -507,7 +526,7 @@ def test_a_scroll_gives_no_reason_to_ask() -> None:
     assert ask_reason(call("scroll", text="đặt hàng"), MINE, AskWords(("đặt hàng",))) is None
 
 
-@pytest.mark.parametrize("kind", ["click", "double_click", "right_click"])
+@pytest.mark.parametrize("kind", ["click", "right_click"])
 def test_a_click_on_an_element_named_with_one_of_the_agents_words_waits(kind) -> None:
     ask = AskWords(("đặt hàng", "xoá"))
     args = without(call(kind), "x", "y") | {"ref": "a5-3f9c", "name": "Xoá «tất cả»\nngay"}
@@ -530,6 +549,9 @@ def test_a_long_name_is_short_on_the_card() -> None:
     )
 
 
-def test_what_a_click_by_ref_carries_beside_its_name_is_not_read() -> None:
+@pytest.mark.parametrize("kind", ["click", "right_click"])
+def test_what_a_click_by_ref_carries_beside_its_name_is_not_read(kind) -> None:
     # The words are looked for in what the click names, not in a text it does not type.
-    assert ask_reason(call("double_click", text="đặt hàng"), MINE, AskWords(("đặt hàng",))) is None
+    args = without(call(kind), "x", "y") | {"ref": "a2-3f9c", "name": "Ghi mới", "text": "đặt hàng"}
+
+    assert ask_reason(args, MINE, AskWords(("đặt hàng",))) is None

@@ -14,6 +14,7 @@ from my_agent_crew.config_desktop import (
     COMPUTER_ON,
     DesktopSettings,
 )
+from my_agent_crew.desktop.policy import is_browser
 
 # An application's name or its bundle id is short; a longer entry is a mistake in the file.
 APP_CHARS = 200
@@ -55,6 +56,13 @@ def _apps(raw: dict[str, Any], agent_id: str) -> tuple[str, ...]:
     for entry in value:
         if not isinstance(entry, str) or not _one_name(entry.strip()):
             raise refusal
+        if is_browser(entry):
+            # Told rather than left in the list to do nothing: the desktop never acts in one.
+            raise ValueError(
+                f"agent {agent_id}: computer_apps cannot name a web browser ({entry.strip()}):"
+                " the desktop never acts in one; the web is for the browser tools (browser: read"
+                " or act)"
+            )
         if entry.strip() not in apps:
             apps.append(entry.strip())
     return tuple(apps)

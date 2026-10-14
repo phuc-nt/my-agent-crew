@@ -21,6 +21,7 @@ from my_agent_crew.server.runtime_build import build_runtime
 
 QUOTE_IT = 'put "on" in quotes'
 APPS_REFUSAL = "computer_apps must be a list of application names or bundle ids"
+BROWSER_REFUSAL = "computer_apps cannot name a web browser ({app}): the desktop never acts in one"
 
 
 def test_a_machine_looks_for_the_helper_under_its_own_home(tmp_path: Path):
@@ -90,11 +91,13 @@ def parsed(settings: Settings, tmp_path: Path, text: str) -> DesktopSettings:
 def test_an_agent_uses_the_desktop_only_where_its_own_file_says_so(settings, tmp_path):
     silent = parsed(settings, tmp_path, "name: Coach\n")
     looks = parsed(settings, tmp_path, 'computer: "on"\n')
-    acts = parsed(settings, tmp_path, "computer: 'on'\ncomputer_apps: [Notes, com.apple.Safari]\n")
+    acts = parsed(
+        settings, tmp_path, "computer: 'on'\ncomputer_apps: [Notes, com.apple.TextEdit]\n"
+    )
 
     assert (silent.mode, silent.on, silent.apps) == ("off", False, ())
     assert (looks.mode, looks.on, looks.apps) == ("on", True, ())
-    assert (acts.mode, acts.on, acts.apps) == ("on", True, ("Notes", "com.apple.Safari"))
+    assert (acts.mode, acts.on, acts.apps) == ("on", True, ("Notes", "com.apple.TextEdit"))
     assert {"computer", "computer_apps"} <= PROFILE_KEYS
 
 
@@ -154,7 +157,7 @@ def test_a_mode_nobody_knows_is_refused(settings, tmp_path, text):
         "[Notes, '   ']",
         "[[Notes]]",
         "[true]",
-        '["Notes\\nSafari"]',
+        '["Notes\\nTextEdit"]',
         f"[{'n' * 201}]",
     ],
 )
@@ -176,6 +179,32 @@ def test_a_name_is_kept_as_written_once_and_without_the_blanks_around_it(setting
 @pytest.mark.parametrize("apps", ["[]", "~", ""])
 def test_an_empty_application_list_is_no_application(settings, tmp_path, apps):
     assert parsed(settings, tmp_path, f'computer: "on"\ncomputer_apps: {apps}\n').apps == ()
+
+
+BROWSERS = ["Safari", " google chrome ", "ARC", "com.apple.Safari", "com.google.Chrome.app.x"]
+
+
+@pytest.mark.parametrize("app", BROWSERS)
+def test_a_browser_in_the_application_list_is_refused_and_named(settings, tmp_path, app):
+    with pytest.raises(ValueError) as refusal:
+        parsed(settings, tmp_path, f'computer: "on"\ncomputer_apps: [Notes, "{app}"]\n')
+
+    said = str(refusal.value)
+    assert said.startswith(f"agent coach: {BROWSER_REFUSAL.format(app=app.strip())}")
+    # It points to where a web page is read and acted in.
+    assert "browser tools (browser: read or act)" in said
+
+
+def test_a_browser_written_into_an_agents_file_by_hand_stops_the_start(tmp_path):
+    folder = tmp_path / "agents" / "coach"
+    folder.mkdir(parents=True)
+    written = 'computer: "on"\ncomputer_apps: [Notes, Google Chrome]\n'
+    (folder / "agent.yaml").write_text(written, encoding="utf-8")
+
+    with pytest.raises(ValueError) as refusal:
+        load_profiles(load_settings(env={"MY_AGENT_HOME": str(tmp_path)}))
+
+    assert BROWSER_REFUSAL.format(app="Google Chrome") in str(refusal.value)
 
 
 def test_a_name_of_exactly_the_longest_length_is_taken(settings, tmp_path):
@@ -219,21 +248,24 @@ def test_a_save_from_the_web_is_what_the_next_start_reads(crew):
 
     reply = client.patch(
         "/api/agents/coach",
-        json={"profile": {"computer": "on", "computer_apps": ["Notes", "com.apple.Safari"]}},
+        json={"profile": {"computer": "on", "computer_apps": ["Notes", "com.apple.TextEdit"]}},
     )
 
     assert reply.status_code == 200, reply.text
     profile = reply.json()["profile"]
-    assert (profile["computer"], profile["computer_apps"]) == ("on", ["Notes", "com.apple.Safari"])
+    assert (profile["computer"], profile["computer_apps"]) == (
+        "on",
+        ["Notes", "com.apple.TextEdit"],
+    )
     assert reply.json()["restart_required"] == []
     live = runtime.deps_for("coach").agent.settings.desktop
-    assert (live.mode, live.apps, live.on) == ("on", ("Notes", "com.apple.Safari"), True)
+    assert (live.mode, live.apps, live.on) == ("on", ("Notes", "com.apple.TextEdit"), True)
     # The agent holds its tools at once, with no helper on the machine and no restart.
     assert desktop_tools(runtime) == list(DESKTOP_TOOLS)
     # PyYAML, which reads the file at the start, takes a bare `on` for True, and the start
     # refuses that: the word is kept in quotes so the file says what the person chose.
     assert read_at_start(home)["computer"] == "on"
-    assert read_at_start(home)["computer_apps"] == ["Notes", "com.apple.Safari"]
+    assert read_at_start(home)["computer_apps"] == ["Notes", "com.apple.TextEdit"]
     again = load_profiles(load_settings(env={"MY_AGENT_HOME": str(home)}))
     assert [p.settings.desktop for p in again if p.id == "coach"] == [live]
 
@@ -309,6 +341,23 @@ def test_a_bad_value_from_the_web_is_refused_and_the_file_is_left_alone(crew, pa
     live = runtime.deps_for("coach").agent.settings.desktop
     assert (live.mode, live.apps) == ("off", ("Notes",))
     assert desktop_tools(runtime) == []
+
+
+@pytest.mark.parametrize("app", ["Safari", "com.google.Chrome"])
+def test_a_browser_saved_from_the_web_is_refused_with_the_reason(crew, app):
+    client, runtime, home = crew
+    client.patch("/api/agents/coach", json={"profile": {"computer_apps": ["Notes"]}})
+    before = (home / "agents" / "coach" / "agent.yaml").read_text(encoding="utf-8")
+
+    reply = client.patch(
+        "/api/agents/coach", json={"profile": {"computer": "on", "computer_apps": ["Notes", app]}}
+    )
+
+    assert reply.status_code == 422, reply.text
+    assert BROWSER_REFUSAL.format(app=app) in reply.json()["detail"]
+    assert (home / "agents" / "coach" / "agent.yaml").read_text(encoding="utf-8") == before
+    live = runtime.deps_for("coach").agent.settings.desktop
+    assert (live.mode, live.apps) == ("off", ("Notes",))
 
 
 def test_a_new_agent_may_be_made_with_the_two_keys(crew):

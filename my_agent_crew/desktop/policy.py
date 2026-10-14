@@ -2,12 +2,13 @@
 what is never typed into any of them.
 
 An application is an agent's when the agent's list names it: by its name, whatever the
-case and however its accents are encoded, or by its bundle id, letter for letter. The
-text rules are hard refusals: they hold for every agent and no setting turns them off. A
-text is judged as a shell would read it: a line carried on with a backslash is one line,
-and the quotes and backslashes a shell takes out of a word are taken out. They are a
-tripwire for the plain spellings and not a wall, since text can be typed in pieces; what
-an agent types is still a call a person approves unless the conversation runs on its own.
+case and however its accents are encoded, or by its bundle id, letter for letter. A web
+browser never is, whatever the list says (`browsers.py`). The text rules are hard refusals:
+they hold for every agent and no setting turns them off. A text is judged as a shell would
+read it: a line carried on with a backslash is one line, and the quotes and backslashes a
+shell takes out of a word are taken out. They are a tripwire for the plain spellings and
+not a wall, since text can be typed in pieces; what an agent types is still a call a person
+approves unless the conversation runs on its own.
 """
 
 from __future__ import annotations
@@ -17,8 +18,14 @@ import unicodedata
 from collections.abc import Sequence
 
 from my_agent_crew import texts_desktop_act as ta
+from my_agent_crew.desktop.browsers import BUNDLE_IDS, NAMES
 
 SPOTLIGHT_NAME, SPOTLIGHT_BUNDLE = "Spotlight", "com.apple.Spotlight"
+# The control characters but tab and the two line breaks. None of them draws, and each one
+# reaches an application as a key: a backspace typed in the middle of a word changes the word
+# a person approved into another, so no text holding one is typed or set (the helper refuses
+# it too), and a name the screen gave is shown with each one written out.
+CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 # A frame id as the helper makes it: the pixels' hash, the picture's size, the display.
 FRAME_ID = re.compile(r"[0-9a-f]{16}-[0-9]{1,10}x[0-9]{1,10}-[0-9]{1,10}")
 # macOS finds a program whatever the case its name is typed in.
@@ -50,13 +57,39 @@ def frame_size(frame_id: str) -> tuple[int, int]:
     return int(width), int(height)
 
 
+def code_point(char: str) -> str:
+    """A character as its code point is written: a backspace is U+0008."""
+    return f"U+{ord(char):04X}"
+
+
+def shown_controls(text: str) -> str:
+    """The text with each control character written out as its code point, in brackets."""
+    return CONTROL.sub(lambda found: f"[{code_point(found.group())}]", text)
+
+
 def _folded(name: str) -> str:
     """A name as it reads: one letter written whole or as a letter and its mark is one."""
     return unicodedata.normalize("NFD", unicodedata.normalize("NFD", name).casefold())
 
 
+BROWSER_NAMES = frozenset(_folded(name) for name in NAMES)
+
+
+def is_browser(written: str) -> bool:
+    """Whether a name or a bundle id is a web browser's. A name is one whatever its case and
+    accents; a bundle id is a browser's, or one that goes on from it after a dot (a beta, or a
+    site saved as an app), compared as the helper compares it: without regard to case."""
+    text = written.strip()
+    lowered = text.lower()
+    return _folded(text) in BROWSER_NAMES or any(
+        lowered == known.lower() or lowered.startswith(f"{known.lower()}.") for known in BUNDLE_IDS
+    )
+
+
 def app_allowed(apps: Sequence[str], name: str = "", bundle_id: str = "") -> bool:
-    """Whether the agent's list names this application."""
+    """Whether the agent's list names this application. A browser it never names."""
+    if (name and is_browser(name)) or (bundle_id and is_browser(bundle_id)):
+        return False
     folded = _folded(name)
     return any(
         (name and _folded(entry) == folded) or (bundle_id and entry == bundle_id) for entry in apps

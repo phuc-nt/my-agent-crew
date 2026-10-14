@@ -124,9 +124,13 @@ def test_a_wrong_name_is_told_short_and_on_one_line() -> None:
     assert len(said) < len(ta.ACT_NAME_MISMATCH) + 100
 
 
-def test_a_field_is_set_whatever_it_is_called() -> None:
-    assert ref_refusal(act("set_value", "a2-3f9c", text="x", name="khác hẳn"), SHOWN) == ""
+def test_a_field_set_is_held_to_the_name_it_says_and_to_none_when_it_says_none() -> None:
+    # Said or not, a person reads the outline's own name of the field (`asking.py`).
+    assert ref_refusal(set_value("a2-3f9c"), SHOWN) == ""
     assert ref_refusal(set_value("a3-3f9c"), SHOWN) == ""
+    assert ref_refusal(act("set_value", "a2-3f9c", text="x", name=" ghi  MỚI"), SHOWN) == ""
+    said = ref_refusal(act("set_value", "a2-3f9c", text="x", name="khác hẳn"), SHOWN)
+    assert said == ta.ACT_NAME_MISMATCH.format(ref="a2-3f9c", name="khác hẳn")
 
 
 @pytest.mark.parametrize(

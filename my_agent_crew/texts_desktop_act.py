@@ -40,6 +40,11 @@ ACT_TEXT_BROKEN = (
     "Chữ của thao tác {kind} có một ký tự hỏng (nửa của một cặp ký tự UTF-16) nên không "
     "gửi được. Viết lại chữ đó."
 )
+ACT_TEXT_CONTROL = (
+    "Từ chối: chữ của thao tác {kind} có ký tự điều khiển {code}. Ký tự này không hiện ra khi "
+    "đọc mà vẫn tới ứng dụng như một phím (xoá lùi, Esc…), nên chữ được duyệt có thể thành chữ "
+    "khác. Chỉ gửi chữ thường, tab và dấu xuống dòng: bỏ ký tự đó đi."
+)
 ACT_KEYS = (
     "Không đọc được tổ hợp phím «{keys}». Viết các phím giữ nối bằng dấu + rồi tới một phím, "
     "ví dụ cmd+s, shift+tab, enter. Phím giữ: cmd, shift, opt, ctrl, fn."
@@ -80,3 +85,17 @@ ASK_POINT = (
     "Thao tác {kind} tại điểm ({x}, {y}) trong {app}: toạ độ không cho biết ở đó là phần tử nào."
 )
 ASK_NAMED = "Thao tác {kind} lên «{name}» trong {app}: tên có chữ «{word}», là việc phải hỏi chủ."
+ASK_SET_WORD = "Đặt ô «{name}» trong {app} thành một đoạn có chữ «{word}», là việc phải hỏi chủ."
+ASK_SET_FIELD = "Đặt nội dung ô «{name}» trong {app}: tên ô có chữ «{word}», là việc phải hỏi chủ."
+ASK_DOUBLE_NAMED = (
+    "Bấm đúp «{name}» trong {app}: bấm đúp có thể mở tệp hoặc chạy chương trình, là việc phải "
+    "hỏi chủ."
+)
+ASK_DOUBLE_REF = (
+    "Bấm đúp phần tử {ref} (không có tên) trong {app}: bấm đúp có thể mở tệp hoặc chạy chương "
+    "trình, là việc phải hỏi chủ."
+)
+ASK_DOUBLE_POINT = (
+    "Bấm đúp tại điểm ({x}, {y}) trong {app}: toạ độ không cho biết ở đó là gì, và bấm đúp có "
+    "thể mở tệp hoặc chạy chương trình."
+)

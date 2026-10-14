@@ -19,8 +19,10 @@ from my_agent_crew import texts_desktop_act as ta
 from my_agent_crew.browser.kit import one_line, text_of
 from my_agent_crew.desktop import keys
 from my_agent_crew.desktop.policy import (
+    CONTROL,
     FRAME_ID,
     app_named,
+    code_point,
     frame_size,
     spotlight_allowed,
     typed_refusal,
@@ -35,7 +37,8 @@ KINDS = (*CLICKS, DRAG, SCROLL, TYPE, KEY, SET_VALUE, FOCUS_APP)
 # The most characters the helper types in one go, and the most lines it scrolls.
 MAX_TYPED, MAX_SCROLL = 2000, 50
 # The most characters a field is set to. The helper names no limit of its own, but a request
-# is one line of at most 64 KiB, and a character can take six bytes of it.
+# is one line of at most 64 KiB, and a character can take four bytes of it: one beyond the
+# first plane. The control characters a request writes as escapes of six are refused.
 MAX_SET = 8000
 
 
@@ -46,7 +49,8 @@ class Act:
     # What the helper is sent beside the command, and nothing a kind does not read.
     send: dict[str, Any] = field(default_factory=dict)
     # The element the call names: the helper's own ref for it, and the tag of the outline
-    # the model read it in. For a click, the name the model read beside it.
+    # the model read it in. For a click, and a field set when the call says it, the name the
+    # model read beside it.
     ref: str = ""
     tag: str = ""
     name: str = ""
@@ -97,6 +101,8 @@ def _text(args: dict[str, Any], kind: str) -> str:
         text.encode()
     except UnicodeEncodeError as exc:  # half of a pair, which no request can carry
         raise ToolError(ta.ACT_TEXT_BROKEN.format(kind=kind)) from exc
+    if control := CONTROL.search(text):
+        raise ToolError(ta.ACT_TEXT_CONTROL.format(kind=kind, code=code_point(control.group())))
     if refusal := typed_refusal(text):
         raise ToolError(refusal)
     return text
@@ -163,7 +169,8 @@ def read_act(args: dict[str, Any], apps: Sequence[str]) -> Act:
         if not written:
             raise ToolError(ta.ACT_NEEDS.format(kind=kind, what="ref"))
         ref, tag = _ref(written)
-        return Act(kind, app, send | {"ref": ref, "text": text}, ref=ref, tag=tag, text=text)
+        sent = send | {"ref": ref, "text": text}
+        return Act(kind, app, sent, ref=ref, tag=tag, name=text_of(args, "name"), text=text)
     if written:
         # The helper types into whatever holds the cursor, wherever the model thinks that
         # is: a text sent with a ref it does not go to would be judged by the wrong field.
