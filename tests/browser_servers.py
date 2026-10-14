@@ -5,6 +5,8 @@ real rule refuses."""
 from __future__ import annotations
 
 import asyncio
+import os
+import subprocess
 import threading
 import time
 from collections.abc import AsyncIterator, Callable, Iterator
@@ -197,3 +199,13 @@ async def browsers(
         # A stop that never ends is a failed test, not a run that never ends.
         async with asyncio.timeout(60):
             await pool.stop_all()
+
+
+def drivers() -> list[int]:
+    """The driver processes this very process started, and no other's."""
+    listing = subprocess.run(
+        ["ps", "-axww", "-o", "pid=,ppid=,args="], capture_output=True, text=True, check=True
+    ).stdout.splitlines()
+    rows = [line.split(None, 2) for line in listing]
+    mine = [r for r in rows if len(r) == 3 and int(r[1]) == os.getpid()]
+    return [int(pid) for pid, _parent, args in mine if "/playwright/driver/" in args]
