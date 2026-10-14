@@ -66,6 +66,7 @@ struct ActRequest {
             guard text.unicodeScalars.count <= Limits.maxTextCharacters else {
                 throw Refusal.badRequest("`text` is over 2000 characters.")
             }
+            try ActRequest.refuseControlCharacters(text)
         case .key:
             guard let combo = KeyCombo.parse(try arguments.requiredString("keys")) else {
                 throw Refusal.badRequest("`keys` is not modifiers and one key the helper knows.")
@@ -74,6 +75,7 @@ struct ActRequest {
         case .setValue:
             ref = try arguments.requiredString("ref")
             text = try arguments.requiredString("text")
+            try ActRequest.refuseControlCharacters(text)
             outline = try arguments.requiredString("outline")
         case .focusApp:
             break
@@ -98,6 +100,17 @@ struct ActRequest {
 
     private func requireFrameID() throws {
         if frameID == nil { throw Refusal.badRequest("`frame_id` is missing.") }
+    }
+
+    /// Text that is typed or set holds no control character but tab, line feed and carriage
+    /// return: a typed U+0003 or U+0008 would interrupt or rewrite what a terminal runs.
+    private static func refuseControlCharacters(_ text: String) throws {
+        guard let found = TextTools.forbiddenControl(in: text) else { return }
+        let code = String(format: "U+%04X", found.value)
+        throw Refusal.badRequest(
+            "`text` holds the control character \(code); "
+                + "only tab, line feed and carriage return may be in it."
+        )
     }
 
     private static func point(_ arguments: Arguments, _ across: String, _ down: String) throws

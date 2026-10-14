@@ -35,8 +35,10 @@ final class ActRefTests: HelperTestCase {
         let reply = act("click", ["ref": "a3"])
         assertOK(reply)
         XCTAssertEqual(reply["effect"] as? String, "posted")
+        let centre = ScreenPoint(x: 440, y: 310)
         let rest: [FakeSystem.Call] = [
-            .elementFrame(33), .postClick(ScreenPoint(x: 440, y: 310), .left, 1), .frontmostApp,
+            .elementFrame(33), .topElement(centre, within: 33), .postClick(centre, .left, 1),
+            .frontmostApp,
         ]
         XCTAssertEqual(system.calls, checks + rest)
     }

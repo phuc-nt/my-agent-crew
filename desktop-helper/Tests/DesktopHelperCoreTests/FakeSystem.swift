@@ -12,7 +12,11 @@ enum Fixture {
     )
     static let textEdit = AppInfo(name: "TextEdit", bundleID: "com.apple.TextEdit", pid: 4242)
     static let notes = AppInfo(name: "Notes", bundleID: "com.apple.Notes", pid: 500)
-    static let safari = AppInfo(name: "Safari", bundleID: "com.apple.Safari", pid: 300, isHidden: true)
+    static let preview = AppInfo(name: "Preview", bundleID: "com.apple.Preview", pid: 300, isHidden: true)
+    /// Another process's window, put over a point by a test.
+    static let mail = AppInfo(name: "Mail", bundleID: "com.apple.mail", pid: 600)
+    /// A web browser, which the helper never acts in; not running unless a test says so.
+    static let safari = AppInfo(name: "Safari", bundleID: "com.apple.Safari", pid: 800)
 }
 
 /// Stands in for the machine: answers from what a test set and records every call it gets.
@@ -35,6 +39,7 @@ final class FakeSystem: System, @unchecked Sendable {
         case elementFrame(Int)
         case focusedElementIsSecure(pid: Int32)
         case setValue(Int, String)
+        case topElement(ScreenPoint, within: Int?)
         case postClick(ScreenPoint, MouseButton, Int)
         case postDrag(ScreenPoint, ScreenPoint)
         case postScroll(ScreenPoint, dx: Int, dy: Int)
@@ -77,7 +82,7 @@ final class FakeSystem: System, @unchecked Sendable {
     var secureInput = false
     var displayList = [Fixture.main, Fixture.side]
     var front: AppInfo? = Fixture.textEdit
-    var apps = [Fixture.textEdit, Fixture.safari, Fixture.notes]
+    var apps = [Fixture.textEdit, Fixture.preview, Fixture.notes]
     /// Whether the owner says yes to the dialogs `requestPermissions` stands for.
     var grantsOnRequest = false
     var windowList: [WindowInfo] = []
@@ -94,6 +99,28 @@ final class FakeSystem: System, @unchecked Sendable {
     var setValueError: SystemError?
     var postError: SystemError?
     var activateError: SystemError?
+
+    /// An element on top at a point: the process that owns it and the fake element it is.
+    struct Hit {
+        let pid: Int32
+        let element: Int
+    }
+
+    /// What lies over part of the screen; a `nil` hit is a place where no element is.
+    struct Cover {
+        let area: ScreenRect
+        let hit: Hit?
+    }
+
+    /// The element of the frontmost application on top where nothing else is and no element
+    /// was asked about: its window, which no tree of the tests holds.
+    static let frontWindow = -1
+    /// The first cover holding a point is what is on top there. Where none does, the element
+    /// asked about is on top, else the frontmost application's window.
+    var covers: [Cover] = []
+    /// Each fake element's parent, for telling what is inside an element.
+    var parents: [Int: Int] = [:]
+    var hitError: SystemError?
 
     var calls: [Call] {
         lock.lock()
@@ -210,6 +237,36 @@ final class FakeSystem: System, @unchecked Sendable {
     func setValue(_ element: Int, text: String) throws {
         record(.setValue(element, text))
         if let setValueError { throw setValueError }
+    }
+
+    func topElement(at point: ScreenPoint, within element: Int?) throws -> PointHit? {
+        record(.topElement(point, within: element))
+        if let hitError { throw hitError }
+        let hit: Hit?
+        if let cover = covers.first(where: { FakeSystem.area($0.area, holds: point) }) {
+            hit = cover.hit
+        } else {
+            hit = front.map { Hit(pid: $0.pid, element: element ?? FakeSystem.frontWindow) }
+        }
+        guard let hit else { return nil }
+        let inside = element.map { isSelfOrDescendant(hit.element, of: $0) } ?? false
+        return PointHit(pid: hit.pid, insideTarget: inside)
+    }
+
+    private static func area(_ area: ScreenRect, holds point: ScreenPoint) -> Bool {
+        area.x <= point.x && point.x < area.x + area.width
+            && area.y <= point.y && point.y < area.y + area.height
+    }
+
+    /// Up the parents as the real machine walks them, as many steps at most.
+    private func isSelfOrDescendant(_ element: Int, of target: Int) -> Bool {
+        var current: Int? = element
+        for _ in 0..<64 {
+            guard let here = current else { return false }
+            if here == target { return true }
+            current = parents[here]
+        }
+        return false
     }
 
     func postClick(at point: ScreenPoint, button: MouseButton, count: Int) throws {

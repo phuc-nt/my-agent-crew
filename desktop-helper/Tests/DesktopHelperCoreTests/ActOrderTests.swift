@@ -2,11 +2,22 @@ import Foundation
 import XCTest
 @testable import DesktopHelperCore
 
-/// The order of the six checks of `act`: one test for each two that stand next to each other,
-/// each showing which of them is the answer when both would fail.
+/// The order of the checks of `act`: the shape, the preconditions, blocked keys, the application,
+/// a web browser in front, secure input, the frame and the ref (with a point outside the
+/// picture), then what is on top at the points of a pointer event. One test for each two that
+/// stand next to each other, each showing which of them is the answer when both would fail.
 final class ActOrderTests: HelperTestCase {
     /// A frame id of the right form that the helper never gave out.
     private let stale = "0123456789abcdef-320x180-1"
+    /// A site saved as an app of its own, named like the application the requests name.
+    private let siteApp = AppInfo(
+        name: "TextEdit", bundleID: "com.google.Chrome.app.textedit", pid: 4242
+    )
+    /// Another application's window over the whole of both displays.
+    private let everywhere = FakeSystem.Cover(
+        area: ScreenRect(x: -10_000, y: -10_000, width: 20_000, height: 20_000),
+        hit: FakeSystem.Hit(pid: Fixture.mail.pid, element: 90)
+    )
 
     func testShapeIsAnsweredBeforeThePreconditions() {
         system.locked = true
@@ -28,6 +39,8 @@ final class ActOrderTests: HelperTestCase {
             ["kind": "type", "app": "TextEdit"],
             ["kind": "type", "app": "TextEdit", "text": 5],
             ["kind": "type", "app": "TextEdit", "text": String(repeating: "x", count: 2001)],
+            ["kind": "type", "app": "TextEdit", "text": "echo ok\u{0F}"],
+            ["kind": "set_value", "app": "TextEdit", "ref": "a1", "outline": Self.noOutline, "text": "\u{7F}"],
             ["kind": "click", "app": "TextEdit"],
             ["kind": "click", "app": "TextEdit", "x": 1, "y": 1],
             ["kind": "click", "app": "TextEdit", "frame_id": stale, "x": 1],
@@ -94,6 +107,92 @@ final class ActOrderTests: HelperTestCase {
         XCTAssertFalse(system.calls.contains(.frontmostApp), "the application is not looked at")
 
         assertRefused(act("key", ["keys": "cmd+s"]), .appMismatch)
+        XCTAssertEqual(system.actions, [])
+    }
+
+    func testBlockedKeysAreAnsweredBeforeABrowserInFront() {
+        system.front = Fixture.safari
+        assertRefused(act("key", ["keys": "cmd+ctrl+q"], app: "Safari"), .blockedKeys)
+        XCTAssertFalse(system.calls.contains(.frontmostApp), "the application is not looked at")
+        assertRefused(act("key", ["keys": "cmd+s"], app: "Safari"), .browserApp)
+        XCTAssertEqual(system.actions, [])
+    }
+
+    func testApplicationIsAnsweredBeforeABrowserInFront() {
+        system.front = Fixture.safari
+        assertRefused(act("key", ["keys": "cmd+s"]), .appMismatch, "TextEdit is not in front")
+        assertRefused(act("key", ["keys": "cmd+s"], app: "Safari"), .browserApp)
+        XCTAssertEqual(system.actions, [])
+    }
+
+    func testBrowserInFrontIsAnsweredBeforeSecureInput() {
+        let writes: [(String, [String: Any])] = [
+            ("type", ["text": "hello"]), ("key", ["keys": "enter"]),
+            ("set_value", ["ref": "a1", "text": "hello"]),
+        ]
+        system.secureInput = true
+        system.focusedSecure = true
+        system.front = siteApp
+        for (kind, arguments) in writes {
+            assertRefused(act(kind, arguments), .browserApp, kind)
+        }
+        XCTAssertFalse(system.calls.contains(.isSecureInputOn), "secure input is not looked at")
+        XCTAssertEqual(system.touches, [])
+
+        system.front = Fixture.textEdit
+        for (kind, arguments) in writes {
+            assertRefused(act(kind, arguments), .secureInput, kind)
+        }
+        XCTAssertEqual(system.actions, [])
+    }
+
+    func testBrowserInFrontIsAnsweredBeforeTheFrameTheRefAndWhatIsOnTop() {
+        readTree([Self.field])
+        system.elementFrames[31] = Self.field.frame
+        let frame = shoot()
+        system.covers = [everywhere]
+        let requests: [(String, [String: Any], ErrorCode)] = [
+            ("click", ["frame_id": stale, "x": 1, "y": 1], .frameMismatch),
+            ("click", ["ref": "a9"], .refUnknown),
+            ("scroll", ["frame_id": frame, "x": 999, "y": 1, "dx": 0, "dy": 1], .badRequest),
+            ("drag", ["frame_id": frame, "x": 1, "y": 1, "to_x": 2, "to_y": 2], .pointCovered),
+            ("right_click", ["ref": "a1"], .pointCovered),
+        ]
+        system.front = siteApp
+        system.forgetCalls()
+        for (kind, arguments, _) in requests {
+            assertRefused(act(kind, arguments), .browserApp, kind)
+        }
+        XCTAssertEqual(system.touches, [], "neither the frame, the element nor the point is looked at")
+        XCTAssertFalse(system.calls.contains(.now))
+
+        system.front = Fixture.textEdit
+        for (kind, arguments, next) in requests {
+            assertRefused(act(kind, arguments), next, kind)
+        }
+        XCTAssertEqual(system.actions, [])
+    }
+
+    func testFrameRefAndPictureAreAnsweredBeforeWhatIsOnTop() {
+        readTree([Self.field])
+        let frame = shoot()
+        system.covers = [everywhere]
+        system.forgetCalls()
+        assertRefused(act("click", ["frame_id": stale, "x": 1, "y": 1]), .frameMismatch)
+        assertRefused(act("click", ["frame_id": frame, "x": 5000, "y": 1]), .badRequest)
+        assertRefused(act("double_click", ["ref": "a9"]), .refUnknown)
+        assertRefused(act("double_click", ["ref": "a1"]), .badRequest, "the element has no frame")
+        assertRefused(
+            act("drag", ["frame_id": frame, "x": 1, "y": 1, "to_x": 1, "to_y": 900]), .badRequest
+        )
+        XCTAssertFalse(
+            system.calls.contains { if case .topElement = $0 { return true } else { return false } },
+            "what is on top is not looked at"
+        )
+
+        system.elementFrames[31] = Self.field.frame
+        assertRefused(act("double_click", ["ref": "a1"]), .pointCovered)
+        assertRefused(act("click", ["frame_id": frame, "x": 1, "y": 1]), .pointCovered)
         XCTAssertEqual(system.actions, [])
     }
 
@@ -194,14 +293,46 @@ final class ActOrderTests: HelperTestCase {
 
         let allowed: [String: Any] = ["keys": "cmd+s", "frame_id": stale]
         assertRefused(act("key", allowed), .appMismatch)
+        system.front = siteApp
+        assertRefused(act("key", allowed), .browserApp)
         system.front = Fixture.textEdit
         assertRefused(act("key", allowed), .secureInput)
         system.secureInput = false
         assertRefused(act("key", allowed), .frameMismatch)
-        XCTAssertEqual(system.actions, [], "nothing is posted before all six checks passed")
+        XCTAssertEqual(system.actions, [], "nothing is posted before every check passed")
 
         assertOK(act("key", ["keys": "cmd+s", "frame_id": shoot()]))
         XCTAssertEqual(system.actions, [.postKey(code: 1, modifiers: [.command])])
+    }
+
+    func testPointerChecksFailOneAfterAnotherInTheContractsOrder() {
+        let frame = shoot()
+        system.clock += 301
+        system.locked = true
+        system.asleep = true
+        system.accessibility = false
+        system.front = Fixture.notes
+        system.covers = [everywhere]
+        let click: [String: Any] = ["frame_id": frame, "x": 160, "y": 90]
+
+        assertRefused(act("click", click), .locked)
+        system.locked = false
+        assertRefused(act("click", click), .displayAsleep)
+        system.asleep = false
+        assertRefused(act("click", click), .permissionMissingAccessibility)
+        system.accessibility = true
+        assertRefused(act("click", click), .appMismatch)
+        system.front = siteApp
+        assertRefused(act("click", click), .browserApp)
+        system.front = Fixture.textEdit
+        assertRefused(act("click", click), .frameMismatch)
+        XCTAssertEqual(ask("screenshot", ["max_px": 320, "since": frame])["frame_id"] as? String, frame)
+        assertRefused(act("click", click), .pointCovered)
+        XCTAssertEqual(system.actions, [], "nothing is posted before every check passed")
+
+        system.covers = []
+        assertOK(act("click", click))
+        XCTAssertEqual(system.actions, [.postClick(ScreenPoint(x: 960, y: 540), .left, 1)])
     }
 
     /// Does one action and holds what it asked of the machine against the checks every action
@@ -218,7 +349,9 @@ final class ActOrderTests: HelperTestCase {
 
     func testEveryCheckIsMadeOnceAndThenTheActionIsDoneOnce() {
         readTree([Self.field])
+        system.elementFrames[31] = Self.field.frame
         let frame = shoot()
+        let centre = ScreenPoint(x: 960, y: 540)
         assertAsks(
             "key", ["keys": "enter"],
             [.isSecureInputOn, .postKey(code: 36, modifiers: []), .frontmostApp]
@@ -233,7 +366,24 @@ final class ActOrderTests: HelperTestCase {
         )
         assertAsks(
             "click", ["frame_id": frame, "x": 160, "y": 90],
-            [.now, .postClick(ScreenPoint(x: 960, y: 540), .left, 1), .frontmostApp]
+            [.now, .topElement(centre, within: nil), .postClick(centre, .left, 1), .frontmostApp]
+        )
+        let field = ScreenPoint(x: 200, y: 120)
+        assertAsks(
+            "right_click", ["ref": "a1"],
+            [.elementFrame(31), .topElement(field, within: 31), .postClick(field, .right, 1), .frontmostApp]
+        )
+        let corner = ScreenPoint(x: 60, y: 60)
+        assertAsks(
+            "drag", ["frame_id": frame, "x": 10, "y": 10, "to_x": 160, "to_y": 90],
+            [
+                .now, .topElement(corner, within: nil), .topElement(centre, within: nil),
+                .postDrag(corner, centre), .frontmostApp,
+            ]
+        )
+        assertAsks(
+            "scroll", ["frame_id": frame, "x": 160, "y": 90, "dx": 0, "dy": 3],
+            [.now, .topElement(centre, within: nil), .postScroll(centre, dx: 0, dy: 3), .frontmostApp]
         )
     }
 }

@@ -95,6 +95,10 @@ final class RealSystem: System {
         try accessibility.setValue(element, text: text)
     }
 
+    func topElement(at point: ScreenPoint, within element: Int?) throws -> PointHit? {
+        try accessibility.hit(at: point, within: element, clock: now)
+    }
+
     func postClick(at point: ScreenPoint, button: MouseButton, count: Int) throws {
         try InputEvents.click(at: point, button: button, count: count)
     }

@@ -215,12 +215,12 @@ final class AXTests: HelperTestCase {
     }
 
     func testOfTwoProcessesWithTheNameTheFrontmostOneIsReadElseTheOldest() {
-        let older = AppInfo(name: "Chrome", bundleID: "com.google.Chrome", pid: 700)
-        let newer = AppInfo(name: "Chrome", bundleID: "com.google.Chrome", pid: 900)
+        let older = AppInfo(name: "Terminal", bundleID: "com.apple.Terminal", pid: 700)
+        let newer = AppInfo(name: "Terminal", bundleID: "com.apple.Terminal", pid: 900)
         system.apps = [newer, older, Fixture.textEdit]
-        XCTAssertEqual(ask("ax", ["app": "Chrome"])["pid"] as? Int, 700)
+        XCTAssertEqual(ask("ax", ["app": "Terminal"])["pid"] as? Int, 700)
         system.front = newer
-        XCTAssertEqual(ask("ax", ["app": "Chrome"])["pid"] as? Int, 900)
+        XCTAssertEqual(ask("ax", ["app": "Terminal"])["pid"] as? Int, 900)
     }
 
     func testApplicationWithNoWindowHasANullWindow() {

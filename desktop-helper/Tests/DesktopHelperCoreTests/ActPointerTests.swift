@@ -113,6 +113,7 @@ final class ActPointerTests: HelperTestCase {
         XCTAssertEqual(frontmost["pid"] as? Int, 4242)
         XCTAssertEqual(system.calls, [
             .isLocked, .isDisplayAsleep, .hasAccessibility, .frontmostApp, .now,
+            .topElement(ScreenPoint(x: 960, y: 540), within: nil),
             .postClick(ScreenPoint(x: 960, y: 540), .left, 1), .frontmostApp,
         ])
     }

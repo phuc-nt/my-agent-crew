@@ -1,8 +1,9 @@
 import Foundation
 
-/// An action with its place worked out: everything the sixth check leaves to do.
+/// An action with its place worked out: everything the frame and ref checks leave to do.
 enum ActStep: Equatable {
-    case click(ScreenPoint, MouseButton, Int)
+    /// `element` is the ref's element when the click was by ref, else `nil`.
+    case click(ScreenPoint, MouseButton, Int, element: Int?)
     case drag(ScreenPoint, ScreenPoint)
     case scroll(ScreenPoint, dx: Int, dy: Int)
     case type(String)
@@ -11,18 +12,18 @@ enum ActStep: Equatable {
 }
 
 extension Dispatcher {
-    /// The sixth check: the frame (`frame_mismatch`), the element (`ref_unknown`), then the
-    /// point (`bad_request` when it is outside the picture).
+    /// The frame (`frame_mismatch`), the element (`ref_unknown`), then the point (`bad_request`
+    /// when it is outside the picture).
     func resolve(_ action: ActRequest, front: AppInfo) throws -> ActStep {
         let frame = try action.frameID.map { try frames.frame($0, now: system.now()) }
         let target = try action.ref.map { try element(named: $0, of: action.outline, front: front) }
         switch action.kind {
         case .click:
-            return .click(try clickPoint(action, frame, target), .left, 1)
+            return .click(try clickPoint(action, frame, target), .left, 1, element: target?.element)
         case .doubleClick:
-            return .click(try clickPoint(action, frame, target), .left, 2)
+            return .click(try clickPoint(action, frame, target), .left, 2, element: target?.element)
         case .rightClick:
-            return .click(try clickPoint(action, frame, target), .right, 1)
+            return .click(try clickPoint(action, frame, target), .right, 1, element: target?.element)
         case .drag:
             return .drag(try pixel(action.point, in: frame), try pixel(action.endPoint, in: frame))
         case .scroll:

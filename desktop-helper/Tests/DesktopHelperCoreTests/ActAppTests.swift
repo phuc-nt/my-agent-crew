@@ -188,11 +188,11 @@ final class ActAppTests: HelperTestCase {
     }
 
     func testFocusAppBringsAHiddenApplicationForward() {
-        bringForward(Fixture.safari, when: isActivate)
-        let reply = act("focus_app", app: "Safari")
+        bringForward(Fixture.preview, when: isActivate)
+        let reply = act("focus_app", app: "Preview")
         assertOK(reply)
         XCTAssertEqual(system.actions, [.activate(pid: 300)])
-        XCTAssertEqual((reply["frontmost"] as? [String: Any])?["app"] as? String, "Safari")
+        XCTAssertEqual((reply["frontmost"] as? [String: Any])?["app"] as? String, "Preview")
     }
 
     func testFocusAppOfTwoProcessesWithTheNameTakesTheFrontmostOneElseTheOldest() {

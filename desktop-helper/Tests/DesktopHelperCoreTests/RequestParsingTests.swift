@@ -150,12 +150,12 @@ final class RequestParsingTests: HelperTestCase {
         XCTAssertEqual(JSONValue.parse(Data(written.utf8)), .string(text))
     }
 
-    func testErrorCodesAreTheContractsFourteen() {
+    func testErrorCodesAreTheContractsSixteen() {
         XCTAssertEqual(ErrorCode.allCases.map(\.rawValue), [
             "bad_request", "unknown_command", "locked", "display_asleep",
             "permission_missing:screen", "permission_missing:accessibility", "frame_mismatch",
-            "app_not_running", "app_mismatch", "ref_unknown", "secure_input", "blocked_keys",
-            "capture_failed", "internal",
+            "app_not_running", "app_mismatch", "ref_unknown", "point_covered", "browser_app",
+            "secure_input", "blocked_keys", "capture_failed", "internal",
         ])
     }
 
