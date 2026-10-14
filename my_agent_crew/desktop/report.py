@@ -66,17 +66,25 @@ def is_secure(node: dict) -> bool:
     return node.get("secure") is True or node.get("role") == SECURE_ROLE
 
 
-def node_line(node: dict) -> str:
-    """One element of an outline. What this program says of it comes first (its ref, then
-    what it marks it as), and what the screen says of it after: nothing the screen wrote
-    stands where a ref or a mark is read. A secure field shows that it is one and never a
-    value, whatever the helper sent with it."""
+def label(node: dict) -> str:
+    """What an element is called: its title, or what it holds when it has none. A secure
+    field is never called by what it holds."""
+    if title := words(node.get("title"), TITLE_CHARS):
+        return title
+    return "" if is_secure(node) else words(node.get("value"), VALUE_CHARS)
+
+
+def node_line(node: dict, tag: str) -> str:
+    """One element of an outline. What this program says of it comes first (its ref with
+    the tag of this outline, then what it marks it as), and what the screen says of it
+    after: nothing the screen wrote stands where a ref or a mark is read. A secure field
+    shows that it is one and never a value, whatever the helper sent with it."""
     depth = node.get("depth")
     indent = "  " * min(depth, DEEPEST) if isinstance(depth, int) and depth > 0 else ""
     marks = [t.NODE_SECURE] if is_secure(node) else []
     marks += [t.NODE_FOCUSED] if node.get("focused") is True else []
     marks += [t.NODE_DISABLED] if node.get("enabled") is False else []
-    line = f"{indent}- [ref={node['ref']}]" + (f" ({'; '.join(marks)})" if marks else "")
+    line = f"{indent}- [ref={node['ref']}-{tag}]" + (f" ({'; '.join(marks)})" if marks else "")
     role = words(node.get("role"), ROLE_CHARS)
     line += f" {role if ROLE.fullmatch(role) else '?'}"
     if title := words(node.get("title"), TITLE_CHARS):
@@ -92,11 +100,14 @@ class Outline:
     total: int
     # The refs of secure fields, of the whole outline and not only of what fitted.
     secure: frozenset[str]
+    # What each row that fitted is called, by its ref.
+    named: dict[str, str]
 
 
-def outline(nodes: Any, chars: int) -> Outline:
-    """The elements the helper listed, one line each, as many as fit `chars`. An element
-    without a ref of the helper's own shape is left out: a ref is all an action can name."""
+def outline(nodes: Any, chars: int, tag: str) -> Outline:
+    """The elements the helper listed, one line each, as many as fit `chars`, each ref
+    with `tag`. An element without a ref of the helper's own shape is left out: a ref is
+    all an action can name."""
     rows = [
         node
         for node in (nodes if isinstance(nodes, list) else [])
@@ -105,12 +116,14 @@ def outline(nodes: Any, chars: int) -> Outline:
         and REF.fullmatch(node["ref"])
     ]
     lines: list[str] = []
+    named: dict[str, str] = {}
     used = 0
     for node in rows:
-        line = node_line(node)
+        line = node_line(node, tag)
         if used + len(line) + 1 > chars:
             break
         lines.append(line)
+        named[node["ref"]] = label(node)
         used += len(line) + 1
     secure = frozenset(node["ref"] for node in rows if is_secure(node))
-    return Outline("\n".join(lines), len(lines), len(rows), secure)
+    return Outline("\n".join(lines), len(lines), len(rows), secure, named)

@@ -19,7 +19,7 @@ from my_agent_crew.browser.kit import one_line, schema, text_of
 from my_agent_crew.browser.policy import AskWords
 from my_agent_crew.config_desktop import DesktopSettings
 from my_agent_crew.desktop import kit as k
-from my_agent_crew.desktop.client import DesktopClient, DesktopError
+from my_agent_crew.desktop.client import BAD_ANSWER, DesktopClient, DesktopError
 from my_agent_crew.desktop.kit import DesktopTool, Kit
 from my_agent_crew.desktop.policy import app_named
 from my_agent_crew.desktop.report import (
@@ -32,6 +32,7 @@ from my_agent_crew.desktop.report import (
     words,
 )
 from my_agent_crew.desktop.screenshot import build_screenshot
+from my_agent_crew.desktop.seen import OUTLINE, TAG, Shown
 from my_agent_crew.desktop.tools_act import build_act
 from my_agent_crew.tools.registry import Tool, ToolError
 
@@ -127,17 +128,22 @@ def build_observe(kit: Kit) -> Tool:
         if not wanted and not any(pid in mine for pid in in_front):
             raise ToolError(front_outside)
         tree = await kit.ask_helper("ax", app=wanted or None)
-        # The refs of the outline before are dead at the helper from here on.
-        kit.secure = frozenset()
+        # The refs of the outline before are dead at the helper from here on, whoever
+        # read it.
+        kit.showed(None)
         found = tree.get("pid")
         if type(found) is not int or found not in mine:
             # The helper found another application than the list means: nothing of it is told.
             raise ToolError(t.OBSERVE_OTHER if wanted else front_outside)
+        name = tree.get("outline")
+        if not isinstance(name, str) or not OUTLINE.fullmatch(name):
+            # Without its name no ref of this outline could be acted on.
+            raise ToolError(k.said(DesktopError(BAD_ANSWER, "")))
         head = [t.OBSERVE_APP.format(app=words(tree.get("app"), APP_CHARS))]
         if title := words(tree.get("window"), TITLE_CHARS):
             head.append(t.OBSERVE_WINDOW.format(title=title))
-        drawn = outline(tree.get("nodes"), room(kit.limit, t.OBSERVE_HEAD, *head))
-        kit.secure = drawn.secure
+        drawn = outline(tree.get("nodes"), room(kit.limit, t.OBSERVE_HEAD, *head), name[:TAG])
+        kit.showed(Shown(name, drawn.named, drawn.secure))
         said = [t.OBSERVE_HEAD.format(shown=drawn.shown)]
         said.append(fenced("\n".join([*head, drawn.text or t.OBSERVE_EMPTY])))
         if drawn.shown < drawn.total:

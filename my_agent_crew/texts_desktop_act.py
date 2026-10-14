@@ -10,6 +10,25 @@ ACT_NO_FRAME = (
     "rằng bạn đang thao tác trên màn hình bạn đã nhìn. Gọi computer_screenshot trước."
 )
 ACT_REF_OR_POINT = "Thao tác {kind} cần hoặc `ref`, hoặc cả `x` và `y`, không cả hai."
+ACT_REF_SHAPE = (
+    "Ref «{ref}» không đúng dạng. Ref có dạng a12-3f9c: chép nguyên từ dàn ý của "
+    "computer_observe, cả phần sau dấu gạch."
+)
+ACT_REF_UNSEEN = (
+    "Từ chối: {ref} không có trong dàn ý mà hội thoại này được xem gần nhất, hoặc dàn ý đó "
+    "đã bị một lần đọc sau thay thế. Ref chỉ đúng trong dàn ý vừa đọc: gọi computer_observe "
+    "rồi dùng ref trong câu trả lời đó."
+)
+ACT_NAME_MISMATCH = (
+    "Từ chối: trong dàn ý, phần tử {ref} không mang tên «{name}». Gọi computer_observe rồi "
+    "dùng đúng ref và tên như dàn ý ghi: tên là chữ trong ngoặc kép, không có thì là phần sau "
+    "dấu hai chấm, không có cả hai thì để trống `name`."
+)
+ACT_TYPE_REF = (
+    "Từ chối: type gõ vào ô đang giữ con trỏ và không nhận `ref`, nên chữ có thể không tới ô "
+    "bạn nêu. Bấm vào ô đó trước (click với `ref`) rồi type không kèm `ref`, hoặc dùng "
+    "set_value với `ref`."
+)
 ACT_NUMBER = "Tham số `{what}` của thao tác {kind} phải là một số không âm."
 ACT_OUTSIDE = (
     "Từ chối: `{what}` của thao tác {kind} nằm ngoài ảnh mang frame_id đó, vốn rộng {width} và "
@@ -51,3 +70,9 @@ ACT_FRONT_LEFT = (
 ASK_FOCUS = "Đưa ứng dụng {app} lên trước màn hình của máy."
 ASK_KEYS = "Gửi tổ hợp phím {keys} tới {app}: tổ hợp này nằm ngoài nhóm phím thường dùng."
 ASK_WORD = "Gõ vào {app} một đoạn có chữ «{word}», là việc phải hỏi chủ."
+ASK_CONFIRM = "Gửi phím {keys} tới {app}: phím này xác nhận hoặc bấm thứ đang được chọn."
+ASK_NEWLINE = "Gõ vào {app} một đoạn có dấu xuống dòng: Enter xác nhận thứ đang được chọn."
+ASK_POINT = (
+    "Thao tác {kind} tại điểm ({x}, {y}) trong {app}: toạ độ không cho biết ở đó là phần tử nào."
+)
+ASK_NAMED = "Thao tác {kind} lên «{name}» trong {app}: tên có chữ «{word}», là việc phải hỏi chủ."

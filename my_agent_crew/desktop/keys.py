@@ -75,11 +75,13 @@ NEVER = (
 )
 # Opens Spotlight, which starts anything on the machine: only for an agent given Spotlight.
 SPOTLIGHT = ("space", frozenset({CMD}))
-# What goes through like a click does: moving about, confirming, leaving, and the handful of
+# The keys that, alone, press or confirm whatever is chosen on the screen.
+PRESSES = ("enter", "space")
+# What goes through without a word: moving about, leaving, rubbing out, and the handful of
 # combinations that only select, copy, find and undo. Everything else waits for a person.
 ORDINARY = frozenset(
     {
-        *((key, frozenset()) for key in NAMED),
+        *((key, frozenset()) for key in NAMED if key not in PRESSES),
         *((key, frozenset({SHIFT})) for key in ("tab", *MOVES)),
         *((key, frozenset({CMD})) for key in ("a", "c", "f", "z")),
     }
@@ -101,3 +103,9 @@ def never_sent(combo: Combo, spotlight: bool) -> bool:
 
 def ordinary(combo: Combo) -> bool:
     return (combo.key, combo.held) in ORDINARY
+
+
+def presses(combo: Combo) -> bool:
+    """Whether the combination is one key that presses what is chosen: nothing in it says
+    what that is."""
+    return combo.key in PRESSES and not combo.held

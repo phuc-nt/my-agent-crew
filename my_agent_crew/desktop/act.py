@@ -1,5 +1,5 @@
 """A `computer_act` call, read from its arguments alone: what the helper would be sent, or
-the sentence the call is refused with, and whether it stops for a person.
+the sentence the call is refused with. Whether it stops for a person is in `asking.py`.
 
 Everything here is decided before anybody is asked and without a word to the helper, so a
 call that can only be refused never reaches an approval card, and what a person approved is
@@ -17,7 +17,6 @@ from typing import Any
 from my_agent_crew import texts_desktop as t
 from my_agent_crew import texts_desktop_act as ta
 from my_agent_crew.browser.kit import one_line, text_of
-from my_agent_crew.browser.policy import AskWords
 from my_agent_crew.desktop import keys
 from my_agent_crew.desktop.policy import (
     FRAME_ID,
@@ -26,6 +25,7 @@ from my_agent_crew.desktop.policy import (
     spotlight_allowed,
     typed_refusal,
 )
+from my_agent_crew.desktop.seen import NAME_CHARS, TOKEN
 from my_agent_crew.tools.registry import ToolError
 
 CLICKS = ("click", "double_click", "right_click")
@@ -37,7 +37,6 @@ MAX_TYPED, MAX_SCROLL = 2000, 50
 # The most characters a field is set to. The helper names no limit of its own, but a request
 # is one line of at most 64 KiB, and a character can take six bytes of it.
 MAX_SET = 8000
-NAME_CHARS = 80
 
 
 @dataclass(frozen=True)
@@ -46,9 +45,18 @@ class Act:
     app: str
     # What the helper is sent beside the command, and nothing a kind does not read.
     send: dict[str, Any] = field(default_factory=dict)
-    ref: str = ""  # the element a text goes to, when the call named one
+    # The element the call names: the helper's own ref for it, and the tag of the outline
+    # the model read it in. For a click, the name the model read beside it.
+    ref: str = ""
+    tag: str = ""
+    name: str = ""
     text: str | None = None  # what is typed or set
     combo: keys.Combo | None = None
+
+    @property
+    def token(self) -> str:
+        """The ref as the outline showed it, and as a sentence names it back."""
+        return f"{self.ref}-{self.tag}"
 
 
 def _point(args: dict[str, Any], kind: str, frame_id: str, *names: str) -> dict[str, float]:
@@ -103,9 +111,17 @@ def _combo(args: dict[str, Any], apps: Sequence[str]) -> keys.Combo:
     return combo
 
 
+def _ref(written: str) -> tuple[str, str]:
+    """A ref as an outline shows it, taken apart: the helper's own ref, and the tag."""
+    found = TOKEN.fullmatch(written)
+    if found is None:
+        raise ToolError(ta.ACT_REF_SHAPE.format(ref=one_line(written, NAME_CHARS)))
+    return found.group(1), found.group(2)
+
+
 def read_act(args: dict[str, Any], apps: Sequence[str]) -> Act:
     """The call as the helper would be sent it. Raises the sentence it is refused with."""
-    kind, app, ref = text_of(args, "kind"), text_of(args, "app"), text_of(args, "ref")
+    kind, app, written = text_of(args, "kind"), text_of(args, "app"), text_of(args, "ref")
     if kind not in KINDS:
         raise ToolError(ta.ACT_KIND.format(kind=one_line(kind, NAME_CHARS), kinds=", ".join(KINDS)))
     if not app:
@@ -121,10 +137,12 @@ def read_act(args: dict[str, Any], apps: Sequence[str]) -> Act:
     send: dict[str, Any] = {"kind": kind, "app": app, "frame_id": frame_id}
     if kind in CLICKS:
         pointed = args.get("x") is not None or args.get("y") is not None
-        if bool(ref) == pointed:
+        if bool(written) == pointed:
             raise ToolError(ta.ACT_REF_OR_POINT.format(kind=kind))
-        send |= {"ref": ref} if ref else _point(args, kind, frame_id, "x", "y")
-        return Act(kind, app, send)
+        if not written:
+            return Act(kind, app, send | _point(args, kind, frame_id, "x", "y"))
+        ref, tag = _ref(written)
+        return Act(kind, app, send | {"ref": ref}, ref=ref, tag=tag, name=text_of(args, "name"))
     if kind == DRAG:
         return Act(kind, app, send | _point(args, kind, frame_id, "x", "y", "to_x", "to_y"))
     if kind == SCROLL:
@@ -137,12 +155,15 @@ def read_act(args: dict[str, Any], apps: Sequence[str]) -> Act:
         return Act(kind, app, send | {"keys": combo.spelled}, combo=combo)
     text = _text(args, kind)
     if kind == SET_VALUE:
-        if not ref:
+        if not written:
             raise ToolError(ta.ACT_NEEDS.format(kind=kind, what="ref"))
-        return Act(kind, app, send | {"ref": ref, "text": text}, ref=ref, text=text)
-    # The helper types into whatever holds the cursor; a ref with `type` says where the
-    # model thinks that is, and is judged here without being sent.
-    return Act(kind, app, send | {"text": text}, ref=ref, text=text)
+        ref, tag = _ref(written)
+        return Act(kind, app, send | {"ref": ref, "text": text}, ref=ref, tag=tag, text=text)
+    if written:
+        # The helper types into whatever holds the cursor, wherever the model thinks that
+        # is: a text sent with a ref it does not go to would be judged by the wrong field.
+        raise ToolError(ta.ACT_TYPE_REF)
+    return Act(kind, app, send | {"text": text}, text=text)
 
 
 def refusal(args: dict[str, Any], apps: Sequence[str]) -> str:
@@ -152,20 +173,3 @@ def refusal(args: dict[str, Any], apps: Sequence[str]) -> str:
     except ToolError as exc:
         return str(exc)
     return ""
-
-
-def ask_reason(args: dict[str, Any], apps: Sequence[str], ask: AskWords) -> str | None:
-    """Why this call waits for a person even in a conversation that runs on its own. A call
-    that is refused anyway gives none: nobody is asked about it."""
-    try:
-        act = read_act(args, apps)
-    except ToolError:
-        return None
-    app = one_line(act.app, NAME_CHARS)
-    if act.kind == FOCUS_APP:
-        return ta.ASK_FOCUS.format(app=app)
-    if act.combo is not None and not keys.ordinary(act.combo):
-        return ta.ASK_KEYS.format(keys=act.combo.spelled, app=app)
-    if act.text and (word := ask.find(act.text)):
-        return ta.ASK_WORD.format(app=app, word=word)
-    return None

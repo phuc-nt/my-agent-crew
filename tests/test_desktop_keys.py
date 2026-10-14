@@ -193,25 +193,50 @@ def test_spotlight_opens_only_for_an_agent_given_it(written) -> None:
     assert not keys.never_sent(parse(written), spotlight=True)
 
 
+MOVES = ["up", "down", "left", "right", "home", "end", "pageup", "pagedown"]
+
+
 @pytest.mark.parametrize(
     "written",
     [
-        *keys.NAMED,
+        "tab",
+        "esc",
+        "backspace",
+        "delete",
+        *MOVES,
         "shift+tab",
-        *(f"shift+{move}" for move in keys.MOVES),
+        *(f"shift+{move}" for move in MOVES),
         "cmd+a",
         "cmd+c",
         "cmd+f",
         "cmd+z",
     ],
 )
-def test_ordinary_keys_go_like_a_click(written) -> None:
+def test_ordinary_keys_are_sent_without_a_word(written) -> None:
     assert keys.ordinary(parse(written))
+
+
+def test_the_ordinary_keys_are_those_and_no_more() -> None:
+    assert len(keys.ORDINARY) == 12 + 9 + 4
+
+
+@pytest.mark.parametrize("written", ["enter", "Enter", "space"])
+def test_a_key_that_alone_presses_what_is_chosen(written) -> None:
+    assert keys.presses(parse(written))
+
+
+@pytest.mark.parametrize(
+    "written", ["shift+enter", "cmd+enter", "opt+space", "tab", "esc", "a", "f5"]
+)
+def test_other_keys_and_those_two_with_a_modifier_held_do_not(written) -> None:
+    assert not keys.presses(parse(written))
 
 
 @pytest.mark.parametrize(
     "written",
     [
+        "enter",  # presses whatever is chosen, and nothing in the call says what that is
+        "space",
         "a",  # a character is typed with `type`, where the text rules read it
         "1",
         "?",

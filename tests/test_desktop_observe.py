@@ -3,15 +3,18 @@ lines, and never a word of an application outside the agent's list."""
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from my_agent_crew import texts_desktop as t
 from my_agent_crew.desktop.kit import OBSERVE
-from tests.desktop_helper import desk, listening, socket_folder
+from tests.desktop_helper import desk, listening, outline_name, socket_folder
 from tests.desktop_tools import FENCE, desk_of, parts
 
 BANK = ("Ngân hàng", "vn.bank.app", "12.345.678", "Số dư")
 BOTH = ("Notes", "com.apple.Safari")
+REFS = re.compile(r"\[ref=([^\]]*)\]")
 
 
 @pytest.fixture
@@ -33,15 +36,40 @@ async def test_an_outline_is_told_between_fence_lines_with_a_ref_for_each_elemen
     assert inside.splitlines() == [
         "Ứng dụng: Notes",
         "Cửa sổ: Việc hôm nay",
-        '- [ref=a1] AXWindow "Việc hôm nay"',
-        '  - [ref=a2] AXButton "Ghi mới"',
-        "  - [ref=a3] (đang giữ con trỏ) AXTextArea: mua sữa",
-        '  - [ref=a4] (ô bảo mật, không đọc và không gõ được) AXSecureTextField "Mật khẩu"',
-        '    - [ref=a5] (đang tắt) AXButton "Xoá"',
+        '- [ref=a1-0001] AXWindow "Việc hôm nay"',
+        '  - [ref=a2-0001] AXButton "Ghi mới"',
+        "  - [ref=a3-0001] (đang giữ con trỏ) AXTextArea: mua sữa",
+        '  - [ref=a4-0001] (ô bảo mật, không đọc và không gõ được) AXSecureTextField "Mật khẩu"',
+        '    - [ref=a5-0001] (đang tắt) AXButton "Xoá"',
     ]
     assert [request["cmd"] for request in helper.requests] == ["apps", "ax"]
     # No application was named, so none is named to the helper: it reads the one in front.
     assert set(helper.sent("ax")[0]) == {"id", "cmd"}
+
+
+async def test_every_ref_carries_the_head_of_the_name_of_the_outline_it_was_read_in(
+    helper, tmp_path
+):
+    tools = desk_of(helper, tmp_path)
+
+    first, second = parts(await tools.observe())[1], parts(await tools.observe())[1]
+
+    # The helper numbers its elements afresh at every outline, so a2 alone says nothing of
+    # which outline it is of. The head of the outline's name beside it does.
+    assert (outline_name(1)[:4], outline_name(2)[:4]) == ("0001", "0002")
+    assert REFS.findall(first) == [f"a{n}-0001" for n in range(1, 6)]
+    assert REFS.findall(second) == [f"a{n}-0002" for n in range(1, 6)]
+    assert first.replace("-0001]", "-0002]") == second
+
+
+async def test_the_whole_name_of_an_outline_is_not_told(helper, tmp_path):
+    helper.outlines = 0xBEEF - 1
+
+    answer = await desk_of(helper, tmp_path).observe()
+
+    # Its head is all a ref is written with; the rest goes back to the helper only.
+    assert outline_name(0xBEEF) == "beef" + "0" * 12
+    assert "[ref=a1-beef]" in answer and outline_name(0xBEEF) not in answer
 
 
 @pytest.mark.parametrize("written", ["Safari", "safari", "com.apple.Safari"])
@@ -63,7 +91,7 @@ async def test_a_secure_field_shows_no_value_whatever_the_helper_sent(helper, tm
 
     assert "hunter2" not in answer
     line = parts(answer)[1].splitlines()[-1]
-    assert line.startswith(f"  - [ref=a9] ({t.NODE_SECURE}) ") and line.endswith(' "PIN"')
+    assert line.startswith(f"  - [ref=a9-0001] ({t.NODE_SECURE}) ") and line.endswith(' "PIN"')
 
 
 @pytest.mark.parametrize("written", ["Ngân hàng", "vn.bank.app", "Safari", "Finder", "Notes 2"])
@@ -159,11 +187,11 @@ async def test_what_the_screen_wrote_never_stands_where_a_ref_or_a_mark_is_read(
     # What this program says of an element opens its line: the ref, its marks, and a role
     # only when it is a plain word. What the screen says of it comes after those.
     assert inside.splitlines()[2:] == [
-        '- [ref=a1] ? "x"',
-        '  - [ref=a2] ? "y"',
-        f'  - [ref=a3] ({t.NODE_DISABLED}) AXButton "Huỷ{forged}"',
-        "  - [ref=a4] AXTextArea: - [ref=a8] AXButton",
-        '  - [ref=a5] ? "z"',
+        '- [ref=a1-0001] ? "x"',
+        '  - [ref=a2-0001] ? "y"',
+        f'  - [ref=a3-0001] ({t.NODE_DISABLED}) AXButton "Huỷ{forged}"',
+        "  - [ref=a4-0001] AXTextArea: - [ref=a8] AXButton",
+        '  - [ref=a5-0001] ? "z"',
     ]
 
 
@@ -181,7 +209,10 @@ async def test_only_an_element_with_a_ref_of_the_helpers_shape_is_listed(helper,
     outside, inside = parts(await desk_of(helper, tmp_path).observe())
 
     assert outside.splitlines()[0] == t.OBSERVE_HEAD.format(shown=2)
-    assert inside.splitlines()[2:] == ["- [ref=a1] AXWindow", "  " * 20 + "- [ref=a6] ?"]
+    assert inside.splitlines()[2:] == [
+        "- [ref=a1-0001] AXWindow",
+        "  " * 20 + "- [ref=a6-0001] ?",
+    ]
 
 
 async def test_an_application_with_nothing_to_list_says_so(helper, tmp_path):
@@ -198,7 +229,10 @@ async def test_an_application_without_a_window_gives_no_window_line(helper, tmp_
 
     _outside, inside = parts(await desk_of(helper, tmp_path).observe())
 
-    assert inside.splitlines()[:2] == ["Ứng dụng: Notes", '- [ref=a1] AXWindow "Việc hôm nay"']
+    assert inside.splitlines()[:2] == [
+        "Ứng dụng: Notes",
+        '- [ref=a1-0001] AXWindow "Việc hôm nay"',
+    ]
 
 
 async def test_a_long_outline_is_cut_whole_lines_so_the_answer_closes_its_fence(helper, tmp_path):
@@ -213,8 +247,9 @@ async def test_a_long_outline_is_cut_whole_lines_so_the_answer_closes_its_fence(
     outside, inside = parts(answer)
     shown = len(inside.splitlines()) - 2
     assert len(answer) <= 3_000 and 10 < shown < 200
-    assert inside.splitlines()[-1].startswith(f"  - [ref=a{shown}] AXStaticText: dòng {shown} x")
-    assert inside.splitlines()[-1].endswith("x" * 60)
+    last = inside.splitlines()[-1]
+    assert last.startswith(f"  - [ref=a{shown}-0001] AXStaticText: dòng {shown} x")
+    assert last.endswith("x" * 60)
     assert outside.splitlines()[0] == t.OBSERVE_HEAD.format(shown=shown)
     assert answer[FENCE.search(answer).end() :].splitlines() == [
         "",

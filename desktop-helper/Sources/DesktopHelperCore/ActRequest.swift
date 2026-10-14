@@ -31,6 +31,8 @@ struct ActRequest {
     private(set) var point: PixelPoint?
     private(set) var endPoint: PixelPoint?
     private(set) var ref: String?
+    /// The name of the `ax` answer the ref was read in: given with every ref.
+    private(set) var outline: String?
     private(set) var dx = 0
     private(set) var dy = 0
     private(set) var text = ""
@@ -72,6 +74,7 @@ struct ActRequest {
         case .setValue:
             ref = try arguments.requiredString("ref")
             text = try arguments.requiredString("text")
+            outline = try arguments.requiredString("outline")
         case .focusApp:
             break
         }
@@ -89,7 +92,7 @@ struct ActRequest {
         case (nil, .some):
             try requireFrameID()
         case (.some, nil):
-            break
+            outline = try arguments.requiredString("outline")
         }
     }
 

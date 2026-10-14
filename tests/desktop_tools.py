@@ -24,17 +24,17 @@ class Desk:
     def __init__(self, tools: list[Tool]) -> None:
         self.tools = {tool.name: tool for tool in tools}
 
-    async def call(self, name: str, **args: Any) -> str:
-        answer = await self.tools[name].run(args)
+    async def call(self, tool: str, /, **args: Any) -> str:
+        answer = await self.tools[tool].run(args)
         return answer.output if isinstance(answer, ToolResult) else answer
 
-    async def refused(self, name: str, **args: Any) -> str:
+    async def refused(self, tool: str, /, **args: Any) -> str:
         """The sentence a call is refused with; the test fails when it is carried out."""
         try:
-            answer = await self.call(name, **args)
+            answer = await self.call(tool, **args)
         except ToolError as exc:
             return str(exc)
-        raise AssertionError(f"{name} was carried out: {answer}")
+        raise AssertionError(f"{tool} was carried out: {answer}")
 
     async def state(self) -> str:
         return await self.call(STATE)

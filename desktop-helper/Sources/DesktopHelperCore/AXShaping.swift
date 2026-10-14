@@ -9,20 +9,29 @@ struct RefTarget: Equatable {
 struct RefStore {
     /// The application the last answer was read from.
     private(set) var pid: Int32?
+    /// What the last answer goes by. Refs are counted from 1 in every answer, so a ref says
+    /// which element it means only together with the name of the answer it was read in.
+    private(set) var outline: String?
     private var targets: [String: RefTarget] = [:]
 
     mutating func forget() {
         pid = nil
+        outline = nil
         targets = [:]
     }
 
-    mutating func remember(pid: Int32, _ targets: [String: RefTarget]) {
+    /// Keeps the answer's elements and gives the name the answer goes by, made for it alone.
+    mutating func remember(pid: Int32, _ targets: [String: RefTarget]) -> String {
+        let name = String(format: "%016llx", UInt64.random(in: .min ... .max))
         self.pid = pid
+        self.outline = name
         self.targets = targets
+        return name
     }
 
-    func target(for ref: String) -> RefTarget? {
-        targets[ref]
+    /// The element a ref of the answer named `outline` means; none when that is not the last.
+    func target(for ref: String, of outline: String) -> RefTarget? {
+        self.outline == outline ? targets[ref] : nil
     }
 }
 
