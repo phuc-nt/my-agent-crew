@@ -24,6 +24,7 @@ from my_agent_crew.tools.registry import Tool, ToolError
 
 ACT_SECONDS = (1, 8, 30)
 HOST_CHARS = 80
+MARKS = str.maketrans("", "", "«»")
 
 
 def bound(kit: Kit, label: str) -> Tab | None:
@@ -46,6 +47,13 @@ def seen(kit: Kit, label: str) -> tuple[Shown | None, str, str]:
     return shown, url, host_of(url) or one_line(url, HOST_CHARS) or "—"
 
 
+def quoted(name: str) -> str:
+    """An element's name as it stands between «…» on the line a person is asked with: on one
+    line, cut to length, and with none of those marks of its own. A page chose the name, and
+    one that closed the marks early could go on in words that read as the crew's."""
+    return one_line(name.translate(MARKS), NAME_CHARS)
+
+
 def build_act(kit: Kit) -> Tool:
     hosts = kit.settings.hosts
 
@@ -53,7 +61,7 @@ def build_act(kit: Kit) -> Tool:
         """Why this call stops for a person, None when it need not. It only reads."""
         kind, ref, name = (text_of(args, key) for key in ("kind", "ref", "name"))
         shown, url, host = seen(kit, text_of(args, "tab"))
-        said = one_line(name, NAME_CHARS)
+        said = quoted(name)
         if kind == "upload":
             path = one_line(text_of(args, "path"), a.PATH_CHARS)
             return t.ASK_UPLOAD.format(path=path, host=host, name=said)

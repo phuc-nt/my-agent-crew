@@ -12,11 +12,13 @@ const PIECE_MAX = 80;
  * One piece of the arguments as text for the line. It was written by a model, often copied
  * from a web page: line breaks and runs of blanks become one space, a character that changes
  * how a line reads without being seen is written as its code point, and a long piece is cut.
- * Anything that is not a string or a number has no place in a sentence.
+ * The marks a sentence here quotes a piece in are left out of it: a name a page chose that
+ * closed them early could go on in words that read as the crew's. Anything that is not a
+ * string or a number has no place in a sentence.
  */
 function piece(value: unknown): string {
   if (typeof value !== "string" && typeof value !== "number") return "";
-  const flat = showHiddenChars(String(value).replace(/\s+/g, " ").trim());
+  const flat = showHiddenChars(String(value).replace(/[«»]/g, "").replace(/\s+/g, " ").trim());
   return flat.length > PIECE_MAX ? `${clip(flat, PIECE_MAX)}…` : flat;
 }
 
