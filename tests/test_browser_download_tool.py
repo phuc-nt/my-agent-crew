@@ -329,6 +329,28 @@ async def test_a_file_that_is_not_here_in_time_is_given_up_and_nothing_is_kept(w
     await until(lambda: "/cham" in w.site.cut)
 
 
+@talking("down-wait")
+async def test_a_file_is_waited_for_as_long_as_asked_from_five_seconds_to_five_minutes(
+    w, monkeypatch
+):
+    waits = []
+    receive = dl.Downloads.receive
+
+    async def timed(self, download, ref, seconds):
+        waits.append(seconds)
+        return await receive(self, download, ref, seconds)
+
+    monkeypatch.setattr(dl.Downloads, "receive", timed)
+    for asked in ({"timeout_s": 100_000}, {"timeout_s": 1}, {}):
+        ref = ref_of(await opened(w), "Tải hoá đơn")
+        await down(w, ref, "Tải hoá đơn", **asked)
+
+    assert waits == [300, 5, 60]
+    # The model is told the wait it gets.
+    assert "mặc định 60, tối đa 300" in f.PARAM_DOWNLOAD_TIMEOUT
+    assert "tối đa 300" in f.DOWNLOAD_SLOW
+
+
 @talking("down-cut")
 async def test_a_file_that_did_not_come_whole_is_not_kept(w):
     ref = ref_of(await opened(w), "Tệp đứt")

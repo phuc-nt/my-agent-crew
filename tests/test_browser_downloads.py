@@ -299,7 +299,8 @@ async def test_a_file_not_here_in_time_is_given_up(tmp_path, quick):
 
     async with taken(downloads, page) as sent:
         with pytest.raises(ToolError) as error:
-            await downloads.receive(sent, "e7", 0)
+            # Bounded here so a call that never gives up fails the test instead of hanging it.
+            await asyncio.wait_for(downloads.receive(sent, "e7", 0), 5)
         assert sent.did == []
 
     assert str(error.value) == f.DOWNLOAD_SLOW.format(ref="e7", seconds=0)
