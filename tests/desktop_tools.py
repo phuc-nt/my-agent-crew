@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from my_agent_crew import texts_desktop as t
+from my_agent_crew.browser.fence import CUT_ROOM
 from my_agent_crew.config_desktop import COMPUTER_ON, DesktopSettings
 from my_agent_crew.desktop.client import DesktopClient
 from my_agent_crew.desktop.kit import ACT, OBSERVE, SCREENSHOT, STATE
@@ -73,3 +75,28 @@ def parts(answer: str) -> tuple[str, str]:
     match = FENCE.search(answer)
     assert match, answer
     return answer[: match.start()] + answer[match.end() :], match.group(2)
+
+
+def refusal_of(refusal: str) -> tuple[str, str]:
+    """The sentence a refusal says, and what the helper said that stands fenced beneath it:
+    nothing else, and nothing of the helper's outside the fence."""
+    match = FENCE.search(refusal)
+    if match is None:
+        assert "\n" not in refusal and "MANHINH" not in refusal, refusal
+        return refusal, ""
+    opening, closing = t.SCREEN_OPEN, t.SCREEN_CLOSE
+    nonce = match.group(1)
+    said = t.SCREEN_FENCE.format(
+        opening=opening.format(nonce=nonce), closing=closing.format(nonce=nonce)
+    )
+    sentence = refusal[: match.start()].removesuffix(f"\n{said}\n")
+    assert refusal == "\n".join([sentence, said, match.group(0)]), refusal
+    return sentence, match.group(2)
+
+
+def fits(answer: str, cap: int, used: int = 0) -> bool:
+    """Whether an answer comes whole through the registry's cap: no fence, or a closed one
+    with room left for the widest mark of a cut."""
+    if "<<<MANHINH" not in answer:
+        return True
+    return FENCE.search(answer) is not None and used + len(answer) + CUT_ROOM <= cap

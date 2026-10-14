@@ -8,9 +8,12 @@ import re
 import pytest
 
 from my_agent_crew import texts_desktop as t
-from my_agent_crew.desktop.kit import OBSERVE
-from tests.desktop_helper import desk, listening, outline_name, socket_folder
-from tests.desktop_tools import FENCE, desk_of, parts
+from my_agent_crew import texts_desktop_act as ta
+from my_agent_crew.browser.fence import CUT_ROOM
+from my_agent_crew.desktop.kit import ACT, OBSERVE
+from my_agent_crew.desktop.report import NOTE_ROOM, fence, room
+from tests.desktop_helper import desk, frame, listening, outline_name, ref, socket_folder
+from tests.desktop_tools import FENCE, desk_of, fits, parts
 
 BANK = ("Ngân hàng", "vn.bank.app", "12.345.678", "Số dư")
 BOTH = ("Notes", "com.apple.Safari")
@@ -246,7 +249,7 @@ async def test_a_long_outline_is_cut_whole_lines_so_the_answer_closes_its_fence(
 
     outside, inside = parts(answer)
     shown = len(inside.splitlines()) - 2
-    assert len(answer) <= 3_000 and 10 < shown < 200
+    assert fits(answer, 3_000) and 10 < shown < 200
     last = inside.splitlines()[-1]
     assert last.startswith(f"  - [ref=a{shown}-0001] AXStaticText: dòng {shown} x")
     assert last.endswith("x" * 60)
@@ -256,6 +259,55 @@ async def test_a_long_outline_is_cut_whole_lines_so_the_answer_closes_its_fence(
         t.OBSERVE_CUT.format(shown=shown, total=200),
         t.OBSERVE_TRUNCATED,
     ]
+
+
+def test_the_room_for_the_screens_text_is_what_the_cap_leaves_and_nothing_under_a_small_one():
+    lines = sum(len(part) + 1 for part in fence())
+    rest = lines + NOTE_ROOM + CUT_ROOM
+
+    # The notes written after the fence and the widest mark of a cut both have their room.
+    assert room(20_000) == 20_000 - rest
+    assert room(20_000, "Ứng dụng: Notes") == room(20_000) - 16
+    assert room(rest + 1) == 1 and room(rest) == 0 and room(0) == 0
+
+
+async def test_under_any_cap_an_outline_closes_its_fence_or_is_not_told(helper, tmp_path):
+    helper.running("Notes").nodes = [
+        {"ref": f"a{n}", "depth": 1, "role": "AXStaticText", "value": f"dòng {n} " + "x" * 60}
+        for n in range(1, 201)
+    ]
+    answers = {}
+    for limit in range(300, 2_001, 50):
+        answers[limit] = await desk_of(helper, tmp_path, limit=limit).observe()
+
+    for limit, answer in answers.items():
+        assert fits(answer, limit), limit
+        if FENCE.search(answer) is None:
+            assert answer == t.SCREEN_NO_ROOM.format(limit=limit)
+    assert FENCE.search(answers[300]) is None and "[ref=a1-" in answers[2_000]
+
+
+async def test_an_outline_with_no_room_under_the_cap_leaves_no_ref_to_act_on(helper, tmp_path):
+    def used(title: str) -> int:
+        """What an answer holds beside its outline, under a window of this title."""
+        head = [t.OBSERVE_APP.format(app="Notes"), t.OBSERVE_WINDOW.format(title=title)]
+        return 10_000 - room(10_000, t.OBSERVE_HEAD, *head)
+
+    long = "Việc " + "x" * 115
+    tools = desk_of(helper, tmp_path, limit=used(long))
+    assert "[ref=a2-0001]" in await tools.observe()
+    await tools.screenshot()
+    click = {"kind": "click", "app": "Notes", "name": "Ghi mới", "frame_id": frame(1)}
+    assert await tools.act(**click, ref=ref("a2", 1))
+
+    helper.running("Notes").window = long
+    answer = await tools.observe()
+    refusal = await tools.refused(ACT, **click, ref=ref("a2", 1))
+
+    # The outline read before is dead at the helper, and none was told in its place.
+    assert answer == t.SCREEN_NO_ROOM.format(limit=used(long))
+    assert refusal == ta.ACT_REF_UNSEEN.format(ref=ref("a2", 1))
+    assert len(helper.sent("act")) == 1
 
 
 async def test_an_outline_the_helper_cut_short_is_said_to_be(helper, tmp_path):

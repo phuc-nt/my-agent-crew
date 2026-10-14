@@ -15,13 +15,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from my_agent_crew import texts_desktop as t
+from my_agent_crew.browser.fence import CUT_ROOM
 from my_agent_crew.browser.kit import one_line
 
 ROLE_CHARS, TITLE_CHARS, VALUE_CHARS, APP_CHARS = 60, 120, 200, 80
 # How far a line is pushed in for its depth, at most.
 DEEPEST = 20
-# Left for the notes written once the outline is sized, and never less than this of outline.
-NOTE_ROOM, LEAST_ROOM = 300, 500
+# Left for the notes written once the screen's own text is sized.
+NOTE_ROOM = 300
 REF = re.compile(r"a[0-9]{1,6}")
 # A role is a word of the system's, like AXButton. One of another shape is not shown: it
 # stands before the screen's own text on a line, where this program's words are read.
@@ -45,9 +46,29 @@ def fenced(body: str) -> str:
 
 def room(limit: int, *written: str) -> int:
     """What is left under the cap for the screen's own text, beside everything else an
-    answer holds and its fence."""
+    answer holds, its fence, the notes written afterwards and the widest mark of a cut the
+    registry may write. Nothing, under a cap that small."""
     used = sum(len(part) + 1 for part in (*written, *fence()))
-    return max(LEAST_ROOM, limit - used - NOTE_ROOM)
+    return max(0, limit - used - NOTE_ROOM - CUT_ROOM)
+
+
+def no_room(limit: int) -> str:
+    return t.SCREEN_NO_ROOM.format(limit=limit)
+
+
+def answer(limit: int, outside: list[str], body: str) -> str:
+    """What a tool answers: its own lines, then what the screen had a say in between the
+    fence lines, cut to the room left. Under a cap with no room for it, why it is missing."""
+    most = room(limit, *outside)
+    return "\n".join([*outside, fenced(body[:most]) if most else no_room(limit)])
+
+
+def with_data(limit: int, said: str, data: str, *, used: int = 0) -> str:
+    """`said` with `data` fenced under it when the whole stays under the cap, beside `used`
+    and the widest mark of a cut; `said` alone otherwise. Never a fence a cut would open
+    and not close."""
+    whole = "\n".join([said, fenced(data)])
+    return whole if used + len(whole) + CUT_ROOM <= limit else said
 
 
 def words(value: Any, limit: int) -> str:

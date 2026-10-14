@@ -8,17 +8,20 @@ and its absence is one plain sentence instead of a missing tool.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from my_agent_crew import texts_desktop as t
 from my_agent_crew.agent.turn_context import turn_conversation_id
+from my_agent_crew.browser.fence import FAILED_ROOM
 from my_agent_crew.browser.kit import one_line
 from my_agent_crew.browser.policy import AskWords
 from my_agent_crew.config_desktop import DesktopSettings
 from my_agent_crew.desktop.client import DesktopClient, DesktopError
 from my_agent_crew.desktop.policy import app_allowed
+from my_agent_crew.desktop.report import with_data
 from my_agent_crew.desktop.seen import Shown
 from my_agent_crew.tools.registry import Tool, ToolError
 
@@ -30,17 +33,40 @@ JOB_OWNER = "job"
 DETAIL_CHARS, NAME_CHARS = 200, 80
 # How many conversations' last frames are remembered.
 OWNERS_KEPT = 64
+# The shape of the helper's codes. A code this side does not know stands outside the fence,
+# so one of another shape is not named.
+CODE = re.compile(r"[a-z][a-z0-9_:]{0,39}")
+
+
+def sentence(error: DesktopError) -> str:
+    """This program's sentence for a refusal of the helper, with no word of the helper's own."""
+    known = t.HELPER_ERRORS.get(error.code)
+    if known is not None:
+        return known.format(detail="").strip()
+    code = error.code if CODE.fullmatch(error.code) else "?"
+    return t.HELPER_UNKNOWN.format(code=code, detail="").strip()
+
+
+def words_of(error: DesktopError) -> str:
+    """The helper's own words, for the codes whose sentence leaves room for them."""
+    detail = one_line(error.detail, DETAIL_CHARS)
+    room = "{detail}" in t.HELPER_ERRORS.get(error.code, t.HELPER_UNKNOWN)
+    return t.HELPER_DETAIL.format(detail=detail) if detail and room else ""
 
 
 def said(error: DesktopError) -> str:
-    """The one sentence a refusal of the helper is told in. The helper's own words follow it
-    only for the codes whose sentence leaves room for them."""
-    detail = one_line(error.detail, DETAIL_CHARS)
-    words = t.HELPER_DETAIL.format(detail=detail) if detail else ""
-    sentence = t.HELPER_ERRORS.get(error.code)
-    if sentence is None:
-        return t.HELPER_UNKNOWN.format(code=one_line(error.code, NAME_CHARS), detail=words).strip()
-    return sentence.format(detail=words).strip()
+    """A refusal of the helper as a person reads it on the owner's screens: one line, the
+    helper's own words after the sentence."""
+    return " ".join(part for part in (sentence(error), words_of(error)) if part)
+
+
+def refused(limit: int, error: DesktopError) -> ToolError:
+    """A refusal of the helper as an agent is told it. The helper's own words stand between
+    fence lines under the sentence, or are left out where the cap has no room for them."""
+    words = words_of(error)
+    if not words:
+        return ToolError(sentence(error))
+    return ToolError(with_data(limit, sentence(error), words, used=FAILED_ROOM))
 
 
 @dataclass(frozen=True)
@@ -95,7 +121,7 @@ class Kit:
         try:
             return await self.client.request(cmd, **args)
         except DesktopError as exc:
-            raise ToolError(said(exc)) from exc
+            raise refused(self.limit, exc) from exc
 
     def showed(self, shown: Shown | None) -> None:
         """The outline this conversation was just shown; None once the helper made a new

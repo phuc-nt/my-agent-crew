@@ -9,6 +9,7 @@ agent's own applications only, and says of any other no more than that one is in
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -25,8 +26,10 @@ from my_agent_crew.desktop.policy import app_named
 from my_agent_crew.desktop.report import (
     APP_CHARS,
     TITLE_CHARS,
+    answer,
     app_line,
     fenced,
+    no_room,
     outline,
     room,
     words,
@@ -36,7 +39,8 @@ from my_agent_crew.desktop.seen import OUTLINE, TAG, Shown
 from my_agent_crew.desktop.tools_act import build_act
 from my_agent_crew.tools.registry import Tool, ToolError
 
-VERSION_CHARS = 20
+# What the helper calls its version is named outside the fence, so only in this shape.
+VERSION = re.compile(r"[0-9][0-9A-Za-z.+-]{0,19}")
 # What stops every look and every action, and what stops some: told in the helper's order.
 STOPS = ("locked", "display_asleep")
 PERMISSIONS = {
@@ -75,7 +79,8 @@ async def _running(kit: Kit) -> list[dict] | None:
 def build_state(kit: Kit) -> Tool:
     async def run(_args: dict[str, Any]) -> str:
         state = await kit.ask_helper("state")
-        version = words(state.get("version"), VERSION_CHARS) or "?"
+        version = state.get("version")
+        version = version if isinstance(version, str) and VERSION.fullmatch(version) else "?"
         said = [t.STATE_HELPER.format(version=version)]
         stopped = [t.HELPER_ERRORS[code] for code in STOPS if state.get(code) is True]
         stopped += [t.HELPER_ERRORS[c] for key, c in PERMISSIONS.items() if state.get(key) is False]
@@ -100,9 +105,7 @@ def build_state(kit: Kit) -> Tool:
                 seen.append(t.STATE_RUNNING.format(apps=", ".join(names)))
             else:
                 said.append(t.STATE_NONE_RUNNING)
-        if seen:
-            said.append(fenced("\n".join(seen)[: room(kit.limit, *said)]))
-        return "\n".join(said)
+        return answer(kit.limit, said, "\n".join(seen)) if seen else "\n".join(said)
 
     return DesktopTool(
         name=k.STATE,
@@ -138,11 +141,15 @@ def build_observe(kit: Kit) -> Tool:
         name = tree.get("outline")
         if not isinstance(name, str) or not OUTLINE.fullmatch(name):
             # Without its name no ref of this outline could be acted on.
-            raise ToolError(k.said(DesktopError(BAD_ANSWER, "")))
+            raise k.refused(kit.limit, DesktopError(BAD_ANSWER, ""))
         head = [t.OBSERVE_APP.format(app=words(tree.get("app"), APP_CHARS))]
         if title := words(tree.get("window"), TITLE_CHARS):
             head.append(t.OBSERVE_WINDOW.format(title=title))
-        drawn = outline(tree.get("nodes"), room(kit.limit, t.OBSERVE_HEAD, *head), name[:TAG])
+        most = room(kit.limit, t.OBSERVE_HEAD, *head)
+        if not most:
+            # Nothing of the outline is told, so none of its refs can be acted on.
+            return no_room(kit.limit)
+        drawn = outline(tree.get("nodes"), most, name[:TAG])
         kit.showed(Shown(name, drawn.named, drawn.secure))
         said = [t.OBSERVE_HEAD.format(shown=drawn.shown)]
         said.append(fenced("\n".join([*head, drawn.text or t.OBSERVE_EMPTY])))
