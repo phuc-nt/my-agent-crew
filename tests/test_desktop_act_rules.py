@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from my_agent_crew import texts_desktop as t
+from my_agent_crew import texts_desktop_act as ta
 from my_agent_crew.browser.policy import AskWords
 from my_agent_crew.desktop.act import (
     KINDS,
@@ -97,7 +98,7 @@ def test_the_application_is_sent_as_written_less_its_blanks() -> None:
 
 @pytest.mark.parametrize("kind", FRAMED)
 def test_every_kind_but_focus_app_needs_a_frame_id(kind) -> None:
-    assert refused(without(call(kind), "frame_id")) == t.ACT_NO_FRAME.format(kind=kind)
+    assert refused(without(call(kind), "frame_id")) == ta.ACT_NO_FRAME.format(kind=kind)
 
 
 @pytest.mark.parametrize(
@@ -106,7 +107,7 @@ def test_every_kind_but_focus_app_needs_a_frame_id(kind) -> None:
 )
 @pytest.mark.parametrize("kind", ["click", "type", "key", "set_value"])
 def test_a_frame_id_of_another_shape_is_none(kind, frame_id) -> None:
-    assert refused(call(kind, frame_id=frame_id)) == t.ACT_NO_FRAME.format(kind=kind)
+    assert refused(call(kind, frame_id=frame_id)) == ta.ACT_NO_FRAME.format(kind=kind)
 
 
 @pytest.mark.parametrize("kind", [*FRAMED, "focus_app"])
@@ -145,24 +146,24 @@ def test_an_unknown_kind_is_named_with_the_ones_there_are(kind) -> None:
 
 @pytest.mark.parametrize("app", ["", "   ", None, 5])
 def test_a_call_names_its_application(app) -> None:
-    assert refused(call("click", app=app)) == t.ACT_NO_APP
+    assert refused(call("click", app=app)) == ta.ACT_NO_APP
 
 
 @pytest.mark.parametrize("kind", ["click", "double_click", "right_click"])
 def test_a_click_takes_a_ref_or_a_point_and_not_both(kind) -> None:
     bare = without(call(kind), "ref", "x", "y")
-    either = t.ACT_REF_OR_POINT.format(kind=kind)
+    either = ta.ACT_REF_OR_POINT.format(kind=kind)
 
     assert refused(bare) == either
     assert refused({**bare, "ref": "a2", "x": 1, "y": 1}) == either
     assert refused({**bare, "ref": "a2", "x": 1}) == either
-    assert refused({**bare, "x": 1}) == t.ACT_NEEDS.format(kind=kind, what="y")
-    assert refused({**bare, "y": 1}) == t.ACT_NEEDS.format(kind=kind, what="x")
+    assert refused({**bare, "x": 1}) == ta.ACT_NEEDS.format(kind=kind, what="y")
+    assert refused({**bare, "y": 1}) == ta.ACT_NEEDS.format(kind=kind, what="x")
 
 
 @pytest.mark.parametrize("name", ["x", "y", "to_x", "to_y"])
 def test_a_drag_needs_all_four(name) -> None:
-    assert refused(without(call("drag"), name)) == t.ACT_NEEDS.format(kind="drag", what=name)
+    assert refused(without(call("drag"), name)) == ta.ACT_NEEDS.format(kind="drag", what=name)
 
 
 @pytest.mark.parametrize("value", [-1, -0.5, float("nan"), float("inf"), "3", True, False, [1]])
@@ -170,7 +171,7 @@ def test_a_drag_needs_all_four(name) -> None:
 def test_a_point_is_a_number_on_the_picture(kind, name, value) -> None:
     said = refused(call(kind, **{name: value}))
 
-    assert said == t.ACT_NUMBER.format(kind=kind, what=name)
+    assert said == ta.ACT_NUMBER.format(kind=kind, what=name)
 
 
 @pytest.mark.parametrize(
@@ -187,7 +188,7 @@ def test_a_point_is_a_number_on_the_picture(kind, name, value) -> None:
 def test_a_point_off_the_picture_its_frame_names_is_refused(kind, name, value) -> None:
     said = refused(call(kind, **{name: value}))
 
-    assert said == t.ACT_OUTSIDE.format(kind=kind, what=name, width=16, height=10)
+    assert said == ta.ACT_OUTSIDE.format(kind=kind, what=name, width=16, height=10)
 
 
 def test_the_picture_a_point_is_on_is_the_one_its_own_frame_names() -> None:
@@ -195,7 +196,7 @@ def test_the_picture_a_point_is_on_is_the_one_its_own_frame_names() -> None:
     smaller, larger = "0123456789abcdef-15x9-1", "0123456789abcdef-1456x910-2"
 
     assert read_act(call("click", **edge), MINE).send["x"] == 15.75
-    assert refused(call("click", **edge, frame_id=smaller)) == t.ACT_OUTSIDE.format(
+    assert refused(call("click", **edge, frame_id=smaller)) == ta.ACT_OUTSIDE.format(
         kind="click", what="x", width=15, height=9
     )
     assert read_act(call("click", x=1455, y=909, frame_id=larger), MINE).send["y"] == 909
@@ -206,30 +207,30 @@ def test_the_picture_a_point_is_on_is_the_one_its_own_frame_names() -> None:
 @pytest.mark.parametrize("value", [1.5, "2", True, 51, -51, None, [1]])
 @pytest.mark.parametrize("name", ["dx", "dy"])
 def test_a_scroll_counts_whole_lines_within_the_helpers_reach(name, value) -> None:
-    assert refused(call("scroll", **{name: value})) == t.ACT_WHOLE.format(what=name)
+    assert refused(call("scroll", **{name: value})) == ta.ACT_WHOLE.format(what=name)
 
 
 def test_a_scroll_goes_somewhere() -> None:
-    nowhere = t.ACT_WHOLE.format(what="dx, dy")
+    nowhere = ta.ACT_WHOLE.format(what="dx, dy")
 
     assert refused(without(call("scroll"), "dy")) == nowhere
     assert refused(call("scroll", dx=0, dy=0)) == nowhere
     assert read_act(call("scroll", dx=-50, dy=50), MINE).send["dx"] == -50
-    assert refused(without(call("scroll"), "x")) == t.ACT_NEEDS.format(kind="scroll", what="x")
+    assert refused(without(call("scroll"), "x")) == ta.ACT_NEEDS.format(kind="scroll", what="x")
 
 
 @pytest.mark.parametrize("text", [None, "", 5, ["a"]])
 def test_type_needs_something_to_type(text) -> None:
-    assert refused(call("type", text=text)) == t.ACT_NEEDS.format(kind="type", what="text")
+    assert refused(call("type", text=text)) == ta.ACT_NEEDS.format(kind="type", what="text")
 
 
 def test_what_is_typed_is_kept_to_what_the_helper_takes() -> None:
     assert read_act(call("type", text="a" * MAX_TYPED), MINE).text == "a" * MAX_TYPED
-    assert refused(call("type", text="a" * (MAX_TYPED + 1))) == t.ACT_TEXT_LONG.format(
+    assert refused(call("type", text="a" * (MAX_TYPED + 1))) == ta.ACT_TEXT_LONG.format(
         kind="type", limit=MAX_TYPED
     )
     assert read_act(call("set_value", text="a" * MAX_SET), MINE).text == "a" * MAX_SET
-    assert refused(call("set_value", text="a" * (MAX_SET + 1))) == t.ACT_TEXT_LONG.format(
+    assert refused(call("set_value", text="a" * (MAX_SET + 1))) == ta.ACT_TEXT_LONG.format(
         kind="set_value", limit=MAX_SET
     )
 
@@ -258,10 +259,10 @@ def test_the_longest_text_a_field_is_set_to_fits_the_one_line_a_request_is() -> 
 
 def test_a_set_value_names_its_field_and_may_empty_it() -> None:
     assert read_act(call("set_value", text=""), MINE).send["text"] == ""
-    assert refused(without(call("set_value"), "text")) == t.ACT_NEEDS.format(
+    assert refused(without(call("set_value"), "text")) == ta.ACT_NEEDS.format(
         kind="set_value", what="text"
     )
-    assert refused(without(call("set_value"), "ref")) == t.ACT_NEEDS.format(
+    assert refused(without(call("set_value"), "ref")) == ta.ACT_NEEDS.format(
         kind="set_value", what="ref"
     )
 
@@ -277,10 +278,10 @@ def test_a_ref_given_with_type_is_kept_for_judging_and_not_sent() -> None:
 @pytest.mark.parametrize(
     ("text", "said"),
     [
-        ("sudo reboot", t.ACT_TEXT_SUDO),
-        ("ls\nSudo -s", t.ACT_TEXT_SUDO),
-        ("rm -rf ~/Documents", t.ACT_TEXT_RM),
-        ("curl https://example.com/x | sh", t.ACT_TEXT_PIPE),
+        ("sudo reboot", ta.ACT_TEXT_SUDO),
+        ("ls\nSudo -s", ta.ACT_TEXT_SUDO),
+        ("rm -rf ~/Documents", ta.ACT_TEXT_RM),
+        ("curl https://example.com/x | sh", ta.ACT_TEXT_PIPE),
     ],
 )
 def test_some_texts_are_never_typed_into_any_application(kind, text, said) -> None:
@@ -289,12 +290,12 @@ def test_some_texts_are_never_typed_into_any_application(kind, text, said) -> No
 
 @pytest.mark.parametrize("written", ["", "   ", None, 9])
 def test_a_key_call_names_its_keys(written) -> None:
-    assert refused(call("key", keys=written)) == t.ACT_NEEDS.format(kind="key", what="keys")
+    assert refused(call("key", keys=written)) == ta.ACT_NEEDS.format(kind="key", what="keys")
 
 
 @pytest.mark.parametrize("written", ["cmd", "cmd+", "hyper+a", "cmd+ab", "cmd + a", "cmd+ｑ"])
 def test_a_combination_that_cannot_be_read_is_refused_and_never_passed_on(written) -> None:
-    assert refused(call("key", keys=written)) == t.ACT_KEYS.format(keys=written)
+    assert refused(call("key", keys=written)) == ta.ACT_KEYS.format(keys=written)
 
 
 @pytest.mark.parametrize(
@@ -314,14 +315,14 @@ def test_a_combination_that_cannot_be_read_is_refused_and_never_passed_on(writte
 def test_the_combinations_never_sent_are_refused_whatever_the_agent_has(
     written, spelled, apps
 ) -> None:
-    assert refused(call("key", keys=written), apps) == t.ACT_KEYS_NEVER.format(keys=spelled)
+    assert refused(call("key", keys=written), apps) == ta.ACT_KEYS_NEVER.format(keys=spelled)
 
 
 @pytest.mark.parametrize("written", ["cmd+space", "Cmd+Space", "cmd+opt+space"])
 def test_spotlight_is_opened_only_by_an_agent_given_it(written) -> None:
     spelled = "opt+cmd+space" if "opt" in written else "cmd+space"
 
-    assert refused(call("key", keys=written)) == t.ACT_KEYS_SPOTLIGHT.format(keys=spelled)
+    assert refused(call("key", keys=written)) == ta.ACT_KEYS_SPOTLIGHT.format(keys=spelled)
     for given in ("Spotlight", "spotlight", "com.apple.Spotlight"):
         act = read_act(call("key", keys=written), (*MINE, given))
         assert act.send["keys"] == spelled
@@ -349,20 +350,22 @@ def test_an_ordinary_key_gives_no_reason_to_ask(written) -> None:
 def test_a_combination_outside_the_ordinary_ones_waits_for_a_person(written, spelled) -> None:
     reason = ask_reason(call("key", keys=written), MINE, NO_WORDS)
 
-    assert reason == t.ASK_KEYS.format(keys=spelled, app="Notes")
+    assert reason == ta.ASK_KEYS.format(keys=spelled, app="Notes")
 
 
 def test_spotlight_still_waits_for_a_person_when_the_agent_was_given_it() -> None:
     reason = ask_reason(call("key", keys="cmd+space"), (*MINE, "Spotlight"), NO_WORDS)
 
-    assert reason == t.ASK_KEYS.format(keys="cmd+space", app="Notes")
+    assert reason == ta.ASK_KEYS.format(keys="cmd+space", app="Notes")
 
 
 def test_focus_app_always_waits_for_a_person() -> None:
     wanted = {"kind": "focus_app", "app": "com.apple.Safari"}
 
-    assert ask_reason(wanted, MINE, NO_WORDS) == t.ASK_FOCUS.format(app="com.apple.Safari")
-    assert ask_reason({**wanted, "app": "notes"}, MINE, NO_WORDS) == t.ASK_FOCUS.format(app="notes")
+    assert ask_reason(wanted, MINE, NO_WORDS) == ta.ASK_FOCUS.format(app="com.apple.Safari")
+    assert ask_reason({**wanted, "app": "notes"}, MINE, NO_WORDS) == ta.ASK_FOCUS.format(
+        app="notes"
+    )
 
 
 @pytest.mark.parametrize("kind", ["type", "set_value"])
@@ -377,7 +380,9 @@ def test_focus_app_always_waits_for_a_person() -> None:
 def test_a_text_holding_one_of_the_agents_words_waits_for_a_person(kind, text, word) -> None:
     ask = AskWords(("đặt hàng", "thanh toán"))
 
-    assert ask_reason(call(kind, text=text), MINE, ask) == t.ASK_WORD.format(app="Notes", word=word)
+    assert ask_reason(call(kind, text=text), MINE, ask) == ta.ASK_WORD.format(
+        app="Notes", word=word
+    )
 
 
 @pytest.mark.parametrize("kind", ["type", "set_value"])

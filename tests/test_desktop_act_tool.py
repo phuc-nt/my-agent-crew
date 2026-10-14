@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from my_agent_crew import texts_desktop as t
+from my_agent_crew import texts_desktop_act as ta
 from my_agent_crew.desktop.client import ABSENT, BAD_ANSWER, TIMEOUT, DesktopError
 from my_agent_crew.desktop.kit import ACT, said
 from tests.desktop_helper import HEIGHT, STALE, WIDTH, desk, frame, listening, socket_folder
@@ -60,7 +61,7 @@ async def test_an_action_is_sent_as_it_was_read_and_its_outcome_left_open(
 ):
     answer = await desk_of(helper, tmp_path).act(**args)
 
-    assert answer == t.ACT_POSTED.format(kind=args["kind"], app="Notes")
+    assert answer == ta.ACT_POSTED.format(kind=args["kind"], app="Notes")
     (request,) = helper.sent("act")
     request.pop("id")
     assert (
@@ -72,7 +73,7 @@ async def test_an_action_is_sent_as_it_was_read_and_its_outcome_left_open(
 async def test_a_field_set_is_said_to_be_set(helper, tmp_path):
     answer = await desk_of(helper, tmp_path).act(**call("set_value", ref="a3", text="mua trứng"))
 
-    assert answer == t.ACT_SET.format(ref="a3", app="Notes")
+    assert answer == ta.ACT_SET.format(ref="a3", app="Notes")
     assert helper.sent("act")[0]["text"] == "mua trứng"
 
 
@@ -83,7 +84,7 @@ async def test_bringing_an_application_forward_needs_no_frame_and_asks_for_a_new
 
     answer = await tools.act(kind="focus_app", app="safari", frame_id=frame(1), ref="a2")
 
-    assert answer == t.ACT_FOCUSED.format(app="safari")
+    assert answer == ta.ACT_FOCUSED.format(app="safari")
     (request,) = helper.sent("act")
     assert set(request) == {"id", "cmd", "kind", "app"} and request["app"] == "safari"
     assert helper.front == "Safari"
@@ -115,7 +116,7 @@ async def test_a_point_off_the_picture_is_refused_before_the_helper_hears(
 
     refusal = await desk_of(helper, tmp_path).refused(ACT, **args)
 
-    assert refusal == t.ACT_OUTSIDE.format(kind="click", what=name, width=WIDTH, height=HEIGHT)
+    assert refusal == ta.ACT_OUTSIDE.format(kind="click", what=name, width=WIDTH, height=HEIGHT)
     assert helper.requests == []
 
 
@@ -133,7 +134,7 @@ async def test_a_text_for_a_field_the_outline_marked_secure_never_reaches_the_he
     tools = desk_of(helper, tmp_path)
     await tools.observe()
 
-    assert await tools.refused(ACT, **args) == t.ACT_SECURE_REF.format(ref="a4")
+    assert await tools.refused(ACT, **args) == ta.ACT_SECURE_REF.format(ref="a4")
     assert helper.sent("act") == []
 
 
@@ -164,7 +165,7 @@ async def test_a_secure_field_beyond_what_fitted_the_answer_is_still_refused(hel
     assert "a200" not in await tools.observe()
     refusal = await tools.refused(ACT, **call("set_value", ref="a200", text="x"))
 
-    assert refusal == t.ACT_SECURE_REF.format(ref="a200")
+    assert refusal == ta.ACT_SECURE_REF.format(ref="a200")
 
 
 async def test_a_ref_is_judged_by_the_last_outline_and_not_by_one_before(helper, tmp_path):
@@ -174,7 +175,7 @@ async def test_a_ref_is_judged_by_the_last_outline_and_not_by_one_before(helper,
     helper.running("Notes").nodes[3] = {"ref": "a4", "depth": 1, "role": "AXTextField"}
     await tools.observe()
 
-    assert await tools.act(**call("set_value", ref="a4", text="x")) == t.ACT_SET.format(
+    assert await tools.act(**call("set_value", ref="a4", text="x")) == ta.ACT_SET.format(
         ref="a4", app="Notes"
     )
 
@@ -190,7 +191,7 @@ async def test_an_outline_that_could_not_be_read_leaves_the_marks_of_the_one_bef
     # Nothing new was read, so what the agent was last shown still stands.
     refusal = await tools.refused(ACT, **call("set_value", ref="a4", text="x"))
 
-    assert refusal == t.ACT_SECURE_REF.format(ref="a4") and helper.sent("act") == []
+    assert refusal == ta.ACT_SECURE_REF.format(ref="a4") and helper.sent("act") == []
 
 
 async def test_an_application_outside_the_list_left_in_front_is_told_without_its_name(
@@ -200,7 +201,10 @@ async def test_an_application_outside_the_list_left_in_front_is_told_without_its
 
     answer = await desk_of(helper, tmp_path).act(**call("click", ref="a2"))
 
-    assert answer.splitlines() == [t.ACT_POSTED.format(kind="click", app="Notes"), t.ACT_FRONT_LEFT]
+    assert answer.splitlines() == [
+        ta.ACT_POSTED.format(kind="click", app="Notes"),
+        ta.ACT_FRONT_LEFT,
+    ]
     assert not any(word in answer for word in BANK)
 
 
@@ -213,7 +217,7 @@ async def test_one_of_the_agents_own_applications_left_in_front_is_not_remarked_
         **call("click", ref="a2")
     )
 
-    assert answer == t.ACT_POSTED.format(kind="click", app="Notes")
+    assert answer == ta.ACT_POSTED.format(kind="click", app="Notes")
 
 
 @pytest.mark.parametrize("stop", ["locked", "display_asleep"])
@@ -279,4 +283,4 @@ async def test_without_a_helper_an_action_says_so_and_a_doomed_one_its_own_reaso
         folder.rmdir()
 
     assert absent == t.HELPER_ERRORS["absent"]
-    assert doomed == t.ACT_KEYS_NEVER.format(keys="cmd+q")
+    assert doomed == ta.ACT_KEYS_NEVER.format(keys="cmd+q")

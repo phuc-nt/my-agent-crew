@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from my_agent_crew import texts_desktop as t
+from my_agent_crew import texts_desktop_act as ta
 from my_agent_crew.browser.kit import one_line, text_of
 from my_agent_crew.browser.policy import AskWords
 from my_agent_crew.desktop import keys
@@ -59,11 +60,11 @@ def _point(args: dict[str, Any], kind: str, frame_id: str, *names: str) -> dict[
         value = args.get(name)
         number = isinstance(value, (int, float)) and not isinstance(value, bool)
         if value is None:
-            raise ToolError(t.ACT_NEEDS.format(kind=kind, what=name))
+            raise ToolError(ta.ACT_NEEDS.format(kind=kind, what=name))
         if not number or not math.isfinite(value) or value < 0:
-            raise ToolError(t.ACT_NUMBER.format(kind=kind, what=name))
+            raise ToolError(ta.ACT_NUMBER.format(kind=kind, what=name))
         if value >= (width if name.endswith("x") else height):
-            off = t.ACT_OUTSIDE.format(kind=kind, what=name, width=width, height=height)
+            off = ta.ACT_OUTSIDE.format(kind=kind, what=name, width=width, height=height)
             raise ToolError(off)
         found[name] = value
     return found
@@ -72,17 +73,17 @@ def _point(args: dict[str, Any], kind: str, frame_id: str, *names: str) -> dict[
 def _lines(args: dict[str, Any], name: str) -> int:
     value = args.get(name, 0)
     if isinstance(value, bool) or not isinstance(value, int) or abs(value) > MAX_SCROLL:
-        raise ToolError(t.ACT_WHOLE.format(what=name))
+        raise ToolError(ta.ACT_WHOLE.format(what=name))
     return value
 
 
 def _text(args: dict[str, Any], kind: str) -> str:
     text = args.get("text")
     if not isinstance(text, str) or (kind == TYPE and not text):
-        raise ToolError(t.ACT_NEEDS.format(kind=kind, what="text"))
+        raise ToolError(ta.ACT_NEEDS.format(kind=kind, what="text"))
     most = MAX_TYPED if kind == TYPE else MAX_SET
     if len(text) > most:
-        raise ToolError(t.ACT_TEXT_LONG.format(kind=kind, limit=most))
+        raise ToolError(ta.ACT_TEXT_LONG.format(kind=kind, limit=most))
     if refusal := typed_refusal(text):
         raise ToolError(refusal)
     return text
@@ -91,14 +92,14 @@ def _text(args: dict[str, Any], kind: str) -> str:
 def _combo(args: dict[str, Any], apps: Sequence[str]) -> keys.Combo:
     written = text_of(args, "keys")
     if not written:
-        raise ToolError(t.ACT_NEEDS.format(kind=KEY, what="keys"))
+        raise ToolError(ta.ACT_NEEDS.format(kind=KEY, what="keys"))
     combo = keys.parse(written)
     if combo is None:
-        raise ToolError(t.ACT_KEYS.format(keys=one_line(written, NAME_CHARS)))
+        raise ToolError(ta.ACT_KEYS.format(keys=one_line(written, NAME_CHARS)))
     if keys.never_sent(combo, spotlight=True):
-        raise ToolError(t.ACT_KEYS_NEVER.format(keys=combo.spelled))
+        raise ToolError(ta.ACT_KEYS_NEVER.format(keys=combo.spelled))
     if keys.never_sent(combo, spotlight_allowed(apps)):
-        raise ToolError(t.ACT_KEYS_SPOTLIGHT.format(keys=combo.spelled))
+        raise ToolError(ta.ACT_KEYS_SPOTLIGHT.format(keys=combo.spelled))
     return combo
 
 
@@ -106,9 +107,9 @@ def read_act(args: dict[str, Any], apps: Sequence[str]) -> Act:
     """The call as the helper would be sent it. Raises the sentence it is refused with."""
     kind, app, ref = text_of(args, "kind"), text_of(args, "app"), text_of(args, "ref")
     if kind not in KINDS:
-        raise ToolError(t.ACT_KIND.format(kind=one_line(kind, NAME_CHARS), kinds=", ".join(KINDS)))
+        raise ToolError(ta.ACT_KIND.format(kind=one_line(kind, NAME_CHARS), kinds=", ".join(KINDS)))
     if not app:
-        raise ToolError(t.ACT_NO_APP)
+        raise ToolError(ta.ACT_NO_APP)
     if not app_named(apps, app):
         listed = ", ".join(apps) or "—"
         raise ToolError(t.APP_OUTSIDE.format(app=one_line(app, NAME_CHARS), apps=listed))
@@ -116,12 +117,12 @@ def read_act(args: dict[str, Any], apps: Sequence[str]) -> Act:
         return Act(kind, app, {"kind": kind, "app": app})
     frame_id = text_of(args, "frame_id")
     if not FRAME_ID.fullmatch(frame_id):
-        raise ToolError(t.ACT_NO_FRAME.format(kind=kind))
+        raise ToolError(ta.ACT_NO_FRAME.format(kind=kind))
     send: dict[str, Any] = {"kind": kind, "app": app, "frame_id": frame_id}
     if kind in CLICKS:
         pointed = args.get("x") is not None or args.get("y") is not None
         if bool(ref) == pointed:
-            raise ToolError(t.ACT_REF_OR_POINT.format(kind=kind))
+            raise ToolError(ta.ACT_REF_OR_POINT.format(kind=kind))
         send |= {"ref": ref} if ref else _point(args, kind, frame_id, "x", "y")
         return Act(kind, app, send)
     if kind == DRAG:
@@ -129,7 +130,7 @@ def read_act(args: dict[str, Any], apps: Sequence[str]) -> Act:
     if kind == SCROLL:
         moved = {"dx": _lines(args, "dx"), "dy": _lines(args, "dy")}
         if not any(moved.values()):
-            raise ToolError(t.ACT_WHOLE.format(what="dx, dy"))
+            raise ToolError(ta.ACT_WHOLE.format(what="dx, dy"))
         return Act(kind, app, send | _point(args, kind, frame_id, "x", "y") | moved)
     if kind == KEY:
         combo = _combo(args, apps)
@@ -137,7 +138,7 @@ def read_act(args: dict[str, Any], apps: Sequence[str]) -> Act:
     text = _text(args, kind)
     if kind == SET_VALUE:
         if not ref:
-            raise ToolError(t.ACT_NEEDS.format(kind=kind, what="ref"))
+            raise ToolError(ta.ACT_NEEDS.format(kind=kind, what="ref"))
         return Act(kind, app, send | {"ref": ref, "text": text}, ref=ref, text=text)
     # The helper types into whatever holds the cursor; a ref with `type` says where the
     # model thinks that is, and is judged here without being sent.
@@ -162,9 +163,9 @@ def ask_reason(args: dict[str, Any], apps: Sequence[str], ask: AskWords) -> str 
         return None
     app = one_line(act.app, NAME_CHARS)
     if act.kind == FOCUS_APP:
-        return t.ASK_FOCUS.format(app=app)
+        return ta.ASK_FOCUS.format(app=app)
     if act.combo is not None and not keys.ordinary(act.combo):
-        return t.ASK_KEYS.format(keys=act.combo.spelled, app=app)
+        return ta.ASK_KEYS.format(keys=act.combo.spelled, app=app)
     if act.text and (word := ask.find(act.text)):
-        return t.ASK_WORD.format(app=app, word=word)
+        return ta.ASK_WORD.format(app=app, word=word)
     return None
