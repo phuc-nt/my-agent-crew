@@ -61,10 +61,10 @@ def _write(profile: Path, hosts: dict[str, float]) -> None:
 async def remember(
     context: Any, profile: Path | None, held: dict[str, float] | None = None
 ) -> None:
-    """Write down what a browser that is about to close holds. Of one that will not say,
-    `held` is written, what it was last seen to hold; where nobody saw, what was written
-    before stays."""
-    hosts = await read(context) if profile is not None else None
+    """Write down what a browser that is about to close holds. Of one that will not say, and
+    of one that is gone already (no `context`), `held` is written, what it was last seen to
+    hold; where nobody saw, what was written before stays."""
+    hosts = await read(context) if context is not None and profile is not None else None
     hosts = held if hosts is None else hosts
     if profile is None or hosts is None:
         return

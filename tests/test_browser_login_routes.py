@@ -23,6 +23,7 @@ from my_agent_crew import texts_browser_login as said
 from my_agent_crew.browser.console import LOCKED, NONE, OPEN
 from my_agent_crew.browser.install import NO_BROWSER, Installed
 from my_agent_crew.browser.kit import NAVIGATE, SNAPSHOT, TABS
+from my_agent_crew.browser.launch import Stuck
 from my_agent_crew.browser.login import OPEN_SECONDS
 from my_agent_crew.browser.logins import FILE, read, recalled
 from my_agent_crew.config_browser import browser_root
@@ -283,6 +284,16 @@ async def test_a_browser_that_will_not_show_a_window_is_told_in_its_own_first_wo
     await crew.call("coach", NAVIGATE, "conv-1", url=crew.site.url("/don"))
     assert [tab["title"] for tab in (await crew.told("coach"))["tabs"]] == ["Đơn của tôi"]
 
+    # A start that was given up says so in its own words, as a browser's refusal does.
+    async def never(*_asked: Any) -> Any:
+        raise Stuck("Chromium did not start within 40 seconds")
+
+    crew.windows.opener = never
+    reply = await ask(crew)
+    words = said.LOGIN_FAILED.format(error="Chromium did not start within 40 seconds")
+    assert (reply.status_code, reply.json()) == (409, {"detail": words})
+    assert crew.windows.window("coach") is None and crew.pool.reserved == set()
+
     # A fault of the crew's own is no browser's: it is not dressed as one.
     async def broken(*_asked: Any) -> Any:
         raise RuntimeError("a fault of the crew's own")
@@ -294,6 +305,16 @@ async def test_a_browser_that_will_not_show_a_window_is_told_in_its_own_first_wo
     # And the window opens once the browser will show one.
     crew.windows.opener = shown
     assert (await ask(crew)).status_code == 200
+
+
+async def test_a_server_that_is_going_down_opens_no_window_and_says_so(crew: Crew):
+    crew.pool.shut = True
+
+    reply = await ask(crew)
+
+    assert (reply.status_code, reply.json()) == (409, {"detail": said.LOGIN_STOPPING})
+    assert crew.windows.window("coach") is None and crew.pool.reserved == set()
+    assert "đang dừng" in said.LOGIN_STOPPING
 
 
 async def test_stopping_the_browser_closes_the_window_a_person_has_open_on_it(crew: Crew):

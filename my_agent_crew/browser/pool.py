@@ -46,6 +46,8 @@ class BrowserPool:
         self.resolver = resolver
         self.allow = allow
         self.driver = Driver(self._lost)
+        # Told when the driver went away: whoever holds a browser it started, beside these.
+        self.on_lost: list[Callable[[], None]] = []
         # Agents whose profile a person holds: `login.py` adds and removes them.
         self.reserved: set[str] = set()
         self._sessions: dict[str, asyncio.Future[Session]] = {}
@@ -177,3 +179,5 @@ class BrowserPool:
         """The driver went away, and no browser it started says so: all are forgotten."""
         for session in filter(None, map(self.running, list(self._sessions))):
             self._closed(session)
+        for told in self.on_lost:
+            told()

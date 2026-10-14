@@ -136,6 +136,23 @@ async def test_of_a_browser_that_will_not_say_what_it_was_last_seen_to_hold_is_w
     assert list(tmp_path.iterdir()) == []
 
 
+async def test_of_a_browser_that_is_gone_nothing_is_asked_and_what_was_seen_is_written(
+    tmp_path: Path, monkeypatch
+):
+    async def never(_context: Any) -> None:
+        raise AssertionError("a browser that is gone is not asked")
+
+    monkeypatch.setattr(logins, "read", never)
+    seen = {"shop.example": time.time() + 3_600}
+
+    await remember(None, tmp_path, seen)
+    assert recalled(tmp_path) == seen
+
+    # Where nobody saw what it held, what was written before stays.
+    await remember(None, tmp_path)
+    assert recalled(tmp_path) == seen
+
+
 async def test_a_browser_with_no_profile_named_writes_nothing_and_is_not_asked(tmp_path: Path):
     def never() -> None:
         raise AssertionError("a browser whose profile nobody named is not asked")
