@@ -11,6 +11,133 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- An agent whose own file says `computer: "on"` can see and work the real screen of the Mac the
+  crew runs on, through four tools: `computer_state`, `computer_screenshot`, `computer_observe`
+  and `computer_act`. The key is read from the agent's file alone: there is no machine-wide
+  switch, no global key, no environment variable, and nothing is inherited from the master. The
+  `tools:` list neither brings these tools nor takes them away, and a list that names one logs a
+  warning. A bare `on`, `yes` or `true` stops the start with a hint to write `"on"` in quotes,
+  since YAML reads those as a switch; a bare `off`, `no`, `false` and an empty key read as `off`.
+- `computer_apps` lists the applications such an agent may read and act on, by name (case and
+  accent form aside) or by bundle id (exactly). An empty list lets the agent look and never act:
+  `computer_state` names every open application, `computer_screenshot` captures whatever is in
+  front, and `computer_observe` and `computer_act` refuse every call. The list cannot name a web
+  browser, by name or bundle id, a site saved as an app of its own included: such a line stops
+  the start, or is a 422 through the API.
+- The desktop helper, `desktop-helper/`, is a Swift package that builds `MyAgentCrewDesktop.app`
+  for macOS 14 and later, an app with no Dock icon. It runs in the owner's login session as a
+  LaunchAgent, holds the Screen Recording and Accessibility permissions, and answers one JSON
+  line per connection on a Unix socket, mode 0600 in a folder only its owner can enter, taking
+  connections from its own user only. It checks the lock, the display and both permissions
+  before every command, and never asks macOS for a permission on its own. The server never
+  captures or posts an event itself: it waits up to 10 seconds for the helper's answer.
+- `scripts/desktop-helper-pack.sh` builds the app and signs it ad hoc; with `--install` it also
+  copies it to `~/Applications` and writes `~/Library/LaunchAgents/com.my-agent-crew.desktop.plist`,
+  and loads nothing. Packing again changes the signature, so macOS forgets both permissions.
+  `scripts/desktop-helper-check.sh` builds the helper and runs its XCTest suite against a fake
+  system, so no dialog appears, and a new macOS job in CI runs it; `scripts/gates.sh` does not.
+- `desktop_socket` in `config.yaml`, or `MY_AGENT_DESKTOP_SOCKET`, says where the server looks
+  for the helper, `<home>/desktop/sock` by default.
+- `computer_state` tells whether the helper is there, whether the screen is locked or asleep,
+  which permission is missing, and which listed applications are open and which is in front. It
+  needs no permission and answers on a locked screen. An application outside the list that is
+  in front is told as being there, never by name.
+- `computer_screenshot` captures the main display, scaled down so its longest side is at most
+  1,456 pixels, only while a listed application is in front both before and after the capture.
+  The picture is saved as `desktop/<frame_id>.png` in the workspace, or under the first of the
+  agent's `write_paths`, and the folder keeps the newest 40. With a vision route the picture is
+  read, or asked the call's `question`, and the cost counts in the turn. When the screen has not
+  changed since the conversation's last picture, nothing is sent again and no model is called.
+- `computer_observe` returns the outline of an application's focused window, up to 400
+  elements, each line led by a `ref` that carries a mark of that reading. A listed application
+  can be read even when other windows cover it; a secure field never shows its value.
+- `computer_act` clicks, double-clicks, right-clicks, drags, scrolls, types, presses keys, sets
+  a value by `ref`, or brings an application forward. Every kind but `focus_app` needs the
+  `frame_id` of the latest frame of the screen, no older than 300 seconds, and a picture taken
+  by anyone after it ends it. A `ref` must belong to the outline the same conversation was last
+  shown, and a click by `ref` names the element as that outline does. The helper acts only while
+  that application is in front, and the answer says the action was sent and tells the model to
+  look again before its next step. `set_value` may name the field as the outline does, and is
+  refused when that name is another.
+- `computer_act` needs approval like every tool that changes state, and some calls ask a person
+  even in an autonomous conversation and after "Luôn cho phép": bringing an application
+  forward, Enter or Space alone, a key outside the everyday few, typed text with a newline, a
+  click or a drag at a point rather than on an element, every double click, and typed text, a
+  value, or the name of the element clicked or the field set that holds a stop word. A field's
+  name is the outline's own, whether the call gives it or not. The approval card reads the
+  reason.
+- From a script, the three tools that only look are called like any tool that reads;
+  `computer_act` only under `script_calls: gated`, through the gate first, and a call that must
+  ask a person stops the script there.
+- `GET /api/agents/{id}/desktop` tells an agent's level, its applications and the state of the
+  machine, waiting at most a second, and is never an error for an agent that exists; with no
+  helper answering, `present` is `false` and the rest `null`. `GET /api/connections` carries the
+  same machine block under `desktop`. `POST /api/agents/{id}/desktop/screenshot` takes a picture
+  as the agent would, which ends the frame the agent holds, or answers 409 with the reason.
+  `POST /api/desktop/permissions` has the helper ask macOS for both permissions and returns what
+  it holds; it answers 409 when the helper is absent or refuses, as it does on a locked screen.
+  `PATCH /api/agents/{id}` takes `computer` and `computer_apps`, effective from the next turn
+  without a restart.
+- The **Kết nối** page has a Desktop card that tells whether the helper runs, whether the screen
+  is locked or asleep, and each permission, with a "Xin quyền" button that sends only when
+  pressed. The agent editor has a "Dùng desktop của máy" section with the level and the list of
+  applications. An agent's page has a Desktop card that tells whether it can work now and takes
+  a trial picture. The tools grid marks the four tools as coming with the desktop.
+- An approval card for `computer_act`, in the conversation and in the list of requests, puts the
+  action in words ("Bấm «Gửi» (a2-3f9c) trong Mail") above the raw parameters, with the reason
+  when it always asks, and below them the picture the agent planned on, with the point marked,
+  when that picture can still be found. A `computer_screenshot` step shows its picture on the
+  run's timeline and on the tool card in the chat.
+- `GET /api/agents/{id}/desktop/pictures/{frame_id}` serves a frame's picture exactly as
+  `computer_screenshot` or the trial button saved it for that agent, and the approval card reads
+  its picture there. The agent may write in the folder the pictures are in, so the server
+  remembers, in memory, the SHA-256 of each picture it wrote (the newest 40 per agent): a picture
+  rewritten, replaced with a link or removed since, a frame not taken for that agent, and one
+  taken before the last restart are all a 404, and the card then shows no picture.
+
+### Changed
+
+- `browser_ask_patterns` is now the stop-word list of the desktop as well: one list for the
+  pages a browser opens and for the screen.
+
+### Security
+
+- `<home>/desktop/`, and the socket wherever `desktop_socket` puts it, judged where the path
+  leads rather than where it is written, is closed to every file tool and every sandboxed
+  `shell_run`, whether the helper runs or not.
+- The sandbox rules that close a private folder now deny an outbound connection into it as well
+  as a read or a write, for the browsers' profiles as for the helper's folder: a Unix socket is
+  reached by a connection, which the file rules do not judge.
+- The server talks only to a socket owned by the user it runs as, in a folder nobody else may
+  write in, and never through a symbolic link; otherwise every call is refused as `untrusted`.
+- Some things no setting and no approval allow, and they are refused before anyone is asked: an
+  application outside `computer_apps`; typed text holding `sudo`, an `rm` that recurses without
+  asking, or a `curl` or `wget` fed into a shell, read as a shell would read it; `cmd+q`,
+  `cmd+shift+backspace` and `cmd+opt+esc`, with any further modifier; `cmd+space` unless
+  Spotlight is listed, and even then it asks; any text for a field the outline marks secure. The
+  helper refuses again, in any order of modifiers, the keys that lock the screen, log out or
+  force-quit, and refuses typing, keys and setting a value while macOS has secure input on.
+- Typed or set text holding a control character other than tab, line feed and carriage return
+  is refused by the server and by the helper: a backspace or an escape does not show on the
+  approval card yet reaches the application as a key. Names from the screen that hold one are
+  written out, as `[U+0008]`, on the card and in the reason.
+- The desktop never acts in a web browser, where a page reaches the crew's own web page and the
+  private network that the `browser_*` tools hold apart. Besides the list, the helper refuses
+  every action while a browser is in front and never brings one forward (`browser_app`);
+  bringing another application forward is how an agent leaves one.
+- Before it posts a click, a scroll or either end of a drag, the helper asks macOS what is on
+  top at that point and posts nothing unless it belongs to the application in front, and for a
+  click by `ref` is that element or one inside it (`point_covered`). When macOS cannot tell, it
+  refuses too, so a dialog or a notification that came up over the point is never clicked.
+- Everything the screen chooses the words of stands inside a fence with a fresh mark per answer,
+  as a web page does: the names of applications, the outline and window titles, what a model
+  reads from a picture, and the helper's own sentence with a refusal.
+- An unsandboxed shell reaches the helper's socket like any other program of the owner's, past
+  the list of applications and the approval gate. The docs say so and advise a sandboxed shell,
+  or none, for an agent with the desktop.
+
 ## [0.19.0] — 2026-10-14
 
 ### Added
