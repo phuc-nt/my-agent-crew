@@ -81,6 +81,10 @@ BROWSER_GONE = (
     "Agent này đã bị gỡ khỏi đội hoặc bị tắt quyền dùng trình duyệt trong lúc lượt này đang "
     "chạy. Đừng gọi thêm công cụ browser_* nào; hãy báo cho người dùng biết."
 )
+BROWSER_STOPPED = (
+    "Trình duyệt bị dừng (người dùng bấm dừng hoặc máy chủ đang tắt) ngay lúc nó đang khởi động "
+    "cho lần gọi này, nên lần gọi không làm gì. Gọi lại nếu vẫn cần trang."
+)
 PAGE_STUCK = (
     "Trang không phản hồi sau {seconds} giây. Thử lại, mở lại trang bằng browser_navigate, hoặc "
     "đóng tab bằng browser_tabs(close=…)."

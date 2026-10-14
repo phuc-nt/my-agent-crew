@@ -35,6 +35,20 @@ async def use(kit: Kit, conversation: str = "c1") -> str:
             return tab.label
 
 
+def held_starts(monkeypatch) -> tuple[list[FilteringProxy], asyncio.Event]:
+    """Browsers whose start waits until `go` is set, and the starts that began."""
+    started, go = [], asyncio.Event()
+
+    class Held(FilteringProxy):
+        async def start(self) -> None:
+            started.append(self)
+            await go.wait()
+            await super().start()
+
+    monkeypatch.setattr(pool_module, "FilteringProxy", Held)
+    return started, go
+
+
 async def refused(kit: Kit, seconds: float = 30.0) -> str:
     with pytest.raises(ToolError) as refusal:
         await asyncio.wait_for(use(kit), seconds)
@@ -82,15 +96,7 @@ async def test_an_agent_taken_off_the_browser_keeps_its_logins_and_its_running_t
 async def test_a_call_that_was_starting_the_browser_when_its_agent_was_removed_leaves_nothing(
     tmp_path, monkeypatch
 ):
-    started, go = [], asyncio.Event()
-
-    class Held(FilteringProxy):
-        async def start(self) -> None:
-            started.append(self)
-            await go.wait()
-            await super().start()
-
-    monkeypatch.setattr(pool_module, "FilteringProxy", Held)
+    started, go = held_starts(monkeypatch)
     async with world(tmp_path, PAGES) as w:
         browsers, kit = holding(w), w.kit("coach")
         profile = profile_dir(w.pool.root, "coach")
@@ -106,14 +112,42 @@ async def test_a_call_that_was_starting_the_browser_when_its_agent_was_removed_l
             go.set()
         async with asyncio.timeout(30):
             await removing
-            with pytest.raises(ToolError):
+            with pytest.raises(ToolError) as refusal:
                 await call
 
         # The removal waited for the one browser that was on its way and closed it. The call
         # that had asked for it was handed that one: asking again would have started another
-        # on the profile, after the folder went.
+        # on the profile, after the folder went. It is told why at once, not left to open a
+        # tab in a browser that is closing until its time is up.
         assert waited is False and len(started) == 1
+        assert str(refusal.value) == t.BROWSER_GONE
         assert w.pool.running("coach") is None and not profile.exists()
+
+
+async def test_a_call_whose_browser_a_person_stopped_as_it_came_up_is_told_so_at_once(
+    tmp_path, monkeypatch
+):
+    started, go = held_starts(monkeypatch)
+    async with world(tmp_path, PAGES) as w:
+        browsers, kit = holding(w), w.kit("coach")
+        call = asyncio.ensure_future(use(kit))
+        try:
+            async with asyncio.timeout(30):
+                while not started:
+                    await asyncio.sleep(0.01)
+            stopping = asyncio.ensure_future(browsers.stop("coach"))
+            await asyncio.sleep(0.1)
+        finally:
+            go.set()
+        async with asyncio.timeout(30):
+            assert await stopping is True
+            with pytest.raises(ToolError) as refusal:
+                await call
+
+        assert str(refusal.value) == t.BROWSER_STOPPED
+        assert w.pool.running("coach") is None and len(started) == 1
+        # A stop is not a removal: the next call of the same turn starts the browser again.
+        assert await use(kit) == "t1" and len(started) == 2
 
 
 async def test_a_call_made_while_the_browser_of_a_removed_agent_is_still_closing_is_refused(
