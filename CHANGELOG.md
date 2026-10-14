@@ -11,6 +11,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Fixed
+
+- A browser call whose browser was stopped, or whose agent was removed or taken off the browser,
+  while that browser was starting for it was handed the browser as it closed: it tried to open a
+  tab until its 20 seconds were up and was then told the page did not answer, or now and then
+  opened one that closed under it. It is now told at once which of the two happened: an agent that
+  is gone is told to call no more browser tools, a stopped browser to call again if the page is
+  still needed.
+
 ## [0.18.0] — 2026-10-14
 
 ### Added

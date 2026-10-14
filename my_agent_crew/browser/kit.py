@@ -132,6 +132,9 @@ class Kit:
                         raise ToolError(LOGIN_OPEN) from exc
                     except Exception as exc:  # noqa: BLE001 - whatever kept it from starting
                         raise ToolError(t.BROWSER_DOWN.format(error=first_line(exc))) from exc
+                    if self.pool.running(self.agent_id) is not session:  # stopped as it came up
+                        gone = self.pool.left[self.agent_id] != self.born
+                        raise ToolError(t.BROWSER_GONE if gone else t.BROWSER_STOPPED)
                     async with self.pool.hold(session):
                         tabs = session.tabs
                         if make:
