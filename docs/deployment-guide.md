@@ -208,22 +208,38 @@ cần khởi động lại: agent còn `computer: "on"` vẫn giữ bốn tool, 
 
 ## 5. Chạy thường trực (launchd, macOS)
 
-Bộ cài thật dùng một script và một plist:
-
-```zsh
-# ~/.my-agent-crew/run-server.zsh
-set -a; source "$HOME/.my-agent-crew/env"; set +a
-cd "$HOME/workspace/my-agent-crew"
-exec uv run python -m my_agent_crew --host 127.0.0.1 --port 8765
-```
+Bộ cài thật là một plist gọi thẳng `uv`, không qua script shell:
 
 ```xml
 <!-- ~/Library/LaunchAgents/com.my-agent-crew.server.plist -->
-<key>ProgramArguments</key><array><string>/bin/zsh</string><string>…/run-server.zsh</string></array>
+<key>ProgramArguments</key><array>
+  <string>/opt/homebrew/bin/uv</string><string>run</string>
+  <string>--env-file</string><string>/Users/<user>/.my-agent-crew/env</string>
+  <string>python</string><string>-m</string><string>my_agent_crew</string>
+  <string>--host</string><string>127.0.0.1</string><string>--port</string><string>8765</string>
+</array>
+<key>WorkingDirectory</key><string>/Users/<user>/workspace/my-agent-crew</string>
+<key>EnvironmentVariables</key><dict>
+  <key>PATH</key><string>/opt/homebrew/bin:/Users/<user>/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
+  <key>MY_AGENT_HOME</key><string>/Users/<user>/.my-agent-crew</string>
+</dict>
 <key>KeepAlive</key><true/>
 <key>ExitTimeOut</key><integer>45</integer>
-<key>StandardOutPath</key><string>…/logs/server.log</string>
+<key>StandardOutPath</key><string>/Users/<user>/Library/Logs/my-agent-crew/server.log</string>
+<key>StandardErrorPath</key><string>/Users/<user>/Library/Logs/my-agent-crew/server.log</string>
 ```
+
+`uv run --env-file` nạp `env` thay cho `source` trong zsh. Đường dẫn tuyệt đối vì launchd không
+mở rộng `~` hay `$HOME`.
+
+**Home hoặc repo nằm trên ổ ngoài (`/Volumes/...`).** macOS (TCC) chặn job launchd chạy qua
+`/bin/zsh` hay `/bin/sh` đọc ổ ngoài: script báo "Operation not permitted" ngay lệnh đầu. Binary
+Homebrew như `/opt/homebrew/bin/uv` thì được phép, và mọi process nó sinh ra cũng vậy. Vì thế
+chương trình chính phải là `uv`, không phải một script zsh. Bản thân launchd cũng không mở được
+`StandardOutPath` trên ổ ngoài; khi đó job thoát `78: EX_CONFIG` mà không ghi log nào. Giữ log ở
+`~/Library/Logs/` trên ổ trong; `logs/server.log` trong home có thể là symlink tới đó.
+
+`run-server.zsh` của bản cài cũ vẫn chạy được khi mọi thứ nằm trên ổ trong, nhưng không còn cần.
 
 `ExitTimeOut` phải dài hơn thời gian bot chờ khi dừng (30 s cho lượt đang chạy + 5 s cho lời
 báo "tin bị ngắt"). Mặc định của launchd là 20 s, nên thiếu khoá này thì một lần `kickstart -k`
@@ -239,7 +255,7 @@ curl -s http://127.0.0.1:8765/api/health
 
 Dịch vụ là server duy nhất của home đó. Chạy tay một server thứ hai trên cùng home thì bị từ chối; ngược lại, dịch vụ gặp home đang do một server chạy tay giữ thì thoát mã 1 và được launchd dựng lại cho tới khi server kia dừng.
 
-Linux: systemd user unit với `ExecStart=/bin/zsh …/run-server.zsh`, `Restart=always`.
+Linux: systemd user unit với `ExecStart=uv run --env-file …/env python -m my_agent_crew --host 127.0.0.1 --port 8765`, `WorkingDirectory=` trỏ tới repo, `Restart=always`.
 
 ## 6. Nâng cấp
 
