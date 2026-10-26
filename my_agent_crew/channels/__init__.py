@@ -15,6 +15,7 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.channels.telegram_api import TelegramApi
 from my_agent_crew.channels.telegram_channel import TelegramChannel
+from my_agent_crew.hosting import telegram_webhook
 
 __all__ = ["OFFSET_FILE", "TelegramApi", "TelegramChannel", "build_channel"]
 
@@ -53,5 +54,7 @@ def build_channel(
         channel = TelegramChannel(
             agents, agent_id, hub, api, config.chat_id, offset_path, clock=deps.settings.now
         )
-        logger.info("telegram channel enabled for %s", agent_id)
+        channel.webhook = telegram_webhook(env)
+        mode = "webhook" if channel.webhook else "polling"
+        logger.info("telegram channel enabled for %s (%s)", agent_id, mode)
     return channel

@@ -4739,6 +4739,17 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_child_whose_error_names_files_hands_the_parent_no_attachment_to_send` (con thật có
     provider lỗi, `dropped_attachments` của cha trả về rỗng)
 
+## Host giữ đồng hồ và hộp thư của bot
+
+Cho server chạy trong container ngủ khi rảnh: `MY_AGENT_SCHEDULER=external` để host quyết định giờ chạy job,
+`MY_AGENT_TELEGRAM=webhook` để host nhận webhook của bot rồi chuyển update vào.
+
+  - pytest: `tests/test_hosted_modes.py` (mặc định là đồng hồ và polling của server, giá trị lạ thì lỗi nêu
+    tên biến; đồng hồ ngoài không khởi động scheduler, job tới hạn không chạy, approval vẫn được xét hết hạn;
+    đồng hồ thường là scheduler của server; bot webhook chỉ đăng ký menu, không `getUpdates`, nhận một update
+    một lần; route trả 409 khi bot polling, 422 khi thiếu `update_id`, 503 khi không có kênh hay kênh chưa
+    chạy, 200 kèm số update mới).
+
 ## Trang không tự cuộn
 
 Ứng dụng cao đúng một cửa sổ, mỗi cột tự cuộn. Lỗi thật thấy trên live ngày 2026-10-05 (v0.11.0, canvas

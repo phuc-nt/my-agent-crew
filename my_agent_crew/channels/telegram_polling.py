@@ -10,6 +10,10 @@ A turn that outlives the wait is cut off, and the chat is told so the person can
 again: its offset is already written, so no later poll would bring it back. Turns run in
 the background (`telegram_turns`), so the wait covers every turn the channel started, and one
 a message in hand starts while the stop waits.
+
+A bot on a webhook (`hosting.telegram_webhook`) polls nothing: its host hands updates over
+(`receive`), and its loop only publishes the menu. The offset still guards it, since a
+webhook may bring the same update twice.
 """
 
 from __future__ import annotations
@@ -47,6 +51,7 @@ class TelegramPolling(TelegramTurns):
     _menu_registered: bool = False
     _task: asyncio.Task[None] | None = None
     _stopping: bool = False
+    webhook: bool = False
 
     @property
     def deps(self) -> AgentDeps:
@@ -55,7 +60,8 @@ class TelegramPolling(TelegramTurns):
     def start(self) -> None:
         if self._task is None:
             self._stopping = False
-            self._task = asyncio.create_task(self._loop())
+            loop = self._menu_loop() if self.webhook else self._loop()
+            self._task = asyncio.create_task(loop)
 
     async def stop(self) -> None:
         task, self._task = self._task, None
@@ -104,6 +110,16 @@ class TelegramPolling(TelegramTurns):
                 logger.exception("telegram %s: update failed", self.agent_id)
             await asyncio.sleep(RETRY_SECONDS)
 
+    async def _menu_loop(self) -> None:
+        while not self._stopping:
+            try:
+                await self.register_menu()
+                return
+            except Exception as exc:
+                reason = exc if isinstance(exc, TelegramError) else type(exc).__name__
+                logger.warning("telegram %s: menu not registered: %s", self.agent_id, reason)
+            await asyncio.sleep(RETRY_SECONDS)
+
     async def register_menu(self) -> None:
         """Publishes the slash-command menu once per process; retried with the poll loop."""
         if not self._menu_registered:
@@ -116,6 +132,17 @@ class TelegramPolling(TelegramTurns):
         the offset moves before handling so a message that crashes the handler is not
         replayed forever."""
         updates = await complete_album(self._api, await self._api.get_updates(self._offset))
+        await self._handle_all(updates)
+        return len(updates)
+
+    async def receive(self, updates: list[dict[str, Any]]) -> int:
+        """Handles updates a webhook handed over, an album's photos as one message when they
+        come together; one already handled is dropped. Returns how many were new."""
+        fresh = [u for u in updates if int(u["update_id"]) >= self._offset]
+        await self._handle_all(sorted(fresh, key=lambda u: int(u["update_id"])))
+        return len(fresh)
+
+    async def _handle_all(self, updates: list[dict[str, Any]]) -> None:
         self._handling = True
         try:
             for group in group_updates(updates):
@@ -126,7 +153,6 @@ class TelegramPolling(TelegramTurns):
                 await handle_updates(self, group)  # type: ignore[arg-type]
         finally:
             self._handling = False
-        return len(updates)
 
     async def handle(self, update: dict[str, Any]) -> None:
         await handle_updates(self, [update])  # type: ignore[arg-type]

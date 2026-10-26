@@ -63,6 +63,8 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 | `FIRECRAWL_BASE_URL` | host firecrawl, ví dụ `http://127.0.0.1:3002`; bật tìm kiếm + scrape markdown |
 | `FIRECRAWL_API_KEY` | chỉ cần cho firecrawl cloud; host tự dựng để trống |
 | tên do `telegram.token_env` trong `agent.yaml` chỉ định | token bot |
+| `MY_AGENT_SCHEDULER` | `internal` (mặc định) hoặc `external`. `external` dành cho host chạy server ở nơi có thể bị dừng giữa hai request (container ngủ khi rảnh): không job nào tự chạy theo đồng hồ của server, host giữ đồng hồ và gọi `POST /api/jobs/{id}/run` khi job tới giờ. Approval quá hạn vẫn hết hạn đúng giờ. Giá trị khác thì server dừng lúc khởi động |
+| `MY_AGENT_TELEGRAM` | `polling` (mặc định) hoặc `webhook`. `webhook`: bot không gọi `getUpdates`; host nhận webhook của bot và chuyển update vào `POST /api/channels/telegram/updates` (`{"updates": [...]}`), update đã xử lý (dưới offset) bị bỏ qua. Menu lệnh vẫn được đăng ký một lần. Route trả 409 khi bot đang polling, 503 khi không có kênh |
 
 Server tự nạp `<home>/env` lúc khởi động; biến đã có sẵn trong môi trường tiến trình thắng giá trị trong tệp.
 

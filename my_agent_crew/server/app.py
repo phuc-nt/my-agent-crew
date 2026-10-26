@@ -46,10 +46,12 @@ from my_agent_crew.server import (
     routes_script_store,
     routes_search,
     routes_settings,
+    routes_telegram_updates,
     routes_turn,
 )
 from my_agent_crew.server.agent_assembly import build_providers
 from my_agent_crew.server.browser_runtime import reap_loop
+from my_agent_crew.server.external_clock import start_clock
 from my_agent_crew.server.housekeeping import sweep_loop
 from my_agent_crew.server.local_guard import allowed_hosts, install_local_guard
 from my_agent_crew.server.mcp_lifecycle import connect_at_start, retry_loop
@@ -98,6 +100,7 @@ ROUTERS = (
     routes_canvas_focus.router,
     routes_artifact_import.router,
     routes_mcp.router,
+    routes_telegram_updates.router,
 )
 
 
@@ -123,11 +126,12 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         sweeper: asyncio.Task[None] | None = None
         servers: asyncio.Task[None] | None = None
+        clock: asyncio.Task[None] | None = None
         # Whether or not anything is scheduled: a call may start a browser all the same.
         pool = runtime.browsers.pool
         reaper = asyncio.create_task(reap_loop(pool)) if pool is not None else None
         if schedule:
-            runtime.scheduler.start()
+            clock = start_clock(runtime, os.environ)
             runtime.start_channel()
             # Before a cut turn is taken up again: it may be about to call one of their tools.
             await connect_at_start(runtime)
@@ -142,6 +146,8 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
         finally:
             if servers is not None:
                 servers.cancel()
+            if clock is not None:
+                clock.cancel()
             if sweeper is not None:
                 sweeper.cancel()
                 # A turn this stop cuts is left for the server that starts next.
