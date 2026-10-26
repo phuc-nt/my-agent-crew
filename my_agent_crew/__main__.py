@@ -15,13 +15,20 @@ from my_agent_crew.config import home_from, load_settings
 from my_agent_crew.env_file import load_env_file
 from my_agent_crew.home_lock import HomeHeld, hold
 from my_agent_crew.server import build_runtime, create_app
-from my_agent_crew.tools.shell_sandbox import close_port
+from my_agent_crew.tools.own_process import close_own_process
+from my_agent_crew.tools.shell_sandbox import close_port, close_socket
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="my-agent-crew")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument(
+        "--uds",
+        default="",
+        help="listen on this Unix socket instead of --host and --port; its folder is closed to"
+        " sandboxed commands, which may then keep the network on under bwrap too",
+    )
     parser.add_argument(
         "--no-schedule",
         action="store_true",
@@ -94,13 +101,20 @@ def _serve(args: argparse.Namespace) -> int:
         )
         return 1
     # Before the crew is built: a sandboxed shell is given its profile as it is made.
-    close_port(args.port)
+    if args.uds:
+        socket = Path(args.uds)
+        socket.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        close_socket(socket)
+    else:
+        close_port(args.port)
+    close_own_process()
     runtime = build_runtime(settings)
     app = create_app(runtime, schedule=not args.no_schedule)
     routes = ", ".join(f"{r.provider}:{r.model}" for r in settings.routes)
     agents = ", ".join(runtime.agents)
     print(f"my-agent-crew · home={settings.home} · routes={routes} · agents={agents}")
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    where = {"uds": args.uds} if args.uds else {"host": args.host, "port": args.port}
+    uvicorn.run(app, **where, log_level="info")
     return 0
 
 

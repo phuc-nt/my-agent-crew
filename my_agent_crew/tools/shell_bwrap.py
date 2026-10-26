@@ -13,8 +13,11 @@ the folders above a private one.
 What it cannot say is the network on with one port closed: a namespace has the network or
 has none. The server's API asks for no login (`server_rules`), so a command with the network
 that reaches it has something unsandboxed act for it; such a command is refused here, not run
-looser. Nor can it deny forking, which the script child's macOS profile does (`SEALED`): under
-bwrap the child may fork, and its children are as offline and as read-only as it is.
+looser. A server on a Unix socket (`--uds`) names no port: the socket's folder is covered like
+a private one, offline or not, and a command with the network runs.
+
+Nor can it deny forking, which the script child's macOS profile does (`SEALED`): under bwrap
+the child may fork, and its children are as offline and as read-only as it is.
 
 Two more differences. A write path not yet on disk is not mounted, so it stays read-only until
 something outside the sandbox makes it. A private folder not yet on disk is not covered: a
@@ -27,7 +30,7 @@ import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
-from my_agent_crew.tools.shell_sandbox import served_ports, temp_dirs
+from my_agent_crew.tools.shell_sandbox import served_folders, served_ports, temp_dirs
 
 # Read-only root, a /dev of its own, gone when its parent is, and a session of its own so it
 # cannot type into the terminal it was started from. The process table stays the host's, as
@@ -73,7 +76,7 @@ def bwrap_args(
     for path in (*write_paths, *temp_dirs()):
         args += ["--bind-try", str(path), str(path)]
     # After the writable mounts, so a private folder inside one is covered again.
-    args += _covered((*helper_dirs(), *private))
+    args += _covered((*helper_dirs(), *private, *served_folders()))
     if cwd is not None:
         args += ["--chdir", str(cwd)]
     return args
@@ -81,4 +84,5 @@ def bwrap_args(
 
 def sealed_args() -> list[str]:
     """The script child's: offline, and no write anywhere, the temp directories included."""
-    return [*BASE, "--unshare-net", *_covered(helper_dirs())]
+    # Offline is no network namespace's answer to a socket on disk: its folder is covered too.
+    return [*BASE, "--unshare-net", *_covered((*helper_dirs(), *served_folders()))]

@@ -1134,6 +1134,12 @@ sandbox cũng không tới được cổng cùng số trên máy khác; phần c
 không che ba thứ: shell không sandbox (rào của nó là cổng duyệt), job lịch dạng `command`, và
 một dịch vụ khác trên máy chịu chuyển tiếp request tới server.
 
+Server chạy với `--uds <đường dẫn>` thì nghe trên Unix socket thay cho `--host`/`--port`, và
+không nêu cổng nào: thư mục chứa socket (tạo với quyền 0700 nếu chưa có) bị đóng với mọi lệnh
+trong sandbox như một thư mục riêng tư, tắt mạng hay còn mạng. Lệnh còn mạng vẫn tới được mọi
+cổng, kể cả trên Linux (xem dưới). Dùng khi một tiến trình khác trên cùng máy (proxy của
+container) là đường duy nhất vào server.
+
 Đọc tệp và chạy chương trình cục bộ vẫn hoạt động, nên script của chính agent vẫn chạy. Hệ điều hành
 thực thi toàn bộ điều này, nên `$(…)` hay script model vừa viết cũng không đi xa hơn
 một lệnh `curl` thường. Nó dành cho agent mà dữ liệu không được rời khỏi máy, chẳng hạn agent
@@ -1164,7 +1170,15 @@ Khác với macOS ở mấy chỗ:
 
 - **Còn mạng mà phải đóng một cổng thì bwrap không nói được**: namespace có mạng hoặc không. Nên
   agent có `shell_write_paths` mà giữ mạng bị từ chối `shell_run` trên Linux khi server đã nêu
-  cổng của nó, thay vì chạy lỏng hơn.
+  cổng của nó, thay vì chạy lỏng hơn. Server nghe trên Unix socket (`--uds`) thì không nêu cổng:
+  thư mục socket bị phủ như thư mục riêng tư (cả với script con, vì tắt mạng không chặn socket
+  trên đĩa), và lệnh còn mạng chạy được.
+- Lệnh chạy cùng user với server, và trên Linux cùng user thì đọc được `/proc/<pid>/environ` (khoá
+  của server) và bộ nhớ của nhau. User namespace của bwrap đã chặn việc này trên các kernel đã
+  thử, nhưng server không dựa vào đó: nó tự đặt mình **không dump được** lúc khởi động
+  (`prctl(PR_SET_DUMPABLE, 0)`, `my_agent_crew/tools/own_process.py`), nên tệp `/proc` của nó
+  thuộc root và tiến trình không có quyền trace thì không đọc được, có sandbox hay không. Lệnh server chạy thì dump được lại
+  khi nó chạy chương trình của nó, nên không đổi gì với lệnh.
 - Script con của `tool_script` chạy offline và không ghi được ở đâu, nhưng **không cấm fork**
   được như profile `SEALED` trên macOS; tiến trình nó sinh ra cũng offline và chỉ đọc như nó.
 - Đường dẫn ghi chưa có trên đĩa thì không được mount, nên vẫn chỉ đọc tới khi có thứ ngoài

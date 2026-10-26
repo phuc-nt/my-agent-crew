@@ -48,6 +48,8 @@ DENIED_SERVICES = ("com.apple.coreservices.launchservicesd", "com.apple.pasteboa
 DEVICE_RULES = '(literal "/dev/null") (regex #"^/dev/fd/") (regex #"^/dev/tty")'
 # The ports this very server listens on, named once as it starts (`__main__`).
 _served: set[int] = set()
+# The folders of the Unix sockets it listens on instead, named the same way.
+_served_dirs: set[Path] = set()
 
 
 def temp_dirs() -> tuple[Path, ...]:
@@ -82,6 +84,19 @@ def close_port(port: int) -> None:
 def served_ports() -> frozenset[int]:
     """The ports `close_port` has named so far."""
     return frozenset(_served)
+
+
+def close_socket(path: Path) -> None:
+    """Close the folder of `path`, the server's own Unix socket, to every sandboxed command
+    for as long as the process lives, as `close_port` does a port. A socket is reached by
+    its path, so a folder can be closed where one port cannot: a command keeps the network
+    on and still does not reach the server."""
+    _served_dirs.add(Path(os.path.realpath(path.parent)))
+
+
+def served_folders() -> tuple[Path, ...]:
+    """The folders `close_socket` has named so far."""
+    return tuple(sorted(_served_dirs))
 
 
 def server_rules() -> str:
@@ -123,6 +138,6 @@ def sandbox_profile(
         # private folders are closed again even where they lie inside a writable one.
         f"(deny file-write*)(allow file-write* {writable} {DEVICE_RULES})"
         + helper_rules()
-        + private_rules(private)
+        + private_rules((*private, *served_folders()))
         + server_rules()
     )

@@ -8,6 +8,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from my_agent_crew import __main__ as entry
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import default_profile
@@ -43,6 +44,14 @@ def no_port_closed(monkeypatch):
     """A server closes its own port to sandboxed commands for as long as its process
     lives; a test starts with none closed."""
     monkeypatch.setattr(shell_sandbox, "_served", set())
+    monkeypatch.setattr(shell_sandbox, "_served_dirs", set())
+
+
+@pytest.fixture(autouse=True)
+def own_process_left_open(monkeypatch):
+    """A server makes its process undumpable as it starts; one started in a test leaves
+    the test run's own as it is."""
+    monkeypatch.setattr(entry, "close_own_process", lambda: False)
 
 
 @pytest.fixture(autouse=True)

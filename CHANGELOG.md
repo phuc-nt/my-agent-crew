@@ -11,6 +11,17 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- `--uds PATH` serves on a Unix socket instead of `--host` and `--port`. The socket's folder is
+  closed to every sandboxed command (and to the `tool_script` child) like a private folder, and
+  no port is named, so under `bwrap` a confined command may keep the network on.
+
+### Security
+
+- On Linux the server makes its own process undumpable as it starts, so a command it runs as
+  the same user cannot read its environment or memory through `/proc`.
+
 ## [0.22.0] — 2026-10-26
 
 ### Added

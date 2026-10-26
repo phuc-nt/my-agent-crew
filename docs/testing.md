@@ -4756,6 +4756,13 @@ dưới `bwrap` với cùng chính sách; không giữ được chính sách th�
   - pytest: `tests/test_script_runner.py` (dưới bwrap, tiến trình bị dừng vì CPU được báo là
     128 + SIGXCPU và vẫn đọc ra hết CPU; giết tiến trình đã khởi động thì script trong nó cũng
     hết; `PWD` do bwrap đặt không tính là biến của server).
+  - pytest: `tests/test_shell_server_socket.py` (`--uds`: thư mục socket bị đóng trong profile
+    macOS, không đóng cổng nào và không tắt mạng; dưới bwrap thư mục bị phủ khi còn mạng, khi tắt
+    mạng và với script con, còn mạng thì không tách namespace; với sandbox thật, lệnh còn mạng
+    tới được socket trước khi server nêu nó và không tới được sau đó, mạng còn lại vẫn dùng được;
+    server với `--uds` nêu thư mục trước khi dựng đội, tạo nó với quyền 0700, tự đặt không dump
+    được và chạy uvicorn với `uds`; `close_own_process` chỉ gọi `prctl(PR_SET_DUMPABLE, 0)` trên
+    Linux, và trên Linux thật tiến trình thôi dump được sau đó).
 
 ## Host giữ đồng hồ và hộp thư của bot
 
