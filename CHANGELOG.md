@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-10-26
+
 ### Added
 
 - On Linux, where macOS `sandbox-exec` is missing, a confined `shell_run` command and the

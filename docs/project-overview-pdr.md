@@ -5,7 +5,7 @@ title: Tổng quan sản phẩm và yêu cầu
 
 # Tổng quan sản phẩm và yêu cầu (PDR)
 
-**Phiên bản**: 0.21.0 · **Cập nhật**: 2026-10-26
+**Phiên bản**: 0.22.0 · **Cập nhật**: 2026-10-26
 
 ## 1. Vấn đề
 
