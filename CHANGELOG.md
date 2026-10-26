@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-10-26
+
 ### Added
 
 - `--uds PATH` serves on a Unix socket instead of `--host` and `--port`. The socket's folder is
