@@ -11,6 +11,18 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.21.0] — 2026-10-26
+
+### Added
+
+- `MY_AGENT_SCHEDULER=external` leaves the clock to a host that may stop the server between
+  requests: no job fires on its own, the host runs a due one through `POST /api/jobs/{id}/run`,
+  and approvals left waiting still lapse on time.
+- `MY_AGENT_TELEGRAM=webhook` stops the master's bot polling: the host holds the bot's webhook and
+  hands updates over through `POST /api/channels/telegram/updates`. An update already handled is
+  dropped, so a webhook that delivers one twice is answered once. The command menu is still
+  published.
+
 ## [0.20.0] — 2026-10-14
 
 ### Added
