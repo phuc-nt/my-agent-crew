@@ -167,7 +167,10 @@ SHELL_NO_CWD = "Thư mục làm việc không tồn tại: {path}"
 SHELL_TIMEOUT = "Lệnh vượt quá {seconds} giây và đã bị dừng."
 SHELL_FAILED = "Lệnh thoát với mã {code}.\n{output}"
 SHELL_NO_OUTPUT = "(lệnh chạy xong, không có đầu ra)"
-SHELL_NO_SANDBOX = "Không chạy: agent này chỉ chạy lệnh trong sandbox mà máy không có sandbox-exec."
+SHELL_NO_SANDBOX = (
+    "Không chạy: agent này chỉ chạy lệnh trong sandbox mà máy không có sandbox nào giữ được"
+    " chính sách của nó (sandbox-exec trên macOS; trên Linux là bwrap, và chỉ khi lệnh tắt mạng)."
+)
 
 JOB_CONVERSATION_TITLE = "[lịch] {name} · {stamp}"
 JOB_UNKNOWN = "Không có lịch tên {job_id}."

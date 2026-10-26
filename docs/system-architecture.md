@@ -108,7 +108,7 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 |---|---|---|
 | Workspace | `workspace_list`, `workspace_read`, `workspace_glob`, `workspace_grep` | không |
 | Workspace | `workspace_write`, `workspace_edit` | có |
-| Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns` và `shell_deny_patterns`; `shell_network: false` hoặc `shell_write_paths` thì chạy trong `sandbox-exec`, chỉ ghi dưới các đường dẫn đó, không mạng nếu `shell_network: false`) | có |
+| Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns` và `shell_deny_patterns`; `shell_network: false` hoặc `shell_write_paths` thì chạy trong `sandbox-exec` (Linux: `bwrap`), chỉ ghi dưới các đường dẫn đó, không mạng nếu `shell_network: false`) | có |
 | Lịch | `schedule_create` (đề xuất một job prompt lặp lại) | **luôn luôn**, không cấu hình nào tắt được |
 | Web | `fetch_url`, `web_search` | không |
 | Trình duyệt | `browser_snapshot`, `browser_text`, `browser_tabs`, `browser_screenshot`, `browser_pdf` (chỉ agent có khoá `browser`) | không |

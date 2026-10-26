@@ -11,6 +11,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- On Linux, where macOS `sandbox-exec` is missing, a confined `shell_run` command and the
+  `tool_script` child run under `bwrap` (bubblewrap) with the same policy: read-only root,
+  writes only under `shell_write_paths` and the temp directories, no network, private folders
+  covered. A confined command that keeps the network while the server has named its port is
+  refused, since bwrap cannot close one port; with neither sandbox, confined commands are
+  refused as before.
+
 ## [0.21.0] — 2026-10-26
 
 ### Added

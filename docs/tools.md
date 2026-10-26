@@ -1139,14 +1139,38 @@ thực thi toàn bộ điều này, nên `$(…)` hay script model vừa viết 
 một lệnh `curl` thường. Nó dành cho agent mà dữ liệu không được rời khỏi máy, chẳng hạn agent
 giữ tài chính cá nhân. Nó không bao phủ những gì agent tự nói ra: câu trả lời của nó đi tới
 provider model và tới bất kỳ ai nó trả lời, nên agent giao việc có mạng vẫn
-thấy chúng. Nơi `/usr/bin/sandbox-exec` không tồn tại (mọi thứ ngoài macOS) lệnh
-bị từ chối thay vì chạy không sandbox. Job lịch dạng `command` gọi shell
+thấy chúng. Nơi `/usr/bin/sandbox-exec` không tồn tại, harness dùng `bwrap` (bubblewrap) nếu
+máy có, xem [Sandbox trên Linux](#sandbox-trên-linux); không có cả hai thì lệnh bị từ chối thay
+vì chạy không sandbox. Job lịch dạng `command` gọi shell
 trực tiếp và giữ mạng: những dòng đó do người viết, và lấy giá cần mạng. Đó
 là lý do quy tắc ghi quan trọng. `sandbox-exec` được đánh dấu deprecated trong man page nhưng
 vẫn đi kèm macOS; các test chứng minh việc chặn chạy ở bất cứ đâu nó tồn tại.
 Chương trình giữ cache trong thư mục nhà (matplotlib ở `~/.matplotlib`) không ghi được cache
 đó trong sandbox và dựng lại mỗi lần chạy (matplotlib mất ~9 giây); trỏ biến cache của nó vào
 thư mục tạm trong lệnh, ví dụ `MPLCONFIGDIR=/tmp/<agent>-mpl`.
+
+### Sandbox trên Linux
+
+Trên Linux không có `sandbox-exec`; harness giữ cùng chính sách bằng `bwrap`
+(`my_agent_crew/tools/shell_bwrap.py`), cần user namespace mà host phải cho (Docker mặc định
+không cho; Cloudflare Containers cho). Cả hệ thống tệp được mount chỉ đọc, chỉ
+`shell_write_paths` và thư mục tạm được mount ghi được đè lên. Tắt mạng thì lệnh có network
+namespace riêng, trong đó chỉ có một loopback không ai lắng nghe, nên cổng của server cũng đóng.
+Thư mục riêng tư bị phủ bằng một thư mục rỗng, cùng `/run/dbus` và `/run/user/<uid>` (nơi
+D-Bus và systemd của người dùng nhận lời nhờ chạy hộ). Mount point không dời hay xoá được từ
+bên trong.
+
+Khác với macOS ở mấy chỗ:
+
+- **Còn mạng mà phải đóng một cổng thì bwrap không nói được**: namespace có mạng hoặc không. Nên
+  agent có `shell_write_paths` mà giữ mạng bị từ chối `shell_run` trên Linux khi server đã nêu
+  cổng của nó, thay vì chạy lỏng hơn.
+- Script con của `tool_script` chạy offline và không ghi được ở đâu, nhưng **không cấm fork**
+  được như profile `SEALED` trên macOS; tiến trình nó sinh ra cũng offline và chỉ đọc như nó.
+- Đường dẫn ghi chưa có trên đĩa thì không được mount, nên vẫn chỉ đọc tới khi có thứ ngoài
+  sandbox tạo ra nó. Thư mục riêng tư chưa có thì không bị phủ.
+- Bảng tiến trình vẫn là của host như dưới `sandbox-exec`: container che một phần `/proc` (Docker
+  làm vậy) thì không cho mount `/proc` mới cho một PID namespace riêng.
 
 `shell_allow_patterns` là hình ảnh phản chiếu, và mặc định rỗng. Nó nêu các
 dạng lệnh đủ thường ngày để chạy không hỏi *ngay cả khi cuộc trò chuyện không

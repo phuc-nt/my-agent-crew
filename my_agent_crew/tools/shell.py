@@ -11,10 +11,11 @@ report back instead: an agent kept to a job has nobody to approve the step outsi
 
 An agent whose profile sets `shell_network: false` or `shell_write_paths` runs every
 command under macOS `sandbox-exec`, writing only where its profile says, and offline too
-for the former, see `shell_sandbox.py`. Such a command is also kept out of the folders the
-server keeps private (`private_paths.py`). That is a real boundary, unlike the patterns: it
-holds for `$(…)` and for a script the model wrote a moment ago. Where `sandbox-exec` is
-missing the command is refused rather than run unconfined. Scheduled `command` jobs call
+for the former, see `shell_sandbox.py`; on Linux under `bwrap`, see `shell_bwrap.py`. Such a
+command is also kept out of the folders the server keeps private (`private_paths.py`). That
+is a real boundary, unlike the patterns: it holds for `$(…)` and for a script the model wrote
+a moment ago. Where neither sandbox can hold the policy the command is refused rather than
+run unconfined. Scheduled `command` jobs call
 `run_shell` directly, unsandboxed and with the network; a person wrote those, and some
 need it — which is why the sandbox keeps an agent from editing what they run."""
 
@@ -28,6 +29,7 @@ from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.tools.registry import Tool, ToolError
+from my_agent_crew.tools.shell_bwrap import bwrap_args, bwrap_path
 from my_agent_crew.tools.shell_sandbox import SANDBOX_EXEC, sandbox_profile
 
 SHELL_TOOL_NAME = "shell_run"
@@ -44,15 +46,13 @@ def shell_env() -> dict[str, str]:
 
 
 async def run_shell(
-    command: str, cwd: Path, timeout_s: float, *, sandbox: str | None = None
+    command: str, cwd: Path, timeout_s: float, *, confine: Sequence[str] = ()
 ) -> tuple[int | None, str]:
     """(exit code, combined output). A timeout kills the process and returns None.
 
-    `sandbox` is a profile the command runs inside; the caller checks that
-    `SANDBOX_EXEC` exists first, because a missing one must refuse, not fall open."""
-    argv = ["/bin/sh", "-c", command]
-    if sandbox is not None:
-        argv = [str(SANDBOX_EXEC), "-p", sandbox, *argv]
+    `confine` is the sandbox the command runs inside, the program and its arguments
+    (`confinement`); the caller refuses when there is none, rather than fall open."""
+    argv = [*confine, "/bin/sh", "-c", command]
     proc = await asyncio.create_subprocess_exec(
         *argv,
         cwd=str(cwd),
@@ -85,9 +85,24 @@ def deny_reason(arguments: dict[str, Any], patterns: Sequence[str]) -> str | Non
     return ask_reason(str(arguments.get("command", "")), patterns)
 
 
+def confinement(
+    profile: str, write_paths: Sequence[Path], *, network: bool, private: Sequence[Path], cwd: Path
+) -> list[str] | None:
+    """The sandbox to run a confined command in: `sandbox-exec` with `profile` on macOS, else
+    `bwrap` where it is and can hold the policy, else None."""
+    if SANDBOX_EXEC.is_file():
+        return [str(SANDBOX_EXEC), "-p", profile]
+    if (bwrap := bwrap_path()) is None:
+        return None
+    args = bwrap_args(write_paths, network=network, private=private, cwd=cwd)
+    return None if args is None else [str(bwrap), *args]
+
+
 def _sandbox_denied(output: str) -> bool:
-    """What the sandbox refused surfaces as EPERM, whichever program tried it."""
-    return "operation not permitted" in output.lower()
+    """What the sandbox refused surfaces as EPERM, whichever program tried it; under bwrap a
+    write outside the mounted paths meets a read-only file system."""
+    lowered = output.lower()
+    return "operation not permitted" in lowered or "read-only file system" in lowered
 
 
 def build_shell_tool(
@@ -117,9 +132,13 @@ def build_shell_tool(
         timeout_s = min(float(args.get("timeout_s") or DEFAULT_TIMEOUT_S), MAX_TIMEOUT_S)
         if not cwd.is_dir():
             raise ToolError(texts.SHELL_NO_CWD.format(path=cwd))
-        if sandbox is not None and not SANDBOX_EXEC.is_file():
-            raise ToolError(texts.SHELL_NO_SANDBOX)
-        code, output = await run_shell(command, cwd, timeout_s, sandbox=sandbox)
+        confine: list[str] = []
+        if sandbox is not None:
+            found = confinement(sandbox, resolved, network=network, private=closed, cwd=cwd)
+            if found is None:
+                raise ToolError(texts.SHELL_NO_SANDBOX)
+            confine = found
+        code, output = await run_shell(command, cwd, timeout_s, confine=confine)
         if code is None:
             raise ToolError(texts.SHELL_TIMEOUT.format(seconds=int(timeout_s)))
         if code != 0:

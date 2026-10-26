@@ -4739,6 +4739,24 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_child_whose_error_names_files_hands_the_parent_no_attachment_to_send` (con thật có
     provider lỗi, `dropped_attachments` của cha trả về rỗng)
 
+## Sandbox trên Linux bằng bwrap
+
+Khi không có `sandbox-exec`, lệnh `shell_run` bị giới hạn và script con của `tool_script` chạy
+dưới `bwrap` với cùng chính sách; không giữ được chính sách thì từ chối.
+
+  - pytest: `tests/test_shell_bwrap.py` (tắt mạng thì root chỉ đọc, chỉ mount ghi đường dẫn ghi
+    và thư mục tạm, `--chdir` về workspace; thư mục riêng tư có trên đĩa bị phủ sau các mount ghi,
+    chưa có thì không; còn mạng thì không tách namespace, trừ khi server đã nêu cổng thì `None`;
+    script con offline và không mount ghi gì; có `sandbox-exec` thì dùng nó trước; không có
+    `sandbox-exec` thì lệnh chạy qua `bwrap` với đối số ấy (bwrap giả ghi lại đối số); còn mạng
+    với cổng đã nêu bị từ chối và không chạy gì; không có sandbox nào thì từ chối; `command()` của
+    runner dùng bwrap khi có. Với bwrap thật (Linux có user namespace): lệnh tắt mạng không tới
+    được server trên loopback, chỉ ghi được dưới đường dẫn ghi và lần ghi bị chặn kèm lời dặn, thư
+    mục riêng tư trông rỗng mà tệp thật còn nguyên).
+  - pytest: `tests/test_script_runner.py` (dưới bwrap, tiến trình bị dừng vì CPU được báo là
+    128 + SIGXCPU và vẫn đọc ra hết CPU; giết tiến trình đã khởi động thì script trong nó cũng
+    hết; `PWD` do bwrap đặt không tính là biến của server).
+
 ## Host giữ đồng hồ và hộp thư của bot
 
 Cho server chạy trong container ngủ khi rảnh: `MY_AGENT_SCHEDULER=external` để host quyết định giờ chạy job,

@@ -2,8 +2,9 @@
 
 The script is the model's, so it runs where a mistake in the interpreter would still have
 nothing to reach: a child process with an empty environment and no site packages, and on
-macOS inside a sandbox with the network, every file write and forking denied. (Linux has
-no such sandbox; there the interpreter is the wall.) The child keeps its own CPU limit and
+macOS inside a sandbox with the network, every file write and forking denied. On Linux
+`bwrap` holds it offline and read-only, where it is (`shell_bwrap.py`); it cannot deny the
+fork. Where neither is, the interpreter is the wall. The child keeps its own CPU limit and
 counts its own memory; the clock is kept here.
 
 One JSON line each way. The child asks for a tool call, the caller's `call` carries it out
@@ -28,6 +29,7 @@ from typing import Any
 
 from my_agent_crew import texts_script as t
 from my_agent_crew.script.replies import CallMany, CallTool, Lookup, no_batches, no_lookups, reply
+from my_agent_crew.tools.shell_bwrap import bwrap_path, sealed_args
 from my_agent_crew.tools.shell_sandbox import SANDBOX_EXEC, helper_rules
 
 logger = logging.getLogger(__name__)
@@ -67,9 +69,11 @@ def command() -> list[str]:
     """`-I -S`: no environment variables read, no user or site packages. `-B`: nothing
     written beside the source."""
     python = [sys.executable, "-I", "-S", "-B", "-c", BOOT, ROOT]
-    if not SANDBOX_EXEC.is_file():
-        return python
-    return [str(SANDBOX_EXEC), "-p", SEALED, *python]
+    if SANDBOX_EXEC.is_file():
+        return [str(SANDBOX_EXEC), "-p", SEALED, *python]
+    if (bwrap := bwrap_path()) is not None:
+        return [str(bwrap), *sealed_args(), *python]
+    return python
 
 
 async def _send(proc: Process, message: dict[str, Any]) -> None:
@@ -121,7 +125,8 @@ async def _converse(
 
 async def _died(proc: Process, tail: asyncio.Task[None], errors: bytearray) -> Outcome:
     await asyncio.wait({tail, asyncio.ensure_future(proc.wait())}, timeout=EXIT_S)
-    if proc.returncode == -signal.SIGXCPU:
+    # bwrap, which stays the script's parent, tells a signal its child died of as 128 + it.
+    if proc.returncode in (-signal.SIGXCPU, 128 + signal.SIGXCPU):
         return Outcome(False, "", t.SCRIPT_OUT_OF_CPU)
     said = errors.decode("utf-8", "replace")
     logger.warning("a script's process ended on its own (exit %s): %s", proc.returncode, said)

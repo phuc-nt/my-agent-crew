@@ -162,6 +162,7 @@ async def test_without_sandbox_exec_an_offline_command_is_refused_not_run(
 ):
     """Falling back to an unconfined run would be the one failure nobody notices."""
     monkeypatch.setattr(shell, "SANDBOX_EXEC", tmp_path / "no-sandbox-exec")
+    monkeypatch.setattr(shell, "bwrap_path", lambda: None)
     result = await run(tmp_path, "touch ran.txt", network=False)
     assert result.ok is False and texts.SHELL_NO_SANDBOX in result.output
     assert not (tmp_path / "ran.txt").exists()

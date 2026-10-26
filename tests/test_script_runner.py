@@ -28,7 +28,8 @@ from tests.test_shell_network_sandbox import needs_sandbox
 # One long operation after another: the step count sees little of it, the clocks all of it.
 SPINS = "big = list(range(2000000))\nwhile True:\n    big.count(-1)"
 # What Python and macOS put in every process themselves, whoever started it.
-SET_BY_THE_SYSTEM = {"LC_CTYPE", "__CF_USER_TEXT_ENCODING"}
+# PWD is bwrap's, set to the child's own working directory after every other variable.
+SET_BY_THE_SYSTEM = {"LC_CTYPE", "__CF_USER_TEXT_ENCODING", "PWD"}
 
 # Stand-ins for the child, started exactly as it is: what such a process is given, what it
 # may do, and what is made of one that does not keep to the conversation.
@@ -179,6 +180,16 @@ def gone(pid: int) -> bool:
     except ProcessLookupError:
         return True
     return False
+
+
+async def ends(pid: int, within_s: float = 2.0) -> bool:
+    """Whether the process is gone within `within_s`: one a parent took along ends a moment
+    after that parent."""
+    for _ in range(int(within_s / 0.05)):
+        if gone(pid):
+            return True
+        await asyncio.sleep(0.05)
+    return gone(pid)
 
 
 def timed_out(seconds: str) -> Outcome:
@@ -527,8 +538,8 @@ async def test_what_the_steps_cannot_see_is_stopped_by_the_seconds_of_cpu(childr
     Left at twenty, the silence would end it first and say something else."""
     outcome = await run_script(SPINS, nobody, cpu_s=1, idle_s=10)
     assert outcome == Outcome(False, "", t.SCRIPT_OUT_OF_CPU)
-    # Ended by the system, at the limit the process set itself.
-    assert children[0].returncode == -signal.SIGXCPU
+    # Ended by the system, at the limit the process set itself; bwrap tells it as 128 + it.
+    assert children[0].returncode in (-signal.SIGXCPU, 128 + signal.SIGXCPU)
 
 
 async def test_a_script_is_stopped_by_the_memory_it_holds():
@@ -603,8 +614,8 @@ async def test_a_turn_cancelled_while_its_script_waits_leaves_no_process(childre
 
 
 async def test_the_process_killed_is_the_one_the_script_ran_in(monkeypatch, children):
-    """The sandbox does not stand between: it becomes the script's process, so killing
-    what was started kills the script and leaves nothing running behind it."""
+    """Killing what was started kills the script and leaves nothing running behind it.
+    sandbox-exec becomes the script's process; bwrap stays its parent and takes it along."""
     monkeypatch.setattr(runner, "BOOT", STAYS)
     pids = []
 
@@ -614,7 +625,7 @@ async def test_the_process_killed_is_the_one_the_script_ran_in(monkeypatch, chil
 
     assert await run_script("", here, idle_s=0.5) == timed_out("0.5")
     (child,) = children
-    assert pids == [child.pid] and gone(child.pid)
+    assert gone(child.pid) and await ends(pids[0])
 
 
 # --- a process that does not keep to the conversation -------------------------------------
@@ -832,6 +843,7 @@ async def test_the_sandbox_denies_the_network_every_file_and_a_second_process(
         with pytest.raises(TimeoutError):
             listener.accept()
         monkeypatch.setattr(runner, "SANDBOX_EXEC", Path("/nowhere/sandbox-exec"))
+        monkeypatch.setattr(runner, "bwrap_path", lambda: None)
         outside = await attempt(tmp_path / "outside.txt")
         listener.accept()[0].close()
     refused = "PermissionError"
@@ -855,6 +867,7 @@ async def test_the_sandbox_keeps_the_process_from_becoming_a_helper_outside_it(m
 
     inside = await run_script("", nobody)
     monkeypatch.setattr(runner, "SANDBOX_EXEC", Path("/nowhere/sandbox-exec"))
+    monkeypatch.setattr(runner, "bwrap_path", lambda: None)
     outside = await run_script("", nobody)
 
     assert inside == Outcome(True, "PermissionError")

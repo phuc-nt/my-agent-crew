@@ -79,6 +79,11 @@ def close_port(port: int) -> None:
     _served.add(port)
 
 
+def served_ports() -> frozenset[int]:
+    """The ports `close_port` has named so far."""
+    return frozenset(_served)
+
+
 def server_rules() -> str:
     """The rules that keep a command with the network off the server it runs under. The
     server's API asks for no login: a command that reaches it saves any agent's file, its
