@@ -1031,8 +1031,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     (một đề xuất quên thay chỗ đề xuất cập nhật cùng fact, còn đề xuất tạo từ cuộc trò chuyện giữ
     nguyên)
 - **Cuộc trò chuyện vào lần cô đọng như episode**
-  - pytest: `tests/test_memory_episodes.py` (chỉ cuộc có người nói của đúng agent là episode,
-    bỏ cuộc con, cuộc của job và cuộc chưa có tin nhắn; cuộc nói lần cuối trước cửa sổ bị bỏ;
+  - pytest: `tests/test_memory_episodes.py` (chỉ cuộc khởi đầu từ người dùng của đúng agent là
+    episode: cuộc người dùng nói và cuộc con có gốc chat/telegram/api; bỏ cuộc con job giao, cuộc
+    con chưa ghi gốc, cuộc của job và cuộc chưa có tin nhắn; danh sách gốc trùng `PRESENT_SOURCES`; cuộc nói lần cuối trước cửa sổ bị bỏ;
     bản tóm tắt mà cuộc trò chuyện đã vượt qua được viết lại và ghi `summary_seq`; bản tóm tắt cũ
     không có `summary_seq` được coi là đủ; bản tóm tắt xếp giữa ghi chú theo ngày, ghi chú của
     agent đứng trước trong cùng ngày; một cuộc không có ghi chú vẫn vào được prompt viết lại dưới

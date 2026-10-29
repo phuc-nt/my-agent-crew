@@ -10,6 +10,7 @@ import pytest
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
+from my_agent_crew.agent.turn_context import PRESENT_SOURCES
 from my_agent_crew.clock import local_day
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message
@@ -18,6 +19,7 @@ from my_agent_crew.memory.consolidate import consolidate_memory
 from my_agent_crew.memory.episodes import Recalled, merge_with_notes
 from my_agent_crew.memory.session_summary import summarize_conversation
 from my_agent_crew.store import Store
+from my_agent_crew.store.episodes import PERSON_ROOTS
 from my_agent_crew.store.memory_proposals import APPROVED
 from my_agent_crew.store.runs import DONE, RunRecord
 
@@ -39,11 +41,15 @@ def hub(store) -> ActivityHub:
     return ActivityHub(store)
 
 
-def test_only_threads_a_person_spoke_in_are_episodes(store: Store):
+def test_only_threads_that_began_with_a_person_are_episodes(store: Store):
     spoken = store.create(title="Chạy bộ", channel="telegram:1")
     talked(store, spoken.id)
-    child = store.create(parent_call_id="call-1")
-    talked(store, child.id)
+    handed = store.create(parent_call_id="c1", root_id=spoken.id, root_source="telegram")
+    talked(store, handed.id)
+    from_a_job = store.create(parent_call_id="c2", root_id="x", root_source="job")
+    talked(store, from_a_job.id)
+    unknown_root = store.create(parent_call_id="c3")
+    talked(store, unknown_root.id)
     brief = store.create()
     talked(store, brief.id)
     store.runs.save(RunRecord("r1", "default", brief.id, "job:default/brief", "b", DONE, "x"))
@@ -52,8 +58,13 @@ def test_only_threads_a_person_spoke_in_are_episodes(store: Store):
     talked(store, other.id)
 
     found = store.episodes.recent("default", LONG_AGO, 10)
-    assert [e.conversation_id for e in found] == [spoken.id]
-    assert found[0].title == "Chạy bộ" and found[0].stale
+    assert {e.conversation_id for e in found} == {spoken.id, handed.id}
+    assert all(e.stale for e in found)
+
+
+def test_a_person_root_is_any_source_a_person_speaks_through():
+    # The store may not import the agent package, so it keeps its own copy of the list.
+    assert set(PERSON_ROOTS) == set(PRESENT_SOURCES)
 
 
 def test_threads_last_spoken_in_before_the_window_are_left_out(store: Store):

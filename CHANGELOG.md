@@ -11,6 +11,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.24.1] — 2026-10-29
+
+### Fixed
+
+- A conversation an agent was handed while the master answered the person (a delegated
+  child whose chain began in a chat, on Telegram or through the inbound API) now counts as
+  one of its episodes. Leaving all delegated children out meant a specialist the person only
+  reaches through the master had no episodes at all. Children of a scheduled job's turn, and
+  children opened before chains recorded where they began, stay out.
+
 ## [0.24.0] — 2026-10-29
 
 ### Added

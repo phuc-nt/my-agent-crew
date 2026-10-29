@@ -142,9 +142,11 @@ chi phí của nó, và một lần viết lại thất bại để tệp y nguy
 ### Cuộc trò chuyện như một episode
 
 Ghi chú chỉ chứa điều agent tự chọn ghi lại; điều người dùng nói mà agent không ghi thì chỉ nằm
-trong cuộc trò chuyện. Trước khi viết lại, lần cô đọng lấy các cuộc trò chuyện của agent có
-người nói trong 7 ngày qua (bỏ cuộc con do agent khác giao và cuộc của job theo lịch), tối đa 10
-cuộc, mới nhất trước. Mỗi cuộc dùng bản tóm tắt sẵn có của nó (`conversations.summary`, cùng bản
+trong cuộc trò chuyện. Trước khi viết lại, lần cô đọng lấy các cuộc trò chuyện của agent trong 7
+ngày qua mà khởi đầu từ người dùng, tối đa 10 cuộc, mới nhất trước: cuộc người dùng nói trực
+tiếp, và cuộc con agent được giao khi master đang trả lời người dùng (`root_source` là chat,
+telegram hay api) — với một specialist, đó thường là cách duy nhất nó nghe được người dùng. Cuộc
+của job theo lịch và cuộc con job giao bị bỏ, cuộc con mở trước khi có `root_source` cũng vậy. Mỗi cuộc dùng bản tóm tắt sẵn có của nó (`conversations.summary`, cùng bản
 tóm tắt viết khi kênh mở cuộc mới); cuộc chưa có tóm tắt, hoặc đã có thêm tin nhắn sau khi tóm
 tắt (`summary_seq` ghi tin nhắn cuối mà bản tóm tắt bao phủ), được tóm tắt lại trước. Bản tóm
 tắt đứng giữa các ghi chú dưới tiêu đề `## YYYY-MM-DD · trò chuyện «tên»`, theo ngày cuộc đó được

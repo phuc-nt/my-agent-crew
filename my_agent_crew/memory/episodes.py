@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 EPISODE_DAYS = 7
 # Recaps written per run, at most: each one is a model call over the transcript.
 MAX_EPISODES = 10
+# A delegated child is titled with the whole request it was handed; the heading needs less.
+MAX_TITLE_CHARS = 80
 
 
 @dataclass(frozen=True)
@@ -61,7 +63,7 @@ async def gather_episodes(deps: AgentDeps, now: datetime | None = None) -> list[
             # The label starts with the day: the rewrite's date check accepts days it was
             # shown, and a recap is evidence for the day it was last spoken in.
             day = local_day(episode.updated_at, deps.settings.zone)
-            label = texts.EPISODE_LABEL.format(day=day, title=episode.title)
+            label = texts.EPISODE_LABEL.format(day=day, title=episode.title[:MAX_TITLE_CHARS])
             recalled.append(Recalled(episode.updated_at, label, summary))
     return recalled
 
