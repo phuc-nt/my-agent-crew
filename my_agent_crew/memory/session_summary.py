@@ -51,14 +51,23 @@ def _is_job_conversation(store: Store, conv_id: str) -> bool:
     return run is not None and run.source.startswith(JOB_SOURCE_PREFIX)
 
 
+def _is_current(store: Store, conv_id: str) -> bool:
+    """A recap covers the thread unless more was said after it was written. One from before
+    the store kept how far it reached is taken as final."""
+    upto = store.episodes.summarized_upto(conv_id)
+    return upto is None or upto >= store.messages.max_seq(conv_id)
+
+
 async def summarize_conversation(deps: AgentDeps, conv_id: str, force: bool = False) -> str:
-    """Write `conversations.summary` and return it; empty string when skipped."""
+    """Write `conversations.summary` and return it; empty string when skipped. A recap the
+    conversation has outgrown is written again, so an episode read later is the whole of it."""
     conv = deps.store.get(conv_id)
-    if conv.summary and not force:
+    if conv.summary and not force and _is_current(deps.store, conv_id):
         return conv.summary
     if _is_job_conversation(deps.store, conv_id):
         return ""
     history = deps.store.history(conv_id)
+    covered = deps.store.messages.max_seq(conv_id)
     if not any(m.message.role == "assistant" and m.message.content.strip() for m in history):
         return ""
     transcript = transcript_text(history, deps.settings.zone)
@@ -81,6 +90,7 @@ async def summarize_conversation(deps: AgentDeps, conv_id: str, force: bool = Fa
     if not summary:
         return ""
     deps.store.update(conv_id, touch=False, summary=summary)
+    deps.store.episodes.mark(conv_id, covered)
     return summary
 
 

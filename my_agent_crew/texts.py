@@ -109,7 +109,7 @@ USER_MEMORY_FORGET_DESCRIPTION = (
 
 CONSOLIDATE_JOB_NAME = "Cô đọng bộ nhớ"
 CONSOLIDATE_RUN_TITLE = "Cô đọng bộ nhớ · {agent}"
-CONSOLIDATE_NOTHING_NEW = "Không có ghi chép nào mới hơn bộ nhớ, bỏ qua."
+CONSOLIDATE_NOTHING_NEW = "Không có ghi chép hay cuộc trò chuyện nào mới hơn bộ nhớ, bỏ qua."
 CONSOLIDATE_UNCHANGED = "Bộ nhớ cô đọng không khác bản hiện tại."
 CONSOLIDATE_PROPOSED = "Đã đề xuất bộ nhớ cô đọng, chờ duyệt."
 CONSOLIDATE_APPLIED = "Đã ghi bộ nhớ cô đọng."

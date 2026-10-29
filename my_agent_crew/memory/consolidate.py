@@ -6,9 +6,10 @@ repeats, drop what only mattered for a day. The result is a proposal rather than
 because a rewrite can lose something and nobody is watching a scheduled job. What happens
 to that proposal — applied straight away or left for a person — is decided by
 `rewrite_proposal.submit_rewrite`, from the two texts rather than the model's own account
-of what it did. For the master, and only when the person has facts recorded, a second
-model call reviews those facts too; unlike the memory rewrite, its proposals never
-auto-apply, since the facts it touches are shared by the whole crew.
+of what it did. The week's conversations join the notes as recaps (`episodes`), so what
+was said and never noted is folded in too. For the master, and only when the person has
+facts recorded, a second model call reviews those facts too; unlike the memory rewrite,
+its proposals never auto-apply, since the facts it touches are shared by the whole crew.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from my_agent_crew.agents.context import MAX_SECTION_CHARS
 from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.types import Completion, Message
 from my_agent_crew.memory import agent_store, fact_dates
+from my_agent_crew.memory.episodes import gather_episodes, has_new_episodes, merge_with_notes
 from my_agent_crew.memory.fact_review import review_for_master
 from my_agent_crew.memory.rewrite_proposal import JOB_SOURCE, submit_rewrite
 from my_agent_crew.store.memory_proposals import MemoryProposal
@@ -133,13 +135,15 @@ async def consolidate_memory(
 
 async def _consolidate(deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> MemoryProposal | None:
     profile = deps.agent
-    if not has_newer_notes(profile.memory_file, profile.memory_dir):
+    recalled = await gather_episodes(deps)
+    newer = has_newer_notes(profile.memory_file, profile.memory_dir)
+    if not newer and not has_new_episodes(recalled, profile.memory_file):
         hub.finish(run, status=DONE, summary=texts.CONSOLIDATE_NOTHING_NEW)
         return None
 
     today = date.today()
     current = agent_store.read_memory_md(profile.memory_file).strip()
-    notes = recent_notes(profile.memory_dir)
+    notes = merge_with_notes(recent_notes(profile.memory_dir), recalled)
     notes_block = notes_text(notes, MAX_INPUT_CHARS - len(current))
     completion = await _ask_model(deps, current, notes_block, today)
     if completion is None:

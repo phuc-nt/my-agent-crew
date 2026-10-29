@@ -16,6 +16,7 @@ from my_agent_crew.store.canvas_note import build_note
 from my_agent_crew.store.connection import connect
 from my_agent_crew.store.conversation_lookup import ConversationLookups
 from my_agent_crew.store.created_schedules import CreatedSchedulesStore
+from my_agent_crew.store.episodes import EpisodeStore
 from my_agent_crew.store.fork import Forks
 from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
@@ -61,6 +62,7 @@ class Store(ConversationLookups, Forks, MessageLog, Spending):
         self.artifact_links = ArtifactLinks(self._conn, self._lock)
         self.artifacts = ArtifactStore(self._conn, self._lock, self.artifact_links)
         self.script_store = ScriptStore(self._conn, self._lock)
+        self.episodes = EpisodeStore(self._conn, self._lock)
 
     def close(self) -> None:
         self._conn.close()

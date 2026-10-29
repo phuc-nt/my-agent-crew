@@ -1,6 +1,6 @@
 # Trí nhớ
 
-**Phiên bản**: 0.23.0 · **Cập nhật**: 2026-10-26
+**Phiên bản**: 0.24.0 · **Cập nhật**: 2026-10-29
 
 Trí nhớ là Markdown trên đĩa, cùng hình dạng với thứ một người có thể tự ghi tay. Không có
 gì được embed hay tóm tắt sau lưng agent; model đọc gì thì trên đĩa có đúng thứ đó.
@@ -136,8 +136,21 @@ Một agent tham gia bằng cron `memory_consolidate` trong profile của nó, c
 một lịch bình thường (kind `consolidate`) bên cạnh các job prompt và command của nó. Nó đọc
 tối đa 7 ngày ghi chú (đếm theo ngày chứ không theo tệp, nên nhiều ghi chú của một ngày vẫn
 tính là một ngày đó) trong ngân sách 40 000 ký tự, mới nhất trước, và không làm gì cả khi
-không có ghi chú nào mới hơn `MEMORY.md`. Run xuất hiện trong Activity kèm chi phí của nó, và
-một lần viết lại thất bại để tệp y nguyên như cũ.
+không có ghi chú hay cuộc trò chuyện nào mới hơn `MEMORY.md`. Run xuất hiện trong Activity kèm
+chi phí của nó, và một lần viết lại thất bại để tệp y nguyên như cũ.
+
+### Cuộc trò chuyện như một episode
+
+Ghi chú chỉ chứa điều agent tự chọn ghi lại; điều người dùng nói mà agent không ghi thì chỉ nằm
+trong cuộc trò chuyện. Trước khi viết lại, lần cô đọng lấy các cuộc trò chuyện của agent có
+người nói trong 7 ngày qua (bỏ cuộc con do agent khác giao và cuộc của job theo lịch), tối đa 10
+cuộc, mới nhất trước. Mỗi cuộc dùng bản tóm tắt sẵn có của nó (`conversations.summary`, cùng bản
+tóm tắt viết khi kênh mở cuộc mới); cuộc chưa có tóm tắt, hoặc đã có thêm tin nhắn sau khi tóm
+tắt (`summary_seq` ghi tin nhắn cuối mà bản tóm tắt bao phủ), được tóm tắt lại trước. Bản tóm
+tắt đứng giữa các ghi chú dưới tiêu đề `## YYYY-MM-DD · trò chuyện «tên»`, theo ngày cuộc đó được
+nói lần cuối, nên cổng ngày coi ngày đó là có nguồn. Prompt dặn model chỉ lấy điều người dùng
+nói rõ hay việc đã xong, không suy đoán. Một bản tóm tắt lỗi giữ bản cũ hoặc bỏ cuộc đó, không
+làm hỏng lần viết lại. Bản tóm tắt viết trước khi có `summary_seq` được coi là đủ.
 
 ### Ngày trên mỗi dòng, và cổng tự áp dụng
 

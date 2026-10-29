@@ -7,6 +7,9 @@ CONSOLIDATE_PROMPT = (
     "Dưới đây là bộ nhớ dài hạn của một trợ lý và các ghi chép hằng ngày gần đây. "
     "Viết lại bộ nhớ dài hạn sao cho cô đọng hơn: giữ mọi điều còn đúng, gộp các mục "
     "trùng nhau, bổ sung điều đáng nhớ từ ghi chép, bỏ những gì chỉ đúng trong một ngày.\n\n"
+    "Ghi chép gần đây có cả tóm tắt các cuộc trò chuyện (mục ghi «trò chuyện»). Đó là lời "
+    "kể lại: chỉ đưa vào bộ nhớ điều người dùng đã nói rõ hoặc việc đã làm xong, không suy "
+    "đoán thêm, và bỏ qua chuyện chỉ đúng trong cuộc trò chuyện đó.\n\n"
     "Mỗi dòng gạch đầu dòng có thể mang hậu tố ngày dạng (YYYY-MM-DD), là ngày dòng đó "
     "được xác nhận đúng lần cuối. Quy tắc về ngày:\n"
     "- Dòng lấy thẳng từ một ghi chép thì mang ngày của ghi chép đó.\n"
@@ -23,6 +26,10 @@ CONSOLIDATE_PROMPT = (
     "đầu, không giải thích gì thêm ngoài khuôn này.\n\n"
     "--- bộ nhớ hiện tại ---\n{memory}\n\n--- ghi chép gần đây ---\n{notes}"
 )
+
+# How a conversation's recap is headed among the notes. The day leads: the rewrite's date
+# check reads the first ten characters of each heading as a day it was shown.
+EPISODE_LABEL = "{day} · trò chuyện «{title}»"
 
 # `{why}` joins whichever of the two HELD_* parts apply, so a rewrite that only brings an
 # unsourced date is not reported as dropping lines.

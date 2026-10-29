@@ -11,6 +11,20 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- The nightly memory rewrite reads the week's conversations as well as the daily notes. Each
+  conversation someone took part in (not a delegated child, not a scheduled job's) joins the
+  notes as its recap, dated by the day it was last spoken in, so what was said and never noted
+  still reaches `MEMORY.md` through the same gate. At most 10 recaps per run; a conversation
+  with no notes newer than `MEMORY.md` but a new episode is now enough to run the rewrite.
+
+### Changed
+
+- A conversation's recap that the conversation has outgrown (more was said after it) is
+  written again rather than reused; `conversations.summary_seq` records how far a recap reaches.
+  Recaps written before this release count as final.
+
 ## [0.23.0] — 2026-10-26
 
 ### Added

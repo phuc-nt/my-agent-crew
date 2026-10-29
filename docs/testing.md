@@ -1030,6 +1030,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_memory_fact_review.py::test_a_forget_supersedes_a_pending_update_of_the_same_fact`
     (một đề xuất quên thay chỗ đề xuất cập nhật cùng fact, còn đề xuất tạo từ cuộc trò chuyện giữ
     nguyên)
+- **Cuộc trò chuyện vào lần cô đọng như episode**
+  - pytest: `tests/test_memory_episodes.py` (chỉ cuộc có người nói của đúng agent là episode,
+    bỏ cuộc con, cuộc của job và cuộc chưa có tin nhắn; cuộc nói lần cuối trước cửa sổ bị bỏ;
+    bản tóm tắt mà cuộc trò chuyện đã vượt qua được viết lại và ghi `summary_seq`; bản tóm tắt cũ
+    không có `summary_seq` được coi là đủ; bản tóm tắt xếp giữa ghi chú theo ngày, ghi chú của
+    agent đứng trước trong cùng ngày; một cuộc không có ghi chú vẫn vào được prompt viết lại dưới
+    tiêu đề mang ngày, và ngày đó qua được cổng ngày nên agent autonomous tự áp dụng; cuộc đã gộp
+    trước lần viết lại trước là không có gì mới; tóm tắt lỗi không làm hỏng lần viết lại)
 - **Ảnh từ trang khác trong câu trả lời và trang wiki chỉ tải khi bấm, không gửi referrer; lời đồng
   ý chỉ cho đúng địa chỉ đã bấm**
   - vitest: `components/markdown-body.test.tsx` "an image in a reply" (kể cả
