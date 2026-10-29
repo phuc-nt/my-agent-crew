@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-10-29
+
 ### Added
 
 - `memory_budget_chars` in `agent.yaml`, off by default. An agent given one has its memory
