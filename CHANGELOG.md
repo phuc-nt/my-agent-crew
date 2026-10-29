@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.25.0] — 2026-10-29
+
 ### Added
 
 - A line of `MEMORY.md` can say how long it holds: `(2026-10-28 → 2026-11-02)`, its date and
