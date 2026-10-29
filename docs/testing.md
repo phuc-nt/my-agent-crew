@@ -1039,6 +1039,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     agent đứng trước trong cùng ngày; một cuộc không có ghi chú vẫn vào được prompt viết lại dưới
     tiêu đề mang ngày, và ngày đó qua được cổng ngày nên agent autonomous tự áp dụng; cuộc đã gộp
     trước lần viết lại trước là không có gì mới; tóm tắt lỗi không làm hỏng lần viết lại)
+- **Dòng bộ nhớ có hạn**
+  - pytest: `tests/test_memory_validity.py` (ngày cuối đọc sau mũi tên `→` hoặc `->`, ngày không
+    có thật thì coi như không có hạn; ngày cuối không đổi khoá của dòng và không bị coi là ngày bịa;
+    dòng còn đúng hết ngày cuối và rời prompt từ hôm sau; danh sách xem lại xếp dòng hết hạn vào
+    nhóm riêng; gắn ngày cuối hoặc lùi ngày cuối sớm hơn cho dòng đã có là cắt, ngày cuối muộn hơn
+    hay dòng mới thì không; prompt hệ thống bỏ dòng hết hạn; agent autonomous tự áp dụng khi bỏ
+    dòng hết hạn hoặc thêm dòng mới có hạn, nhưng chờ duyệt khi gắn hạn cho dòng đã có; prompt
+    viết lại mang danh sách dòng đã qua ngày cuối)
 - **Ảnh từ trang khác trong câu trả lời và trang wiki chỉ tải khi bấm, không gửi referrer; lời đồng
   ý chỉ cho đúng địa chỉ đã bấm**
   - vitest: `components/markdown-body.test.tsx` "an image in a reply" (kể cả

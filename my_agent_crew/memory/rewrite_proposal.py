@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
 from my_agent_crew.memory import fact_dates
+from my_agent_crew.memory.line_validity import cut_short, is_expired
 from my_agent_crew.memory.proposals_apply import StaleProposal, apply_proposal
 from my_agent_crew.store.memory_proposals import AGENT_MEMORY_REWRITE, MemoryProposal
 
@@ -50,8 +51,16 @@ async def submit_rewrite(
     to neither the previous text, a note fed into the prompt, nor today, always waits for
     approval — the model's own stated reason for dropping a line is shown on the card, but
     it never buys the line skipping review.
+
+    A line past its end day may go without review: it said itself when it stops holding.
+    A line already there that is given an end day, or an earlier one, counts as changed:
+    that is a removal scheduled for later.
     """
-    removed = fact_dates.removed_lines(current, new_memory)
+    removed = [
+        line
+        for line in fact_dates.removed_lines(current, new_memory)
+        if not is_expired(line, today)
+    ] + cut_short(current, new_memory)
     invented = fact_dates.invented_dates(current, notes, new_memory, today)
     if invented:
         note = texts.CONSOLIDATE_INVENTED_DATES.format(dates=", ".join(invented))

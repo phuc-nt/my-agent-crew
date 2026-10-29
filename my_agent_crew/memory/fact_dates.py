@@ -2,7 +2,8 @@
 
 Every bullet line may carry a `(YYYY-MM-DD)` suffix: the day it was last confirmed true.
 A line without one, or one older than `STALE_DAYS`, is a candidate the rewrite prompt must
-account for explicitly instead of silently keeping or dropping. The removed/invented-date
+account for explicitly instead of silently keeping or dropping; so is one past its end day
+(`line_validity`). The removed/invented-date
 checks here are the actual gate: they decide, from the two texts alone, whether a rewrite
 is safe to apply without a person looking at it first.
 """
@@ -11,13 +12,15 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from my_agent_crew.memory.wiki_lint import STALE_DAYS
 
-#: A bullet line ending in its confirmation date, e.g. `- Sếp thích trà. (2026-09-29)`.
-DATE_SUFFIX = re.compile(r" \((\d{4}-\d{2}-\d{2})\)$")
+#: A bullet line ending in its confirmation date, e.g. `- Sếp thích trà. (2026-09-29)`,
+#: and for what holds only for a while, the last day it holds after an arrow:
+#: `- Đơn đang giao. (2026-10-28 → 2026-11-02)`. A model may type the arrow as `->`.
+DATE_SUFFIX = re.compile(r" \((\d{4}-\d{2}-\d{2})(?:\s*(?:→|->)\s*(\d{4}-\d{2}-\d{2}))?\)$")
 _BULLET = re.compile(r"^[-*+]\s+")
 
 _MAX_LISTED = 40
@@ -31,14 +34,16 @@ _SEPARATOR = re.compile(r"^---\s*L[YÝ]\s+DO\s*---$", re.IGNORECASE)
 
 @dataclass(frozen=True)
 class Review:
-    """What the rewrite prompt is asked to look at again: undated lines and stale ones,
-    each capped so the prompt cannot grow without bound, with the overflow counted rather
-    than silently dropped."""
+    """What the rewrite prompt is asked to look at again: undated lines, stale ones and
+    ones past their end day, each capped so the prompt cannot grow without bound, with the
+    overflow counted rather than silently dropped."""
 
     undated: list[str]
     stale: list[str]
     more_undated: int = 0
     more_stale: int = 0
+    expired: list[str] = field(default_factory=list)
+    more_expired: int = 0
 
 
 def _bullet_lines(memory_text: str) -> list[str]:
@@ -51,7 +56,8 @@ def _cap(lines: list[str]) -> tuple[list[str], int]:
 
 
 def review_list(memory_text: str, today: date, stale_days: int = STALE_DAYS) -> Review:
-    """Bullet lines with no date, and bullet lines dated more than `stale_days` ago.
+    """Bullet lines with no date, bullet lines dated more than `stale_days` ago, and
+    bullet lines whose end day has passed, which go only in the last list.
 
     A line with a recent date is left out entirely: it is not something the model needs
     to reconsider, and including it would just make the prompt longer for no reason. A
@@ -60,15 +66,20 @@ def review_list(memory_text: str, today: date, stale_days: int = STALE_DAYS) -> 
     """
     undated: list[str] = []
     stale: list[str] = []
+    expired: list[str] = []
     for line in _bullet_lines(memory_text):
+        last = until_day(line)
         day = _suffix_day(line.strip())
-        if day is None:
+        if last is not None and last < today:
+            expired.append(line.strip())
+        elif day is None:
             undated.append(line.strip())
         elif (today - day).days > stale_days:
             stale.append(line.strip())
     kept_undated, more_undated = _cap(undated)
     kept_stale, more_stale = _cap(stale)
-    return Review(kept_undated, kept_stale, more_undated, more_stale)
+    kept_expired, more_expired = _cap(expired)
+    return Review(kept_undated, kept_stale, more_undated, more_stale, kept_expired, more_expired)
 
 
 def _suffix_day(line: str) -> date | None:
@@ -77,6 +88,18 @@ def _suffix_day(line: str) -> date | None:
         return None
     try:
         return date.fromisoformat(match.group(1))
+    except ValueError:
+        return None
+
+
+def until_day(line: str) -> date | None:
+    """The last day a line holds, when it names one. A line with no end day, or one that
+    is not a real day, never runs out: a bad suffix must not hide what the line says."""
+    match = DATE_SUFFIX.search(line.strip())
+    if match is None or match.group(2) is None:
+        return None
+    try:
+        return date.fromisoformat(match.group(2))
     except ValueError:
         return None
 
@@ -117,7 +140,7 @@ def split_reasons(text: str) -> tuple[str, str]:
     return text.strip(), ""
 
 
-def _normalize_key(line: str) -> str:
+def line_key(line: str) -> str:
     """The identity of a line for the purpose of "is this still here": marker, date and
     spacing stripped away, so only what the line actually asserts remains. Deliberately an
     exact match rather than a containment check — see `removed_lines`."""
@@ -135,12 +158,12 @@ def removed_lines(previous: str, new: str) -> list[str]:
     shortcut would let "Uống cà phê" survive being changed to "Không uống cà phê", exactly
     the kind of silent reversal this check exists to catch.
     """
-    new_keys = {_normalize_key(line) for line in new.splitlines() if line.strip()}
+    new_keys = {line_key(line) for line in new.splitlines() if line.strip()}
     removed = []
     for line in previous.splitlines():
         if not line.strip():
             continue
-        if _normalize_key(line) not in new_keys:
+        if line_key(line) not in new_keys:
             removed.append(line.strip())
     return removed
 

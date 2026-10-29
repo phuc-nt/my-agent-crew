@@ -12,6 +12,7 @@ from pathlib import Path
 from my_agent_crew.agents.kit import split_front_matter
 from my_agent_crew.agents.profile import AgentProfile
 from my_agent_crew.memory import user_store
+from my_agent_crew.memory.line_validity import drop_expired
 from my_agent_crew.memory.wiki_index import wiki_section
 from my_agent_crew.texts import USER_FACTS_SECTION_TITLE, USER_MD_SECTION_TITLE
 
@@ -81,6 +82,10 @@ def bootstrap_sections(
             sections.append((Path(name).name if Path(name).is_absolute() else name, body))
     sections.extend(user_sections(profile.settings.user_dir))
     memory = _read_capped(profile.memory_file)
+    if memory:
+        # A line past its end day stops being said at once. That changes the section at
+        # most once a day, which the prompt cache can afford.
+        memory = drop_expired(memory, date.today())
     if memory:
         sections.append(("MEMORY.md", memory))
     # After the durable memory file and before today's notes: the vault is settled

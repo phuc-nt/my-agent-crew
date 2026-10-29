@@ -11,6 +11,21 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- A line of `MEMORY.md` can say how long it holds: `(2026-10-28 → 2026-11-02)`, its date and
+  then the last day it is true. From the day after, the line leaves the prompt at once, and
+  the nightly rewrite lists it for removal. Dropping such a line does not hold an
+  `autonomous` rewrite for review, and neither does adding a new line with an end day; giving
+  a line already in memory an end day, or an earlier one, does, since that schedules its
+  removal.
+
+### Changed
+
+- The memory rewrite prompt asks for an end day on what holds only for a while, and asks
+  that state an agent's own records or tools already keep (orders, transactions,
+  measurements) stay out of memory.
+
 ## [0.24.1] — 2026-10-29
 
 ### Fixed

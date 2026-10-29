@@ -177,6 +177,24 @@ xuất chuyển sang "đã bị thay thế" thay vì xoá mất những gì đã
 agent `autonomous` kiểm tra y như vậy. Lịch sử giữ tất cả; một đề xuất đã bị thay không có nút
 hoàn tác, vì không có gì của nó từng được áp dụng để mà lùi lại.
 
+### Dòng có hạn
+
+Có điều chỉ đúng đến một ngày biết trước: đơn đang giao, chuyến đi, gói sắp hết hạn. Dòng như
+vậy ghi thêm ngày cuối còn đúng sau mũi tên, `(2026-10-28 → 2026-11-02)`; model gõ `->` cũng
+được. Ngày cuối vẫn còn đúng; từ hôm sau dòng đó rời khỏi prompt ngay, không chờ lần cô đọng
+(`memory/line_validity.py`). Tệp vẫn giữ nguyên dòng cho tới lần viết lại, nên người dùng vẫn
+thấy nó trong **Ghi nhớ**.
+
+Lần cô đọng đưa các dòng đã qua ngày cuối vào một danh sách riêng và dặn model bỏ chúng, trừ khi
+ghi chú cho thấy điều đó vẫn đúng. Prompt cũng dặn: điều không biết khi nào hết đúng thì đừng ghi,
+và trạng thái đã có trong sổ hay công cụ của agent (đơn hàng, giao dịch, số đo) thì không chép
+vào bộ nhớ.
+
+Với cổng tự áp dụng: bỏ một dòng đã qua ngày cuối không cần ai duyệt, vì chính dòng đó đã nói khi
+nào nó hết đúng. Một dòng mới kèm ngày cuối cũng không, vì không mất gì. Nhưng gắn ngày cuối cho
+một dòng đã có, hoặc lùi ngày cuối của nó sớm hơn, là hẹn ngày xoá dòng đó, nên bị tính như đổi
+một dòng và chờ người quyết định.
+
 ### Vệ sinh fact người dùng
 
 Chỉ trong lần cô đọng của **master**, sau bước viết lại `MEMORY.md` — dù bước đó có tạo đề xuất

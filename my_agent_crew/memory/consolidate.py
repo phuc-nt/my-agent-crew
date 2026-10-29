@@ -102,6 +102,7 @@ async def _ask_model(deps: AgentDeps, memory: str, notes: str, today: date) -> C
             today=today.isoformat(),
             undated=_review_block(review.undated, review.more_undated),
             stale=_review_block(review.stale, review.more_stale),
+            expired=_review_block(review.expired, review.more_expired),
         ),
     )
     # Upkeep belongs to no conversation; the run keeps a copy for the activity rail only.
