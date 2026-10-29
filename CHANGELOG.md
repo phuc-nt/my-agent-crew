@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-10-29
+
 ### Added
 
 - The nightly memory rewrite reads the week's conversations as well as the daily notes. Each
