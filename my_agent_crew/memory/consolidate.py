@@ -7,9 +7,11 @@ because a rewrite can lose something and nobody is watching a scheduled job. Wha
 to that proposal — applied straight away or left for a person — is decided by
 `rewrite_proposal.submit_rewrite`, from the two texts rather than the model's own account
 of what it did. The week's conversations join the notes as recaps (`episodes`), so what
-was said and never noted is folded in too. For the master, and only when the person has
-facts recorded, a second model call reviews those facts too; unlike the memory rewrite,
-its proposals never auto-apply, since the facts it touches are shared by the whole crew.
+was said and never noted is folded in too. An agent with a memory budget has the lines a
+rewrite adds screened before the gate sees them (`admission`). For the master, and only
+when the person has facts recorded, a second model call reviews those facts too; unlike
+the memory rewrite, its proposals never auto-apply, since the facts it touches are shared
+by the whole crew.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from my_agent_crew.agents.context import MAX_SECTION_CHARS
 from my_agent_crew.llm.metered_chain import MeteredChain
 from my_agent_crew.llm.types import Completion, Message
 from my_agent_crew.memory import agent_store, fact_dates
+from my_agent_crew.memory.admission import screen
 from my_agent_crew.memory.episodes import gather_episodes, has_new_episodes, merge_with_notes
 from my_agent_crew.memory.fact_review import review_for_master
 from my_agent_crew.memory.rewrite_proposal import JOB_SOURCE, submit_rewrite
@@ -94,6 +97,7 @@ def _review_block(lines: list[str], more: int) -> str:
 
 async def _ask_model(deps: AgentDeps, memory: str, notes: str, today: date) -> Completion | None:
     review = fact_dates.review_list(memory, today)
+    budget = deps.agent.memory_budget_chars
     prompt = Message(
         role="user",
         content=texts.CONSOLIDATE_PROMPT.format(
@@ -103,6 +107,8 @@ async def _ask_model(deps: AgentDeps, memory: str, notes: str, today: date) -> C
             undated=_review_block(review.undated, review.more_undated),
             stale=_review_block(review.stale, review.more_stale),
             expired=_review_block(review.expired, review.more_expired),
+            budget=texts.CONSOLIDATE_BUDGET.format(budget=budget) if budget else "",
+            limit=min(budget, MAX_SECTION_CHARS) if budget else MAX_SECTION_CHARS,
         ),
     )
     # Upkeep belongs to no conversation; the run keeps a copy for the activity rail only.
@@ -151,22 +157,16 @@ async def _consolidate(deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> Mem
         hub.finish(run, status=FAILED, summary=texts.CONSOLIDATE_EMPTY)
         return None
 
-    hub.record(
-        run,
-        AssistantMessageEvent(
-            message_id=0,
-            content=completion.message.content,
-            tool_calls=[],
-            provider=completion.provider,
-            model=completion.model,
-            cost_usd=completion.usage.cost_usd,
-        ),
-        time.monotonic(),
-    )
+    _record(hub, run, completion)
     # Reasons are split off before anything is truncated: a long reasons list must not eat
     # into the memory body's own character budget.
     raw_body, reasons = fact_dates.split_reasons(completion.message.content.strip())
     new_memory = raw_body[:MAX_SECTION_CHARS]
+    if profile.memory_budget_chars and new_memory:
+        screened = await screen(deps, current, new_memory, reasons)
+        new_memory, reasons = screened.body, screened.reasons
+        if screened.completion is not None:
+            _record(hub, run, screened.completion)
     proposal: MemoryProposal | None = None
     if not new_memory or new_memory == current:
         summary = texts.CONSOLIDATE_UNCHANGED
@@ -178,3 +178,16 @@ async def _consolidate(deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> Mem
     addendum = await review_for_master(deps, notes_block, today)
     hub.finish(run, status=DONE, summary=f"{summary} {addendum}".strip())
     return proposal
+
+
+def _record(hub: ActivityHub, run: RunRecord, completion: Completion) -> None:
+    """A model call of the rewrite, as a step of its run, so the run shows what it cost."""
+    event = AssistantMessageEvent(
+        message_id=0,
+        content=completion.message.content,
+        tool_calls=[],
+        provider=completion.provider,
+        model=completion.model,
+        cost_usd=completion.usage.cost_usd,
+    )
+    hub.record(run, event, time.monotonic())

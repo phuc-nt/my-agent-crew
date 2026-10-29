@@ -11,6 +11,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- `memory_budget_chars` in `agent.yaml`, off by default. An agent given one has its memory
+  rewrite written to that size, and each line the rewrite adds put to a short second model
+  call that lets it in or turns it away, so state the agent can look up again (an order's
+  whereabouts, a balance) stays out of memory. Turned-away lines leave the proposal with
+  their reasons recorded; lines already in memory are not screened. A rewrite still over
+  the budget waits for review, even for an `autonomous` agent.
+
 ## [0.25.0] — 2026-10-29
 
 ### Added

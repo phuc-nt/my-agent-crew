@@ -54,7 +54,8 @@ async def submit_rewrite(
 
     A line past its end day may go without review: it said itself when it stops holding.
     A line already there that is given an end day, or an earlier one, counts as changed:
-    that is a removal scheduled for later.
+    that is a removal scheduled for later. A rewrite longer than the agent's memory budget
+    waits too: bringing it within budget is choosing what to forget.
     """
     removed = [
         line
@@ -84,6 +85,9 @@ async def submit_rewrite(
     held = [texts.HELD_REMOVED.format(count=len(removed))] if removed else []
     if invented:
         held.append(texts.HELD_INVENTED.format(count=len(invented)))
+    budget = profile.memory_budget_chars
+    if budget and len(new_memory) > budget:
+        held.append(texts.HELD_OVER_BUDGET.format(size=len(new_memory), budget=budget))
     if held:
         return RewriteOutcome(proposal, texts.CONSOLIDATE_HELD.format(why=", ".join(held)))
 

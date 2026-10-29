@@ -195,6 +195,29 @@ nào nó hết đúng. Một dòng mới kèm ngày cuối cũng không, vì kh�
 một dòng đã có, hoặc lùi ngày cuối của nó sớm hơn, là hẹn ngày xoá dòng đó, nên bị tính như đổi
 một dòng và chờ người quyết định.
 
+### Ngân sách và sàng lọc dòng mới
+
+Mặc định lần cô đọng được viết tới 24000 ký tự và thêm được mọi điều ghi chú nhắc tới. Trên thực
+tế nó hay chép cả thứ agent tra lại được bất cứ lúc nào (đơn đang ở đâu, số dư, lịch tuần sau),
+dù prompt đã dặn đừng. Dòng như vậy cũ đi sau vài ngày và chiếm chỗ của sở thích, quy tắc, bài
+học trong một phần prompt đi theo mọi lượt.
+
+Một agent có `memory_budget_chars` trong `agent.yaml` (số nguyên, mặc định 0 là tắt; chỉ đọc
+từ tệp của chính agent, không kế thừa) được làm thêm ba việc (`memory/admission.py`):
+
+- Prompt viết lại dùng ngân sách làm giới hạn ký tự và dặn khi không vừa thì bỏ trước những gì
+  tra lại được, rồi tới điều lâu không được nhắc lại.
+- Mỗi dòng bản viết lại *thêm* (khoá dòng chưa có trong bản cũ; dòng chỉ đổi ngày không tính),
+  tối đa 40 dòng, được đưa cho một lần gọi model ngắn. Lần gọi này chỉ thấy các dòng đó cùng tên
+  và mô tả của agent, và trả lời mỗi dòng `NHẬN` hay `BỎ: lý do`. Dòng bị bỏ rời đề xuất trước
+  khi tới cổng, lý do được ghi vào phần lý do của đề xuất. Không mất gì của người dùng: dòng đó
+  chưa từng nằm trong bộ nhớ, còn ghi chú và cuộc trò chuyện sinh ra nó vẫn ở nguyên chỗ. Câu
+  trả lời không rõ về một dòng thì dòng đó được nhận; lần gọi lỗi thì giữ mọi dòng và ghi lại
+  việc lỗi. Chi phí tính vào run cô đọng, như một bước nữa.
+- Dòng đã có trong bộ nhớ không bị sàng lại; bỏ chúng vẫn là việc của bản viết lại và của cổng.
+  Bản viết lại vẫn dài hơn ngân sách sau khi sàng thì chờ người duyệt, kể cả với agent
+  `autonomous`, vì cắt cho vừa là chọn điều gì bị quên.
+
 ### Vệ sinh fact người dùng
 
 Chỉ trong lần cô đọng của **master**, sau bước viết lại `MEMORY.md` — dù bước đó có tạo đề xuất

@@ -49,6 +49,7 @@ PROFILE_KEYS = {
     "schedules",
     "telegram",
     "memory_consolidate",
+    "memory_budget_chars",
     "reasoning",
     "mode",
     "delegates",
@@ -77,6 +78,8 @@ class AgentProfile:
     schedules: tuple[Schedule, ...] = field(default_factory=tuple)
     telegram: TelegramConfig | None = None
     memory_consolidate: str = ""
+    # What `MEMORY.md` may hold, in characters; 0 is no budget (`memory/admission.py`).
+    memory_budget_chars: int = 0
     mode: str = ASSISTANT
     # Agents this one may hand a task to with `delegate`. Empty still allows delegating
     # to itself, which is how a work agent gets a second, clean context.
@@ -156,6 +159,7 @@ class AgentProfile:
             "schedules": [s.to_dict() for s in self.schedules],
             "telegram": self.telegram.to_dict() if self.telegram else None,
             "memory_consolidate": self.memory_consolidate,
+            "memory_budget_chars": self.memory_budget_chars,
             "mode": self.mode,
             "delegates": list(self.delegates),
             "mcp": list(self.mcp),

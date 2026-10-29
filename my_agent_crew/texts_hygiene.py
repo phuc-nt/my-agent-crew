@@ -26,8 +26,8 @@ CONSOLIDATE_PROMPT = (
     "sửa lại, hoặc bỏ hẳn, và nêu lý do ngắn cho quyết định đó. Dòng đã qua ngày cuối thì "
     "bỏ, trừ khi ghi chép cho thấy điều đó vẫn đúng.\n\n"
     "--- dòng chưa có ngày ---\n{undated}\n\n--- dòng đã cũ ---\n{stale}\n\n"
-    "--- dòng đã qua ngày cuối ---\n{expired}\n\n"
-    "Giữ nguyên tiếng Việt và dạng gạch đầu dòng Markdown, tối đa 24000 ký tự. Trả lời theo "
+    "--- dòng đã qua ngày cuối ---\n{expired}\n\n{budget}"
+    "Giữ nguyên tiếng Việt và dạng gạch đầu dòng Markdown, tối đa {limit} ký tự. Trả lời theo "
     "đúng khuôn: nội dung bộ nhớ mới trước, rồi một dòng riêng ghi đúng ---LÝ DO---, rồi "
     "các gạch đầu dòng nêu lý do cho từng thay đổi hoặc quyết định giữ/bỏ ở trên. Không mở "
     "đầu, không giải thích gì thêm ngoài khuôn này.\n\n"
@@ -46,6 +46,31 @@ HELD_INVENTED = "{count} ngày không rõ nguồn gốc"
 # Appended to the proposal's reasons so the person sees which dates came from nowhere.
 CONSOLIDATE_INVENTED_DATES = "- Ngày không rõ nguồn gốc: {dates}"
 CONSOLIDATE_STALE = "Bộ nhớ đã bị ghi trong lúc chạy, không áp dụng đề xuất này."
+
+# Filled into the rewrite prompt as `{budget}` only for an agent with a memory budget.
+CONSOLIDATE_BUDGET = (
+    "Bộ nhớ của trợ lý này có ngân sách {budget} ký tự. Không vừa thì bỏ trước những gì "
+    "tra lại được trong sổ hay công cụ của trợ lý, rồi tới điều lâu không được nhắc lại; "
+    "nêu lý do cho từng dòng bỏ.\n\n"
+)
+HELD_OVER_BUDGET = "dài {size} ký tự, quá ngân sách {budget}"
+
+ADMISSION_PROMPT = (
+    "Trợ lý «{agent}» ({description}) vừa viết lại bộ nhớ dài hạn của nó, có thêm các dòng "
+    "mới dưới đây. Bộ nhớ dài hạn đi theo mọi lượt trò chuyện, nên chỉ nhận điều đáng mang "
+    "theo lâu: sở thích, quy tắc, quyết định, bài học về người dùng hay công việc, hoặc "
+    "điều chỉ đúng trong một thời gian và đã ghi ngày cuối (YYYY-MM-DD → YYYY-MM-DD). Không "
+    "nhận trạng thái trợ lý tra lại được bất cứ lúc nào trong sổ, database hay công cụ của "
+    "nó (đơn hàng đang ở đâu, số dư, lịch sắp tới, số đo), cũng không nhận việc đã xong mà "
+    "không còn ảnh hưởng gì về sau.\n\n"
+    "Trả lời mỗi dòng mới một dòng, theo đúng số thứ tự: `1. NHẬN` hoặc `1. BỎ: lý do "
+    "ngắn`. Không thêm gì khác.\n\n"
+    "--- dòng mới ---\n{lines}"
+)
+# Appended to the proposal's reasons, one per line the screen turned away.
+ADMISSION_TURNED_AWAY = "- Không nhận vào bộ nhớ: {line} ({why})"
+ADMISSION_NO_REASON = "không nêu lý do"
+ADMISSION_FAILED = "- Bước sàng lọc dòng mới lỗi, các dòng mới được giữ nguyên."
 
 REVIEW_MORE = "… và {count} dòng khác"
 REVIEW_NONE = "không có"

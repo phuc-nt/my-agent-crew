@@ -127,6 +127,18 @@ def script_llm(raw: dict[str, Any], agent_id: str) -> bool:
     return value
 
 
+def memory_budget(raw: dict[str, Any], agent_id: str) -> int:
+    """How many characters the agent's `MEMORY.md` may hold, 0 for no budget. From the
+    agent's own file only: a budget makes rewrites screen what they add, a cost and a
+    filter somebody chose for this agent rather than one it inherits."""
+    value = raw.get("memory_budget_chars", 0)
+    # `true` is an int to Python: read as a budget of one character it would hold every
+    # rewrite of the agent for review.
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"agent {agent_id}: memory_budget_chars must be a whole number >= 0")
+    return value
+
+
 def _reasoning(raw: dict[str, Any], agent_id: str) -> str:
     value = raw.get("reasoning") or ""
     if value and value not in REASONING_EFFORTS:

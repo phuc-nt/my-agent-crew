@@ -1047,6 +1047,13 @@ tên một test thì sửa dòng của nó trong cùng commit.
     hay dòng mới thì không; prompt hệ thống bỏ dòng hết hạn; agent autonomous tự áp dụng khi bỏ
     dòng hết hạn hoặc thêm dòng mới có hạn, nhưng chờ duyệt khi gắn hạn cho dòng đã có; prompt
     viết lại mang danh sách dòng đã qua ngày cuối)
+- **Ngân sách bộ nhớ và sàng lọc dòng mới**
+  - pytest: `tests/test_memory_admission.py` (`memory_budget_chars` đọc từ tệp của agent, mặc
+    định 0, từ chối bool, số âm, chuỗi và số lẻ; chỉ dòng có khoá mới được sàng, dòng chỉ đổi ngày
+    và tiêu đề thì không; câu trả lời không rõ về một dòng hay số ngoài danh sách thì dòng được
+    nhận; dòng bị bỏ không vào bộ nhớ, lý do ghi vào đề xuất, run có hai bước; không có ngân sách
+    thì không sàng và prompt giữ giới hạn 24000; prompt mang ngân sách; quá ngân sách thì chờ duyệt
+    dù autonomous; lần sàng lỗi thì giữ mọi dòng mới và ghi lại)
 - **Ảnh từ trang khác trong câu trả lời và trang wiki chỉ tải khi bấm, không gửi referrer; lời đồng
   ý chỉ cho đúng địa chỉ đã bấm**
   - vitest: `components/markdown-body.test.tsx` "an image in a reply" (kể cả

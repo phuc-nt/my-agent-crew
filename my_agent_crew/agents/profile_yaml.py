@@ -27,7 +27,7 @@ from my_agent_crew.agents.profile import (
     default_profile,
 )
 from my_agent_crew.agents.profile_places import followed, persona_names
-from my_agent_crew.agents.profile_settings import listed, names, settings_from
+from my_agent_crew.agents.profile_settings import listed, memory_budget, names, settings_from
 from my_agent_crew.agents.schedule import ACTIONS, SCHEDULE_KEYS, Schedule, each_on_its_own_id
 from my_agent_crew.config import Settings
 from my_agent_crew.script.check import parse
@@ -147,6 +147,7 @@ def parse_profile(
         schedules=each_on_its_own_id(agent_id, schedules),
         telegram=telegram,
         memory_consolidate=consolidate_cron,
+        memory_budget_chars=memory_budget(raw, agent_id),
         mode=mode,
         delegates=names(raw, "delegates", agent_id),
         tools=names(raw, "tools", agent_id),
