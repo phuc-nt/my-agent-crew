@@ -11,6 +11,18 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-10-31
+
+### Added
+
+- **Approve from Telegram with a press.** A tool's request comes with ✅/❌ buttons and the call it
+  would run (tool name and JSON arguments, cut at 400 characters); a question with choices gets one
+  button per choice. A press settles that request only, and the message is rewritten with what was
+  done; a press on a request settled already is told so. Polling asks for `callback_query` updates.
+- **A delegated child's requests reach the chat.** A request made in a conversation the chat's own
+  delegated to is told to the chat as it is made, with its buttons, and `/approve`, `/deny` and a
+  typed answer reach it too. The child's resumed turn is read in silence; its parent's turn replies.
+
 ## [0.27.0] — 2026-10-31
 
 ### Added
