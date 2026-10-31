@@ -11,6 +11,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager, suppress
+from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.agent.loop import AgentDeps
@@ -99,16 +100,23 @@ class TelegramOutbound:
         await self._say(texts.TELEGRAM_RUN_UNFINISHED.format(reason=_ending(run)))
         return True
 
-    async def send(self, text: str, conv_id: str | None = None, plain: str = "") -> None:
+    async def send(
+        self,
+        text: str,
+        conv_id: str | None = None,
+        plain: str = "",
+        buttons: dict[str, Any] | None = None,
+    ) -> None:
         """The prose, then the workspace files its lines name, then the canvases they name.
         `conv_id` is the conversation the reply belongs to, which decides the canvases it may
         send. It comes with each call: one sender serves an agent's every turn. `plain` ends
         the same message and is never read for attachment lines: it is the runtime's sentence
-        about the turn, not the agent's words."""
+        about the turn, not the agent's words. `buttons` go under the prose: the decision a
+        turn paused on (`telegram_buttons`)."""
         prose, media, files = split_reply(text)
         prose = "\n\n".join(part for part in (prose, plain) if part)
         if prose:
-            await self._say(prose)
+            await self._say(prose, buttons)
         for relative in media:
             if artifact_ref(relative) is None:
                 await self._files.photo(relative)
@@ -139,10 +147,14 @@ class TelegramOutbound:
         attachment line names no file."""
         await self._say(text)
 
-    async def _say(self, prose: str) -> None:
+    async def ask(self, text: str, buttons: dict[str, Any] | None) -> None:
+        """A decision the agent waits on, said under its name with its buttons."""
+        await self._say(text, buttons)
+
+    async def _say(self, prose: str, buttons: dict[str, Any] | None = None) -> None:
         if self._prefix:
             prose = f"{self._prefix}\n{prose}"
-        await self._api.send_message(self._chat_id, prose)
+        await self._api.send_message(self._chat_id, prose, buttons)
         logger.info("telegram %s: sent %d chars", self.agent_id, len(prose))
 
     @asynccontextmanager

@@ -28,7 +28,7 @@ from my_agent_crew.store.queue import FOLLOW_UP
 from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED
 from tests.canvas_helpers import PNG
 from tests.lapse_helpers import WRITE, nobody_answered, waits_on
-from tests.telegram_fake import message, poll_each
+from tests.telegram_fake import asks_for, message, poll_each
 from tests.test_scheduler import with_schedules
 from tests.test_telegram_canvas_notice_sent import (
     asked,
@@ -225,10 +225,7 @@ async def test_a_decision_says_nothing_itself_and_the_reply_it_resumes_is_the_ag
     channel = make_channel(deps_factory(script=script))
     attachable(channel)
     await poll_each(channel, fake, message(1, "ghi file"), message(2, decision))
-    waiting = texts.REPLY_APPROVAL.format(
-        name=WRITE.name, reason="", how=texts.TELEGRAM_APPROVAL_HOW
-    )
-    assert fake.sent == [waiting, "Đây."]
+    assert fake.sent == [asks_for(WRITE), "Đây."]
     assert [upload.name for upload in fake.uploads] == ["brief.pdf"]
     written = channel.deps.agent.workspace / WRITE.arguments["path"]
     assert written.exists() is (decision == "/approve")

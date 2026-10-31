@@ -27,6 +27,7 @@ from my_agent_crew.channels.telegram_commands import (
     is_builtin,
     parse_command,
 )
+from my_agent_crew.channels.telegram_press import handle_press
 from my_agent_crew.channels.voice import (
     MAX_VOICE_BYTES,
     VoicePart,
@@ -91,7 +92,9 @@ async def handle_update(channel: TelegramChannel, update: dict[str, Any]) -> Non
 
 async def handle_updates(channel: TelegramChannel, updates: list[dict[str, Any]]) -> None:
     """One message to the agent: a single update, or the updates of one album, whose
-    caption sits on whichever photo carried it."""
+    caption sits on whichever photo carried it. A pressed button comes alone."""
+    if updates[0].get("callback_query"):
+        return await handle_press(channel, updates[0]["callback_query"])
     messages = [update.get("message") or {} for update in updates]
     chat_ids = {(message.get("chat") or {}).get("id") for message in messages}
     text = next((t for t in map(message_text, messages) if t), "")

@@ -10,6 +10,7 @@ one that is still being written."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
@@ -20,6 +21,8 @@ from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.agents.kit_commands import EmptySteer
 from my_agent_crew.channels.telegram_answers import answer_text
+from my_agent_crew.channels.telegram_approvals import open_question, resume, watch_children
+from my_agent_crew.channels.telegram_buttons import buttons_for, call_line
 from my_agent_crew.channels.telegram_canvas_notice import WrittenCanvases
 from my_agent_crew.channels.telegram_polling import TelegramPolling
 from my_agent_crew.inbound import Inbound, InboundBusy, TurnReply, collect_reply
@@ -43,6 +46,8 @@ class TelegramChat(TelegramPolling):
     outbound: Callable[..., TelegramOutbound]
     conversation: Callable[[], Conversation]
     _drain: QueueDrain | None = None
+    # Tells the chat what the agents its conversations delegated to wait on.
+    _watch: asyncio.Task[None] | None = None
 
     def set_drain(self, drain: QueueDrain) -> None:
         """Set after construction, like `set_on_replaced`: the runtime builds the drain after
@@ -53,10 +58,17 @@ class TelegramChat(TelegramPolling):
         super().start()
         if self._drain is not None:
             self._drain.register(TELEGRAM, self.run_delivered)
+        if self._watch is None:
+            self._watch = asyncio.create_task(watch_children(self))  # type: ignore[arg-type]
 
     async def stop(self) -> None:
         if self._drain is not None:
             self._drain.unregister(TELEGRAM)  # first: no queued turn starts while it waits
+        watch, self._watch = self._watch, None
+        if watch is not None:
+            watch.cancel()
+            with suppress(asyncio.CancelledError):
+                await watch
         await super().stop()
 
     def cut_notice(self) -> str:
@@ -66,24 +78,27 @@ class TelegramChat(TelegramPolling):
     async def chat(self, text: str) -> None:
         conv = self.conversation()
         busy = self.hub.busy.busy(conv.id)
-        question = self.store.approvals.pending_question(conv.id)
         # A slash command is a new instruction, never an answer. Someone who types `/brief`
         # while a question is open wants the brief, and storing "/brief" as the answer would
         # both lose the command and close the question with a word the agent cannot use.
-        # Nor is a message the answer while the conversation is busy: the question is being
-        # answered already, by an earlier message of the same poll.
-        if question is not None and not busy and not text.startswith("/"):
+        # Nor is a message the answer while the question's conversation is busy: it is being
+        # answered already, by an earlier message of the same poll. The question may be a
+        # delegated child's, which the conversation waits on while busy (`open_question`).
+        asked = None if text.startswith("/") else open_question(self, conv)  # type: ignore[arg-type]
+        if asked is not None:
             # The agent asked something and this is the reply. In a chat there is nowhere
             # else to put it: telling the person the conversation is busy when it is busy
             # waiting on them is the one answer that cannot be right.
-            events = self.inbound.answer(conv.id, question.id, answer_text(text, question))
-        else:
-            try:
-                events = self.inbound.stream(conv.id, text, source=TELEGRAM)
-            except InboundBusy:
-                return await self.say(texts.TELEGRAM_BUSY)
-            except (EmptySteer, QueueFull) as exc:
-                return await self.say(str(exc))
+            target, question = asked
+            answer = answer_text(text, question)
+            events = self.inbound.answer(target.id, question.id, answer, source=TELEGRAM)
+            return resume(self, target, events)  # type: ignore[arg-type]
+        try:
+            events = self.inbound.stream(conv.id, text, source=TELEGRAM)
+        except InboundBusy:
+            return await self.say(texts.TELEGRAM_BUSY)
+        except (EmptySteer, QueueFull) as exc:
+            return await self.say(str(exc))
         if busy:  # it waits in line: say so at once, with no "typing…" for a turn not begun
             return await self.say((await collect_reply(events)).text)
         self.spawn(self.reply_to(events, conv.id))
@@ -109,7 +124,10 @@ class TelegramChat(TelegramPolling):
                 # line calling the turn empty is kept for when none of them can be named.
                 unsaid = reply.text
             else:
-                await out.send(reply.said, conv_id, reply.error)
+                # What it paused on is offered as buttons, with what the call would run.
+                ask = reply.approval
+                plain = reply.error or call_line(ask)
+                await out.send(reply.said, conv_id, plain, ask and buttons_for(ask))
         except Exception as exc:
             await self._turn_failed(exc)
         try:

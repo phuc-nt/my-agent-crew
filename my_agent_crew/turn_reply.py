@@ -54,6 +54,8 @@ class TurnReply:
     steps: int
     status: str  # done | halted | error | approval_required | queued
     error: str = ""
+    # What the turn paused on, for a channel that offers the decision as buttons.
+    approval: ApprovalRequiredEvent | None = None
 
     @property
     def said(self) -> str:
@@ -76,6 +78,7 @@ async def collect_reply(
     error = ""  # kept apart from the parts; an error ends the turn, so it reads last anyway
     steps = 0
     status = kind_of(DoneEvent(0.0, 0))
+    approval: ApprovalRequiredEvent | None = None
     async for event in events:
         if isinstance(event, AssistantMessageEvent):
             steps += 1
@@ -88,6 +91,7 @@ async def collect_reply(
             error = texts.REPLY_ERROR.format(message=event.message)
             status = kind_of(event)
         elif isinstance(event, ApprovalRequiredEvent):
+            approval = event
             if event.kind == QUESTION:
                 # A question is shown as itself. "The tool ask_user needs your approval"
                 # would hide the actual question behind the machinery that carried it.
@@ -104,4 +108,5 @@ async def collect_reply(
             parts.append(texts.QUEUED_STEER if event.kind == STEER else texts.QUEUED_FOLLOW_UP)
             status = kind_of(event)
     answer = "\n\n".join(part for part in (*parts, error) if part)
-    return TurnReply(answer or texts.REPLY_EMPTY.format(steps=steps), steps, status, error)
+    empty = texts.REPLY_EMPTY.format(steps=steps)
+    return TurnReply(answer or empty, steps, status, error, approval)

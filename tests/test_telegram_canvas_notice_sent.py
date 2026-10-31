@@ -34,7 +34,7 @@ from my_agent_crew.tools.registry import Tool, ToolResult
 from tests.canvas_helpers import PLAN, persons_canvas
 from tests.lapse_helpers import ASK, WRITE, nobody_answered, sent_again, waits_on
 from tests.queue_helpers import until
-from tests.telegram_fake import message, poll_each
+from tests.telegram_fake import asks_for, message, poll_each
 from tests.test_scheduler import with_schedules
 
 STAMP = "2026-10-01T03:00:00+00:00"
@@ -543,9 +543,7 @@ async def test_each_leg_of_a_turn_that_waited_for_approval_names_its_own(
     child.written = [(canvas(deps.store, "Dàn ý"), 1), (canvas(deps.store, "Số liệu"), 3)]
     await poll_each(channel, fake, message(1, "làm đi"), message(2, "/approve"))
     assert fake.sent == [
-        texts.REPLY_APPROVAL.format(
-            name="workspace_write", reason="", how=texts.TELEGRAM_APPROVAL_HOW
-        ),
+        asks_for(WRITE),
         listed(("Dàn ý", 1)),
         "Xong.",
         listed(("Số liệu", 3)),

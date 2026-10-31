@@ -16,6 +16,9 @@ from urllib.parse import parse_qsl
 
 import httpx
 
+from my_agent_crew import texts
+from my_agent_crew.llm.types import ToolCall
+
 TOKEN = "123:secret-token"
 CHAT = 42
 _FIELD = re.compile(r'name="([^"]*)"(?:; filename="([^"]*)")?')
@@ -46,6 +49,9 @@ class FakeTelegram:
     def __init__(self):
         self.updates: list[dict] = []
         self.sent: list[str] = []
+        self.buttons: list[dict | None] = []  # the inline keyboard under each sent message
+        self.answered: list[str] = []  # what each button press was answered with
+        self.edits: list[dict[str, str]] = []  # each message rewritten, by its form
         self.photos: list[bytes] = []
         self.documents: list[bytes] = []
         self.uploads: list[Upload] = []
@@ -99,6 +105,14 @@ class FakeTelegram:
             form = dict(parse_qsl(request.content.decode()))
             assert form["chat_id"] == str(CHAT)
             self.sent.append(form["text"])
+            self.buttons.append(
+                json.loads(form["reply_markup"]) if "reply_markup" in form else None
+            )
+            return httpx.Response(200, json={"ok": True, "result": {"message_id": len(self.sent)}})
+        elif method == "answerCallbackQuery":
+            self.answered.append(dict(parse_qsl(request.content.decode()))["text"])
+        elif method in ("editMessageText", "editMessageReplyMarkup"):
+            self.edits.append({"method": method, **dict(parse_qsl(request.content.decode()))})
         elif method in ("sendPhoto", "sendDocument"):
             self.receive(request, method)
         elif method == "sendChatAction":
@@ -130,8 +144,23 @@ class FakeTelegram:
         return httpx.Response(200, content=b"BYTES:" + remote.encode())
 
 
+def asks_for(call: ToolCall, reason: str = "") -> str:
+    """What the chat reads of a tool call waiting on a decision: the request, then what the
+    call would run."""
+    shown, how = f" ({reason})" if reason else "", texts.TELEGRAM_APPROVAL_HOW
+    notice = texts.REPLY_APPROVAL.format(name=call.name, reason=shown, how=how)
+    arguments = json.dumps(call.arguments, ensure_ascii=False)
+    return f"{notice}\n\n{texts.TELEGRAM_APPROVAL_CALL.format(name=call.name, arguments=arguments)}"
+
+
 def message(update_id: int, text: str, chat: int = CHAT) -> dict:
     return {"update_id": update_id, "message": {"chat": {"id": chat}, "text": text}}
+
+
+def press(update_id: int, data: str, text: str = "", chat: int = CHAT) -> dict:
+    """A button pressed under message 7 of the chat, whose text was `text`."""
+    under = {"message_id": 7, "chat": {"id": chat}, "text": text}
+    return {"update_id": update_id, "callback_query": {"id": "q1", "data": data, "message": under}}
 
 
 def photo(update_id: int, file_id: str, caption: str = "", chat: int = CHAT) -> dict:

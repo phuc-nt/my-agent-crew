@@ -3,8 +3,17 @@ budget. Import them from `my_agent_crew.texts`, which re-exports this module's n
 
 TELEGRAM_CONVERSATION_TITLE = "Telegram · {date}"
 TELEGRAM_NEW_CONVERSATION = "Đã mở cuộc trò chuyện mới."
-# Fills `{how}` of REPLY_APPROVAL: on Telegram the decision is a slash command.
-TELEGRAM_APPROVAL_HOW = "gửi /approve để duyệt, /deny để từ chối"
+# Fills `{how}` of REPLY_APPROVAL: on Telegram the decision is a button, or a slash command.
+TELEGRAM_APPROVAL_HOW = "bấm nút bên dưới, hoặc gửi /approve để duyệt, /deny để từ chối"
+# What the waiting call would do, under the request: the person decides on it, not on a name.
+TELEGRAM_APPROVAL_CALL = "{name} {arguments}"
+TELEGRAM_BUTTON_APPROVE = "✅ Duyệt"
+TELEGRAM_BUTTON_DENY = "❌ Từ chối"
+# A press, answered on the message it was pressed under (its buttons go) and as a toast.
+TELEGRAM_PRESS_APPROVED = "✅ Đã duyệt."
+TELEGRAM_PRESS_DENIED = "❌ Đã từ chối."
+TELEGRAM_PRESS_ANSWERED = "Đã trả lời: {answer}"
+TELEGRAM_PRESS_SETTLED = "Yêu cầu này đã được xử lý rồi."
 SHELL_ASK_REASON = "khớp mẫu cần duyệt: `{pattern}`"
 TELEGRAM_APPROVAL_EXPIRED = (
     "Yêu cầu duyệt công cụ {name} đã hết hạn chờ, agent tiếp tục như bị từ chối."

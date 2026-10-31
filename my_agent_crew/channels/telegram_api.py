@@ -16,7 +16,7 @@ from my_agent_crew.channels.telegram_attachments import (
     MEDIA_PREFIX,
     split_reply,
 )
-from my_agent_crew.channels.telegram_plain_text import plain_text
+from my_agent_crew.channels.telegram_plain_text import plain_text, split_message
 
 __all__ = [
     "FILE_PREFIX",
@@ -29,34 +29,20 @@ __all__ = [
 ]
 
 API_BASE = "https://api.telegram.org"
-MESSAGE_LIMIT = 4096
 POLL_TIMEOUT_SECONDS = 25
 # How long an upload from memory may take. A line that stalls under megabytes would otherwise
 # hold the rest of the reply for as long as it stalls.
 SEND_TIMEOUT_SECONDS = 60
 CONFLICT_STATUS = 409  # another process polls the same bot
 TOKEN_PLACEHOLDER = "<token>"
+# A press on a decision button arrives as a `callback_query` (`telegram_buttons`).
+ALLOWED_UPDATES = ["message", "callback_query"]
 
 
 class TelegramError(Exception):
     def __init__(self, message: str, status: int | None = None):
         super().__init__(message)
         self.status = status
-
-
-def split_message(text: str, limit: int = MESSAGE_LIMIT) -> list[str]:
-    """Chunks at newlines where possible so a long brief stays readable."""
-    chunks: list[str] = []
-    rest = text
-    while len(rest) > limit:
-        cut = rest.rfind("\n", 0, limit)
-        if cut <= 0:
-            cut = limit
-        chunks.append(rest[:cut].rstrip())
-        rest = rest[cut:].lstrip("\n")
-    if rest or not chunks:
-        chunks.append(rest)
-    return chunks
 
 
 class RedactingFilter(logging.Filter):
@@ -137,12 +123,20 @@ class TelegramApi:
     async def get_updates(
         self, offset: int, timeout: int = POLL_TIMEOUT_SECONDS
     ) -> list[dict[str, Any]]:
-        data = {"offset": offset, "timeout": timeout, "allowed_updates": json.dumps(["message"])}
+        updates = json.dumps(ALLOWED_UPDATES)
+        data = {"offset": offset, "timeout": timeout, "allowed_updates": updates}
         return await self.call("getUpdates", data, timeout=timeout + 10)
 
-    async def send_message(self, chat_id: int, text: str) -> None:
-        for chunk in split_message(plain_text(text)):
-            await self.call("sendMessage", {"chat_id": chat_id, "text": chunk})
+    async def send_message(
+        self, chat_id: int, text: str, buttons: dict[str, Any] | None = None
+    ) -> None:
+        """`buttons`, an inline keyboard, goes under the last chunk: what it answers."""
+        chunks = split_message(plain_text(text))
+        for i, chunk in enumerate(chunks, start=1):
+            data: dict[str, Any] = {"chat_id": chat_id, "text": chunk}
+            if buttons and i == len(chunks):
+                data["reply_markup"] = json.dumps(buttons)
+            await self.call("sendMessage", data)
 
     async def send_photo(self, chat_id: int, path: Path) -> None:
         with path.open("rb") as handle:

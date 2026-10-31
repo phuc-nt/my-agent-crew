@@ -29,7 +29,16 @@ from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.reply_attachments import ARTIFACT_REF
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.store.runs import DONE, HALTED, RunRecord
-from tests.telegram_fake import CHAT, TOKEN, document, message, photo, poll_each, settle
+from tests.telegram_fake import (
+    CHAT,
+    TOKEN,
+    asks_for,
+    document,
+    message,
+    photo,
+    poll_each,
+    settle,
+)
 
 
 async def test_inbound_message_runs_a_tracked_turn_and_replies(make_channel, fake, tmp_path):
@@ -282,9 +291,7 @@ async def test_approve_and_deny_commands_resolve_the_pending_tool(make_channel, 
     )
     assert fake.sent == [
         texts.TELEGRAM_NO_APPROVAL,
-        texts.REPLY_APPROVAL.format(
-            name="workspace_write", reason="", how=texts.TELEGRAM_APPROVAL_HOW
-        ),
+        asks_for(WRITE),
         "đã ghi",
     ]
     assert (deps.settings.workspace_dir / "out.txt").read_text() == "ok"
@@ -490,9 +497,7 @@ async def test_an_approval_forced_by_the_ask_list_says_which_pattern_matched(
     await channel.poll_once()
     await settle(channel)
     reason = texts.SHELL_ASK_REASON.format(pattern="rm -rf")  # first match in list order
-    how = texts.TELEGRAM_APPROVAL_HOW
-    notice = texts.REPLY_APPROVAL.format(name="shell_run", reason=f" ({reason})", how=how)
-    assert fake.sent == [notice]
+    assert fake.sent == [asks_for(danger, reason)]
 
 
 async def test_an_error_without_a_description_still_names_the_method_and_status():

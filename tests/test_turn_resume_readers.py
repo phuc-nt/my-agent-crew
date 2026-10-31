@@ -30,12 +30,13 @@ from tests.restart_helpers import (
     next_server,
     stored_run,
 )
-from tests.telegram_fake import message, settle
+from tests.telegram_fake import asks_for, message, settle
 from tests.test_scheduler import with_schedules
 from tests.test_telegram_canvas_notice_sent import Delegated, canvas, hands_on, listed
 
 SLOW = ToolCall("c1", "slow", {})
 PEEK = ToolCall("p1", "peek", {})
+GATED = ToolCall("g1", "gated", {})
 BRIEF = Schedule("brief", "Bản tin sáng", cron="0 7 * * *", prompt="soạn bản tin")
 JOB_ID = "default/brief"
 
@@ -81,10 +82,6 @@ async def cut_then_carried_on(first, channel, fake, make_channel, deps_factory, 
     second, bot, _ = crew_with_bot(make_channel, deps_factory, script)
     assert len(resume_cut_turns(second)) == 1
     await settle(bot)
-
-
-def asks_to(tool: str) -> str:
-    return texts.REPLY_APPROVAL.format(name=tool, reason="", how=texts.TELEGRAM_APPROVAL_HOW)
 
 
 def chat_history(runtime: Runtime, conv_id: str) -> list[tuple[str, str]]:
@@ -165,7 +162,7 @@ async def test_a_chat_turn_carried_on_does_not_repeat_what_it_sent_when_it_stopp
     fake.updates = [message(1, "làm đi")]
     await channel.poll_once()
     await settle(channel)
-    stopped = f"Trước khi hỏi.\n\n{asks_to('workspace_write')}"
+    stopped = f"Trước khi hỏi.\n\n{asks_for(WRITE)}"
     assert fake.sent == [stopped]
     fake.updates = [message(2, "/approve")]
     await channel.poll_once()
@@ -182,12 +179,12 @@ async def test_a_chat_turn_cut_while_the_call_it_asked_about_ran_repeats_nothing
 ):
     monkeypatch.setattr(telegram_polling, "STOP_GRACE_SECONDS", 0.05)
     gated = SlowTool("gated", requires_approval=True)
-    script = [completion("Sắp ghi.", tool_calls=[ToolCall("g1", "gated", {})])]
+    script = [completion("Sắp ghi.", tool_calls=[GATED])]
     first, channel, _ = crew_with_bot(make_channel, deps_factory, script, tools=[gated.tool])
     fake.updates = [message(1, "làm đi")]
     await channel.poll_once()
     await settle(channel)
-    stopped = f"Sắp ghi.\n\n{asks_to('gated')}"
+    stopped = f"Sắp ghi.\n\n{asks_for(GATED)}"
     assert fake.sent == [stopped]
     fake.updates = [message(2, "/approve")]
     await channel.poll_once()

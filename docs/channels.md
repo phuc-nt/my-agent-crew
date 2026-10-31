@@ -196,7 +196,7 @@ tiến trình để client hiển thị chúng.
 | `/status` | số lượt, chi tiêu so với trần, tuyến, duyệt đang chờ, run gần nhất (giờ bắt đầu theo múi giờ của người dùng, xem `timezone` trong [agents.md](agents.md#agentyaml); run được lưu theo UTC) |
 | `/tools` | tên các tool của master |
 | `/steer <nội dung>` | chèn ý vào lượt đang chạy; lúc rảnh thì là tin thường |
-| `/approve`, `/deny` | giải quyết duyệt đang chờ và stream phần còn lại của lượt về |
+| `/approve`, `/deny` | giải quyết duyệt đang chờ (của chat hoặc của cuộc con nó giao việc) và stream phần còn lại của lượt về |
 
 `/status@botname` dùng được; `/usr/bin` hoặc câu bắt đầu bằng `/` không phải lệnh và
 đi tới model. Tin nhắn trong lúc một tool đang chờ duyệt nhận được lời nhắc thay vì một
@@ -222,6 +222,23 @@ số trơn chọn lựa chọn đó trong danh sách đánh số mà câu hỏi 
 kể cả số mà danh sách không có mục tương ứng và câu chỉ mới bắt đầu bằng một số.
 Đây là cách chat thay cho thẻ câu hỏi của web; xem
 [Hỏi người dùng](tools.md#hỏi-người-dùng).
+
+### Nút duyệt
+
+Yêu cầu duyệt một tool gửi vào chat kèm hai nút inline **✅ Duyệt** và **❌ Từ chối**, cùng một dòng
+cho biết lệnh sẽ chạy (tên tool và tham số JSON, cắt ở 400 ký tự), nên người dùng quyết định trên
+lệnh chứ không chỉ trên tên tool. Câu hỏi `ask_user` có lựa chọn mang một nút cho mỗi lựa chọn (tối
+đa 8; số trơn vẫn dùng được); câu hỏi không có lựa chọn thì không có nút. Mỗi nút mang id của yêu
+cầu, nên bấm nút ở một tin cũ vẫn chỉ giải quyết đúng yêu cầu đó. Bấm xong, tin được viết lại kèm
+kết quả ("✅ Đã duyệt.") và mất nút; yêu cầu đã được giải quyết trước đó (bằng nút, `/approve`, web
+hay hết hạn) chỉ nhận câu "đã được xử lý rồi". Nút bấm ở chat khác bị bỏ qua.
+
+Cuộc con mà master giao việc (một agent khác của đội làm thay) dừng trong cuộc trò chuyện riêng của
+nó. Yêu cầu duyệt của cuộc con thuộc chat được báo ngay vào chat, dưới tên agent đang hỏi, kèm nút;
+`/approve`, `/deny` và câu trả lời gõ tay cũng tới được cuộc con. Phần còn lại của lượt cuộc con
+được đọc thầm: kết quả trả về tool call của cuộc cha, và lượt của cuộc cha nói tiếp trong chat.
+Webhook và long polling phải xin `allowed_updates` gồm `callback_query`; polling của engine luôn xin
+`["message", "callback_query"]`, còn webhook do bên đặt webhook xin.
 
 ## Giao theo lịch
 

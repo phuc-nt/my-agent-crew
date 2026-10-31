@@ -4,7 +4,8 @@ Messages go out without a parse mode, so every marker a model writes shows liter
 ones models reach for most are rewritten: bold and italic lose their asterisks, headings
 their hashes, a `---` rule becomes a blank line, and a table becomes one line per row,
 its cells joined by " · ". A phone screen cannot line columns up anyway, and a row of
-pipes and dashes is the part of a morning brief the person reads least.
+pipes and dashes is the part of a morning brief the person reads least. A text longer than
+one message is split at newlines (`split_message`).
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ _TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$")
 _DIVIDER_CELL = re.compile(r"^:?-{2,}:?$")
 _EXTRA_BLANKS = re.compile(r"\n{3,}")
 CELL_SEPARATOR = " · "
+MESSAGE_LIMIT = 4096  # Telegram's, per message
 
 
 def plain_text(text: str) -> str:
@@ -39,3 +41,18 @@ def _line(line: str) -> str | None:
     if all(_DIVIDER_CELL.match(cell) for cell in cells):
         return None
     return CELL_SEPARATOR.join(cell for cell in cells if cell)
+
+
+def split_message(text: str, limit: int = MESSAGE_LIMIT) -> list[str]:
+    """Chunks at newlines where possible so a long brief stays readable."""
+    chunks: list[str] = []
+    rest = text
+    while len(rest) > limit:
+        cut = rest.rfind("\n", 0, limit)
+        if cut <= 0:
+            cut = limit
+        chunks.append(rest[:cut].rstrip())
+        rest = rest[cut:].lstrip("\n")
+    if rest or not chunks:
+        chunks.append(rest)
+    return chunks

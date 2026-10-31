@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from my_agent_crew import texts
 from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.agents.kit_commands import Command
+from my_agent_crew.channels.telegram_approvals import resume
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
 if TYPE_CHECKING:
@@ -133,16 +134,20 @@ def status_text(channel: TelegramChannel) -> str:
 
 
 async def decide(channel: TelegramChannel, approve: bool) -> str:
-    """Resolves the pending approval of the chat's latest conversation that waits on one,
-    which need not be today's, and runs the rest of that turn in the background like a
-    message; its answer comes to the chat when it ends, so this says nothing itself. One
-    already resuming is busy and passed over: a second `/approve` resumes nothing."""
+    """Resolves the pending approval the chat met last: of its latest conversation that waits
+    on one, which need not be today's, or of a conversation one of them delegated to. The
+    rest of that turn runs in the background (`resume`); the chat's own answers the chat
+    when it ends, so this says nothing for it, while a child's goes back to its parent and
+    the chat is told the decision was taken. One already resuming is busy and passed over:
+    a second `/approve` resumes nothing."""
     store = channel.deps.store
     for conv in store.awaiting_for_channel(channel.agent_id, channel.channel_key):
         pending = store.approvals.pending(conv.id)
         if pending is None or channel.hub.busy.busy(conv.id):
             continue
         events = channel.inbound.decide(conv.id, pending.id, approve, source=TELEGRAM)
-        channel.spawn(channel.reply_to(events, conv.id))
-        return ""
+        resume(channel, conv, events)
+        if not conv.root_id:
+            return ""
+        return texts.TELEGRAM_PRESS_APPROVED if approve else texts.TELEGRAM_PRESS_DENIED
     return texts.TELEGRAM_NO_APPROVAL

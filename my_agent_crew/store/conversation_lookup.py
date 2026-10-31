@@ -41,14 +41,17 @@ def latest_for_channel(
 def awaiting_for_channel(
     conn: sqlite3.Connection, lock: threading.Lock, agent_id: str, channel: str, limit: int
 ) -> list[Conversation]:
-    """The conversations an agent holds on a channel that wait on a decision, newest change
-    first: the one a chat's `/approve` means need not be the newest conversation."""
+    """The conversations an agent holds on a channel that wait on a decision, and those they
+    delegated to that do, newest change first: the one a chat's `/approve` means need not be
+    the newest conversation, nor even one of the chat's own."""
+    own = "agent_id = ? AND channel = ? AND parent_call_id = ''"
     sql = (
-        "SELECT * FROM conversations WHERE agent_id = ? AND channel = ? AND parent_call_id = ''"
-        " AND status = ? ORDER BY updated_at DESC, rowid DESC LIMIT ?"
+        f"SELECT * FROM conversations WHERE status = ? AND (({own}) OR root_id IN"
+        f" (SELECT id FROM conversations WHERE {own})) ORDER BY updated_at DESC, rowid DESC LIMIT ?"
     )
+    params = (AWAITING_APPROVAL, agent_id, channel, agent_id, channel, limit)
     with lock:
-        rows = conn.execute(sql, (agent_id, channel, AWAITING_APPROVAL, limit)).fetchall()
+        rows = conn.execute(sql, params).fetchall()
     return [Conversation.from_row(r) for r in rows]
 
 
