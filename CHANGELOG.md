@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-10-31
+
 ### Added
 
 - **`web_search` falls back to OpenRouter's web plugin** when the machine has `OPENROUTER_API_KEY`:

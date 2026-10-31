@@ -1,6 +1,6 @@
 # Agent
 
-**Phiên bản**: 0.26.0 · **Cập nhật**: 2026-10-29
+**Phiên bản**: 0.27.0 · **Cập nhật**: 2026-10-31
 
 Một **agent** là một thư mục dưới `MY_AGENT_HOME/agents/<id>/` gồm một `agent.yaml` và
 vài tệp Markdown. Mọi agent chạy cùng một vòng lặp; profile chỉ
