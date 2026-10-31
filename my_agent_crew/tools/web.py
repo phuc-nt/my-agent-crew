@@ -2,7 +2,7 @@
 own (the model sees the hop and may ask again) and reads a page only as far as
 `web_fetch` allows. `web_search` always exists because
 DuckDuckGo needs no key; keys and a firecrawl host only change which backend answers
-first."""
+first, and the model key adds a paid backend for when DuckDuckGo turns a script away."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import asyncio
 import ipaddress
 import logging
 import socket
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import urlsplit
@@ -21,14 +21,11 @@ from my_agent_crew import texts
 from my_agent_crew.config import Settings
 from my_agent_crew.tools.registry import Tool, ToolError
 from my_agent_crew.tools.web_fetch import fetch_page
-from my_agent_crew.tools.web_providers import (
-    SearchHit,
-    brave_search,
-    duckduckgo_search,
-    firecrawl_scrape,
-    firecrawl_search,
-    tavily_search,
-)
+from my_agent_crew.tools.web_providers import firecrawl_scrape
+from my_agent_crew.tools.web_search import run_search, search_backends
+
+# `search_backends` lived here before the search moved out; callers still import it here.
+__all__ = ["build_web_tools", "search_backends"]
 
 MAX_PAGE_CHARS = 6000
 # Markdown from a scrape is already the main content, so it earns a longer budget than
@@ -104,7 +101,7 @@ def build_web_tools(
 
     async def web_search(args: dict[str, Any]) -> str:
         query = str(args["query"])
-        results, error = await _search(settings, client, query)
+        results, error = await run_search(settings, client, query)
         if error is not None and not results:
             raise ToolError(texts.SEARCH_UNREACHABLE.format(error=error))
         if not results:
@@ -136,50 +133,6 @@ def build_web_tools(
         ),
     ]
     return tools
-
-
-def search_backends(settings: Settings) -> list[str]:
-    """Priority order, best first. DuckDuckGo closes the list, so it is never empty."""
-    names = []
-    if settings.firecrawl_base_url:
-        names.append("firecrawl")
-    if settings.brave_api_key:
-        names.append("brave")
-    if settings.tavily_api_key:
-        names.append("tavily")
-    names.append("duckduckgo")
-    return names
-
-
-def _provider(
-    name: str, settings: Settings, client: httpx.AsyncClient, query: str
-) -> Awaitable[list[SearchHit]]:
-    if name == "firecrawl":
-        base, key = settings.firecrawl_base_url, settings.firecrawl_api_key
-        return firecrawl_search(client, base, key, query)
-    if name == "brave":
-        return brave_search(client, settings.brave_api_key or "", query)
-    if name == "tavily":
-        return tavily_search(client, settings.tavily_api_key or "", query)
-    return duckduckgo_search(client, query)
-
-
-async def _search(
-    settings: Settings, client: httpx.AsyncClient, query: str
-) -> tuple[list[SearchHit], Exception | None]:
-    """Try each backend in turn. A backend that fails is logged and skipped; only when
-    every one of them failed does the tool report the search service as unreachable."""
-    last: Exception | None = None
-    for name in search_backends(settings):
-        try:
-            hits = await _provider(name, settings, client, query)
-        except (httpx.HTTPError, ValueError, KeyError) as exc:
-            logger.warning("web_search: %s failed (%s), trying the next backend", name, exc)
-            last = exc
-            continue
-        if hits:
-            return hits, None
-    return [], last
 
 
 async def _scrape(settings: Settings, client: httpx.AsyncClient, url: str) -> str:

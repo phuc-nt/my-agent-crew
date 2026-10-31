@@ -11,6 +11,20 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- **`web_search` falls back to OpenRouter's web plugin** when the machine has `OPENROUTER_API_KEY`:
+  a last backend after DuckDuckGo (Exa, about $0.007 a search plus a short completion on the
+  default model), used only when every free backend failed or found nothing.
+
+### Fixed
+
+- **DuckDuckGo's bot check is a failure, not "no results".** Its HTTP 202 puzzle page is now
+  recognised, so the next backend is tried and the error says so.
+- **The search error names every backend that failed.** It used to quote only the first, so a
+  firecrawl without `/search` (HTTP 501) was blamed when DuckDuckGo was the one turning the
+  script away. A backend that answered with nothing now makes the search empty, not failed.
+
 ## [0.26.0] — 2026-10-29
 
 ### Added

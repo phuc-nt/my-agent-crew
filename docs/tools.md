@@ -77,7 +77,7 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 | `workspace_read` | không | chỉ trần đầu ra của agent (`tool_output_chars`), có đánh dấu chỗ cắt | đọc một tệp văn bản trong workspace; `offset` (dòng, tính từ 1) và `limit` đọc một cửa sổ thay vì cả tệp |
 | `workspace_write` | **có** | — | ghi một tệp văn bản trong workspace, tạo thư mục cha; chỉ dưới `write_paths` nếu profile đặt khoá này |
 | `fetch_url` | không | 20 000 ký tự qua markdown của firecrawl, nếu không thì 6 000; kết nối 5 s, mỗi lần đọc 10 s, đọc tối đa 512 KB rồi đóng; không theo redirect | GET một trang http(s) công khai; firecrawl trả về markdown, nếu không thì HTML được rút thành văn bản |
-| `web_search` | không | 5 kết quả | luôn có sẵn; các backend được thử theo thứ tự firecrawl → brave → tavily → duckduckgo; trả về tiêu đề, URL, đoạn trích |
+| `web_search` | không | 5 kết quả | luôn có sẵn; các backend được thử theo thứ tự firecrawl → brave → tavily → duckduckgo → openrouter; trả về tiêu đề, URL, đoạn trích |
 | `memory_save` | không | — | nối `- HH:MM text` vào ghi chú hôm nay, xem [memory.md](memory.md) |
 | `memory_search` | không | 12 kết quả | tìm trong facts người dùng dùng chung, rồi `MEMORY.md` và mọi ghi chú ngày, mới nhất trước; mọi từ khoá đều phải khớp |
 | `conversation_search` | không | 20 kết quả, tối đa 3 mỗi hội thoại | tìm trong lời đã nói ở các hội thoại khác (FTS5, gõ không dấu vẫn khớp có dấu); agent thường chỉ tìm hội thoại của chính mình, master tìm được của một agent bất kỳ hoặc cả đội; hội thoại đang chạy không tính |
@@ -305,8 +305,19 @@ firecrawl, rồi Brave, rồi Tavily, rồi DuckDuckGo. DuckDuckGo không cần 
 danh sách, nên tool tồn tại trên mọi máy và agent liệt kê nó trong `tools:` luôn
 dùng được. Backend thất bại được ghi log và bỏ qua; chỉ khi mọi backend đều thất bại
 tool mới báo dịch vụ tìm kiếm không tới được, nhờ đó "không có kết quả" và
-"tìm kiếm hỏng" là hai câu trả lời tách biệt. `FIRECRAWL_API_KEY` là tuỳ chọn và chỉ gửi khi
-được đặt, nên host tự dựng không cần khoá và một base url gõ sai không thể làm lộ khoá.
+"tìm kiếm hỏng" là hai câu trả lời tách biệt: một backend trả lời rỗng làm cả lượt tìm là
+"không có kết quả", và lỗi khi mọi backend đều hỏng nêu từng backend kèm lỗi của nó (trước đây
+chỉ nêu lỗi đầu, nên một firecrawl không có `/search` bị đổ lỗi cho cả DuckDuckGo).
+`FIRECRAWL_API_KEY` là tuỳ chọn và chỉ gửi khi được đặt, nên host tự dựng không cần khoá và
+một base url gõ sai không thể làm lộ khoá.
+
+DuckDuckGo trả trang đố hình chống bot (HTTP 202, `anomaly-modal`) cho script ngày càng
+thường; trang đó được tính là backend hỏng chứ không phải "không có kết quả". Máy có
+`OPENROUTER_API_KEY` thì có thêm backend cuối, `openrouter`: plugin web của OpenRouter (Exa)
+với model mặc định `deepseek/deepseek-v4-flash`, kết quả lấy từ các chú thích `url_citation`
+(không có thì từ link markdown trong câu trả lời). Nó tốn khoảng $0,007 một lượt tìm cộng một
+completion ngắn và không tính vào `cost_cap_usd`, nên chỉ được gọi khi mọi backend miễn phí
+trước nó đều hỏng hoặc không có kết quả.
 
 ### Trình duyệt
 

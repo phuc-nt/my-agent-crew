@@ -20,6 +20,13 @@ SCRAPE_TIMEOUT = 30.0
 DUCKDUCKGO_URL = "https://html.duckduckgo.com/html/"
 # DuckDuckGo's HTML endpoint answers a browser; a bare client gets an empty page.
 BROWSER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120"
+# What DuckDuckGo sends a client it takes for a bot: HTTP 202 and a picture puzzle, which
+# has no results in it and must not read as "nothing found".
+DUCKDUCKGO_BOT_CHECK = "anomaly-modal"
+
+
+class SearchBlocked(ValueError):
+    """The backend answered, but with a bot check instead of results."""
 
 
 @dataclass(frozen=True)
@@ -136,4 +143,6 @@ async def duckduckgo_search(client: httpx.AsyncClient, query: str) -> list[Searc
         timeout=SEARCH_TIMEOUT,
     )
     resp.raise_for_status()
+    if resp.status_code == 202 or DUCKDUCKGO_BOT_CHECK in resp.text:
+        raise SearchBlocked(f"DuckDuckGo answered with a bot check (HTTP {resp.status_code})")
     return parse_duckduckgo(resp.text)
