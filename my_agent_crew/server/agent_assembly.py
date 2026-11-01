@@ -17,6 +17,7 @@ from my_agent_crew.agents import AgentProfile
 from my_agent_crew.agents.context import ensure_agent_dirs
 from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.config import Route, Settings
+from my_agent_crew.llm.anthropic import AnthropicProvider
 from my_agent_crew.llm.fake import EchoProvider
 from my_agent_crew.llm.ollama import OllamaProvider, base_url
 from my_agent_crew.llm.openrouter import OpenRouterProvider
@@ -43,6 +44,8 @@ def build_providers(
             provider_order=settings.openrouter_providers,
             allow_fallbacks=settings.openrouter_provider_fallbacks,
         )
+    if settings.anthropic_api_key:
+        providers["anthropic"] = AnthropicProvider(settings.anthropic_api_key, client)
     # Ollama needs no key, so it is always built rather than gated on configuration. If
     # nothing is listening the route fails at call time and the chain falls through to the
     # next one, which is the same handling as any other provider being down.

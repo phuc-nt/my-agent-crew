@@ -23,6 +23,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   only, encrypted end to end (RFC 8291) with a VAPID key the server keeps in
   `<home>/webpush.json`. On an iPhone the app must be added to the Home Screen first; the
   inbox says so. New dependency: `cryptography`.
+- **Claude through the Anthropic API.** Setting `ANTHROPIC_API_KEY` adds an `anthropic` provider, so a
+  route such as `anthropic:claude-sonnet-5-5` runs on the account's API credit. Requests mark the
+  system prompt, the tools and the conversation tail for prompt caching, and the cost of each call is
+  worked out from the usage the API reports, cache reads and writes included. When the credit runs out
+  the route fails before any output, the chain moves on to the next route (OpenRouter), and the
+  provider stops asking for 15 minutes. Rate limits, overload and server errors are retried once and
+  then fall back; a rejected key says to check `ANTHROPIC_API_KEY`. Connections lists the key and its
+  check lists the models without spending anything. Without the key nothing changes.
 
 ## [0.30.0] — 2026-11-01
 

@@ -103,6 +103,7 @@ async def list_connections(rt: Rt) -> dict[str, Any]:
         "audio_routes": [{"provider": r.provider, "model": r.model} for r in s.audio_routes],
         "keys": [
             {"name": "OPENROUTER_API_KEY", "present": bool(s.openrouter_api_key)},
+            {"name": "ANTHROPIC_API_KEY", "present": bool(s.anthropic_api_key)},
             {"name": "BRAVE_API_KEY", "present": bool(s.brave_api_key)},
             {"name": "TAVILY_API_KEY", "present": bool(s.tavily_api_key)},
             {"name": "FIRECRAWL_API_KEY", "present": bool(s.firecrawl_api_key)},

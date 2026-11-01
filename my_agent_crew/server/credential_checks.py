@@ -1,8 +1,8 @@
 """One free request per kind of connection, to tell a working key from a wrong one.
 
 Each check picks an endpoint that costs nothing and changes nothing: OpenRouter's key
-info, Telegram's `getMe`, ollama's model list, a GET on the firecrawl host, Tavily's
-usage. Brave has no such endpoint, so its check is one real search of a single result
+info, Anthropic's and ollama's model lists, Telegram's `getMe`, a GET on the firecrawl
+host, Tavily's usage. Brave has no such endpoint, so its check is one real search of a single result
 — one query off the plan, which the button says before it is pressed. Whatever comes
 back has the value cut out before it is shown, because an httpx error names the URL it
 failed on and a Telegram URL carries the token; the same token is kept out of httpx's
@@ -17,10 +17,12 @@ import httpx
 
 from my_agent_crew import texts_credentials as t
 from my_agent_crew.channels.telegram_api import hide_token
+from my_agent_crew.llm.anthropic import API_VERSION as ANTHROPIC_VERSION
 from my_agent_crew.llm.ollama import base_url as ollama_base_url
 
 CHECK_TIMEOUT_SECONDS = 10.0
 OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key"
+ANTHROPIC_MODELS_URL = "https://api.anthropic.com/v1/models"
 TELEGRAM_API = "https://api.telegram.org"
 TAVILY_USAGE_URL = "https://api.tavily.com/usage"
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
@@ -29,7 +31,7 @@ REJECTED_STATUSES = (401, 403, 404)
 BRAVE_REJECTED_STATUSES = (*REJECTED_STATUSES, 422)
 RATE_LIMITED_STATUS = 429
 # Checks whose value is a secret, so nothing said about them may contain it.
-SECRET_KINDS = ("openrouter", "telegram", "brave", "tavily")
+SECRET_KINDS = ("openrouter", "anthropic", "telegram", "brave", "tavily")
 # Checks that spend what the key pays for; the page names the cost on the button.
 SPENDING_KINDS = ("brave",)
 
@@ -59,6 +61,17 @@ async def _openrouter(client: httpx.AsyncClient, key: str) -> dict[str, Any]:
     response = await client.get(
         OPENROUTER_KEY_URL,
         headers={"Authorization": f"Bearer {key}"},
+        timeout=CHECK_TIMEOUT_SECONDS,
+    )
+    return _result(True, t.CHECK_OK) if response.is_success else _failed(response)
+
+
+async def _anthropic(client: httpx.AsyncClient, key: str) -> dict[str, Any]:
+    # Listing the models is free and needs a valid key; it does not tell whether the
+    # account still has credit, which only a paid call would.
+    response = await client.get(
+        ANTHROPIC_MODELS_URL,
+        headers={"x-api-key": key, "anthropic-version": ANTHROPIC_VERSION},
         timeout=CHECK_TIMEOUT_SECONDS,
     )
     return _result(True, t.CHECK_OK) if response.is_success else _failed(response)
@@ -118,6 +131,7 @@ async def _reachable(client: httpx.AsyncClient, url: str) -> dict[str, Any]:
 
 CHECKS = {
     "openrouter": _openrouter,
+    "anthropic": _anthropic,
     "telegram": _telegram,
     "ollama": _ollama,
     "firecrawl": _reachable,

@@ -57,12 +57,12 @@ class Settings:
     # The one route a stuck turn of this agent moves to; set only by an agent's own file.
     escalation_route: Route | None = None
     openrouter_api_key: str | None = None
+    anthropic_api_key: str | None = None
     brave_api_key: str | None = None
     tavily_api_key: str | None = None
     # A firecrawl host (self-hosted or cloud); empty turns search-and-scrape through it off.
     firecrawl_base_url: str = ""
-    # Only sent when set: a self-hosted firecrawl needs no key, and a wrong base url
-    # must not carry a token to a stranger.
+    # Sent only when set: self-hosted firecrawl needs none, and a wrong url must get no token.
     firecrawl_api_key: str | None = None
     cost_cap_usd: float = 0.50
     language: str = "vi"

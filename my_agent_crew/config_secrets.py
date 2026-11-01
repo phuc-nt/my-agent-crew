@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 def secrets_from(env: Mapping[str, str]) -> dict[str, Any]:
     return {
         "openrouter_api_key": env.get("OPENROUTER_API_KEY") or None,
+        "anthropic_api_key": env.get("ANTHROPIC_API_KEY") or None,
         "brave_api_key": env.get("BRAVE_API_KEY") or None,
         "tavily_api_key": env.get("TAVILY_API_KEY") or None,
         "firecrawl_base_url": str(env.get("FIRECRAWL_BASE_URL") or "").rstrip("/"),

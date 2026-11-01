@@ -33,6 +33,7 @@ class Known:
 KNOWN = (
     Known("OPENROUTER_API_KEY", "model", check="openrouter"),
     Known("OLLAMA_BASE_URL", "model", secret=False, url=True, check="ollama"),
+    Known("ANTHROPIC_API_KEY", "model", check="anthropic"),
     Known("BRAVE_API_KEY", "search", check="brave"),
     Known("TAVILY_API_KEY", "search", check="tavily"),
     Known("FIRECRAWL_BASE_URL", "search", secret=False, url=True, check="firecrawl"),

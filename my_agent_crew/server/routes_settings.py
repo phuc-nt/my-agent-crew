@@ -40,6 +40,7 @@ def get_settings(rt: Rt) -> dict[str, Any]:
         "autonomous_default": s.autonomous_default,
         "keys": {
             "openrouter": bool(s.openrouter_api_key),
+            "anthropic": bool(s.anthropic_api_key),
             "brave": bool(s.brave_api_key),
             "tavily": bool(s.tavily_api_key),
             "firecrawl": bool(s.firecrawl_api_key),

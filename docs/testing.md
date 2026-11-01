@@ -8174,3 +8174,21 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     từ chối nói "đã bấm từ chối trên Telegram"; câu trả lời cũng lưu nơi quyết; nơi không rõ thì
     không thêm chữ), `tests/test_delegate_outcome.py` và `tests/test_tools_delegate.py` (kết quả giao
     việc phân biệt "người dùng từ chối duyệt X trên web" với "X hết hạn chờ duyệt, không ai trả lời").
+- **Claude qua Anthropic API, rơi sang OpenRouter khi hết credit**:
+  - pytest: `tests/test_anthropic.py` (câu trả lời chữ chảy từng mảnh rồi xong kèm usage, tiền và
+    header `x-api-key`, `anthropic-version`; lời gọi tool chảy từng mảnh và thành lời gọi; lời gọi bị
+    cắt ở trần output được đánh dấu; suy nghĩ được hiện thành reasoning),
+    `tests/test_anthropic_wire.py` (system prompt thành trường `system` có đánh dấu cache; vòng tool
+    thành khối `tool_use` và `tool_result`; nhiều kết quả và tin người dùng theo sau gộp một tin, kết
+    quả đứng trước; lời gọi thiếu kết quả được trả lời, kết quả lạc giữ thành chữ; id của provider khác
+    được làm hợp lệ ở cả hai phía; lịch sử mở đầu bằng assistant được thêm tin người dùng; system ở
+    giữa thành chữ của người dùng; ảnh đứng trước chữ; audio bị từ chối trước khi gọi; tool cuối đánh
+    dấu cache; tối đa ba điểm cache, không `temperature`, không `thinking`; `effort` chỉ gửi cho model
+    nhận nó), `tests/test_anthropic_pricing.py` (giá theo model, đọc và ghi cache theo giá riêng, Haiku
+    5.5 tính giá bậc cao cho prompt dài, id có ngày tìm ra họ model, model lạ không có giá thay vì đoán),
+    `tests/test_anthropic_errors.py` (từ chối trả lời trước khi có chữ để chuỗi rơi tiếp; luồng dừng
+    giữa chừng; phân loại lỗi HTTP thành tạm thời hay không; 401/403 nói kiểm tra `ANTHROPIC_API_KEY`;
+    quá tải giữa luồng; luồng hỏng; lỗi mạng), `tests/test_anthropic_credit.py` (hết credit với 400 và
+    402 không thử lại; sau đó không hỏi lại cho tới hết 15 phút; chuỗi rơi sang OpenRouter; khoá chỉ
+    lấy từ môi trường; provider chỉ được dựng khi có khoá, không có thì tuyến `anthropic:` bị bỏ; kiểm
+    tra khoá liệt kê model miễn phí và không lặp lại khoá).
