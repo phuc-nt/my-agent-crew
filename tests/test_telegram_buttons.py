@@ -170,3 +170,18 @@ async def test_polling_asks_for_presses_too():
     await api.get_updates(0, timeout=0)
     assert json.loads(seen[0]["allowed_updates"]) == ALLOWED_UPDATES
     assert "callback_query" in ALLOWED_UPDATES
+
+
+async def test_a_press_too_old_to_answer_still_loses_its_buttons(make_channel, deps_factory, fake):
+    """A press that woke a sleeping host comes late, and Telegram refuses to answer it then:
+    the request is settled all the same, and its message says so."""
+    channel = make_channel(
+        deps_factory(script=[completion(tool_calls=(WRITE,)), completion("Thôi.")])
+    )
+    await poll_each(channel, fake, message(1, "ghi file"))
+    rid = channel.store.approvals.pending(channel.conversation().id).id
+    fake.fail["answerCallbackQuery"] = 400
+    await poll_each(channel, fake, press(2, f"n:{rid}"))
+    assert channel.store.approvals.get(rid).status != PENDING
+    assert [e["method"] for e in fake.edits] == ["editMessageText"]
+    assert fake.edits[0]["text"].endswith(texts.TELEGRAM_PRESS_DENIED)

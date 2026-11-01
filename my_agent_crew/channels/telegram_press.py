@@ -73,13 +73,19 @@ async def _close(
 ) -> None:
     """Answers the press (Telegram shows a spinner until then) and rewrites the message it was
     pressed under with what was done instead of its buttons. A message too long to take the
-    line keeps its text and only loses the buttons."""
-    message_id = message.get("message_id")
+    line keeps its text and only loses the buttons. Each step goes on without the other: a
+    press that woke a sleeping host is too old for Telegram to answer, yet its message still
+    has to lose its buttons."""
     try:
         answer = {"callback_query_id": query_id, "text": said}
         await channel.api.call("answerCallbackQuery", answer)
-        if message_id is not None:
-            text = f"{message.get('text') or ''}\n\n{said}".strip()
-            await close_message(channel, message_id, text)
     except TelegramError as exc:
         logger.warning("telegram %s: a press was not answered: %s", channel.agent_id, exc)
+    message_id = message.get("message_id")
+    if message_id is None:
+        return
+    try:
+        text = f"{message.get('text') or ''}\n\n{said}".strip()
+        await close_message(channel, message_id, text)
+    except TelegramError as exc:
+        logger.warning("telegram %s: a pressed message kept its buttons: %s", channel.agent_id, exc)
