@@ -11,6 +11,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.30.0] — 2026-11-01
+
+### Added
+
+- **The chat folds for a phone.** On a screen 720px wide or less the conversation header is
+  the title row and the Canvas pill; spend, options, crew and the recap sit behind a toggle
+  that folds again when another conversation opens. The status line keeps quiet while all is
+  well, and approval and question buttons span the card at a thumb's height.
+
 ## [0.29.3] — 2026-11-01
 
 ### Fixed
