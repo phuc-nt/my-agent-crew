@@ -31,7 +31,7 @@ export function threadReducer(state: ThreadState, action: ThreadAction): ThreadS
     case "user_unsent":
       return { ...state, items: withoutLocalBubble(state.items, action.text) };
     case "turn_started":
-      return { ...state, busy: true, streaming: null, notice: null, ...betweenStreams(state) };
+      return { ...state, busy: true, streaming: null, notice: null, turnUsage: null, ...betweenStreams(state) };
     case "turn_finished":
       return { ...state, busy: false, streaming: null, thinking: false, items: settle(state), ...betweenStreams(state) };
     case "turn_stopped": {

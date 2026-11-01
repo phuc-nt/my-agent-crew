@@ -1,4 +1,5 @@
 import type { ScriptWork } from "../lib/nested-calls";
+import type { TurnUsage } from "../lib/turn-usage";
 import type {
   AgentEvent,
   Approval,
@@ -16,7 +17,8 @@ export type ToolStatus = "running" | "done" | "failed" | "awaiting" | "denied" |
 export type ThreadItem =
   /** `context`: the canvas note the message was stored with, when the person's canvas came along. */
   | { kind: "user"; id: string; text: string; context?: string }
-  | { kind: "assistant"; id: string; text: string; model: string | null }
+  /** `usage`: what the turn had cost when this reply was written, every call before it included. */
+  | { kind: "assistant"; id: string; text: string; model: string | null; usage?: TurnUsage }
   /** A script's card also holds what the script called on its own and its two measures:
    *  heard call by call while it runs, then as its result says them, live or stored. */
   | ({
@@ -81,6 +83,8 @@ export interface ThreadState {
   busy: boolean;
   pending: PendingApproval | null;
   spentUsd: number;
+  /** The live turn's model calls so far; a new turn starts it again. */
+  turnUsage: TurnUsage | null;
   unknownCostCalls: number;
   /** `reason` is set on "escalated" only: why the turn moved, beside the route it moved to.
    *  `ofTurn` is set on an "error" the turn itself ended in. One without it is of a request
@@ -143,6 +147,7 @@ export const emptyThread: ThreadState = {
   busy: false,
   pending: null,
   spentUsd: 0,
+  turnUsage: null,
   unknownCostCalls: 0,
   notice: null,
   waiting: [],

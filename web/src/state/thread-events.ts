@@ -1,6 +1,7 @@
 import { withNested, workOf } from "../lib/nested-calls";
 import { PROGRESS_NOTE_TOOL } from "../lib/run-rows";
 import { isDenied } from "../lib/tool-reply";
+import { addStep } from "../lib/turn-usage";
 import type { AgentEvent, QueuedMessage } from "../api/types";
 import { watchingFrom } from "./thread-detail";
 import { threadItemFor, updateTool, withContext } from "./thread-items";
@@ -26,9 +27,10 @@ export function applyEvent(given: ThreadState, e: AgentEvent): ThreadState {
     }
     case "assistant_message": {
       const items = [...state.items];
-      if (e.content) items.push({ kind: "assistant", id: e.message_id, text: e.content, model: e.model });
+      const turnUsage = addStep(state.turnUsage, e);
+      if (e.content) items.push({ kind: "assistant", id: e.message_id, text: e.content, model: e.model, usage: turnUsage });
       for (const call of e.tool_calls) items.push(threadItemFor(call));
-      return { ...state, items, streaming: null, previews: bindCalls(state.previews, e.tool_calls) };
+      return { ...state, items, turnUsage, streaming: null, previews: bindCalls(state.previews, e.tool_calls) };
     }
     case "tool_call":
       return state.items.some((it) => it.id === e.tool_call_id)

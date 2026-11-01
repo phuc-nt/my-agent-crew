@@ -18,6 +18,10 @@ export interface StoredMessage {
   provider: string | null;
   model: string | null;
   cost_usd: number | null;
+  /** The model call's prompt, and the part of it the provider's cache served; null when
+   *  the provider did not say, absent on a message that was no model call. */
+  prompt_tokens?: number | null;
+  cached_tokens?: number | null;
   created_at: string;
   /** The note a user message was stored with when the person's canvas came along: the passage
    *  they selected, or what they changed since the agent last saw it. Absent or empty when

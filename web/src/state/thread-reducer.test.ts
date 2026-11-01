@@ -298,7 +298,7 @@ describe("threadReducer streaming turn", () => {
     expect(end.streaming).toBeNull();
     expect(end.busy).toBe(false);
     expect(end.spentUsd).toBe(0.01);
-    expect(end.items).toEqual([{ kind: "assistant", id: "a1", text: "Xin chào", model: "m" }]);
+    expect(end.items).toMatchObject([{ kind: "assistant", id: "a1", text: "Xin chào", model: "m" }]);
   });
 
   it("tracks a tool call from announcement through result", () => {
@@ -535,7 +535,7 @@ describe("threadReducer on an event of a kind this build does not know", () => {
       more,
     );
     expect(end).toMatchObject({ busy: false, streaming: null, notice: null, spentUsd: 0.01 });
-    expect(end.items).toEqual([{ kind: "assistant", id: "a1", text: "Xin chào", model: "m" }]);
+    expect(end.items).toMatchObject([{ kind: "assistant", id: "a1", text: "Xin chào", model: "m" }]);
   });
 
   it("leaves a model that is thinking shown as thinking, until an event this build knows ends it", () => {
@@ -659,7 +659,7 @@ describe("threadReducer turn end", () => {
     const stopped = threadReducer(run([twoCalls]), { type: "turn_stopped" });
     const kept = [message({ id: "a9", role: "assistant", content: "phần đã viết" })];
     const again = threadReducer(stopped, { type: "loaded", detail: detail({ messages: kept }) });
-    expect(again.items).toEqual([{ kind: "assistant", id: "a9", text: "phần đã viết", model: null }]);
+    expect(again.items).toMatchObject([{ kind: "assistant", id: "a9", text: "phần đã viết", model: null }]);
     expect(again.notice).toEqual({ kind: "stopped", text: "" });
     expect(threadReducer(again, { type: "loaded", detail: detail() }).notice).toEqual({ kind: "stopped", text: "" });
     const calls = [message({ role: "assistant", tool_calls: [{ id: "tc3", name: "write_file", arguments: {} }] })];

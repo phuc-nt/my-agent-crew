@@ -1,18 +1,22 @@
 import { storedWork } from "../lib/nested-calls";
 import { noteText, PROGRESS_NOTE_TOOL } from "../lib/run-rows";
 import { storedStatus } from "../lib/tool-reply";
+import { addStep, type TurnUsage } from "../lib/turn-usage";
 import type { StoredMessage, ToolCall } from "../api/types";
 import type { ThreadItem, ThreadState, ToolStatus } from "./thread-state";
 
 export function itemsFromMessages(messages: StoredMessage[]): ThreadItem[] {
   const items: ThreadItem[] = [];
   const toolIndex = new Map<string, number>();
+  let usage: TurnUsage | null = null;
   for (const m of messages) {
     if (m.role === "user") {
+      usage = null;
       items.push({ kind: "user", id: m.id, text: m.content, ...(m.context ? { context: m.context } : {}) });
     }
     if (m.role === "assistant") {
-      if (m.content) items.push({ kind: "assistant", id: m.id, text: m.content, model: m.model });
+      usage = addStep(usage, m);
+      if (m.content) items.push({ kind: "assistant", id: m.id, text: m.content, model: m.model, usage });
       for (const call of m.tool_calls) {
         toolIndex.set(call.id, items.length);
         items.push(toolItem(call, "running"));

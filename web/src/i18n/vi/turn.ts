@@ -1,4 +1,12 @@
 export const viTurn = {
+  /** Under a reply: what its turn had cost by then. */
+  turnUsage: {
+    steps: (n: number) => `${n} lượt gọi model`,
+    tokens: (n: string) => `${n} token vào`,
+    cached: (pct: number) => `${pct}% từ cache`,
+    unpriced: "chưa đủ giá",
+    label: "Chi phí lượt này",
+  },
   awaitingApproval: "Agent muốn chạy một công cụ cần bạn duyệt.",
   approvalTitle: (tool: string) => `Cho phép chạy ${tool}?`,
   approve: "Cho phép",

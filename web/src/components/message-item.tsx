@@ -13,6 +13,7 @@ import { ForkButton } from "./fork-button";
 import { MarkdownBody } from "./markdown-body";
 import { ScriptPrinted } from "./script-printed";
 import { ToolCallCard } from "./tool-call-card";
+import { TurnUsageLine } from "./turn-usage-line";
 import { AgentAvatar } from "./ui/agent-avatar";
 import { Icon } from "./ui/icon";
 
@@ -115,6 +116,7 @@ export function Item({
           <p key={i}>{block.value}</p>
         ),
       )}
+      {assistant && item.usage && <TurnUsageLine usage={item.usage} />}
       {assistant && item.text.trim() !== "" && <BubbleActions text={item.text} />}
       {!assistant && onFork && <ForkButton onClick={() => onFork(item)} />}
     </div>

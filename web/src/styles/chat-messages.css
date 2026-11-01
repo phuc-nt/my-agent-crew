@@ -172,3 +172,9 @@
   border-radius: var(--radius-md);
   background: var(--bg);
 }
+
+.turn-usage {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  margin-top: var(--space-1);
+}
