@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.33.0] — 2026-11-01
+
 ### Added
 
 - **Facts that know where they stand.** Each fact about the person now records who stands
