@@ -51,6 +51,7 @@ READS = {
     "progress_note",
     "skill_read",
     "tool_output_read",
+    "user_memory_get",  # read again it counts one more recall, nothing else
     # Of an agent left as it was: every call its script makes is one of these. One whose
     # scripts may change things holds a script tool that is not here (below).
     "tool_script",
