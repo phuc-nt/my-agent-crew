@@ -18,5 +18,7 @@ export const viAttention = {
   attentionExpiresIn: (clock: string) => `còn ${clock}`,
   attentionExpired: "Đã hết hạn",
   attentionWaitingElsewhere: (n: number) => `${n} việc đang chờ bạn ở mục Duyệt`,
+  // Over the chat: the requests of the agents this conversation handed work to, decided here.
+  attentionDelegated: "Việc đã giao đang chờ bạn",
   attentionFailedElsewhere: (n: number) => `${n} lỗi hoặc dừng chưa xem ở mục Hoạt động`,
 } as const;

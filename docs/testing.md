@@ -429,6 +429,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "a request in an attention row reads in body text, not the card's amber"
   - pytest:
     `tests/test_server_api.py::test_a_request_the_ask_list_stopped_still_says_why_when_read_back`
+- **Duyệt yêu cầu của agent được giao việc ngay trong chat đã giao; số việc chờ trên nút Quản lý**
+  - vitest: `app-child-requests.test.tsx`
+    ("shows the child's request in the parent's chat and settles it there",
+    "answers a grandchild's question from the root's chat, naming the child it works for",
+    "opens the child's conversation from its row",
+    "keeps another conversation's child out of this chat and counts it on the way to Duyệt",
+    "counts waiting requests apart from unread failures on the way out of the chat",
+    "appears as soon as the activity stream says a child paused");
+    `state/delegated-requests.test.ts` (con, cháu qua run `delegate:` của con, con dừng lại sau
+    một lần duyệt nối qua run giao việc đầu tiên, vòng lặp không treo);
+    `components/attention-center.test.tsx`
+    "draws nothing for an empty list, and its own heading once a request comes in"
 - **Trình sửa agent lưu được lịch**
   - vitest: `components/agent-editor/schedules-section.test.tsx`
     ("saves a new row as exactly one timing and one action, with no kind",

@@ -438,3 +438,17 @@ describe("AttentionCenter with requests settled in place", () => {
     await waitFor(() => expect(onReload).toHaveBeenCalledTimes(2));
   });
 });
+
+describe("AttentionCenter drawn only while something waits", () => {
+  it("draws nothing for an empty list, and its own heading once a request comes in", async () => {
+    const props = { agentName: name, onOpenConversation: () => undefined, hideWhenCalm: true, heading: "Việc đã giao" };
+    const { container, rerender } = render(<AttentionCenter runs={[]} inline {...props} />);
+    expect(container).toBeEmptyDOMElement();
+
+    const { run } = waiting();
+    rerender(<AttentionCenter runs={[run]} inline {...props} />);
+    expect(screen.getByRole("region", { name: "Việc đã giao" })).toBeInTheDocument();
+    expect(await request()).toBeInTheDocument();
+    expect(screen.queryByText(vi.attentionEmpty)).not.toBeInTheDocument();
+  });
+});

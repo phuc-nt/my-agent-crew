@@ -10,6 +10,7 @@ import { vi } from "../i18n/vi";
 import { dockShowing } from "../lib/canvas-dock-state";
 import { conversationFamilyRuns, liveRuns, runningRuns, sortedRuns } from "../state/activity-reducer";
 import { conversationMoney } from "../state/conversation-money";
+import { chatChildRequests } from "./chat/chat-child-requests";
 import { chatApproval, chatComposer, chatQuestion } from "./chat/chat-composer";
 import { chatCrewChip, chatHeader, chatMenuButton } from "./chat/chat-header";
 import { chatNotice, forkErrorNotice, loadFailedNotice, overBudgetNotice } from "./chat/chat-notices";
@@ -37,6 +38,7 @@ export function ChatScreen({
   activity,
   settings,
   attentionCount,
+  waiting,
   onSelectConversation,
   onOpenManage,
   liveByAgent,
@@ -120,7 +122,7 @@ export function ChatScreen({
   const { mainRef, raiseFromNotice } = useFocusAfterRaise(onRaiseCap);
   const { fork, onFork } = useChatFork({ list, onSelectConversation, state, active, mainRef });
   const notice = chatNotice({ state, money, active, overBudget, raiseFromNotice });
-  const manageButton = chatManageButton({ onOpenManage, attentionCount, running });
+  const manageButton = chatManageButton({ onOpenManage, attentionCount, waiting: waiting.length, running });
   const crewChip = chatCrewChip({ onOpenManage, crewNames });
   const menuButton = chatMenuButton({ phone, drawer, showDrawer, attentionCount });
 
@@ -152,6 +154,7 @@ export function ChatScreen({
           master, crewNames, onFork,
         })}
         {!docked && activityPane}
+        {chatChildRequests({ crew, activity, onSelectConversation, waiting, runs, conversationId: list.activeId })}
         {chatQuestion({ state, thread })}
         {chatApproval({ state, thread, list })}
         {overBudgetNotice({ overBudget, active, raiseFromNotice })}

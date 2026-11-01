@@ -1,0 +1,25 @@
+/*
+ * Requests waiting in work the open conversation delegated, listed over the composer.
+ * The attention card's look, on the reading column where the chat's own request floats.
+ */
+.main > .attention.child-requests {
+  flex: none;
+  width: min(var(--reading-width), 100% - 2 * var(--space-5));
+  margin: 0 auto var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  /* The screen's height is fixed: a long request scrolls inside the card, not the page. */
+  max-height: 55dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.main > .attention.child-requests h3 {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 720px) {
+  .main > .attention.child-requests {
+    width: calc(100% - 2 * var(--space-3));
+  }
+}

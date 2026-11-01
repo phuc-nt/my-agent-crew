@@ -44,7 +44,7 @@ for (const width of [1440, 1000, 390]) {
     const writing = page.getByTestId("streaming");
     await expect(writing).toContainText("Ngày xửa");
     // The bot's turn: there to read, not this tab's to end.
-    await expect(page.getByRole("button", { name: vi.stop })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: vi.stop, exact: true })).toHaveCount(0);
 
     await turn.push(text("ngày xưa"));
     await expect(writing).toContainText("Ngày xửa ngày xưa");
@@ -102,7 +102,7 @@ test("Stop ends a turn the server reads itself, from a tab that only watches it"
   const { turn, activity, mock } = await openMidTurn(page, "chat", "đang viết", true);
   await expect(page.getByTestId("streaming")).toContainText("đang viết");
 
-  await page.getByRole("button", { name: vi.stop }).click();
+  await page.getByRole("button", { name: vi.stop, exact: true }).click();
   await expect(page.getByTestId("notice")).toContainText(vi.stopped);
   await expect(page.getByTestId("streaming")).toHaveCount(0);
   expect(await turn.stops()).toBe(1);
@@ -114,7 +114,7 @@ test("Stop ends a turn the server reads itself, from a tab that only watches it"
   mock.conversations[0].messages.push({ ...STORED, id: "2", seq: 2, role: "assistant", content: kept, provider: "fake", model: "echo" });
   await activity.emit({ type: "run", run: run({ id: "r1", conversation_id: "c1", source: "chat", status: "error", summary: "interrupted" }) });
   await expect(page.getByTestId("thinking")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: vi.stop })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: vi.stop, exact: true })).toHaveCount(0);
   await expect(page.getByTestId("message-assistant")).toContainText(kept);
   await expect(page.getByTestId("notice")).toContainText(vi.stopped);
 
