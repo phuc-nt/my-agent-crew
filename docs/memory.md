@@ -41,7 +41,8 @@ Mỗi fact còn trả lời năm câu: biết gì (thân), bằng chứng đâu,
 Một lần ghi được **hoà giải bằng code**, không bằng model: cùng nội dung → chỉ thêm nguồn và
 đóng dấu `confirmed`, giữ `basis` mạnh hơn; nội dung mới với quyền ngang hoặc cao hơn → thay
 bản cũ, bản cũ vào `facts/.history/<name>.jsonl` và kết thúc trước ngày bản mới bắt đầu;
-`inferred` mâu thuẫn với lời người dùng → không ghi đè, tool tạo một **đề xuất** thay vào đó.
+`inferred` mâu thuẫn với lời người dùng → không ghi đè, tool tạo một **đề xuất** thay vào đó,
+ghi lý do (trái với bản nào, phiên bản mấy) để người duyệt thấy vì sao nó không tự ghi.
 Rút lại (`user_memory_forget`, nút "Rút lại") đưa bản cuối vào lịch sử; xoá hẳn ("Xoá hẳn",
 `DELETE …?purge=true`) xoá cả lịch sử và số lần đọc lại.
 
@@ -373,7 +374,7 @@ phải tranh cãi với một trí nhớ mà họ không chạm tới được.
 
 | Endpoint | Làm gì |
 |---|---|
-| `GET/PUT /api/memory/user` | đọc/ghi `USER.md`, kèm facts và index |
+| `GET/PUT /api/memory/user` | đọc/ghi `USER.md`, kèm facts (mỗi fact có `state`, `recalls`, `history_count`, và với fact sắp hiệu lực là `holds_today`: bản còn đúng hôm nay), các fact đã rút lại và index |
 | `PUT /api/memory/user/facts/{name}` | ghi một fact với `basis: operator`, kèm `valid_from`/`valid_until` tuỳ chọn; tên không phải slug, type hay ngày lạ là 422 |
 | `DELETE /api/memory/user/facts/{name}?purge=` | rút lại (giữ lịch sử); `purge=true` xoá hẳn cả lịch sử, kể cả fact đã rút lại |
 | `GET /api/memory/user/facts/{name}/history` | các phiên bản cũ, mới nhất trước, mỗi bản kèm `ended_at` và `why` (`superseded`/`retracted`) |

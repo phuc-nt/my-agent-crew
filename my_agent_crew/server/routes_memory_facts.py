@@ -36,7 +36,11 @@ def fact_view(fact: Fact, recalls: dict[str, dict], today: date, directory) -> d
     recall = recalls.get(fact.name) or {}
     data["recalls"] = int(recall.get("count", 0))
     data["recalled_at"] = str(recall.get("last", ""))
-    data["history_count"] = len(fact_history.versions(directory, fact.name))
+    past = fact_history.versions(directory, fact.name)
+    data["history_count"] = len(past)
+    # A change that starts later is shown with the version it has not yet replaced.
+    held = fact_history.as_of(None, past, today) if data["state"] == "pending" else None
+    data["holds_today"] = held.to_dict() if held else None
     return data
 
 

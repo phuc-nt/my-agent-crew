@@ -37,7 +37,8 @@ def _chat():
 
 
 async def test_a_write_records_the_conversation_it_came_from(user_dir, tools):
-    await tools["user_memory_save"].run(dict(ARGS))
+    out = await tools["user_memory_save"].run(dict(ARGS))
+    assert out == texts_facts.USER_MEMORY_CREATED.format(name="do-uong")
     fact = user_store.read_fact(user_dir, "do-uong")
     assert fact.sources == ("conv:c1",) and fact.stands_on == "said"
 
@@ -61,6 +62,9 @@ async def test_an_inference_against_the_persons_word_becomes_a_proposal(
     assert user_store.read_fact(user_dir, "do-uong").body == "Trà xanh"
     (proposal,) = store.proposals.list()
     assert proposal.kind == USER_FACT and proposal.body == "Cà phê"
+    assert proposal.reasons == texts_facts.USER_MEMORY_DISPUTE_REASON.format(
+        held="người dùng nói", version=1
+    )
 
 
 async def test_a_bad_basis_or_day_is_refused(tools):

@@ -38,7 +38,7 @@ def _sources() -> tuple[str, ...]:
 
 
 def build_user_memory_tools(user_dir: Path, store: Store, agent_id: str) -> list[Tool]:
-    def propose(name: str, description: str, fact_type: str, body: str) -> None:
+    def propose(name: str, description: str, fact_type: str, body: str, reasons: str = "") -> None:
         store.proposals.create(
             agent_id=agent_id,
             kind=USER_FACT,
@@ -47,6 +47,7 @@ def build_user_memory_tools(user_dir: Path, store: Store, agent_id: str) -> list
             type=fact_type,
             body=body,
             source=turn_source(),
+            reasons=reasons,
         )
 
     async def save(args: dict[str, Any]) -> str:
@@ -84,11 +85,12 @@ def build_user_memory_tools(user_dir: Path, store: Store, agent_id: str) -> list
         except ValueError as exc:
             raise ToolError(str(exc)) from exc
         if outcome == DISPUTED:
-            propose(name, description, fact_type, body)
             held = BASIS_LABELS[fact.stands_on]
+            why = texts_facts.USER_MEMORY_DISPUTE_REASON.format(held=held, version=fact.version)
+            propose(name, description, fact_type, body, why)
             return texts_facts.USER_MEMORY_DISPUTED.format(name=name, held=held)
         if outcome == CREATED:
-            return texts.USER_MEMORY_SAVED.format(name=name)
+            return texts_facts.USER_MEMORY_CREATED.format(name=name)
         if outcome == CONFIRMED:
             return texts_facts.USER_MEMORY_CONFIRMED.format(name=name, version=fact.version)
         return texts_facts.USER_MEMORY_SUPERSEDED.format(name=name, version=fact.version)

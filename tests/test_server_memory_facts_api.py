@@ -47,7 +47,22 @@ def test_the_listing_says_state_recalls_and_history(client, deps):
 
     assert facts["do-uong"]["version"] == 2 and facts["do-uong"]["history_count"] == 1
     assert facts["do-uong"]["recalls"] == 1 and facts["do-uong"]["state"] == "current"
-    assert facts["sap-toi"]["state"] == "pending"
+    assert facts["sap-toi"]["state"] == "pending" and facts["sap-toi"]["holds_today"] is None
+    assert facts["do-uong"]["holds_today"] is None
+
+
+def test_a_change_that_starts_later_shows_the_version_that_holds_today(client):
+    client.put("/api/memory/user/facts/cong-ty", json={**FACT, "body": "Công ty A"})
+    client.put(
+        "/api/memory/user/facts/cong-ty",
+        json={**FACT, "body": "Công ty B", "valid_from": "2099-01-01"},
+    )
+
+    (fact,) = client.get("/api/memory/user").json()["facts"]
+
+    assert fact["state"] == "pending" and fact["body"] == "Công ty B"
+    assert fact["holds_today"]["body"] == "Công ty A"
+    assert fact["holds_today"]["valid_until"] == "2098-12-31"
 
 
 def test_history_lists_the_versions_newest_first(client):

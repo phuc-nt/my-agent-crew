@@ -85,7 +85,6 @@ SUMMARY_PROMPT = (
 )
 SUMMARY_TRANSCRIPT_LINE = "[{when}] {role}: {text}"
 
-USER_MEMORY_SAVED = "Đã ghi nhớ về người dùng: {name}."
 USER_MEMORY_FORGOTTEN = "Đã xoá ghi nhớ: {name}."
 USER_MEMORY_NOT_FOUND = "Không có ghi nhớ nào tên {name}."
 USER_MEMORY_PROPOSED = "Đã đề xuất ghi nhớ {name}, chờ người dùng duyệt."
