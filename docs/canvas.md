@@ -5,7 +5,7 @@ title: Canvas
 
 # Canvas
 
-**Phiên bản**: 0.29.1 · **Cập nhật**: 2026-11-01
+**Phiên bản**: 0.29.2 · **Cập nhật**: 2026-11-01
 
 Canvas là tài liệu có phiên bản mà người và agent cùng sửa. Nó mở cạnh khung chat trên web,
 sống lâu hơn cuộc trò chuyện đã sinh ra nó, và mỗi lần ghi là một phiên bản mới. Trang này nói

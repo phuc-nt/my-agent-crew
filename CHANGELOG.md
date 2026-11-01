@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.29.2] — 2026-11-01
+
 ### Fixed
 
 - **A job that speaks before it stops still shows the buttons.** A scheduled job whose model
