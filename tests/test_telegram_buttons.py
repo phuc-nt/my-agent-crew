@@ -14,7 +14,7 @@ from my_agent_crew.agent.events import ApprovalRequiredEvent
 from my_agent_crew.channels.telegram_api import ALLOWED_UPDATES, TelegramApi
 from my_agent_crew.channels.telegram_approvals import (
     APPROVAL_REQUIRED,
-    child_request,
+    told_request,
     watch_children,
 )
 from my_agent_crew.channels.telegram_buttons import Press, buttons_for, call_line, read_press
@@ -131,7 +131,7 @@ async def test_a_childs_request_is_told_to_the_chat_and_a_press_settles_it_in_si
         == asked.id
     )
     root_said = {"type": "event", "conversation_id": root.id, "event": {"type": APPROVAL_REQUIRED}}
-    assert child_request(channel, root_said) is None, "the chat's own says it in its reply"
+    assert told_request(channel, root_said) is None, "the chat's own says it in its reply"
     await poll_each(channel, fake, press(1, f"y:{asked.id}"))
     assert fake.answered == [texts.TELEGRAM_PRESS_APPROVED]
     assert fake.sent == [asks_for(WRITE)], "the child's answer goes to its parent, not the chat"

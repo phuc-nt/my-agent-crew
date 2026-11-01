@@ -14,6 +14,19 @@ TELEGRAM_PRESS_APPROVED = "✅ Đã duyệt."
 TELEGRAM_PRESS_DENIED = "❌ Đã từ chối."
 TELEGRAM_PRESS_ANSWERED = "Đã trả lời: {answer}"
 TELEGRAM_PRESS_SETTLED = "Yêu cầu này đã được xử lý rồi."
+# Under a request: when it closes by itself, in the person's time.
+TELEGRAM_APPROVAL_DEADLINE = "⏳ Tự hết hạn lúc {time} nếu chưa ai trả lời."
+# Said once, in reply to a request nobody answered for a while.
+TELEGRAM_APPROVAL_REMINDER = "⏰ Vẫn đang chờ bạn: {name}. Tự hết hạn lúc {time}."
+# What a request's message says once it was settled elsewhere or ran out; `{via}` is
+# " trên web" and the like, or nothing when it is not known.
+TELEGRAM_SETTLED_APPROVED = "✅ Đã duyệt{via}."
+TELEGRAM_SETTLED_DENIED = "❌ Đã từ chối{via}."
+TELEGRAM_SETTLED_ANSWERED = "Đã trả lời{via}: {answer}"
+TELEGRAM_SETTLED_EXPIRED = "⌛ Đã hết hạn, không ai trả lời."
+# /pending: every request the chat may settle, each said again with its buttons.
+TELEGRAM_PENDING = "Có {count} yêu cầu đang chờ, gửi lại kèm nút bên dưới."
+TELEGRAM_PENDING_NONE = "Không có yêu cầu nào đang chờ."
 SHELL_ASK_REASON = "khớp mẫu cần duyệt: `{pattern}`"
 TELEGRAM_APPROVAL_EXPIRED = (
     "Yêu cầu duyệt công cụ {name} đã hết hạn chờ, agent tiếp tục như bị từ chối."
@@ -69,6 +82,7 @@ TELEGRAM_COMMANDS = {
     "tools": "Các công cụ agent đang có.",
     "approve": "Duyệt công cụ đang chờ.",
     "deny": "Từ chối công cụ đang chờ.",
+    "pending": "Mọi yêu cầu đang chờ duyệt, kèm nút.",
     "steer": "Chèn ý vào lượt đang chạy.",
 }
 TELEGRAM_HELP_LINE = "/{command} — {description}"

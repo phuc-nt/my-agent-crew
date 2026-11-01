@@ -8135,6 +8135,15 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
   - Playwright: `web/e2e/desktop.spec.ts` (ở 390px ô cài đặt, thẻ agent cùng ảnh, thẻ của máy và
     ảnh của thao tác chờ duyệt cùng dấu điểm đều nằm trong trang, mọi nút đủ lớn cho ngón tay, và
     bundle id dài xuống dòng).
+- **Telegram là nơi duyệt mặc định**:
+  - pytest: `tests/test_telegram_told.py` (cuộc con của một cuộc web được báo vào chat và bấm nút
+    duyệt được; yêu cầu của job bấm nút xong thì câu trả lời được giao vào chat; yêu cầu của chính
+    cuộc web thì bấm nút không giải quyết; yêu cầu có dòng hết hạn và được nhắc đúng một lần sau 3
+    phút, trả lời vào tin của nó; duyệt trên web thì tin trong chat được viết lại "đã duyệt trên
+    web" và mất nút, chỉ một lần; hết hạn thì tin nói vậy và giữ nội dung cũ; `/pending` nói không
+    có gì, rồi gửi lại yêu cầu của job kèm nút mà bỏ qua yêu cầu của cuộc web),
+    `tests/test_telegram_canvas_notice_sent.py` và `tests/test_telegram_runtime_sentences.py` (job
+    được giao khi còn chờ thì nói chính yêu cầu thay cho câu "lượt chạy dừng").
 - **Model biết lệnh đã được duyệt hay bị từ chối, và ở đâu**:
   - pytest: `tests/test_decision_note.py` (kết quả của lời gọi đã được duyệt có thêm câu "người dùng
     đã DUYỆT trên Telegram" và model đọc được nó; nơi quyết được lưu ở `approvals.decided_via`;

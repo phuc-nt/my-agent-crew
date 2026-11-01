@@ -17,6 +17,7 @@ from my_agent_crew import texts
 from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.agents.kit_commands import Command
 from my_agent_crew.channels.telegram_approvals import resume
+from my_agent_crew.channels.telegram_pending import list_pending
 from my_agent_crew.store.models import AWAITING_APPROVAL
 
 if TYPE_CHECKING:
@@ -71,6 +72,8 @@ async def answer_command(channel: TelegramChannel, command: str) -> str:
         return texts.TELEGRAM_TOOLS.format(count=len(names), names="\n".join(names))
     if command in ("approve", "deny"):
         return await decide(channel, approve=command == "approve")
+    if command == "pending":
+        return await list_pending(channel)
     return texts.TELEGRAM_UNKNOWN_COMMAND.format(command=command)
 
 

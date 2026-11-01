@@ -1,9 +1,8 @@
-"""Outbound half of a Telegram channel: replies, `MEDIA:` photos and `FILE:` documents to
-the one allowed chat, plus the "typing…" indicator shown while a turn runs. Telegram drops
-the indicator after about five seconds, so it is re-sent on an interval until the reply
-goes out. The files themselves are sent by `telegram_files`, the canvases a line names in
-place of a file by `telegram_canvas_file`, and the list of the canvases a turn wrote is
-worded by `telegram_canvas_notice`."""
+"""Outbound half of a Telegram channel: replies, `MEDIA:` photos and `FILE:` documents to the
+one allowed chat, plus the "typing…" indicator shown while a turn runs, re-sent on an
+interval since Telegram drops it after about five seconds. Files are sent by `telegram_files`,
+the canvases a line names by `telegram_canvas_file`, and the list of the canvases a turn
+wrote is worded by `telegram_canvas_notice`."""
 
 from __future__ import annotations
 
@@ -11,7 +10,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager, suppress
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts
 from my_agent_crew.agent.loop import AgentDeps
@@ -20,8 +19,12 @@ from my_agent_crew.channels.telegram_api import TelegramApi, TelegramError, spli
 from my_agent_crew.channels.telegram_canvas_file import send_canvases
 from my_agent_crew.channels.telegram_canvas_notice import notice_text, written_by
 from my_agent_crew.channels.telegram_files import TelegramFiles, tell
+from my_agent_crew.channels.telegram_pending import ask_waiting
 from my_agent_crew.reply_attachments import artifact_ref
-from my_agent_crew.store.runs import DONE, FAILED, HALTED, RunRecord
+from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED, RunRecord
+
+if TYPE_CHECKING:
+    from my_agent_crew.channels.telegram_told import ToldRequests
 
 logger = logging.getLogger(__name__)
 TYPING_INTERVAL_SECONDS = 4
@@ -39,9 +42,17 @@ def _ending(run: RunRecord) -> str:
 
 
 class TelegramOutbound:
-    def __init__(self, deps: AgentDeps, api: TelegramApi, chat_id: int, prefix: str = ""):
-        """`prefix` is a first line naming the agent, used when several share the bot."""
-        self._deps = deps
+    def __init__(
+        self,
+        deps: AgentDeps,
+        api: TelegramApi,
+        chat_id: int,
+        prefix: str = "",
+        told: ToldRequests | None = None,
+    ):
+        """`prefix` is a first line naming the agent, used when several share the bot;
+        `told` keeps the messages sent with a request's buttons (`telegram_told`)."""
+        self._deps, self._told = deps, told
         self._api = api
         self._chat_id = chat_id
         self._prefix = prefix
@@ -97,6 +108,8 @@ class TelegramOutbound:
             await self._say(texts.REPLY_EMPTY.format(steps=len(run.steps)))
             return True
         await self.send_written(tags, conv_id)
+        if run.status == AWAITING and await ask_waiting(self, self._deps, conv_id):
+            return True  # what it waits on is said with its buttons, not as a stop
         await self._say(texts.TELEGRAM_RUN_UNFINISHED.format(reason=_ending(run)))
         return True
 
@@ -154,7 +167,9 @@ class TelegramOutbound:
     async def _say(self, prose: str, buttons: dict[str, Any] | None = None) -> None:
         if self._prefix:
             prose = f"{self._prefix}\n{prose}"
-        await self._api.send_message(self._chat_id, prose, buttons)
+        sent = await self._api.send_message(self._chat_id, prose, buttons)
+        if buttons and self._told is not None:
+            self._told.record(buttons, sent, prose)
         logger.info("telegram %s: sent %d chars", self.agent_id, len(prose))
 
     @asynccontextmanager

@@ -21,6 +21,7 @@ from my_agent_crew.channels.telegram_api import TelegramApi
 from my_agent_crew.channels.telegram_chat import TelegramChat
 from my_agent_crew.channels.telegram_offset import read_offset
 from my_agent_crew.channels.telegram_outbound import TelegramOutbound
+from my_agent_crew.channels.telegram_told import ToldRequests
 from my_agent_crew.inbound import Inbound
 from my_agent_crew.store import Conversation, Store
 
@@ -54,6 +55,7 @@ class TelegramChannel(TelegramChat):
         self._api, self.chat_id = api, chat_id
         self._offset_path, self._clock = offset_path, clock
         self._outbound: dict[str, TelegramOutbound] = {}
+        self.told = ToldRequests()  # the request messages followed until settled
         self._offset = read_offset(offset_path, api.bot)
 
     def use_agents(self, agents: Mapping[str, AgentDeps]) -> None:
@@ -97,7 +99,9 @@ class TelegramChannel(TelegramChat):
             prefix = ""
             if agent_id != self.agent_id:
                 prefix = texts.TELEGRAM_AGENT_PREFIX.format(name=deps.agent.name)
-            self._outbound[agent_id] = TelegramOutbound(deps, self._api, self.chat_id, prefix)
+            self._outbound[agent_id] = TelegramOutbound(
+                deps, self._api, self.chat_id, prefix, self.told
+            )
         return self._outbound[agent_id]
 
     async def say(self, text: str) -> None:

@@ -22,6 +22,11 @@ from my_agent_crew.llm.types import ToolCall
 TOKEN = "123:secret-token"
 CHAT = 42
 _FIELD = re.compile(r'name="([^"]*)"(?:; filename="([^"]*)")?')
+# The line under a request saying when it runs out reads the clock, so `sent` leaves it out
+# and `raw` keeps it.
+_DEADLINE = re.compile(
+    r"\n*" + re.escape(texts.TELEGRAM_APPROVAL_DEADLINE.split("{")[0]) + r"[^\n]*"
+)
 
 
 class Upload(NamedTuple):
@@ -49,6 +54,7 @@ class FakeTelegram:
     def __init__(self):
         self.updates: list[dict] = []
         self.sent: list[str] = []
+        self.raw: list[dict[str, str]] = []  # each sendMessage's form, deadline and all
         self.buttons: list[dict | None] = []  # the inline keyboard under each sent message
         self.answered: list[str] = []  # what each button press was answered with
         self.edits: list[dict[str, str]] = []  # each message rewritten, by its form
@@ -104,7 +110,8 @@ class FakeTelegram:
         if method == "sendMessage":
             form = dict(parse_qsl(request.content.decode()))
             assert form["chat_id"] == str(CHAT)
-            self.sent.append(form["text"])
+            self.raw.append(form)
+            self.sent.append(_DEADLINE.sub("", form["text"]))
             self.buttons.append(
                 json.loads(form["reply_markup"]) if "reply_markup" in form else None
             )

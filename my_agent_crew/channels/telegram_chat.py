@@ -22,9 +22,10 @@ from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.agents.kit_commands import EmptySteer
 from my_agent_crew.channels.telegram_answers import answer_text
 from my_agent_crew.channels.telegram_approvals import open_question, resume, watch_children
-from my_agent_crew.channels.telegram_buttons import buttons_for, call_line
+from my_agent_crew.channels.telegram_buttons import buttons_for, call_line, deadline_line
 from my_agent_crew.channels.telegram_canvas_notice import WrittenCanvases
 from my_agent_crew.channels.telegram_polling import TelegramPolling
+from my_agent_crew.channels.telegram_told import sweep_forever
 from my_agent_crew.inbound import Inbound, InboundBusy, TurnReply, collect_reply
 from my_agent_crew.store.queue import QueueFull
 
@@ -46,7 +47,7 @@ class TelegramChat(TelegramPolling):
     outbound: Callable[..., TelegramOutbound]
     conversation: Callable[[], Conversation]
     _drain: QueueDrain | None = None
-    # Tells the chat what the agents its conversations delegated to wait on.
+    # Tells the chat the requests it hears of, and follows them until settled.
     _watch: asyncio.Task[None] | None = None
 
     def set_drain(self, drain: QueueDrain) -> None:
@@ -59,7 +60,11 @@ class TelegramChat(TelegramPolling):
         if self._drain is not None:
             self._drain.register(TELEGRAM, self.run_delivered)
         if self._watch is None:
-            self._watch = asyncio.create_task(watch_children(self))  # type: ignore[arg-type]
+            self._watch = asyncio.create_task(self._watch_requests())
+
+    async def _watch_requests(self) -> None:
+        """Tells the requests the chat hears of, and follows those told until settled."""
+        await asyncio.gather(watch_children(self), sweep_forever(self))  # type: ignore[arg-type]
 
     async def stop(self) -> None:
         if self._drain is not None:
@@ -124,9 +129,11 @@ class TelegramChat(TelegramPolling):
                 # line calling the turn empty is kept for when none of them can be named.
                 unsaid = reply.text
             else:
-                # What it paused on is offered as buttons, with what the call would run.
+                # What it paused on is offered as buttons, with what the call would run
+                # and when it runs out.
                 ask = reply.approval
-                plain = reply.error or call_line(ask)
+                until = ask and deadline_line(ask.expires_at, self.deps.settings.zone)
+                plain = reply.error or "\n\n".join(p for p in (call_line(ask), until) if p)
                 await out.send(reply.said, conv_id, plain, ask and buttons_for(ask))
         except Exception as exc:
             await self._turn_failed(exc)

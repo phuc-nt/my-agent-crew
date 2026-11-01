@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import datetime, tzinfo
 from typing import Any
 
 from my_agent_crew import texts
@@ -60,6 +61,25 @@ def call_line(event: ApprovalRequiredEvent | None) -> str:
         return ""
     arguments = _cut(json.dumps(event.arguments, ensure_ascii=False), ARGUMENT_CHARS)
     return texts.TELEGRAM_APPROVAL_CALL.format(name=event.name, arguments=arguments)
+
+
+def deadline_line(expires_at: str, zone: tzinfo | None = None) -> str:
+    """When an unanswered request closes by itself, as `HH:MM` in the person's zone; empty
+    for a request with no deadline."""
+    if not expires_at:
+        return ""
+    return texts.TELEGRAM_APPROVAL_DEADLINE.format(time=local_time(expires_at, zone))
+
+
+def local_time(stamp: str, zone: tzinfo | None = None) -> str:
+    return datetime.fromisoformat(stamp).astimezone(zone).strftime("%H:%M")
+
+
+def pressed_request(buttons: dict[str, Any] | None) -> str:
+    """The id of the request a keyboard settles; empty for none."""
+    rows = (buttons or {}).get("inline_keyboard") or [[]]
+    press = read_press(str(rows[0][0].get("callback_data") or "")) if rows[0] else None
+    return press.approval_id if press is not None else ""
 
 
 def read_press(data: str) -> Press | None:

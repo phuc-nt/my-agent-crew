@@ -197,6 +197,7 @@ tiến trình để client hiển thị chúng.
 | `/tools` | tên các tool của master |
 | `/steer <nội dung>` | chèn ý vào lượt đang chạy; lúc rảnh thì là tin thường |
 | `/approve`, `/deny` | giải quyết duyệt đang chờ (của chat hoặc của cuộc con nó giao việc) và stream phần còn lại của lượt về |
+| `/pending` | gửi lại mọi yêu cầu chat được quyết (của chat, của cuộc con mọi nơi, của job), cũ trước, tối đa 10, mỗi cái kèm nút |
 
 `/status@botname` dùng được; `/usr/bin` hoặc câu bắt đầu bằng `/` không phải lệnh và
 đi tới model. Tin nhắn trong lúc một tool đang chờ duyệt nhận được lời nhắc thay vì một
@@ -237,6 +238,20 @@ Cuộc con mà master giao việc (một agent khác của đội làm thay) d�
 nó. Yêu cầu duyệt của cuộc con thuộc chat được báo ngay vào chat, dưới tên agent đang hỏi, kèm nút;
 `/approve`, `/deny` và câu trả lời gõ tay cũng tới được cuộc con. Phần còn lại của lượt cuộc con
 được đọc thầm: kết quả trả về tool call của cuộc cha, và lượt của cuộc cha nói tiếp trong chat.
+Chat là nơi duyệt mặc định của cả đội. Ngoài yêu cầu của chính nó, chat được báo yêu cầu của mọi
+cuộc con, kể cả cuộc con do một cuộc trên web giao (cuộc con dừng ngoài tầm nhìn của trang đã mở
+nó), và yêu cầu của job: lúc job được giao khi còn đang chờ, chat nhận chính yêu cầu ấy kèm nút thay
+cho dòng "lượt chạy dừng mà chưa có câu trả lời". Bấm nút giải quyết được tất cả những yêu cầu đó;
+lượt của job chạy tiếp và câu trả lời được giao vào chat như lần giao của job. Yêu cầu của một cuộc
+gốc trên web thì không báo và bấm nút không giải quyết: người dùng đang ở web. `/approve`, `/deny`
+và câu trả lời gõ tay vẫn chỉ tới cuộc của chat và cuộc con của nó.
+
+Mỗi yêu cầu kèm dòng "⏳ Tự hết hạn lúc HH:MM" theo múi giờ của người dùng. Tin mang nút được nhớ
+theo id yêu cầu (trong bộ nhớ, mất khi khởi động lại); cứ 15 s một vòng quét xem lại: yêu cầu đã
+được giải quyết ở nơi khác thì tin được viết lại kèm kết quả và nơi quyết ("✅ Đã duyệt trên web.",
+"⌛ Đã hết hạn, không ai trả lời.") và mất nút; yêu cầu vẫn chờ sau 3 phút thì được nhắc một lần,
+trả lời vào chính tin ấy, kèm giờ hết hạn.
+
 Webhook và long polling phải xin `allowed_updates` gồm `callback_query`; polling của engine luôn xin
 `["message", "callback_query"]`, còn webhook do bên đặt webhook xin.
 

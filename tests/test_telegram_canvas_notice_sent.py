@@ -276,10 +276,9 @@ async def test_a_run_delivered_twice_names_each_canvas_once(make_channel, fake):
     wrote(store, conv.id, canvas_a)
     request = waits_on(store, conv.id, WRITE)
     assert await channel.deliver(conv.id) is True
-    assert fake.sent == [
-        listed(("Dàn ý", 1)),
-        texts.TELEGRAM_RUN_UNFINISHED.format(reason=AWAITING),
-    ]
+    # What it waits on is said with its buttons, not as a run that stopped.
+    assert fake.sent == [listed(("Dàn ý", 1)), asks_for(WRITE)]
+    assert fake.buttons[-1] is not None
     fake.sent.clear()
     nobody_answered(store, conv.id, request)
     wrote(store, conv.id, canvas_b)
@@ -307,10 +306,7 @@ async def test_a_run_whose_question_lapsed_between_two_deliveries_names_each_can
     wrote(store, conv.id, canvas_a)
     request = waits_on(store, conv.id, ASK)
     assert await channel.deliver(conv.id) is True
-    assert fake.sent == [
-        listed(("Dàn ý", 1)),
-        texts.TELEGRAM_RUN_UNFINISHED.format(reason=AWAITING),
-    ]
+    assert fake.sent == [listed(("Dàn ý", 1)), ASK.arguments["question"]]
     fake.sent.clear()
     nobody_answered(store, conv.id, request)
     wrote(store, conv.id, canvas_b)
@@ -341,7 +337,7 @@ async def test_a_job_that_asked_and_went_on_unanswered_names_each_canvas_once(
     assert run.status == AWAITING
     assert fake.sent == [
         listed(("Dàn ý", 1)),
-        texts.TELEGRAM_RUN_UNFINISHED.format(reason=ASK.arguments["question"]),
+        ASK.arguments["question"],
     ]
     fake.sent.clear()
     later = datetime.now(UTC) + timedelta(seconds=deps.settings.approval_ttl_seconds + 1)
@@ -400,7 +396,7 @@ async def test_a_later_run_that_sends_a_lapsed_calls_id_again_names_all_it_wrote
     assert await channel.deliver(conv.id) is True
     assert fake.sent == [
         listed(("Lịch", 1)),
-        texts.TELEGRAM_RUN_UNFINISHED.format(reason=AWAITING),
+        asks_for(WRITE),
         texts.TELEGRAM_APPROVAL_EXPIRED.format(name="workspace_write"),
         "Thôi vậy.",
     ]

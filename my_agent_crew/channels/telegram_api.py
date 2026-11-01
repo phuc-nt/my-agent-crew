@@ -128,15 +128,19 @@ class TelegramApi:
         return await self.call("getUpdates", data, timeout=timeout + 10)
 
     async def send_message(
-        self, chat_id: int, text: str, buttons: dict[str, Any] | None = None
-    ) -> None:
-        """`buttons`, an inline keyboard, goes under the last chunk: what it answers."""
+        self, chat_id: int, text: str, buttons: dict[str, Any] | None = None, **extra: Any
+    ) -> dict[str, Any]:
+        """`buttons`, an inline keyboard, goes under the last chunk: what it answers. The
+        last chunk's message comes back, so the one with the buttons can be found again;
+        `extra` goes with every chunk (a `reply_to_message_id`)."""
         chunks = split_message(plain_text(text))
+        sent: dict[str, Any] = {}
         for i, chunk in enumerate(chunks, start=1):
-            data: dict[str, Any] = {"chat_id": chat_id, "text": chunk}
+            data: dict[str, Any] = {"chat_id": chat_id, "text": chunk, **extra}
             if buttons and i == len(chunks):
                 data["reply_markup"] = json.dumps(buttons)
-            await self.call("sendMessage", data)
+            sent = await self.call("sendMessage", data) or {}
+        return sent
 
     async def send_photo(self, chat_id: int, path: Path) -> None:
         with path.open("rb") as handle:

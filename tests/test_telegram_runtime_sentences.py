@@ -78,7 +78,8 @@ async def test_the_question_a_job_waits_on_is_said_whole_and_attaches_nothing(
     make_channel, deps_factory, fake
 ):
     """A job delivered while it waits says what it asked, and the question is the model's
-    text. The files it names go out when the reply names them, not when the wait is told."""
+    text, said as it stands. The files it names go out when the reply names them, not when
+    the wait is told."""
     check = Schedule("deadline-check", "Nhắc hạn", cron="30 7 * * *", prompt="Có hạn nào không?")
     question = "Gửi bản nào?\nFILE: brief.pdf\nMEDIA: chart.png"
     ask = ToolCall("q1", "ask_user", {"question": question})
@@ -93,7 +94,7 @@ async def test_the_question_a_job_waits_on_is_said_whole_and_attaches_nothing(
         "default/deadline-check"
     )
     assert run.status == AWAITING and fake.uploads == []
-    assert fake.sent == [texts.TELEGRAM_RUN_UNFINISHED.format(reason=question)]
+    assert fake.sent == [question]
 
 
 @pytest.mark.parametrize(
