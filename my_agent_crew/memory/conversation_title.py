@@ -92,7 +92,7 @@ async def generate_title(deps: AgentDeps, conv_id: str, text: str) -> tuple[str,
     prompt = Message(role="user", content=TITLE_PROMPT.format(message=text[:MAX_SOURCE_CHARS]))
     # Named explicitly: this runs in a task started before the turn, whose context still
     # holds whichever conversation its creator was last in.
-    chain = MeteredChain(deps.chain, deps.store, deps.agent.id, "title", conv_id)
+    chain = MeteredChain(deps.side or deps.chain, deps.store, deps.agent.id, "title", conv_id)
     completion: Completion | None = None
     async for item in chain.stream([prompt], []):
         if isinstance(item, Completion):

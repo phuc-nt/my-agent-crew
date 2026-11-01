@@ -45,7 +45,9 @@ def build_providers(
             allow_fallbacks=settings.openrouter_provider_fallbacks,
         )
     if settings.anthropic_api_key:
-        providers["anthropic"] = AnthropicProvider(settings.anthropic_api_key, client)
+        providers["anthropic"] = AnthropicProvider(
+            settings.anthropic_api_key, client, settings.llm.anthropic_cache_ttl
+        )
     # Ollama needs no key, so it is always built rather than gated on configuration. If
     # nothing is listening the route fails at call time and the chain falls through to the
     # next one, which is the same handling as any other provider being down.
@@ -81,6 +83,14 @@ def vision_chain(settings: Settings, providers: dict[str, Provider]) -> Provider
             logger.warning("no usable vision route among %s", list(settings.vision_routes))
         return None
     return ProviderChain(providers, routes)
+
+
+def side_chain(settings: Settings, providers: dict[str, Provider]) -> ProviderChain | None:
+    """The chain that writes a conversation's title and summary, or None to write them with
+    the agent's own chain. The agent's routes follow the side routes, so a side route that
+    is down costs a title nothing."""
+    routes = [r for r in settings.llm.side_routes if r.provider in providers]
+    return ProviderChain(providers, [*routes, *settings.routes]) if routes else None
 
 
 def escalation_problem(settings: Settings, providers: Mapping[str, Provider]) -> str:
@@ -149,6 +159,7 @@ def build_agent_deps(
         skills=skills,
         profile=profile,
         escalation=escalation_chain(profile.settings, providers),
+        side=side_chain(profile.settings, providers),
         listable_tools=listable,
         kept_era=store.script_store.era(profile.id),
     )

@@ -16,6 +16,7 @@ from my_agent_crew.clock import zone_for
 from my_agent_crew.config_browser import BrowserSettings, browser_settings
 from my_agent_crew.config_checks import checked
 from my_agent_crew.config_desktop import DesktopSettings, desktop_settings
+from my_agent_crew.config_llm import LlmSettings, llm_settings, provider_fallbacks
 from my_agent_crew.config_parse import (
     DEFAULT_SHELL_ASK_PATTERNS,
     Route,
@@ -104,6 +105,7 @@ class Settings:
     browser: BrowserSettings = BrowserSettings()
     # The owner's desktop: where its helper listens, and what an agent's own file allows.
     desktop: DesktopSettings = DesktopSettings()
+    llm: LlmSettings = LlmSettings()
 
     @property
     def zone(self) -> tzinfo:
@@ -180,12 +182,8 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         openrouter_providers=name_list(
             env.get("MY_AGENT_OPENROUTER_PROVIDERS"), file_values.get("openrouter_providers")
         ),
-        openrouter_provider_fallbacks=as_bool(
-            env.get(
-                "MY_AGENT_OPENROUTER_PROVIDER_FALLBACKS",
-                file_values.get("openrouter_provider_fallbacks", True),
-            )
-        ),
+        openrouter_provider_fallbacks=provider_fallbacks(env, file_values),
+        llm=llm_settings(env, file_values),
         mcp_servers=parse_servers(file_values.get("mcp_servers")),
         browser=browser_settings(env, file_values),
         desktop=desktop_settings(env, file_values),

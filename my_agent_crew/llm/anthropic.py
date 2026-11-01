@@ -39,8 +39,11 @@ class AnthropicProvider:
     name = "anthropic"
     credit_cooldown_s = 900.0
 
-    def __init__(self, api_key: str, client: httpx.AsyncClient | None = None):
+    def __init__(
+        self, api_key: str, client: httpx.AsyncClient | None = None, cache_ttl: str = "5m"
+    ):
         self._api_key = api_key
+        self._cache_ttl = cache_ttl
         self._client = client or httpx.AsyncClient(timeout=httpx.Timeout(120.0))
         self._no_credit_until = 0.0
 
@@ -66,7 +69,7 @@ class AnthropicProvider:
         reasoning: str = "",
     ) -> AsyncIterator[StreamItem]:
         self._check_credit()
-        body = request_body(messages, tools, model, reasoning, MAX_TOKENS)
+        body = request_body(messages, tools, model, reasoning, MAX_TOKENS, self._cache_ttl)
         reader = ReplyReader(self.name, model)
         try:
             async with self._client.stream(

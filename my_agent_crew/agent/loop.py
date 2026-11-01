@@ -64,6 +64,8 @@ class AgentDeps:
     peers: Mapping[str, AgentProfile] = field(default_factory=dict)
     # Where a stuck turn moves to, when the agent names such a route (`escalation.py`).
     escalation: ProviderChain | None = None
+    # What writes the side texts (a title, a summary), when cheaper routes are set for them.
+    side: ProviderChain | None = None
     # What every agent of the running crew holds right now, by id (`agents/abilities.py`).
     # The runtime sets it; without one the roster tells only what each owner wrote.
     crew: Callable[[], Mapping[str, Abilities]] | None = None

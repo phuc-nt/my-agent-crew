@@ -27,6 +27,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   versions, and `DELETE …?purge=true` erases a fact for good where a plain delete now retracts
   it and keeps its history.
 
+- **Cheaper Claude turns and side texts.** `anthropic_cache_ttl: 1h` keeps the tools and the
+  system prompt in Claude's cache for an hour instead of five minutes, so a reply written a
+  quarter of an hour later reads them at a tenth of the price instead of writing them again;
+  the moving tail of the conversation keeps the five-minute mark. `side_routes` names the
+  routes that write a conversation's title and summary (a small model such as Haiku), with the
+  agent's own routes behind them as the fallback; routes whose provider is not built are
+  skipped.
+
 ## [0.32.0] — 2026-11-01
 
 ### Added

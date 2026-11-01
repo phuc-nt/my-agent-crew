@@ -75,7 +75,9 @@ async def summarize_conversation(deps: AgentDeps, conv_id: str, force: bool = Fa
         return ""
     prompt = Message(role="user", content=SUMMARY_PROMPT.format(transcript=transcript))
     # Named explicitly: a recap runs as the next conversation opens, not in this one's turn.
-    chain = MeteredChain(deps.chain, deps.store, deps.agent.id, "session_summary", conv_id)
+    chain = MeteredChain(
+        deps.side or deps.chain, deps.store, deps.agent.id, "session_summary", conv_id
+    )
     completion: Completion | None = None
     async for item in chain.stream([prompt], []):
         if isinstance(item, Completion):

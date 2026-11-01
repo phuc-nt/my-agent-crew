@@ -9,6 +9,9 @@ sent back: the engine keeps no thinking, and a history without any is always val
 Three cache breakpoints mark what each request shares with the next: the end of the
 tools, the end of the system prompt and the end of the conversation. The API renders
 tools, then system, then messages, so each breakpoint caches everything before it.
+The first two may be kept for an hour (`stable_ttl`); the conversation's end, which moves
+with every request, always keeps the default five minutes, so the longer lifetimes come
+first as the API requires.
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import Message, ToolSpec
 
 CACHE = {"type": "ephemeral"}
+DEFAULT_TTL = "5m"
 # Said in place of a result the history never recorded (a turn cut off between a call
 # and its answer): the API refuses a tool call left without a result.
 NO_RESULT = "no result was recorded for this call"
@@ -128,7 +132,13 @@ def _paired(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return messages
 
 
-def to_wire(messages: Sequence[Message]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def cache_mark(ttl: str = DEFAULT_TTL) -> dict[str, str]:
+    return CACHE if ttl == DEFAULT_TTL else {**CACHE, "ttl": ttl}
+
+
+def to_wire(
+    messages: Sequence[Message], stable_ttl: str = DEFAULT_TTL
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """`(system, messages)`: the leading system messages as system text blocks, the rest
     as alternating messages, with the last block of each list marked for the cache."""
     lead = 0
@@ -136,18 +146,21 @@ def to_wire(messages: Sequence[Message]) -> tuple[list[dict[str, Any]], list[dic
         lead += 1
     system = [b for m in messages[:lead] for b in _text(m.content)]
     wire = _paired(_merged(messages[lead:]))
-    for blocks in (system, wire[-1]["content"] if wire else []):
+    for blocks, mark in (
+        (system, cache_mark(stable_ttl)),
+        (wire[-1]["content"] if wire else [], CACHE),
+    ):
         if blocks:
-            blocks[-1]["cache_control"] = CACHE
+            blocks[-1]["cache_control"] = mark
     return system, wire
 
 
-def tools_to_wire(tools: Sequence[ToolSpec]) -> list[dict[str, Any]]:
+def tools_to_wire(tools: Sequence[ToolSpec], ttl: str = DEFAULT_TTL) -> list[dict[str, Any]]:
     out = [
         {"name": t.name, "description": t.description, "input_schema": t.parameters} for t in tools
     ]
     if out:
-        out[-1]["cache_control"] = CACHE
+        out[-1]["cache_control"] = cache_mark(ttl)
     return out
 
 
@@ -164,8 +177,9 @@ def request_body(
     model: str,
     reasoning: str,
     max_tokens: int,
+    stable_ttl: str = DEFAULT_TTL,
 ) -> dict[str, Any]:
-    system, wire = to_wire(messages)
+    system, wire = to_wire(messages, stable_ttl)
     body: dict[str, Any] = {
         "model": model,
         "max_tokens": max_tokens,
@@ -175,7 +189,7 @@ def request_body(
     if system:
         body["system"] = system
     if tools:
-        body["tools"] = tools_to_wire(tools)
+        body["tools"] = tools_to_wire(tools, stable_ttl)
     effort = effort_for(model, reasoning)
     if effort:
         body["output_config"] = {"effort": effort}
