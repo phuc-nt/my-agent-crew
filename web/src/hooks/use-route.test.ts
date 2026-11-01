@@ -19,6 +19,12 @@ describe("reading a route from the address bar", () => {
     expect(parseRoute("#/manage/jobs")).toEqual({ kind: "manage", section: "jobs" });
   });
 
+  // The phone's inbox is a page of its own, and the link a notification opens.
+  it("reads the inbox and writes it back the same way", () => {
+    expect(parseRoute("#/inbox")).toEqual({ kind: "inbox" });
+    expect(routeHash({ kind: "inbox" })).toBe("#/inbox");
+  });
+
   // A link from an older build, or one someone typed by hand, must still land somewhere.
   it("falls back to the first section when the section is not one we have", () => {
     expect(parseRoute("#/manage/nonsense")).toEqual({ kind: "manage", section: "activity" });

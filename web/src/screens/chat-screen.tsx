@@ -5,6 +5,7 @@ import { CanvasChatNotices } from "../components/canvas/canvas-dock-controls";
 import { QueuedChips } from "../components/queued-chips";
 import { StatusLine } from "../components/status-line";
 import { useDrawer } from "../hooks/use-drawer";
+import { useUnreadResults } from "../hooks/use-inbox";
 import { usePhone } from "../hooks/use-phone";
 import { vi } from "../i18n/vi";
 import { dockShowing } from "../lib/canvas-dock-state";
@@ -12,7 +13,7 @@ import { conversationFamilyRuns, liveRuns, runningRuns, sortedRuns } from "../st
 import { conversationMoney } from "../state/conversation-money";
 import { chatChildRequests } from "./chat/chat-child-requests";
 import { chatApproval, chatComposer, chatQuestion } from "./chat/chat-composer";
-import { chatCrewChip, chatHeader, chatMenuButton } from "./chat/chat-header";
+import { chatCrewChip, chatHeader, chatInboxButton, chatMenuButton } from "./chat/chat-header";
 import { chatNotice, forkErrorNotice, loadFailedNotice, overBudgetNotice } from "./chat/chat-notices";
 import type { ChatProps } from "./chat/chat-props";
 import { chatAsk, chatSend } from "./chat/chat-send";
@@ -37,6 +38,7 @@ export function ChatScreen({
   waiting,
   onSelectConversation,
   onOpenManage,
+  onOpenInbox,
   liveByAgent,
   externalRun = null,
 }: ChatProps) {
@@ -121,7 +123,14 @@ export function ChatScreen({
   const notice = chatNotice({ state, money, active, overBudget, raiseFromNotice });
   const manageButton = chatManageButton({ onOpenManage, attentionCount, waiting: waiting.length, running });
   const crewChip = chatCrewChip({ onOpenManage, crewNames });
-  const menuButton = chatMenuButton({ phone, drawer, showDrawer, attentionCount });
+  // Where the inbox is offered, its count is where waiting work is told; the drawer's dot would say it twice.
+  const unread = useUnreadResults(runs);
+  const menuButton = (
+    <>
+      {chatMenuButton({ phone, drawer, showDrawer, attentionCount: onOpenInbox ? 0 : attentionCount })}
+      {chatInboxButton({ phone, count: attentionCount + unread, onOpenInbox })}
+    </>
+  );
 
   // A narrow screen keeps the one-line strip under the thread instead of the column.
   const docked = wide && Boolean(active);

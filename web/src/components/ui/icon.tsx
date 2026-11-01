@@ -14,6 +14,12 @@ const PATHS = {
   plus: <path d="M12 5v14M5 12h14" />,
   close: <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />,
   menu: <path d="M4 7h16M4 12h16M4 17h10" />,
+  inbox: (
+    <>
+      <path d="M4 13.5l2.2-7.3A1.8 1.8 0 0 1 7.9 5h8.2a1.8 1.8 0 0 1 1.7 1.2l2.2 7.3V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z" />
+      <path d="M4 13.5h4.5l1.2 2h4.6l1.2-2H20" />
+    </>
+  ),
   "chevron-left": <path d="M14.5 6l-6 6 6 6" />,
   "chevron-right": <path d="M9.5 6l6 6-6 6" />,
   "chevron-down": <path d="M6 9.5l6 6 6-6" />,

@@ -33,7 +33,8 @@ export function CanvasButton({ dock, ref, showing = false, onLeave }: ButtonProp
       onClick={() => (showing && onLeave ? onLeave() : void dock.toggle())}
     >
       <Icon name="document" />
-      {vi.canvas.button}
+      {/* Named by aria-label as well, so a phone's header can show the icon alone. */}
+      <span className="canvas-button-text">{vi.canvas.button}</span>
       {count > 0 && <span className="badge"> {count}</span>}
     </button>
   );

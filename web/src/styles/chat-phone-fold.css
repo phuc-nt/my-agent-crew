@@ -15,6 +15,17 @@
     display: none;
   }
 
+  /* The canvas by its icon alone: the title needs the width more than the word does. */
+  .conversation-header.compact .canvas-button-text {
+    display: none;
+  }
+  .conversation-header.compact .canvas-button {
+    flex: none;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    justify-content: center;
+  }
+
   .header-more {
     flex: none;
     min-width: var(--touch-target);

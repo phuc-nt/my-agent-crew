@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { api } from "./api/client";
-import type { SettingsInfo, TemplateInfo } from "./api/types";
+import { useEffect } from "react";
 import { ErrorBoundary } from "./components/error-boundary";
 import { UpdateBar } from "./components/update-bar";
 import { useActivity } from "./hooks/use-activity";
+import { useAppSettings } from "./hooks/use-app-settings";
 import { useAttention } from "./hooks/use-attention-badge";
 import { useCrew } from "./hooks/use-agents";
+import { useCanvasDraftUpkeep } from "./hooks/use-canvas-draft-upkeep";
 import { useConversations } from "./hooks/use-conversations";
 import { useExternalRunRefresh } from "./hooks/use-external-run-refresh";
 import { useReloadOnReconnect } from "./hooks/use-reload-on-reconnect";
@@ -13,9 +13,8 @@ import { type ManageSection, type Route, useRoute } from "./hooks/use-route";
 import { useThread } from "./hooks/use-thread";
 import { useTurnWatch } from "./hooks/use-turn-watch";
 import { useVersionCheck } from "./hooks/use-version-check";
-import { onArtifactEvent } from "./lib/artifact-events";
-import { clearDraft, pruneDrafts } from "./lib/canvas-draft";
 import { ChatScreen } from "./screens/chat-screen";
+import { InboxScreen } from "./screens/inbox-screen";
 import { ManageScreen } from "./screens/manage-screen";
 import { liveRuns, needsAttention, runningRuns, sortedRuns } from "./state/activity-reducer";
 
@@ -41,36 +40,10 @@ export function App() {
     void crew.refreshJobs();
     void crew.refreshStats();
   });
-  const [settings, setSettings] = useState<SettingsInfo | null>(null);
-  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
-
-  useEffect(() => {
-    api.settings().then(setSettings, () => setSettings(null));
-    api.templates().then(setTemplates, () => setTemplates([]));
-  }, []);
-
-  // Canvas drafts are otherwise thinned only as a new one is written; a month-old draft of a
-  // canvas nobody reopened would stay on the device for good.
-  useEffect(() => pruneDrafts(Date.now()), []);
-  // A deleted canvas has no version left to save into: its draft goes, and with it the question the
-  // page asks before closing over a draft only this tab holds.
-  useEffect(
-    () =>
-      onArtifactEvent(({ artifact }) => {
-        if ("deleted" in artifact) clearDraft(artifact.id);
-      }),
-    [],
-  );
-
-  // Settings describe a server that may have restarted since the page loaded, so opening
-  // them asks again. A failed ask keeps what was shown rather than blanking it.
+  // Settings describe a server that may have restarted, so opening them asks again.
   const settingsOpen = route.kind === "manage" && route.section === "settings";
-  const { check: checkVersion } = version;
-  useEffect(() => {
-    if (!settingsOpen) return;
-    api.settings().then(setSettings, () => {});
-    checkVersion();
-  }, [settingsOpen, checkVersion]);
+  const { settings, templates } = useAppSettings(settingsOpen, version.check);
+  useCanvasDraftUpkeep();
   const updateBar = version.stale && <UpdateBar onDismiss={version.dismiss} />;
 
   // The address bar is what a shared or bookmarked link carries, so it opens the
@@ -111,6 +84,23 @@ export function App() {
     list.select(conversationId);
     navigate({ kind: "chat", conversationId });
   };
+
+  if (route.kind === "inbox") {
+    return (
+      <ErrorBoundary>
+        {updateBar}
+        <InboxScreen
+          runs={runs}
+          attention={attention}
+          agentName={crew.agentName}
+          onOpenConversation={openConversation}
+          onOpenRun={(runId) => navigate({ kind: "manage", section: "activity", param: runId })}
+          onBack={() => navigate({ kind: "chat", conversationId: list.activeId })}
+          onReload={() => void activity.refresh()}
+        />
+      </ErrorBoundary>
+    );
+  }
 
   if (route.kind === "manage") {
     // Closing a page opened from a job's row goes back to that row, not the section's list.
@@ -188,6 +178,7 @@ export function App() {
         settings={settings}
         attentionCount={attention.length}
         waiting={waiting}
+        onOpenInbox={() => navigate({ kind: "inbox" })}
         onSelectConversation={openConversation}
         // A waiting request is settled on the approvals page, so the way in lands there.
         onOpenManage={(section = waiting.length > 0 ? "approvals" : "activity") => navigate({ kind: "manage", section })}

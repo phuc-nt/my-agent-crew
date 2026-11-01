@@ -1,0 +1,150 @@
+/* The phone's inbox: one column, what waits on top, the jobs' results under it. It is a
+   page of its own rather than a manage section, so it carries no nav column: on a phone
+   that column is a row of pills, and the inbox is read top to bottom with one thumb. */
+.inbox-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--bg);
+}
+
+.inbox-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  padding-top: max(var(--space-2), env(safe-area-inset-top));
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.inbox-header h1 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.inbox-header .icon-button {
+  margin-left: calc(var(--space-2) * -1);
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  color: var(--text);
+}
+
+.inbox-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.inbox-body > * {
+  width: 100%;
+  max-width: 44rem;
+  margin-inline: auto;
+}
+
+.inbox-note {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.inbox-results h3 {
+  margin: 0 0 var(--space-2);
+}
+.inbox-results ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* A card that is one button, laid out like a message in a mail list. */
+button.inbox-result {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-3);
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+button.inbox-result:hover {
+  background: var(--surface-hover);
+}
+button.inbox-result.fresh {
+  border-color: var(--accent);
+  background: var(--accent-softer);
+}
+
+.inbox-result-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.inbox-result-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.inbox-result-title {
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inbox-result-at {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+}
+.inbox-result-agent {
+  font-size: var(--text-xs);
+}
+/* The start of what the job said; the whole of it is in its conversation. */
+.inbox-result-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+
+/* The chat header's way in, beside the drawer's: a count rather than a dot, since it
+   says how much is there to read. */
+.inbox-button {
+  position: relative;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  color: var(--text);
+}
+.inbox-count {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--warn);
+  color: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--surface);
+}

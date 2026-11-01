@@ -18,6 +18,8 @@ export interface ChatProps {
   /** Selects a conversation and puts it in the address bar, so the link can be shared. */
   onSelectConversation: (conversationId: string) => void;
   onOpenManage: (section?: ManageSection) => void;
+  /** Opens the inbox, the phone's list of what waits and what the jobs reported. */
+  onOpenInbox?: () => void;
   liveByAgent: Record<string, number>;
   /** A run for this conversation that another channel started, while this tab streams nothing. */
   externalRun?: RunInfo | null;

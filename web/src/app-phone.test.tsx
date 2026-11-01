@@ -101,14 +101,15 @@ describe("the conversation drawer on a phone", () => {
     expect(main).not.toHaveAttribute("inert");
   });
 
-  // The dot on the menu button is only there for the eye; the button's name says it too.
-  it("names the work waiting behind the drawer on the button that opens it", async () => {
+  // The inbox beside it counts the work waiting, so the menu does not say it a second time.
+  it("leaves the work waiting to the inbox's count rather than the menu's dot", async () => {
     backend.runs = [fakeRun({ id: "w", status: "awaiting_approval", conversation_id: "c9" })];
     render(<App />);
     await screen.findByText(vi.welcomeTitleFor("Agent"));
 
     await waitFor(() =>
-      expect(menu()).toHaveAccessibleName(`${vi.openConversations} (${vi.manage.waiting(1)})`),
+      expect(screen.getByRole("button", { name: new RegExp(vi.inbox.open) })).toHaveAccessibleName(vi.inbox.openWith(1)),
     );
+    expect(menu()).toHaveAccessibleName(vi.openConversations);
   });
 });

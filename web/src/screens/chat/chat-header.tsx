@@ -53,6 +53,29 @@ export function chatMenuButton({ phone, drawer, showDrawer, attentionCount }: Me
   );
 }
 
+/**
+ * On a phone, the way to the inbox: what waits on the person and what the jobs reported,
+ * read the way a chat app's notifications are. The count is both — a request to settle or
+ * a failure to read, and a result not yet seen — since each is a reason to open it.
+ */
+export function chatInboxButton({ phone, count, onOpenInbox }: { phone: boolean; count: number; onOpenInbox?: () => void }) {
+  return phone && onOpenInbox && (
+    <button
+      type="button"
+      className="icon-button inbox-button"
+      aria-label={count > 0 ? vi.inbox.openWith(count) : vi.inbox.open}
+      onClick={onOpenInbox}
+    >
+      <Icon name="inbox" />
+      {count > 0 && (
+        <span className="inbox-count" aria-hidden="true" data-testid="inbox-count">
+          {count > 9 ? "9+" : count}
+        </span>
+      )}
+    </button>
+  );
+}
+
 interface HeaderParts extends Pick<ChatProps, "list" | "crew" | "settings" | "onSelectConversation"> {
   active: Conversation | null;
   forkSource: string | null;

@@ -20,6 +20,8 @@ export type ManageSection = (typeof MANAGE_SECTIONS)[number];
 
 export type Route =
   | { kind: "chat"; conversationId: string | null }
+  /** What waits on the person and what the jobs reported, read from a phone. */
+  | { kind: "inbox" }
   | {
       kind: "manage";
       section: ManageSection;
@@ -79,6 +81,7 @@ export function parseRoute(hash: string): Route {
     if (!param) return { kind: "manage", section };
     return { kind: "manage", section, param, ...(focus && { focus }), ...(fromJob && { fromJob }) };
   }
+  if (parts[0] === "inbox") return { kind: "inbox" };
   if (parts[0] === "chat") return { kind: "chat", conversationId: parts[1] ?? null };
   return { kind: "chat", conversationId: null };
 }
@@ -91,6 +94,7 @@ export function routeHash(route: Route): string {
     const tail = route.param ? `/${encodeURIComponent(route.param)}${focus}${from}` : "";
     return `#/manage/${route.section}${tail}`;
   }
+  if (route.kind === "inbox") return "#/inbox";
   return route.conversationId ? `#/chat/${route.conversationId}` : "#/chat";
 }
 
