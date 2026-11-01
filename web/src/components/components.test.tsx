@@ -15,6 +15,26 @@ import { summarizeArguments } from "./tool-args-detail";
 import { ToolCallCard } from "./tool-call-card";
 
 describe("ToolCallCard", () => {
+  it("says a question it stopped on waits for an answer, not for approval", () => {
+    const { rerender } = render(
+      <ToolCallCard item={{ kind: "tool", id: "tc", name: "ask_user", arguments: {}, output: null, status: "awaiting" }} />,
+    );
+    expect(screen.getByTestId("tool-card")).toHaveTextContent(vi.toolWaiting);
+    rerender(<ToolCallCard item={{ kind: "tool", id: "tc", name: "shell_run", arguments: {}, output: null, status: "awaiting" }} />);
+    expect(screen.getByTestId("tool-card")).toHaveTextContent(vi.toolAwaiting);
+  });
+
+  it("says a call nobody decided in time expired, not that it was refused", () => {
+    const expired = "Người dùng đã TỪ CHỐI hành động này (hết hạn chờ duyệt, không ai trả lời). Hành động KHÔNG được thực hiện.";
+    const denied = "Người dùng đã TỪ CHỐI hành động này. Không thử lại cùng hành động.";
+    const card = (output: string) => <ToolCallCard item={{ kind: "tool", id: "tc", name: "shell_run", arguments: {}, output, status: "denied" }} />;
+    const { rerender } = render(card(expired));
+    expect(screen.getByTestId("tool-card")).toHaveTextContent(vi.toolExpired);
+    expect(screen.getByTestId("tool-card")).not.toHaveTextContent(vi.toolDenied);
+    rerender(card(denied));
+    expect(screen.getByTestId("tool-card")).toHaveTextContent(vi.toolDenied);
+  });
+
   it("shows name, status label and toggles the output", async () => {
     render(
       <ToolCallCard

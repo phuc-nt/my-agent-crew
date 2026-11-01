@@ -34,6 +34,8 @@ export const viTurn = {
   toolFailed: "lỗi",
   toolAwaiting: "chờ duyệt",
   toolDenied: "đã từ chối",
+  // Refused all the same, but by the deadline: "đã từ chối" would say the person chose it.
+  toolExpired: "hết hạn",
   // The turn ended before the call answered: nothing is running it any more.
   toolStopped: "đã dừng",
   // A step left open when its run ended: it neither succeeded nor reported a

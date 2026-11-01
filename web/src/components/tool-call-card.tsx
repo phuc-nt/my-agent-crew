@@ -7,6 +7,7 @@ import {
   delegateTone,
   parseDelegateResult,
 } from "../lib/delegate-result";
+import { isExpired } from "../lib/tool-reply";
 import type { ThreadItem, ToolStatus } from "../state/thread-reducer";
 import { CanvasCard, type CanvasLinks, isCanvasWrite } from "./canvas/canvas-card";
 import { DelegateCanvases } from "./canvas/delegate-canvases";
@@ -21,6 +22,7 @@ import { Icon, type IconName } from "./ui/icon";
 type ToolItem = Extract<ThreadItem, { kind: "tool" }>;
 
 const DELEGATE = "delegate";
+const ASK_USER = "ask_user";
 
 const STATUS_LABEL: Record<ToolStatus, string> = {
   running: vi.toolRunning,
@@ -41,6 +43,14 @@ const STATUS_ICON: Record<ToolStatus, IconName> = {
   denied: "close",
   stopped: "stop",
 };
+
+/** A question stopped on is waiting for an answer, not for a permission; a call nobody
+ *  decided in time was refused by its deadline, not by the person. */
+function toolLabel(item: ToolItem): string {
+  if (item.status === "awaiting" && item.name === ASK_USER) return vi.toolWaiting;
+  if (item.status === "denied" && isExpired(item.output ?? "")) return vi.toolExpired;
+  return STATUS_LABEL[item.status];
+}
 
 /** Refused or failed, what the call handed back is the reason either way. */
 const didFail = (status: ToolStatus) => status === "failed" || status === "denied";
@@ -81,7 +91,7 @@ export function ToolCallCard({ item, agentId, frames, agentName, onOpenConversat
             <Icon name="wrench" className="tool-icon" />
             {item.name}
           </span>
-          <Status status={item.status} label={STATUS_LABEL[item.status]} />
+          <Status status={item.status} label={toolLabel(item)} />
         </div>
         <div className="tool-arguments" title={vi.arguments}>
           {summarizeArguments(item.arguments) || "—"}

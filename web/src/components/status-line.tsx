@@ -15,7 +15,9 @@ interface Props {
 }
 
 function threadText(thread: ThreadState, overBudget: boolean): string {
-  if (thread.pending) return vi.statusAwaiting;
+  // A question waits for words, not a yes or no: "chờ bạn duyệt" would send the person
+  // looking for Cho phép / Từ chối on a card that offers the question's choices instead.
+  if (thread.pending) return thread.pending.kind === "question" ? vi.runWaitingAnswer : vi.statusAwaiting;
   // The composer above is locked, so an idle line would claim a readiness it lacks.
   if (overBudget && !thread.busy) return vi.statusOverBudget;
   // Thinking is always the newest thing happening, so it outranks an earlier note.

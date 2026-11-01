@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi as vitest } from "vitest";
 import { vi } from "../i18n/vi";
 import { emptyThread } from "../state/thread-reducer";
+import { questionPending, toolPending } from "../test/pending";
 import { ErrorBoundary } from "./error-boundary";
 import { StatusLine } from "./status-line";
 
@@ -26,6 +27,15 @@ describe("StatusLine", () => {
     const thread = { ...emptyThread, busy: true, thinking: true, items: [{ kind: "note" as const, id: "n", text: "Đang đọc dữ liệu" }] };
     render(<StatusLine thread={thread} connected liveCount={0} />);
     expect(screen.getByRole("status")).toHaveTextContent(vi.statusThinking);
+  });
+
+  it("says a question waits for an answer and a tool call for a decision", () => {
+    const { rerender } = render(<StatusLine thread={{ ...emptyThread, pending: questionPending() }} connected liveCount={0} />);
+    const line = screen.getByRole("status");
+    expect(line).toHaveTextContent(vi.runWaitingAnswer);
+    expect(line).not.toHaveTextContent(vi.statusAwaiting);
+    rerender(<StatusLine thread={{ ...emptyThread, pending: toolPending() }} connected liveCount={0} />);
+    expect(line).toHaveTextContent(vi.statusAwaiting);
   });
 
   it("names the stream's four states in one case, as they take turns in one slot", () => {

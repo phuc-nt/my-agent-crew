@@ -17,6 +17,10 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   request ran out had its answer, and the line saying it ran out, pushed to Telegram, a chat that
   never asked. A job, or one of the chat's own conversations, decided on the web now sends its
   answer to the chat, where it was waited for; before, it was read on the web only.
+- **A question says it waits for an answer, and an expired call says it expired.** The web
+  status line and the card of a question read "chờ duyệt", sending the person to look for
+  buttons the question does not have; a call nobody decided in time read "đã từ chối", as if
+  the person had chosen it. They now read "đang chờ trả lời" and "hết hạn".
 
 ## [0.29.2] — 2026-11-01
 

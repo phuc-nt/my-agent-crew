@@ -11,6 +11,8 @@ import { parseDelegateResult } from "./delegate-result";
 
 /** Shared by a refusal and by an approval nobody answered in time. */
 const DENIED = "Người dùng đã TỪ CHỐI";
+/** Only the approval nobody answered goes on to say so; nobody chose that refusal. */
+const EXPIRED = "Người dùng đã TỪ CHỐI hành động này (hết hạn chờ duyệt";
 /**
  * Each as far as its fixed words go: up to the first thing the server fills in, or the whole
  * sentence when it fills in nothing. In order: the tool raised or crashed, no tool has the
@@ -63,6 +65,8 @@ function scriptFailed(reply: string): boolean {
 }
 
 export const isDenied = (reply: string): boolean => reply.startsWith(DENIED);
+
+export const isExpired = (reply: string): boolean => reply.startsWith(EXPIRED);
 
 /** The status of a call to the tool `name` whose stored reply is `reply`. */
 export function storedStatus(name: string, reply: string): "denied" | "failed" | "done" {

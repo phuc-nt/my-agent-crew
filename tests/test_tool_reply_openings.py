@@ -97,6 +97,11 @@ def test_the_web_tells_a_refusal_by_the_opening_both_refusals_share():
     assert DENIED_TOOL.startswith(denied) and EXPIRED_TOOL.startswith(denied)
 
 
+def test_the_web_tells_a_refusal_by_the_deadline_from_one_the_person_chose():
+    expired = web_constant("EXPIRED")
+    assert EXPIRED_TOOL.startswith(expired) and not DENIED_TOOL.startswith(expired)
+
+
 def test_each_opening_the_web_reads_as_a_failure_is_how_the_server_words_one():
     """Exactly the words before the first thing filled in, and the whole sentence when nothing
     is: a shorter opening would catch replies that are not failures, a longer one could never
