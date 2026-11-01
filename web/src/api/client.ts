@@ -6,6 +6,7 @@ import { conversationsApi } from "./client/conversations";
 import { desktopApi } from "./client/desktop";
 import { query } from "./client/http";
 import { memoryApi } from "./client/memory";
+import { pushApi } from "./client/push";
 import type { ActivityPayload } from "./types";
 
 export { ApiError, query, request } from "./client/http";
@@ -55,6 +56,7 @@ export const api = {
   ...desktopApi,
   ...activityApi,
   ...memoryApi,
+  ...pushApi,
 };
 
 export type Api = typeof api;

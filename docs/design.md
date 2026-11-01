@@ -849,6 +849,27 @@ activity nằm dưới. ⌘K mở drawer ngay ở ô tìm kiếm, vì ô đó n�
 báo có việc chờ trên nút menu cũng nằm trong tên nút, để trình đọc màn hình nghe được. Nav của màn
 quản lý thành một hàng pill, tự cuộn tới mục đang mở.
 
+Điện thoại không cần app chat riêng.
+- **Header của chat:** có nút **Hộp thư** (`#/inbox`), con số trên nút đếm các yêu cầu và lỗi
+  đang chờ, cộng kết quả job chưa đọc.
+- **Trong Hộp thư:**
+  - các yêu cầu được duyệt ngay tại chỗ;
+  - các run job đã xong và có điều để nói được xếp mới nhất trước, đánh dấu những gì mới kể từ
+    lần đọc trước trên thiết bị này;
+  - một câu trả lời chỉ là "OK" không được đưa vào.
+- **Thông báo đẩy:** Hộp thư cũng là nơi bật Web Push cho thiết bị (`webpush/`,
+  `server/routes_push.py`, `public/sw.js`).
+  - **Có thông báo khi:** có yêu cầu duyệt hoặc câu hỏi, khi một job báo kết quả hoặc lỗi, và khi
+    một lượt chat trên web kéo dài từ một phút trở lên vừa xong.
+  - **Nội dung là câu chung:** chỉ có tiêu đề cố định và một đường dẫn trong app, không chứa nội
+    dung cuộc trò chuyện. Payload được mã hoá theo RFC 8291 nên dịch vụ push của trình duyệt chỉ
+    thấy ciphertext.
+  - **Lưu trữ:** khoá VAPID và các subscription nằm trong `<home>/webpush.json` (chmod 600).
+    Subscription mà dịch vụ push trả về 404 hoặc 410 thì bị xoá.
+  - **iPhone:** chỉ nhận push khi app đã được thêm vào Màn hình chính, nên trong Safari thẻ chỉ
+    nói điều đó. Service worker luôn hiện một thông báo cho mỗi push, vì Safari thu hồi
+    subscription nào nhận push mà không hiện gì.
+
 ## Điểm mở rộng
 
 - Provider (`llm/`): thứ stream ra một câu trả lời, nối vào nơi server dựng provider cho mỗi

@@ -17,50 +17,21 @@ from fastapi.staticfiles import StaticFiles
 from my_agent_crew import __version__
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.config import load_settings
-from my_agent_crew.server import (
-    routes_activity,
-    routes_agents,
-    routes_agents_edit,
-    routes_agents_files,
-    routes_approvals,
-    routes_artifact_history,
-    routes_artifact_import,
-    routes_artifact_render,
-    routes_artifacts,
-    routes_browser,
-    routes_browser_login,
-    routes_canvas_focus,
-    routes_chat,
-    routes_conversations,
-    routes_credentials,
-    routes_desktop,
-    routes_fork,
-    routes_inbound,
-    routes_jobs,
-    routes_mcp,
-    routes_memory_agent,
-    routes_memory_user,
-    routes_memory_wiki,
-    routes_model_routes,
-    routes_registry,
-    routes_script_store,
-    routes_search,
-    routes_settings,
-    routes_telegram_updates,
-    routes_turn,
-)
 from my_agent_crew.server.agent_assembly import build_providers
 from my_agent_crew.server.browser_runtime import reap_loop
 from my_agent_crew.server.external_clock import start_clock
 from my_agent_crew.server.housekeeping import sweep_loop
 from my_agent_crew.server.local_guard import allowed_hosts, install_local_guard
 from my_agent_crew.server.mcp_lifecycle import connect_at_start, retry_loop
+from my_agent_crew.server.routers import ROUTERS
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_build import build_deps, build_runtime
 from my_agent_crew.server.security_headers import SecuredApp
 from my_agent_crew.turn_resume import resume_cut_turns
+from my_agent_crew.webpush import push_store
+from my_agent_crew.webpush.notifier import start_notifier
 
-__all__ = ["build_deps", "build_providers", "build_runtime", "create_app"]
+__all__ = ["ROUTERS", "build_deps", "build_providers", "build_runtime", "create_app"]
 
 STATIC_DIR = Path(__file__).parent / "static"
 # Responses above this size go out gzipped when the client accepts it: the bundle, the
@@ -70,38 +41,6 @@ GZIP_MIN_BYTES = 1024
 # as long as it likes; a new build is a new name. `index.html` is not under /assets and
 # is revalidated on every load, which is what makes the new name reach the browser.
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
-ROUTERS = (
-    routes_conversations.router,
-    routes_fork.router,
-    routes_chat.router,
-    routes_turn.router,
-    routes_inbound.router,
-    routes_approvals.router,
-    routes_settings.router,
-    routes_agents.router,
-    routes_agents_edit.router,
-    routes_agents_files.router,
-    routes_browser.router,
-    routes_browser_login.router,
-    routes_desktop.router,
-    routes_script_store.router,
-    routes_registry.router,
-    routes_credentials.router,
-    routes_model_routes.router,
-    routes_activity.router,
-    routes_jobs.router,
-    routes_memory_user.router,
-    routes_memory_agent.router,
-    routes_memory_wiki.router,
-    routes_search.router,
-    routes_artifacts.router,
-    routes_artifact_history.router,
-    routes_artifact_render.router,
-    routes_canvas_focus.router,
-    routes_artifact_import.router,
-    routes_mcp.router,
-    routes_telegram_updates.router,
-)
 
 
 class HashedAssets(StaticFiles):
@@ -127,6 +66,7 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
         sweeper: asyncio.Task[None] | None = None
         servers: asyncio.Task[None] | None = None
         clock: asyncio.Task[None] | None = None
+        notifier: asyncio.Task[None] | None = None
         # Whether or not anything is scheduled: a call may start a browser all the same.
         pool = runtime.browsers.pool
         reaper = asyncio.create_task(reap_loop(pool)) if pool is not None else None
@@ -136,6 +76,10 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
             # Before a cut turn is taken up again: it may be about to call one of their tools.
             await connect_at_start(runtime)
             servers = asyncio.create_task(retry_loop(runtime)) if runtime.mcp.links else None
+            # Before a cut turn is taken up again, so a request it makes is pushed too.
+            if runtime.client is not None:
+                push = push_store(runtime.settings.home)
+                notifier = start_notifier(runtime.hub, runtime.store, push, runtime.client)
             # After the channel, whose bot answers its own chats; before the drain, so
             # what waited in a conversation stays behind the turn it was waiting on.
             resume_cut_turns(runtime)
@@ -148,6 +92,8 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
                 servers.cancel()
             if clock is not None:
                 clock.cancel()
+            if notifier is not None:
+                notifier.cancel()
             if sweeper is not None:
                 sweeper.cancel()
                 # A turn this stop cuts is left for the server that starts next.

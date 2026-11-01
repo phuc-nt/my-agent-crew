@@ -11,6 +11,19 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- **An inbox for the phone.** The phone's chat header has an inbox button counting the
+  requests and failures waiting plus the job results not yet read. The inbox (`#/inbox`)
+  settles requests in place and lists finished job runs with something to say, newest first,
+  marking what is new since it was last read on this device.
+- **Push notifications.** The inbox turns on Web Push for the device: a request or a question,
+  a job's result or failure, and a web chat turn of a minute or more that finished each send a
+  notification that opens the right place. Payloads carry generic titles and an in-app link
+  only, encrypted end to end (RFC 8291) with a VAPID key the server keeps in
+  `<home>/webpush.json`. On an iPhone the app must be added to the Home Screen first; the
+  inbox says so. New dependency: `cryptography`.
+
 ## [0.30.0] — 2026-11-01
 
 ### Added

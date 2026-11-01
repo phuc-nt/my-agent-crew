@@ -1116,6 +1116,18 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Playwright: `manage-row-phone.spec.ts`
     ("a count arriving leaves the row where the person scrolled it",
     "the current pill stays in view as the counts before it widen the row")
+- **Hộp thư trên điện thoại: yêu cầu duyệt tại chỗ, kết quả job mới nhất trước**
+  - vitest: `app-inbox.test.tsx`; `hooks/use-route.test.ts`
+  - Playwright: `phone-inbox.spec.ts` "the inbox settles a request and opens a job's report from a phone"
+- **Thông báo đẩy (Web Push)**
+  - pytest:
+    - `test_webpush_crypto.py`: vector của RFC 8291 §5, giải mã độc lập, claim VAPID;
+    - `test_webpush_store.py`;
+    - `test_webpush_notices.py`: nội dung nào thành thông báo, payload không chứa nội dung chat;
+    - `test_webpush_notifier.py`: kết thúc run được kể hai lần chỉ báo một lần; 410 xoá subscription;
+    - `test_api_push.py`
+  - vitest: `lib/push.test.ts` (kể cả "drops a subscription made against another key and makes a new one"); `components/push-settings.test.tsx`
+  - Playwright: `phone-push.spec.ts` "the inbox turns notifications on for this phone and sends a test"
 - **Thanh "Có bản mới" và phiên bản trong Cài đặt**
   - vitest: `hooks/use-version-check.test.ts` (kể cả "makes no look of its own on a reconnect when a look since the drop reached the server", "looks at most every half minute on a stream that keeps dropping, the last look made late"); `components/update-bar.test.tsx`; `app.test.tsx`
     ("offers a reload once the server runs a newer build than the page",
