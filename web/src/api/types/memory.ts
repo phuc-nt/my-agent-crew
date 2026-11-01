@@ -31,6 +31,8 @@ export interface FactInfo extends FactRecord {
   recalls: number;
   recalled_at: string;
   history_count: number;
+  /** For a change that starts later: the version it has not yet replaced, if any. */
+  holds_today?: FactRecord | null;
 }
 
 /** A past version, and how it ended. */

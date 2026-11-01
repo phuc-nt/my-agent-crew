@@ -131,6 +131,8 @@ export function fakeApproval(overrides: Partial<ApprovalInfo> = {}): ApprovalInf
 }
 
 /** In-memory stand-in for the FastAPI server, wired to `fetch` in component tests. */
+const dayBefore = (day: string) => new Date(Date.parse(day) - 86_400_000).toISOString().slice(0, 10);
+
 export class FakeBackend {
   conversations = new Map<string, ConversationDetail>();
   agents: AgentInfo[] = [fakeAgent];
@@ -672,7 +674,8 @@ export class FakeBackend {
     if (factName && method === "PUT") {
       const name = decodeURIComponent(factName);
       const held = this.facts.find((f) => f.name === name);
-      if (held) this.endFact(held, "superseded");
+      // As the server does, a new version that starts later closes the old one the day before.
+      if (held) this.endFact(held, "superseded", body.valid_from ? dayBefore(body.valid_from) : "");
       const fact: FactInfo = {
         name,
         description: body.description,
@@ -808,10 +811,11 @@ export class FakeBackend {
     return proposal;
   }
 
-  private endFact(fact: FactInfo, why: FactVersion["why"]) {
-    const { stale: _s, state: _st, recalls: _r, recalled_at: _ra, history_count: _h, ...record } = fact;
+  private endFact(fact: FactInfo, why: FactVersion["why"], until = "") {
+    const { stale: _s, state: _st, recalls: _r, recalled_at: _ra, history_count: _h, holds_today: _t, ...record } = fact;
     const past = this.factVersions.get(fact.name) ?? [];
-    this.factVersions.set(fact.name, [...past, { ...record, ended_at: "2026-09-20T09:00:00", why }]);
+    const closed = until && !record.valid_until ? { ...record, valid_until: until } : record;
+    this.factVersions.set(fact.name, [...past, { ...closed, ended_at: "2026-09-20T09:00:00", why }]);
   }
 
   private pending(): MemoryProposal[] {

@@ -42,6 +42,7 @@ export const viMemory = {
     } as Record<string, string>,
     factPending: (day: string) => `từ ${day}`,
     factExpired: "hết hạn",
+    factHoldsToday: (version: number, description: string) => `Hôm nay vẫn là v${version}: ${description}`,
     factSpan: (from: string, until: string) =>
       from && until ? `đúng ${from} → ${until}` : from ? `đúng từ ${from}` : `đúng đến hết ${until}`,
     factConfirmed: (when: string) => `nói lại ${when}`,

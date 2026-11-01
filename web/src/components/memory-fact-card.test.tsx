@@ -71,6 +71,18 @@ describe("the fact inspector", () => {
     expect((await card("da-qua")).getByText(vi.memory.factExpired)).toBeInTheDocument();
   });
 
+  it("a change that starts later says which version still holds today, and until when", async () => {
+    const today = fact({ version: 1, description: "Làm ở công ty A", valid_until: "2026-11-30" });
+    backend.facts = [
+      fact({ description: "Làm ở công ty B", valid_from: "2026-12-01", state: "pending", holds_today: today }),
+    ];
+    mount();
+
+    const later = await card("cong-ty");
+    expect(later.getByText(new RegExp(vi.memory.factHoldsToday(1, "Làm ở công ty A")))).toBeInTheDocument();
+    expect(later.getByText(new RegExp(vi.memory.factSpan("", "2026-11-30")))).toBeInTheDocument();
+  });
+
   it("an edit keeps the old version in a history that opens on demand", async () => {
     backend.facts = [fact({ version: 1, history_count: 0 })];
     mount();
@@ -88,6 +100,7 @@ describe("the fact inspector", () => {
     await userEvent.click(edited.getByRole("button", { name: vi.memory.factHistory(1) }));
     expect(await edited.findByText("Làm ở công ty A.")).toBeInTheDocument();
     expect(edited.getByText(new RegExp(vi.memory.factEnded.superseded))).toBeInTheDocument();
+    expect(edited.getByText(new RegExp(vi.memory.factSpan("", "2026-11-30")))).toBeInTheDocument();
   });
 
   it("purges a fact and its history only after its own confirm", async () => {

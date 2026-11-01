@@ -69,6 +69,12 @@ export function MemoryFactCard({ fact, onEdit, onRetract, onPurge, onHistory }: 
         {fact.state === "expired" && <span className="badge danger">{vi.memory.factExpired}</span>}
         {fact.stale && <span className="badge warn">{vi.memory.factStale}</span>}
       </div>
+      {fact.holds_today && (
+        <p className="notice fact-holds-today">
+          {vi.memory.factHoldsToday(fact.holds_today.version, fact.holds_today.description || fact.holds_today.body)}
+          {fact.holds_today.valid_until && <> · {vi.memory.factSpan("", fact.holds_today.valid_until)}</>}
+        </p>
+      )}
       <FactMeta fact={fact} />
       {fact.body && <p className="fact-body">{fact.body}</p>}
       <div className="muted fact-meta">
@@ -106,6 +112,7 @@ function FactVersions({ versions }: { versions: FactVersion[] }) {
             <BasisBadge fact={v} />
             <span className="muted">
               {vi.memory.factEnded[v.why] ?? v.why} {day(v.ended_at)}
+              {(v.valid_from || v.valid_until) && <> · {vi.memory.factSpan(v.valid_from, v.valid_until)}</>}
             </span>
           </div>
           {v.body && <p className="fact-body">{v.body}</p>}

@@ -11,6 +11,19 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Fixed
+
+- **A fact that changes later shows what holds today.** The listing gives a fact whose new
+  version has not started yet the version it has not replaced (`holds_today`), and the web card
+  says "Hôm nay vẫn là v1: …" with that version's last day; a past version in the history shows
+  the days it held. Before, the card showed only the coming version and the history called the
+  one still in force "replaced".
+- **A disputed inference says why it waits.** The proposal an agent's contradicting inference
+  becomes carries its reason (which version, said by whom, it contradicts), shown under the
+  proposal. A first write now answers "ghi nhớ mới … (phiên bản 1)", so the model no longer
+  tells the person it updated a fact that did not exist, and `valid_from` tells it to write
+  only what holds from that day.
+
 ## [0.33.0] — 2026-11-01
 
 ### Added
