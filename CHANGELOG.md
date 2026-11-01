@@ -11,6 +11,25 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.29.0] — 2026-11-01
+
+### Added
+
+- **The model is told what came of a request.** An approval records where it was decided
+  (`approvals.decided_via`: web or Telegram). An approved call's result carries a note that the
+  user approved it and where; a denied one says where it was refused. A delegation blocked on
+  approval says "the user refused X on the web/Telegram" or "X expired, nobody answered".
+- **Telegram is the default place to approve.** The chat hears of a job's waiting request and of
+  every delegated child's, including children of web conversations, with buttons; a job settled
+  by a press delivers its answer to the chat. A web conversation's own request stays on the web.
+- **Deadline, reminder and sync.** A request says when it expires and is reminded of once after
+  three minutes, in reply to its message. One settled on the web, by command or by its deadline
+  is rewritten with how it was settled and loses its buttons.
+- **`/pending`** says again every request the chat can settle, with its buttons.
+- **Web: a delegated child's requests in the delegating chat.** The open chat shows its children's
+  requests inline, to approve there, and the manage button counts requests waiting on a decision
+  apart from unread failures.
+
 ## [0.28.0] — 2026-10-31
 
 ### Added
