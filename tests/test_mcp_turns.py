@@ -13,6 +13,7 @@ from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.mcp.hub import McpHub
 from my_agent_crew.store.runs import DONE, RUNNING
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME
+from tests.approval_note import approved_output
 from tests.mcp_fakes import FakeMcp, make_hub, server
 from tests.queue_helpers import Served, until
 from tests.restart_helpers import carried_on, go_down, history, next_server, stored_run
@@ -75,7 +76,10 @@ async def test_any_other_tool_waits_for_a_person_and_reaches_the_server_once_all
 
     assert resumed[-1]["type"] == "done"
     assert fake.calls == [("create-page", {"title": "Báo cáo"})]
-    assert history(app)[-2:] == [("tool", "ran create-page"), ("assistant", "Đã tạo.")]
+    assert history(app)[-2:] == [
+        ("tool", approved_output("ran create-page", "web")),
+        ("assistant", "Đã tạo."),
+    ]
 
 
 async def test_a_call_a_person_refuses_never_reaches_the_server(served):

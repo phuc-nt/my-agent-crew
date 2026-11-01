@@ -10,6 +10,7 @@ from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.mcp.tool_search import SEARCH_TOOL
 from my_agent_crew.store.runs import DONE
+from tests.approval_note import approved_output
 from tests.queue_helpers import Served
 from tests.restart_helpers import carried_on, history, next_server
 from tests.test_mcp_turns import cut_while_the_server_answers, declared, say, use, with_notion
@@ -86,7 +87,10 @@ async def test_a_tool_that_was_loaded_still_waits_for_a_person(served):
     assert fake.calls == [("create-page", {"title": "Báo cáo"})]
     # The turn a person let go on reads the conversation again, and finds the load in it.
     assert declared(app, 2) == [*base, CREATE_NAME]
-    assert history(app)[-2:] == [("tool", "ran create-page"), ("assistant", "Đã tạo.")]
+    assert history(app)[-2:] == [
+        ("tool", approved_output("ran create-page", "web")),
+        ("assistant", "Đã tạo."),
+    ]
 
 
 async def test_a_load_lasts_the_conversation_and_reaches_no_other(served):

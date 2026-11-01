@@ -41,7 +41,7 @@ def with_approval_note(output: str, approval: Approval | None) -> str:
     if approval is None or approval.status != APPROVED:
         return output
     note = " ".join(APPROVED_NOTE.format(via=via_words(approval)).split())
-    return f"{output}\n\n{note}" if output else note
+    return f"{output.rstrip()}\n\n{note}" if output.strip() else note
 
 
 def delegate_reason(approval: Approval) -> str:

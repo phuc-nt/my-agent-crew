@@ -18,6 +18,7 @@ from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.script.scope import SCRIPT_TOOL
 from my_agent_crew.tools import Tool
 from my_agent_crew.tools.shell import SHELL_TOOL_NAME
+from tests.approval_note import approved_output
 from tests.queue_helpers import Served
 from tests.restart_helpers import history, stored_run
 from tests.test_mcp_turns import say
@@ -174,7 +175,10 @@ async def test_a_script_the_gate_stopped_leaves_the_call_to_be_made_directly_and
     resumed = parse_sse((await app.client.post(url, json={"approve": True})).text)
 
     assert resumed[-1]["type"] == "done" and shell.ran == ["ls -la"]
-    assert history(app)[-2:] == [("tool", "đã chạy 1"), ("assistant", "Đã chạy.")]
+    assert history(app)[-2:] == [
+        ("tool", approved_output("đã chạy 1", "web")),
+        ("assistant", "Đã chạy."),
+    ]
     # A call made directly is a step of its own, and no script's.
     direct = [step for step in stored_run(app).steps if step.get("name") == SHELL_TOOL_NAME]
     assert [("calls" in step, step["ok"]) for step in direct] == [(False, True)]

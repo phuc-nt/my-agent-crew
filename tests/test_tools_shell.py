@@ -8,6 +8,7 @@ from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.resume import resolve_approval
 from my_agent_crew.tools.registry import ToolRegistry
 from my_agent_crew.tools.shell import ask_reason, build_shell_tool, run_shell, shell_env
+from tests.approval_note import approved_output
 from tests.conftest import collect
 
 
@@ -93,7 +94,7 @@ async def test_echo_provider_shell_call_pauses_then_runs_after_approval(deps_fac
     assert isinstance(paused[-1], ApprovalRequiredEvent) and paused[-1].name == "shell_run"
     events = await collect(resolve_approval(deps, conv.id, paused[-1].approval_id, True))
     result = next(e for e in events if isinstance(e, ToolResultEvent))
-    assert result.ok and result.output == "hi\n"
+    assert result.ok and result.output == approved_output("hi")
     assert isinstance(events[-1], DoneEvent)
 
 

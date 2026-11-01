@@ -19,6 +19,7 @@ from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.script.gate import job_gate, script_gate
 from my_agent_crew.script.scope import only_reads, scriptable, why_not
+from tests.approval_note import approved_output
 from tests.conftest import collect
 from tests.desktop_helper import HEIGHT, WIDTH, desk, frame, listening, outline_name, ref
 from tests.desktop_tools import NOTES, desk_of
@@ -259,7 +260,8 @@ async def test_an_action_a_person_approves_is_sent_and_one_they_deny_is_not(agen
     approved = await collect(resolve_approval(deps, conv.id, card.approval_id, approve=True))
 
     (result,) = results(approved)
-    assert result.ok and result.output == ta.ACT_POSTED.format(kind="click", app="Notes")
+    posted = ta.ACT_POSTED.format(kind="click", app="Notes")
+    assert result.ok and result.output == approved_output(posted)
     (sent,) = helper.sent("act")
     assert (sent["ref"], sent["outline"]) == ("a2", outline_name(1))
 

@@ -24,6 +24,7 @@ from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.store.approvals import EXPIRED, PENDING
 from my_agent_crew.store.queue import FOLLOW_UP, QUEUE_LIMIT, QueueFull
+from my_agent_crew.texts_approval import APPROVED_NOTE, DECIDED_VIA
 from my_agent_crew.tools.ask_user import ASK_USER_TOOL_NAME, answer_result
 from tests.conftest import collect
 from tests.queue_helpers import Rig, settle_loop, until, while_the_tool_runs
@@ -153,7 +154,7 @@ async def test_a_message_sent_right_after_a_decision_waits_for_the_turn_it_resum
     assert rig.guarded.runs == 1
     assert rig.history()[1:] == [
         ("assistant", ""),
-        ("tool", "xong"),
+        ("tool", f"xong\n\n{APPROVED_NOTE.format(via=DECIDED_VIA['web'])}"),
         ("assistant", "đã chạy"),
         ("user", "tin 2"),
         ("assistant", "trả lời tin 2"),

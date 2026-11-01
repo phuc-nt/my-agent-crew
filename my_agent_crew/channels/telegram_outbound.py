@@ -28,8 +28,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 TYPING_INTERVAL_SECONDS = 4
-# How long the first "typing…" may hold up the turn; one Telegram does not answer is
-# given up so the turn still runs.
+# How long the first "typing…" may hold up the turn before it is given up.
 TYPING_FIRST_TIMEOUT_SECONDS = 3.0
 
 
