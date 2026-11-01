@@ -25,6 +25,34 @@ Frontmatter của một fact ghi `name`, `description`, `type` (một trong `pro
 `preference`, `feedback`, `project`, `reference`), `written_by`, `source` và `updated`;
 `INDEX.md` được sinh lại sau mỗi lần ghi.
 
+### Fact biết mình đứng trên gì
+
+Mỗi fact còn trả lời năm câu: biết gì (thân), bằng chứng đâu, đúng khi nào, ai đứng sau, có
+được dùng không.
+
+- **`basis`** — ai đứng sau: `operator` (người dùng sửa tay trên web), `said` (người dùng nói
+  trong chat), `inferred` (agent tự suy ra), `extracted` (đề xuất của job đã được duyệt). Lời
+  của chính người dùng (`operator`, `said`) xếp trên `inferred`, `inferred` trên `extracted`.
+  Fact cũ chưa có `basis` được đọc là `operator` nếu `written_by: web`, ngoài ra là `inferred`.
+- **`valid_from` / `valid_until`** — ngày (tính cả hai đầu) fact còn đúng; để trống là luôn đúng.
+- **`sources`** — nơi nó đến, ví dụ `conv:<id>` của cuộc trò chuyện người dùng nói ra.
+- **`version`**, **`confirmed`** — số phiên bản, và lần cuối cùng điều đó được nói lại.
+
+Một lần ghi được **hoà giải bằng code**, không bằng model: cùng nội dung → chỉ thêm nguồn và
+đóng dấu `confirmed`, giữ `basis` mạnh hơn; nội dung mới với quyền ngang hoặc cao hơn → thay
+bản cũ, bản cũ vào `facts/.history/<name>.jsonl` và kết thúc trước ngày bản mới bắt đầu;
+`inferred` mâu thuẫn với lời người dùng → không ghi đè, tool tạo một **đề xuất** thay vào đó.
+Rút lại (`user_memory_forget`, nút "Rút lại") đưa bản cuối vào lịch sử; xoá hẳn ("Xoá hẳn",
+`DELETE …?purge=true`) xoá cả lịch sử và số lần đọc lại.
+
+`INDEX.md` trong prompt được dựng cho đúng hôm nay: mỗi dòng ghi mô tả, loại và ai đứng sau;
+fact đã quá ngày cuối bị bỏ; một thay đổi bắt đầu sau này hiện bản còn đúng hôm nay kèm
+"→ từ <ngày>: <mô tả mới>". `user_memory_get` đọc đủ một fact — nội dung, nguồn, lịch sử, và
+với `as_of` thì bản đúng vào một ngày bất kỳ. Mỗi lần `user_memory_get` hoặc một kết quả
+`memory_search` trúng fact được đếm là một lần đọc lại (`facts/.recall.json`).
+`tests/test_memory_scenarios.py` giữ các câu chuyện mà trí nhớ phải đúng (đổi khẩu vị, đổi
+việc báo trước, suy luận ngược lời người dùng, rút lại và xoá hẳn, hết hạn…) như một bộ hồi quy.
+
 ## Phạm vi riêng của một agent
 
 | Tệp | Vai trò | Model đọc khi nào |
@@ -346,7 +374,9 @@ phải tranh cãi với một trí nhớ mà họ không chạm tới được.
 | Endpoint | Làm gì |
 |---|---|
 | `GET/PUT /api/memory/user` | đọc/ghi `USER.md`, kèm facts và index |
-| `PUT/DELETE /api/memory/user/facts/{name}` | upsert hoặc quên một fact; tên không phải slug hoặc type lạ là 422 |
+| `PUT /api/memory/user/facts/{name}` | ghi một fact với `basis: operator`, kèm `valid_from`/`valid_until` tuỳ chọn; tên không phải slug, type hay ngày lạ là 422 |
+| `DELETE /api/memory/user/facts/{name}?purge=` | rút lại (giữ lịch sử); `purge=true` xoá hẳn cả lịch sử, kể cả fact đã rút lại |
+| `GET /api/memory/user/facts/{name}/history` | các phiên bản cũ, mới nhất trước, mỗi bản kèm `ended_at` và `why` (`superseded`/`retracted`) |
 | `GET/PUT /api/agents/{id}/memory` | đọc/ghi `MEMORY.md` của agent đó |
 | `GET/PUT /api/agents/{id}/memory/notes/{day}` | đọc/ghi một ghi chú ngày; tên không phải một ngày kèm hậu tố tuỳ chọn là 422 |
 | `GET /api/memory/search?q=&agent_id=` | kết quả trên cả hai phạm vi, mỗi kết quả gắn nhãn phạm vi nó đến từ; không có `agent_id` thì kết quả của các agent được xen kẽ theo hạng, nên entry tốt nhất của mỗi agent đứng trước entry thứ hai của bất kỳ agent nào |
