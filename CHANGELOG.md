@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.29.3] — 2026-11-01
+
 ### Fixed
 
 - **Only the chat's own conversations and jobs answer in the chat.** A web conversation whose
