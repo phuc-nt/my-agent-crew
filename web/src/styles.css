@@ -112,6 +112,7 @@
 @import "./styles/stats-usage.css";
 @import "./styles/approvals.css";
 @import "./styles/approvals-attention.css";
+@import "./styles/approvals-child-requests.css";
 @import "./styles/approvals-phone.css";
 @import "./styles/thread-composer.css";
 @import "./styles/thread-composer-sidebar.css";

@@ -97,7 +97,7 @@ export function App() {
   const live = liveRuns(activity.state);
   // Failures marked as read drop out here, so every count and list below agrees.
   const attention = useAttention(needsAttention(activity.state));
-  const waiting = attention.some((r) => r.status === "awaiting_approval");
+  const waiting = attention.filter((r) => r.status === "awaiting_approval");
   const liveByAgent: Record<string, number> = {};
   for (const run of runningRuns(activity.state)) liveByAgent[run.agent_id] = (liveByAgent[run.agent_id] ?? 0) + 1;
 
@@ -187,9 +187,10 @@ export function App() {
         activity={activity}
         settings={settings}
         attentionCount={attention.length}
+        waiting={waiting}
         onSelectConversation={openConversation}
         // A waiting request is settled on the approvals page, so the way in lands there.
-        onOpenManage={(section = waiting ? "approvals" : "activity") => navigate({ kind: "manage", section })}
+        onOpenManage={(section = waiting.length > 0 ? "approvals" : "activity") => navigate({ kind: "manage", section })}
         liveByAgent={liveByAgent}
         externalRun={externalRun}
       />

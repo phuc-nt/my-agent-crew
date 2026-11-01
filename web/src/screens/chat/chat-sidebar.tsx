@@ -8,18 +8,30 @@ import { vi } from "../../i18n/vi";
 import type { ChatProps } from "./chat-props";
 
 interface ManageButtonParts extends Pick<ChatProps, "onOpenManage" | "attentionCount"> {
+  /** Of `attentionCount`, the requests waiting on a decision; the rest are unread failures. */
+  waiting: number;
   running: number;
 }
 
-export function chatManageButton({ onOpenManage, attentionCount, running }: ManageButtonParts) {
+export function chatManageButton({ onOpenManage, attentionCount, waiting, running }: ManageButtonParts) {
   // The one way out of the chat, so it carries the counts that would otherwise need
-  // a rail to be visible: work waiting on a person, and work under way.
+  // a rail to be visible: work waiting on a person, and work under way. A decision and a
+  // failure to read are counted apart, as the manage nav counts them: one number for both
+  // would not say whether something is held up until the person answers.
+  const failed = attentionCount - waiting;
+  const count = (n: number, tone: string, says: string, testId?: string) => (
+    <span className={`badge ${tone}`} data-testid={testId}>
+      {` ${n}`}
+      <span className="sr-only"> {says}</span>
+    </span>
+  );
   return (
     <button type="button" className="ghost manage-button" onClick={() => onOpenManage()}>
       <Icon name="grid" />
       {vi.manage.open}
-      {attentionCount > 0 && <span className="badge warn"> {attentionCount}</span>}
-      {running > 0 && <span className="badge live"> {running}</span>}
+      {waiting > 0 && count(waiting, "warn", vi.manage.waitingBadge, "manage-waiting")}
+      {failed > 0 && count(failed, "danger", vi.manage.failedBadge)}
+      {running > 0 && count(running, "live", vi.manage.liveBadge)}
     </button>
   );
 }

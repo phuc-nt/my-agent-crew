@@ -25,13 +25,18 @@ interface Props {
   /** Failures not yet read, listed in another section — the same promise the other way. */
   failedElsewhere?: number;
   onOpenFailed?: () => void;
+  /** Names the list where it holds only part of what waits, as in the chat. */
+  heading?: string;
+  /** Drawn only while it holds a row: off the page about waiting work, "nothing" is noise. */
+  hideWhenCalm?: boolean;
+  className?: string;
 }
 
 const noop = () => undefined;
 
 /** Approvals waiting anywhere plus runs that ended badly, one click from their conversation. */
 export function AttentionCenter(props: Props) {
-  const { runs, agentName, onOpenConversation, parentTitle, inline = false } = props;
+  const { runs, agentName, onOpenConversation, parentTitle, inline = false, heading: title = vi.attention } = props;
   const waitingElsewhere = props.waitingElsewhere ?? 0;
   const failedElsewhere = props.failedElsewhere ?? 0;
   const titles = useId();
@@ -128,12 +133,14 @@ export function AttentionCenter(props: Props) {
     );
   };
 
+  if (props.hideWhenCalm && shown.length === 0) return null;
+  const classes = ["attention", calm && "calm", props.className].filter(Boolean).join(" ");
   return (
     // Amber only while something is waiting on a person. A card that stays amber on an
     // empty list teaches the eye to skip it, which is the one thing it must not do.
-    <section className={`attention${calm ? " calm" : ""}`} aria-label={vi.attention} data-testid="attention">
+    <section className={classes} aria-label={title} data-testid="attention">
       <h3 ref={heading} tabIndex={-1}>
-        {vi.attention}
+        {title}
       </h3>
       {calm && (
         <p className="attention-calm">

@@ -13,6 +13,8 @@ export interface ChatProps {
   settings: SettingsInfo | null;
   /** How many runs across the crew are waiting on a person; opens the manage screen. */
   attentionCount: number;
+  /** The runs among them paused on a decision, wherever in the crew they wait. */
+  waiting: RunInfo[];
   /** Selects a conversation and puts it in the address bar, so the link can be shared. */
   onSelectConversation: (conversationId: string) => void;
   onOpenManage: (section?: ManageSection) => void;
