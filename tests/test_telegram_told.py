@@ -133,3 +133,10 @@ async def test_pending_says_again_what_waits_with_its_buttons(make_channel, deps
     assert fake.sent[1:] == [texts.TELEGRAM_PENDING.format(count=1), asks_for(WRITE)]
     assert fake.buttons[-1]["inline_keyboard"][0][0]["callback_data"] == f"y:{job.id}"
     assert job.id in channel.told
+
+
+async def test_pending_says_again_the_chats_own_request(make_channel, deps_factory, fake):
+    channel = make_channel(deps_factory(script=ASKS_THEN_DONE))
+    await poll_each(channel, fake, message(1, "ghi file"))
+    await poll_each(channel, fake, message(2, "/pending"))
+    assert fake.sent[1:] == [texts.TELEGRAM_PENDING.format(count=1), asks_for(WRITE)]
