@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.31.0] — 2026-11-01
+
 ### Added
 
 - **An inbox for the phone.** The phone's chat header has an inbox button counting the
