@@ -1,5 +1,9 @@
-/** One remembered fact about the person, shared by every agent. */
-export interface FactInfo {
+/** Who stands behind a fact: a hand edit here, the person's words in a chat, an agent's
+ *  conclusion, or a proposal someone approved. The first two outrank the last two. */
+export type FactBasis = "operator" | "said" | "inferred" | "extracted";
+
+/** A fact as it is stored, current or past. */
+export interface FactRecord {
   name: string;
   description: string;
   type: FactType;
@@ -7,8 +11,32 @@ export interface FactInfo {
   source: string;
   updated: string;
   body: string;
-  /** Server-computed: `updated` is more than ninety days old. */
+  basis: FactBasis;
+  /** Inclusive days (`YYYY-MM-DD`), "" when open. */
+  valid_from: string;
+  valid_until: string;
+  /** Where it came from, e.g. `conv:<id>` for the conversation it was said in. */
+  sources: string[];
+  version: number;
+  /** When the same claim was last made again; "" if never. */
+  confirmed: string;
+}
+
+/** One remembered fact about the person, shared by every agent. */
+export interface FactInfo extends FactRecord {
+  /** Server-computed: last made or confirmed more than ninety days ago. */
   stale: boolean;
+  state: "current" | "pending" | "expired";
+  /** How often an agent read it back, and when last. */
+  recalls: number;
+  recalled_at: string;
+  history_count: number;
+}
+
+/** A past version, and how it ended. */
+export interface FactVersion extends FactRecord {
+  ended_at: string;
+  why: "superseded" | "retracted";
 }
 
 export type FactType = "profile" | "preference" | "feedback" | "project" | "reference";
@@ -24,6 +52,8 @@ export const FACT_TYPES: FactType[] = [
 export interface UserMemory {
   user_md: string;
   facts: FactInfo[];
+  /** The last version of each fact taken back, kept until purged. */
+  retracted: FactVersion[];
   index_md: string;
 }
 
@@ -97,4 +127,6 @@ export interface FactBody {
   description: string;
   type: FactType;
   body: string;
+  valid_from?: string;
+  valid_until?: string;
 }

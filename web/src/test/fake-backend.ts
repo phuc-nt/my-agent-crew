@@ -9,6 +9,7 @@ import type {
   Conversation,
   ConversationDetail,
   FactInfo,
+  FactVersion,
   FactType,
   JobInfo,
   MemoryProposal,
@@ -145,6 +146,8 @@ export class FakeBackend {
   spend: SpendInfo = { day: "2026-11-02", month: "2026-11", providers: [], openrouter: null };
   userMd = "";
   facts: FactInfo[] = [];
+  /** Each fact's past versions, oldest first, as `facts/.history/<name>.jsonl` keeps them. */
+  factVersions = new Map<string, FactVersion[]>();
   agentMemory = new Map<string, AgentMemory>();
   notes = new Map<string, string>();
   proposals: MemoryProposal[] = [];
@@ -651,6 +654,8 @@ export class FakeBackend {
       type: FactType;
       body: string;
       approve: boolean;
+      valid_from?: string;
+      valid_until?: string;
     },
     params: URLSearchParams,
   ): Response | null {
@@ -659,24 +664,49 @@ export class FakeBackend {
       this.userMd = body.user_md;
       return json(this.userMemory());
     }
+    const historyOf = path.match(/^\/memory\/user\/facts\/(.+)\/history$/)?.[1];
+    if (historyOf && method === "GET") {
+      return json({ versions: [...(this.factVersions.get(decodeURIComponent(historyOf)) ?? [])].reverse() });
+    }
     const factName = path.match(/^\/memory\/user\/facts\/(.+)$/)?.[1];
     if (factName && method === "PUT") {
+      const name = decodeURIComponent(factName);
+      const held = this.facts.find((f) => f.name === name);
+      if (held) this.endFact(held, "superseded");
       const fact: FactInfo = {
-        name: decodeURIComponent(factName),
+        name,
         description: body.description,
         type: body.type,
         written_by: "web",
         source: "web",
         updated: "2026-09-20T09:00:00",
         body: body.body,
+        basis: "operator",
+        valid_from: body.valid_from ?? "",
+        valid_until: body.valid_until ?? "",
+        sources: [],
+        version: (held?.version ?? 0) + 1,
+        confirmed: "",
         stale: false,
+        state: "current",
+        recalls: 0,
+        recalled_at: "",
+        history_count: this.factVersions.get(name)?.length ?? 0,
       };
       this.facts = [fact, ...this.facts.filter((f) => f.name !== fact.name)];
       return json(fact);
     }
     if (factName && method === "DELETE") {
       const name = decodeURIComponent(factName);
-      if (!this.facts.some((f) => f.name === name)) return json({ detail: "fact not found" }, 404);
+      const held = this.facts.find((f) => f.name === name);
+      if (params.get("purge") === "true") {
+        if (!held && !this.factVersions.has(name)) return json({ detail: "fact not found" }, 404);
+        this.factVersions.delete(name);
+      } else if (held) {
+        this.endFact(held, "retracted");
+      } else {
+        return json({ detail: "fact not found" }, 404);
+      }
       this.facts = this.facts.filter((f) => f.name !== name);
       return new Response(null, { status: 204 });
     }
@@ -778,6 +808,12 @@ export class FakeBackend {
     return proposal;
   }
 
+  private endFact(fact: FactInfo, why: FactVersion["why"]) {
+    const { stale: _s, state: _st, recalls: _r, recalled_at: _ra, history_count: _h, ...record } = fact;
+    const past = this.factVersions.get(fact.name) ?? [];
+    this.factVersions.set(fact.name, [...past, { ...record, ended_at: "2026-09-20T09:00:00", why }]);
+  }
+
   private pending(): MemoryProposal[] {
     return this.proposals.filter((p) => p.status === "pending");
   }
@@ -788,6 +824,9 @@ export class FakeBackend {
       // Each fixture says whether it is stale, as the server would: computing it here from
       // today's date would flip a fixture's answer once the calendar passed ninety days.
       facts: this.facts,
+      retracted: [...this.factVersions.entries()]
+        .filter(([name, past]) => !this.facts.some((f) => f.name === name) && past.at(-1)?.why === "retracted")
+        .map(([, past]) => past.at(-1) as FactVersion),
       index_md: this.facts.map((f) => `- [${f.description}](${f.name}.md)`).join("\n"),
     };
   }

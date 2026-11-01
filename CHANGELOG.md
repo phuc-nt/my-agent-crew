@@ -35,6 +35,17 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   agent's own routes behind them as the fallback; routes whose provider is not built are
   skipped.
 
+- **The fact inspector on the web.** Each fact in Ghi nhớ → Về bạn shows who stands behind it
+  (green for the person's own word, plain for an agent's inference or an approved proposal),
+  its version, the days it holds, when it was last said again, how often an agent read it
+  back, and its sources, a conversation linking to that chat. "Lịch sử" opens its past
+  versions and how each ended. "Rút lại" retracts it (kept in a list of those taken back),
+  "Xoá hẳn" purges it with its history; the form takes the first and last day it holds.
+- **What a turn cost, under its reply.** Each reply in the chat carries a small line with the
+  model calls its turn took so far, the prompt tokens they sent, the share served from the
+  provider's cache and the price, live while the turn runs and from the stored messages
+  afterwards.
+
 ## [0.32.0] — 2026-11-01
 
 ### Added

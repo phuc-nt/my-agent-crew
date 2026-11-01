@@ -40,18 +40,7 @@ const open = (label: string) => userEvent.click(screen.getByRole("tab", { name: 
 describe("MemoryPanel", () => {
   it("saves USER.md and shows the facts the crew already knows", async () => {
     backend.userMd = "Phúc, làm sản phẩm.";
-    backend.facts = [
-      {
-        name: "ngu-som",
-        description: "Ngủ trước 23h",
-        type: "preference",
-        written_by: "coach",
-        source: "chat",
-        updated: "2026-09-20T08:00:00",
-        body: "Ngủ sớm mỗi ngày.",
-        stale: false,
-      },
-    ];
+    backend.facts = [savedFact()];
     mount();
 
     const textarea = await screen.findByRole("textbox", { name: new RegExp(vi.memory.userMd) });
@@ -66,16 +55,7 @@ describe("MemoryPanel", () => {
 
   it("flags a fact nobody has confirmed in over ninety days", async () => {
     backend.facts = [
-      {
-        name: "cu-roi",
-        description: "Điều cũ",
-        type: "preference",
-        written_by: "coach",
-        source: "chat",
-        updated: "2026-01-01T00:00:00",
-        body: "Đã lâu chưa ai xác nhận.",
-        stale: true,
-      },
+      savedFact({ name: "cu-roi", description: "Điều cũ", updated: "2026-01-01T00:00:00", stale: true }),
     ];
     mount();
 
@@ -84,25 +64,14 @@ describe("MemoryPanel", () => {
   });
 
   it("does not flag a fact confirmed recently", async () => {
-    backend.facts = [
-      {
-        name: "ngu-som",
-        description: "Ngủ trước 23h",
-        type: "preference",
-        written_by: "coach",
-        source: "chat",
-        updated: "2026-09-20T08:00:00",
-        body: "Ngủ sớm mỗi ngày.",
-        stale: false,
-      },
-    ];
+    backend.facts = [savedFact()];
     mount();
 
     const card = (await screen.findByText("Ngủ trước 23h")).closest(".fact-head") as HTMLElement;
     expect(within(card).queryByText(vi.memory.factStale)).toBeNull();
   });
 
-  it("creates a fact through the form and forgets it after a confirm", async () => {
+  it("creates a fact through the form and retracts it after a confirm", async () => {
     mount();
     await screen.findByText(vi.memory.factsEmpty);
 
@@ -120,8 +89,9 @@ describe("MemoryPanel", () => {
     expect(await screen.findByText("Thích cà phê")).toBeInTheDocument();
 
     vitest.spyOn(window, "confirm").mockReturnValue(true);
-    await userEvent.click(screen.getByRole("button", { name: vi.memory.remove }));
+    await userEvent.click(screen.getByRole("button", { name: vi.memory.retract }));
     await waitFor(() => expect(backend.facts).toEqual([]));
+    expect(await screen.findByTestId("retracted-ca-phe")).toBeInTheDocument();
   });
 
   it("edits one agent's MEMORY.md and opens a dated note", async () => {
@@ -373,7 +343,17 @@ const savedFact = (overrides: Partial<FactInfo> = {}): FactInfo => ({
   source: "chat",
   updated: "2026-09-20T08:00:00",
   body: "Ngủ sớm mỗi ngày.",
+  basis: "said",
+  valid_from: "",
+  valid_until: "",
+  sources: [],
+  version: 1,
+  confirmed: "",
   stale: false,
+  state: "current",
+  recalls: 0,
+  recalled_at: "",
+  history_count: 0,
   ...overrides,
 });
 

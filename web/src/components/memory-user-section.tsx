@@ -1,6 +1,7 @@
 import { useState } from "react";
-import type { FactInfo, FactType, UserMemory } from "../api/types";
+import type { FactBody, FactInfo, FactRecord, FactVersion, UserMemory } from "../api/types";
 import { vi } from "../i18n/vi";
+import { BasisBadge, FactMeta, MemoryFactCard } from "./memory-fact-card";
 import { MemoryEditor } from "./memory-editor";
 import { MemoryFactForm } from "./memory-fact-form";
 
@@ -8,8 +9,9 @@ interface Props {
   user: UserMemory | null;
   loadedAt: string;
   onSaveUserMd: (text: string) => Promise<void>;
-  onSaveFact: (name: string, body: { description: string; type: FactType; body: string }) => Promise<void>;
-  onRemoveFact: (name: string) => Promise<void>;
+  onSaveFact: (name: string, body: FactBody) => Promise<void>;
+  onRemoveFact: (name: string, purge?: boolean) => Promise<void>;
+  onFactHistory: (name: string) => Promise<FactVersion[]>;
 }
 
 /** The shared scope: what every agent in the crew knows about the person. */
@@ -18,16 +20,19 @@ export function MemoryUserSection(props: Props) {
 
   if (!props.user) return <p className="muted">{vi.loadFailed}</p>;
 
-  const save = async (name: string, body: { description: string; type: FactType; body: string }) => {
+  const save = async (name: string, body: FactBody) => {
     await props.onSaveFact(name, body);
     setEditing(undefined);
   };
 
-  const remove = (fact: FactInfo) => {
-    if (window.confirm(vi.memory.confirmRemove(fact.description || fact.name))) {
-      void props.onRemoveFact(fact.name);
-    }
+  const label = (fact: FactRecord) => fact.description || fact.name;
+  const retract = (fact: FactRecord) => {
+    if (window.confirm(vi.memory.confirmRetract(label(fact)))) void props.onRemoveFact(fact.name);
   };
+  const purge = (fact: FactRecord) => {
+    if (window.confirm(vi.memory.confirmPurge(label(fact)))) void props.onRemoveFact(fact.name, true);
+  };
+  const retracted = props.user.retracted ?? [];
 
   return (
     <div data-testid="memory-user">
@@ -52,27 +57,41 @@ export function MemoryUserSection(props: Props) {
       ) : (
         <ul className="fact-list">
           {props.user.facts.map((fact) => (
-            <li key={fact.name}>
-              <div className="fact-head">
-                <strong>{fact.description || fact.name}</strong>
-                <span className="badge">{vi.memory.factTypes[fact.type] ?? fact.type}</span>
-                {fact.stale && <span className="badge warn">{vi.memory.factStale}</span>}
-              </div>
-              <div className="muted">
-                <code>{fact.name}</code> · {vi.memory.writtenBy(fact.written_by)} · {fact.updated}
-              </div>
-              {fact.body && <p className="fact-body">{fact.body}</p>}
-              <div className="memory-editor-actions">
-                <button type="button" className="ghost" onClick={() => setEditing(fact)}>
-                  {vi.memory.edit}
-                </button>
-                <button type="button" className="ghost" onClick={() => remove(fact)}>
-                  {vi.memory.remove}
-                </button>
-              </div>
-            </li>
+            <MemoryFactCard
+              key={fact.name}
+              fact={fact}
+              onEdit={() => setEditing(fact)}
+              onRetract={() => retract(fact)}
+              onPurge={() => purge(fact)}
+              onHistory={props.onFactHistory}
+            />
           ))}
         </ul>
+      )}
+
+      {retracted.length > 0 && (
+        <details className="fact-retracted">
+          <summary>
+            {vi.memory.retracted} ({retracted.length})
+          </summary>
+          <p className="muted">{vi.memory.retractedHint}</p>
+          <ul className="fact-list">
+            {retracted.map((fact) => (
+              <li key={fact.name} data-testid={`retracted-${fact.name}`}>
+                <div className="fact-head">
+                  <strong>{label(fact)}</strong>
+                  <BasisBadge fact={fact} />
+                </div>
+                <FactMeta fact={fact} />
+                <div className="memory-editor-actions">
+                  <button type="button" className="ghost danger" onClick={() => purge(fact)}>
+                    {vi.memory.purge}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </div>
   );

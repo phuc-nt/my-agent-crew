@@ -92,6 +92,7 @@ export function MemoryPanel(props: Props) {
           onSaveUserMd={memory.saveUserMd}
           onSaveFact={memory.saveFact}
           onRemoveFact={memory.removeFact}
+          onFactHistory={memory.factHistory}
         />
       )}
       {section === "agents" && (

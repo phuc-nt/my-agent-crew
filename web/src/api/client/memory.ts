@@ -3,6 +3,7 @@ import type {
   ContentHit,
   FactBody,
   FactInfo,
+  FactVersion,
   MemoryHit,
   MemoryProposal,
   UserMemory,
@@ -24,8 +25,12 @@ export const memoryApi = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
-  deleteFact: (name: string) =>
-    request<void>(`/memory/user/facts/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  deleteFact: (name: string, purge = false) =>
+    request<void>(`/memory/user/facts/${encodeURIComponent(name)}${query({ purge: purge ? "true" : undefined })}`, {
+      method: "DELETE",
+    }),
+  factHistory: (name: string) =>
+    request<{ versions: FactVersion[] }>(`/memory/user/facts/${encodeURIComponent(name)}/history`),
   getAgentMemory: (agentId: string) =>
     request<AgentMemory>(`/agents/${encodeURIComponent(agentId)}/memory`),
   putAgentMemory: (agentId: string, memoryMd: string) =>

@@ -112,3 +112,33 @@
   color: var(--ok-text);
   font-weight: 600;
 }
+
+/* What stands behind a fact, its validity, and its past versions. */
+.fact-meta {
+  font-size: var(--text-sm);
+}
+
+.fact-pending,
+.fact-expired {
+  opacity: 0.75;
+}
+
+.fact-versions {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--border);
+}
+
+.fact-span-fields {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.fact-span-fields label {
+  flex: 1 1 10rem;
+}
+
+.fact-retracted {
+  margin-top: var(--space-4);
+}

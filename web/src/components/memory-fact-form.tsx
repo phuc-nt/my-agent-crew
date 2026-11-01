@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { FACT_TYPES, type FactInfo, type FactType } from "../api/types";
+import { FACT_TYPES, type FactBody, type FactInfo, type FactType } from "../api/types";
 import { vi } from "../i18n/vi";
 
 interface Props {
   /** null when adding; an existing fact keeps its name, which is its file name. */
   fact: FactInfo | null;
-  onSave: (name: string, body: { description: string; type: FactType; body: string }) => Promise<void>;
+  onSave: (name: string, body: FactBody) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -14,13 +14,21 @@ export function MemoryFactForm({ fact, onSave, onCancel }: Props) {
   const [description, setDescription] = useState(fact?.description ?? "");
   const [type, setType] = useState<FactType>((fact?.type as FactType) ?? "reference");
   const [body, setBody] = useState(fact?.body ?? "");
+  const [validFrom, setValidFrom] = useState(fact?.valid_from ?? "");
+  const [validUntil, setValidUntil] = useState(fact?.valid_until ?? "");
   const [failed, setFailed] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setFailed(false);
     try {
-      await onSave(name.trim(), { description: description.trim(), type, body });
+      await onSave(name.trim(), {
+        description: description.trim(),
+        type,
+        body,
+        valid_from: validFrom,
+        valid_until: validUntil,
+      });
     } catch {
       setFailed(true);
     }
@@ -57,6 +65,17 @@ export function MemoryFactForm({ fact, onSave, onCancel }: Props) {
         {vi.memory.factBody}
         <textarea rows={5} value={body} onChange={(event) => setBody(event.currentTarget.value)} />
       </label>
+      <div className="fact-span-fields">
+        <label>
+          {vi.memory.validFrom}
+          <input type="date" value={validFrom} onChange={(event) => setValidFrom(event.currentTarget.value)} />
+        </label>
+        <label>
+          {vi.memory.validUntil}
+          <input type="date" value={validUntil} onChange={(event) => setValidUntil(event.currentTarget.value)} />
+        </label>
+      </div>
+      <p className="muted">{vi.memory.validHint}</p>
       {failed && (
         <p className="notice error" role="status">
           {vi.memory.saveFailed}

@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type {
   AgentMemory,
   FactBody,
+  FactVersion,
   MemoryHit,
   MemoryProposal,
   UserMemory,
@@ -17,7 +18,9 @@ export interface MemoryController {
   loadedAt: string;
   saveUserMd: (text: string) => Promise<void>;
   saveFact: (name: string, body: FactBody) => Promise<void>;
-  removeFact: (name: string) => Promise<void>;
+  /** Retracts a fact (kept in its history) or, with `purge`, erases it and its history. */
+  removeFact: (name: string, purge?: boolean) => Promise<void>;
+  factHistory: (name: string) => Promise<FactVersion[]>;
   saveAgentMemory: (text: string) => Promise<void>;
   readNote: (day: string) => Promise<string>;
   saveNote: (day: string, body: string) => Promise<void>;
@@ -89,12 +92,14 @@ export function useMemory(agentId: string, pendingCount: number): MemoryControll
   );
 
   const removeFact = useCallback(
-    async (name: string) => {
-      await api.deleteFact(name);
+    async (name: string, purge = false) => {
+      await api.deleteFact(name, purge);
       await reloadUser();
     },
     [reloadUser],
   );
+
+  const factHistory = useCallback(async (name: string) => (await api.factHistory(name)).versions, []);
 
   const saveAgentMemory = useCallback(
     async (text: string) => setAgentMemory(await api.putAgentMemory(agentId, text)),
@@ -151,6 +156,7 @@ export function useMemory(agentId: string, pendingCount: number): MemoryControll
     saveUserMd,
     saveFact,
     removeFact,
+    factHistory,
     saveAgentMemory,
     readNote,
     saveNote,
