@@ -1,0 +1,60 @@
+/*
+ * What a phone folds away in the chat so the thread keeps the screen: the header to its
+ * title row and the canvas, the status line while all is well;
+ * and the decisions a thumb makes, given buttons it can hit.
+ */
+
+@media (max-width: 720px) {
+  /* One row: who it is with is the avatar, the rest is behind the toggle. */
+  .conversation-header.compact .header-title {
+    flex-wrap: nowrap;
+  }
+
+  .conversation-header.compact .agent-badge,
+  .conversation-header.compact .work-badge {
+    display: none;
+  }
+
+  .header-more {
+    flex: none;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    margin-right: calc(var(--space-2) * -1);
+    color: var(--muted);
+  }
+
+  .header-more svg {
+    transition: transform var(--duration-base) var(--ease-out);
+  }
+
+  .header-more[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+  }
+
+  /* Read out still, but no room taken: the safe area under the composer is all it keeps. */
+  .status-line.calm > * {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* A decision is the one thing a phone is opened for: buttons across the card, each a
+     full thumb high. */
+  .approval-actions,
+  .question-form {
+    flex-basis: 100%;
+  }
+
+  .approval-actions button {
+    flex: 1 1 0;
+  }
+
+  .approval-actions button,
+  .question-options button,
+  .question-form button {
+    min-height: 44px;
+  }
+}

@@ -73,6 +73,7 @@
 @import "./styles/chat-notices.css";
 @import "./styles/chat-composer.css";
 @import "./styles/chat-phone.css";
+@import "./styles/chat-phone-fold.css";
 @import "./styles/markdown.css";
 @import "./styles/activity-panel.css";
 @import "./styles/activity-panel-attention.css";

@@ -12,6 +12,9 @@ interface Props {
   onReconnect?: () => void;
   /** The conversation's budget is spent, so nothing can be sent until the cap is raised. */
   overBudget?: boolean;
+  /** A phone: a line saying all is well and live is room the thread could have, so it is
+   *  left to a screen reader then, and shown once there is something to say. */
+  quiet?: boolean;
 }
 
 function threadText(thread: ThreadState, overBudget: boolean): string {
@@ -36,7 +39,7 @@ function threadText(thread: ThreadState, overBudget: boolean): string {
 }
 
 /** Screen-reader friendly one-liner: what this thread is doing and whether live activity is flowing. */
-export function StatusLine({ thread, connected, liveCount, connecting = false, onReconnect, overBudget = false }: Props) {
+export function StatusLine({ thread, connected, liveCount, connecting = false, onReconnect, overBudget = false, quiet = false }: Props) {
   const online = useOnline();
   const [state, text] = !online
     ? ["offline", vi.streamOffline]
@@ -45,9 +48,11 @@ export function StatusLine({ thread, connected, liveCount, connecting = false, o
       : connecting
         ? ["connecting", vi.streamConnecting]
         : ["off", vi.streamDisconnected];
+  const said = threadText(thread, overBudget);
+  const calm = quiet && state === "on" && liveCount === 0 && said === vi.statusIdle;
   return (
-    <div className="status-line" role="status" aria-live="polite" data-testid="status-line">
-      <span>{threadText(thread, overBudget)}</span>
+    <div className={`status-line${calm ? " calm" : ""}`} role="status" aria-live="polite" data-testid="status-line">
+      <span>{said}</span>
       <span className={`stream-state ${state}`} data-testid="stream-state">
         {text}
         {liveCount > 0 && ` · ${vi.liveNow}: ${liveCount}`}

@@ -66,6 +66,8 @@ interface HeaderParts extends Pick<ChatProps, "list" | "crew" | "settings" | "on
   leaveWriting: () => void;
   crewChip: ReactNode;
   menuButton: ReactNode;
+  /** A phone: the header folds to its title row. */
+  compact: boolean;
 }
 
 /** The head of the chat column: the open conversation's, or the app's name while there is none. */
@@ -86,6 +88,7 @@ export function chatHeader({
   leaveWriting,
   crewChip,
   menuButton,
+  compact,
 }: HeaderParts) {
   return active ? (
     <ConversationHeader
@@ -114,6 +117,7 @@ export function chatHeader({
       first={<CanvasButton dock={dock} ref={canvasTrigger} showing={showing} onLeave={leaveWriting} />}
       extra={crewChip}
       lead={menuButton}
+      compact={compact}
       sourceTitle={list.conversations.find((c) => c.id === forkSource)?.title}
       onOpenSource={forkSource ? () => onSelectConversation(forkSource) : undefined}
     />

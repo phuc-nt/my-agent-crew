@@ -173,6 +173,8 @@ test.describe("on a phone", () => {
     await expect(page.getByTestId("over-budget")).toBeVisible();
     await expect(page.getByRole("textbox")).toBeDisabled();
 
+    // A phone folds the header's pills behind a toggle on the title row.
+    await page.getByRole("button", { name: "Chi phí, tuỳ chọn và tóm tắt" }).click();
     await page.getByTestId("budget").click();
     const card = page.getByRole("dialog", { name: "Chi phí cuộc trò chuyện" });
     await expect(card.getByTestId("cap-editor")).toContainText("$1.00");

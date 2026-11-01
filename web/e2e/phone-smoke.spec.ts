@@ -208,6 +208,8 @@ test("the export in a conversation's options is big enough for a thumb", async (
   await page.goto("/");
   await page.getByRole("button", { name: "Mở danh sách cuộc trò chuyện" }).click();
   await page.locator(".sidebar").getByRole("button", { name: /Chung/ }).click();
+  // A phone folds the header's pills behind a toggle on the title row.
+  await page.getByRole("button", { name: "Chi phí, tuỳ chọn và tóm tắt" }).click();
   await page.locator(".conversation-header").getByRole("button", { name: /Tuỳ chọn/ }).click();
 
   const exported = page.getByRole("button", { name: "Xuất Markdown" });

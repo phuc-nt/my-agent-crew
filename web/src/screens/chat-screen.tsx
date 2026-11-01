@@ -5,7 +5,7 @@ import { CanvasChatNotices } from "../components/canvas/canvas-dock-controls";
 import { QueuedChips } from "../components/queued-chips";
 import { StatusLine } from "../components/status-line";
 import { useDrawer } from "../hooks/use-drawer";
-import { useMediaQuery } from "../hooks/use-media-query";
+import { usePhone } from "../hooks/use-phone";
 import { vi } from "../i18n/vi";
 import { dockShowing } from "../lib/canvas-dock-state";
 import { conversationFamilyRuns, liveRuns, runningRuns, sortedRuns } from "../state/activity-reducer";
@@ -27,10 +27,6 @@ import { useQueuedSend } from "./chat/use-queued-send";
 import { useRestoreText } from "./chat/use-restore-text";
 
 /** The whole conversation: who you are talking to, what was said, what the agent is doing. */
-// A phone: the conversation list stops being a column and slides over the chat instead.
-// Matches the breakpoint in shell-responsive.css.
-const PHONE_QUERY = "(max-width: 720px)";
-
 export function ChatScreen({
   list,
   thread,
@@ -49,7 +45,8 @@ export function ChatScreen({
   const { restore, restoreText } = useRestoreText();
   const searchRef = useRef<HTMLInputElement>(null);
   const [collapseSignal, setCollapseSignal] = useState(0);
-  const phone = useMediaQuery(PHONE_QUERY);
+  // A phone: the conversation list stops being a column and slides over the chat instead.
+  const phone = usePhone();
   const drawer = useDrawer(phone);
   const { open: drawerOpen, show: showDrawer, hide: hideDrawer } = drawer;
 
@@ -143,7 +140,7 @@ export function ChatScreen({
       <main className="main" ref={mainRef} inert={drawer.open || overlayOpen || undefined}>
         {chatHeader({
           list, crew, settings, onSelectConversation, active, forkSource, runs, money, state, onRaiseCap,
-          dock, canvasTrigger, showing, leaveWriting, crewChip, menuButton,
+          dock, canvasTrigger, showing, leaveWriting, crewChip, menuButton, compact: phone,
         })}
         {loadFailedNotice(list)}
         {forkErrorNotice(fork)}
@@ -169,6 +166,7 @@ export function ChatScreen({
           connecting={activity.connecting}
           onReconnect={activity.reconnect}
           overBudget={overBudget}
+          quiet={phone}
         />
       </main>
       <CanvasDockView

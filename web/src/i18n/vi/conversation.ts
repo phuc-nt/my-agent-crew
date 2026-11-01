@@ -23,6 +23,7 @@ export const viConversation = {
   resummarize: "Tóm tắt lại",
   resummarizeHint: "Viết lại bản tóm tắt cuộc trò chuyện này bằng một lượt gọi model",
   noSummary: "Chưa có tóm tắt",
+  headerMore: "Chi phí, tuỳ chọn và tóm tắt",
   autonomous: "Tự chạy",
   autonomousHint: "Bật: công cụ ghi/thay đổi chạy luôn, không hỏi. Tắt: dừng chờ bạn duyệt.",
   skills: "Kỹ năng",
