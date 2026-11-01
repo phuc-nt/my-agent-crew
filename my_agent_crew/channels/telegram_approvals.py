@@ -60,6 +60,15 @@ def told_of(channel: TelegramChannel, conv: Conversation) -> bool:
     return conversation_source(channel.store, conv.id) == JOB
 
 
+def reports_to(channel: TelegramChannel, conv: Conversation) -> bool:
+    """Whether the conversation's answer goes to the chat when a turn of it ends wherever it
+    was decided: one of the chat's own, or a job's. One of the web's is read where it was
+    asked, and a child's answer is its parent's to give."""
+    if conv.root_id:
+        return False
+    return in_chat(channel, conv) or conversation_source(channel.store, conv.id) == JOB
+
+
 def open_question(
     channel: TelegramChannel, conv: Conversation
 ) -> tuple[Conversation, Approval] | None:

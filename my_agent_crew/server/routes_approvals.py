@@ -4,21 +4,29 @@ across agents, so what was allowed can be reviewed later.
 
 A question the agent asked is a row in the same table and resumes down the same stream,
 but it is closed on its own route: its outcome is the person's words, and a yes with no
-words in it would tell the agent nothing."""
+words in it would tell the agent nothing.
+
+A request the chat was told of may be settled here instead: a job's, or one of the chat's
+own conversations. The chat then hears the turn's answer as it would have after a press,
+since that is where it waits for it."""
 
 from __future__ import annotations
 
+import logging
+from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from my_agent_crew.agent.events import Event
 from my_agent_crew.inbound import InboundBusy
 from my_agent_crew.server.deps import ConvDeps, Rt
 from my_agent_crew.server.routes_turn import sse_frames
 from my_agent_crew.store.models import QUESTION
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["approvals"])
 HISTORY_LIMIT = 50
 
@@ -69,7 +77,8 @@ async def decide(
         events = rt.inbound.decide(conv_id, approval_id, body.approve, always=body.always)
     except InboundBusy as exc:  # a decision taken a moment ago holds it, still unapplied
         raise HTTPException(409, "approval already resolved") from exc
-    return EventSourceResponse(sse_frames(deps, conv_id, rt.inbound.host.run(conv_id, events)))
+    told = _then_told(rt, conv_id, events)
+    return EventSourceResponse(sse_frames(deps, conv_id, rt.inbound.host.run(conv_id, told)))
 
 
 @router.post("/conversations/{conv_id}/approvals/{approval_id}/answer")
@@ -90,4 +99,16 @@ async def answer(
         events = rt.inbound.answer(conv_id, approval_id, body.answer)
     except InboundBusy as exc:
         raise HTTPException(409, "approval already resolved") from exc
-    return EventSourceResponse(sse_frames(deps, conv_id, rt.inbound.host.run(conv_id, events)))
+    told = _then_told(rt, conv_id, events)
+    return EventSourceResponse(sse_frames(deps, conv_id, rt.inbound.host.run(conv_id, told)))
+
+
+async def _then_told(rt: Rt, conv_id: str, events: AsyncIterator[Event]) -> AsyncIterator[Event]:
+    """The resumed turn, its answer delivered to the chat when it ends; the runtime sends
+    nothing for a conversation of the web's. A failed send costs the chat that one answer."""
+    async for event in events:
+        yield event
+    try:
+        await rt.deliver(rt.store.get(conv_id).agent_id, conv_id)
+    except Exception:
+        logger.exception("approval decided on the web: delivering %s failed", conv_id)

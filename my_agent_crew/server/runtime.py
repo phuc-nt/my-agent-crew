@@ -17,6 +17,7 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import DEFAULT_AGENT_ID, AgentProfile
 from my_agent_crew.channels import TelegramChannel
+from my_agent_crew.channels.telegram_approvals import reports_to
 from my_agent_crew.config import Settings
 from my_agent_crew.inbound import Inbound
 from my_agent_crew.inbound_queue import QueueDrain
@@ -85,8 +86,12 @@ class Runtime:
     async def deliver(self, agent_id: str, conv_id: str) -> bool:
         """Pushes a conversation's last reply to the chat: any agent's scheduled brief goes
         out through the master's bot, under that agent's name. False when there is no
-        channel or it found nothing to send."""
-        return self.channel is not None and await self.channel.deliver(conv_id)
+        channel or it found nothing to send. A conversation of the web's, or a delegated
+        child's, is never pushed: a request of one that ran out, or was decided on the web,
+        would otherwise land its answer in a chat that never asked."""
+        if self.channel is None or not reports_to(self.channel, self.store.get(conv_id)):
+            return False
+        return await self.channel.deliver(conv_id)
 
     async def notify(self, agent_id: str, text: str) -> bool:
         """Says a sentence of the runtime's about an agent's work to the chat, under that

@@ -11,6 +11,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Fixed
+
+- **Only the chat's own conversations and jobs answer in the chat.** A web conversation whose
+  request ran out had its answer, and the line saying it ran out, pushed to Telegram, a chat that
+  never asked. A job, or one of the chat's own conversations, decided on the web now sends its
+  answer to the chat, where it was waited for; before, it was read on the web only.
+
 ## [0.29.2] — 2026-11-01
 
 ### Fixed
