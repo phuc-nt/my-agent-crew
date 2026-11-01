@@ -11,6 +11,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.29.1] — 2026-11-01
+
+### Fixed
+
+- **A late press still closes its message.** Telegram refuses to answer a press after a while
+  (one that woke a sleeping host comes that late); the request was settled, yet its message kept
+  its buttons. Answering the press and rewriting its message now go on without each other.
+
 ## [0.29.0] — 2026-11-01
 
 ### Added
