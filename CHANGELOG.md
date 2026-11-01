@@ -11,6 +11,8 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.32.0] — 2026-11-01
+
 ### Added
 
 - **Spend per provider in the header.** The chat header keeps a pill with this month's spend
