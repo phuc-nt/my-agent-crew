@@ -2,6 +2,7 @@ import type { ReactNode, RefObject } from "react";
 import type { Conversation, RunInfo } from "../../api/types";
 import { CanvasButton } from "../../components/canvas/canvas-dock-controls";
 import { ConversationHeader } from "../../components/conversation-header";
+import { SpendChip } from "../../components/spend-chip";
 import { Icon } from "../../components/ui/icon";
 import type { CanvasDock } from "../../hooks/use-canvas-dock";
 import type { useDrawer } from "../../hooks/use-drawer";
@@ -137,8 +138,19 @@ export function chatHeader({
         })
       }
       onSetCap={onRaiseCap}
-      first={<CanvasButton dock={dock} ref={canvasTrigger} showing={showing} onLeave={leaveWriting} />}
-      extra={crewChip}
+      first={
+        <>
+          <CanvasButton dock={dock} ref={canvasTrigger} showing={showing} onLeave={leaveWriting} />
+          {/* A phone folds the controls away; the month's spend stays on the title row. */}
+          {compact && <SpendChip compact />}
+        </>
+      }
+      extra={
+        <>
+          {!compact && <SpendChip />}
+          {crewChip}
+        </>
+      }
       lead={menuButton}
       compact={compact}
       sourceTitle={list.conversations.find((c) => c.id === forkSource)?.title}
@@ -151,7 +163,10 @@ export function chatHeader({
           {menuButton}
           <h1>{vi.appName}</h1>
         </div>
-        <div className="header-controls">{crewChip}</div>
+        <div className="header-controls">
+          <SpendChip />
+          {crewChip}
+        </div>
       </div>
     </header>
   );

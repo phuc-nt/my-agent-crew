@@ -11,6 +11,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- **Spend per provider in the header.** The chat header keeps a pill with this month's spend
+  for each model provider (Claude, OpenRouter...), the total alone on a phone's title row; its
+  card shows today's figure, calls without a price, and OpenRouter's own count for the key
+  (today, this week, this month, and what is left under the key's limit, turning amber under a
+  tenth and red at none). `GET /api/spend` serves it: the ledger cut per provider in the
+  person's zone, plus OpenRouter's key report asked at most once a minute. Anthropic offers no
+  spend or balance to an ordinary API key, so Claude's figure is the crew's own count.
+
 ## [0.31.0] — 2026-11-01
 
 ### Added

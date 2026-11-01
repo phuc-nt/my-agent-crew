@@ -107,3 +107,14 @@ class UsageStore:
                 " GROUP BY purpose ORDER BY cost_usd DESC, calls DESC"
             ).fetchall()
         return [{"purpose": r["purpose"]} | _totals(r) for r in rows]
+
+    def by_provider(self, since: str) -> dict[str, dict[str, Any]]:
+        """Totals per provider over the calls stamped at or after `since` (a UTC stamp): what
+        each paid account was charged in a window, such as this month or today."""
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT provider, {_TOTALS} FROM ({_CALLS}) WHERE created_at >= ?"
+                " GROUP BY provider",
+                (since,),
+            ).fetchall()
+        return {r["provider"]: _totals(r) for r in rows}

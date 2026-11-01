@@ -123,3 +123,37 @@ export interface StatsInfo {
    *  before side calls were written down leaves it out. */
   purposes?: PurposeUsage[];
 }
+
+/** One provider's spend from the crew's own ledger, in the server's zone. */
+export interface ProviderSpend {
+  /** `anthropic`, `openrouter`, `ollama`... */
+  provider: string;
+  today_usd: number;
+  month_usd: number;
+  calls: number;
+  /** Calls this month the provider gave no price for, which the figures leave out. */
+  unknown_cost_calls: number;
+}
+
+/** OpenRouter's own count for the key, in UTC windows; null where it does not say. */
+export interface OpenRouterReport {
+  usage: number | null;
+  usage_daily: number | null;
+  usage_weekly: number | null;
+  usage_monthly: number | null;
+  /** Null on a key with no spending limit. */
+  limit: number | null;
+  limit_remaining: number | null;
+  limit_reset: string | null;
+}
+
+/** `GET /api/spend`: what each provider has cost, for the header. */
+export interface SpendInfo {
+  /** Today and this month in the server's zone, `YYYY-MM-DD` and `YYYY-MM`. */
+  day: string;
+  month: string;
+  /** Providers with a key or with calls this month, the billed ones first. */
+  providers: ProviderSpend[];
+  /** Null without an OpenRouter key, or when its report could not be read. */
+  openrouter: OpenRouterReport | null;
+}

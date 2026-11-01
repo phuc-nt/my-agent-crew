@@ -21,6 +21,7 @@ import { viNotices } from "./vi/notices";
 import { viRunSteps } from "./vi/run-steps";
 import { viScriptStore } from "./vi/script-store";
 import { viSettings } from "./vi/settings";
+import { viSpend } from "./vi/spend";
 import { viTurn } from "./vi/turn";
 import { viWelcome } from "./vi/welcome";
 import { viWiki } from "./vi/wiki";
@@ -51,6 +52,7 @@ export const vi = {
   ...viJobs,
   ...viInbox,
   ...viPush,
+  ...viSpend,
   // The thread's words, kept in this file: two server tests read `attachmentSaved` and
   // `scriptHandoff.fence` out of its text.
   showTimeline: "Xem dòng thời gian",

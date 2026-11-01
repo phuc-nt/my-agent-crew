@@ -137,3 +137,10 @@ button.pill.accent {
     margin-top: var(--space-2);
   }
 }
+
+/* The spend card's notes: where a figure comes from, under the rows. */
+.spend-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  max-width: 22rem;
+}

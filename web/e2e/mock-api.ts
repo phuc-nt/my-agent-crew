@@ -178,6 +178,8 @@ export interface MockOptions {
   runs?: object[];
   jobs?: object[];
   stats?: object;
+  /** What GET /spend answers; no provider, so no pill, when omitted. */
+  spend?: object;
   /** Activity payloads delivered on the SSE stream right after it opens. */
   stream?: object[];
   conversations?: Conversation[];
@@ -459,6 +461,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     if (path === "/activity/runs") return json(listRuns(options.runs ?? [], url.searchParams));
     if (path === "/activity/stream")
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(options.stream ?? [{ type: "snapshot", runs: options.runs ?? [] }]) });
+    if (path === "/spend")
+      return json(options.spend ?? { day: "2026-11-02", month: "2026-11", providers: [], openrouter: null });
     if (path === "/stats")
       return json(options.stats ?? { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, days: [], models: [], purposes: [] });
     // Like the server, every row says whether its job is in a streak of failures: null

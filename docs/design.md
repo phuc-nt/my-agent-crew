@@ -281,6 +281,13 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   trò chuyện như một completion; giá không rõ được đếm riêng, không bao giờ coi là 0. Lần gọi bị bỏ dở sau chunk
   đầu tiên vẫn được ghi, với giá không rõ. Bản tóm tắt hết giờ hay rỗng — tool rơi về cắt —
   chỉ nằm trong sổ cái: run và cuộc trò chuyện không có con số nào để cộng.
+- **Chi phí theo provider trên header.** `GET /api/spend` cắt sổ cái theo provider cho hôm nay
+  và tháng này theo múi giờ của người dùng. Có `OPENROUTER_API_KEY` thì kèm số liệu OpenRouter
+  tự báo cho cả key (`/api/v1/key`: hôm nay, tuần, tháng theo giờ UTC, hạn mức còn lại), hỏi tối
+  đa một lần mỗi phút; đọc không được thì là `null`, không bao giờ là 0. Anthropic không có
+  endpoint nào mà API key thường đọc được chi phí hay số dư credit, nên số của Claude là số crew
+  tự tính từ token. Header của chat giữ một chip luôn hiện: mỗi provider một số của tháng (trên
+  điện thoại chỉ hiện tổng, nằm ngay hàng tiêu đề), hỏi lại mỗi 30 giây khi trang đang mở.
 - **Provider echo là một tính năng sản phẩm.** `MY_AGENT_ROUTES=fake:echo` chạy cả stack mà không cần
   key; `/tool <name> {json}` điều khiển tool thật qua đường duyệt thật. Đó cũng là thứ
   live smoke và test trình duyệt dựa vào.

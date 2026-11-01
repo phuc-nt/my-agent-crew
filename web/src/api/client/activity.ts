@@ -1,4 +1,4 @@
-import type { JobInfo, RunInfo, StatsInfo } from "../types";
+import type { JobInfo, RunInfo, SpendInfo, StatsInfo } from "../types";
 import { query, request } from "./http";
 
 export const activityApi = {
@@ -6,6 +6,7 @@ export const activityApi = {
     request<RunInfo[]>(`/activity/runs${query(params)}`),
   getRun: (id: string) => request<RunInfo>(`/activity/runs/${encodeURIComponent(id)}`),
   stats: () => request<StatsInfo>("/stats"),
+  spend: () => request<SpendInfo>("/spend"),
   listJobs: () => request<JobInfo[]>("/jobs"),
   runJob: (jobId: string) =>
     request<{ job_id: string; status: string }>(`/jobs/${jobId}/run`, { method: "POST" }),

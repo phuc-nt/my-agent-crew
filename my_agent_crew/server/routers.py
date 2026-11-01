@@ -32,6 +32,7 @@ from my_agent_crew.server import (
     routes_script_store,
     routes_search,
     routes_settings,
+    routes_spend,
     routes_telegram_updates,
     routes_turn,
 )
@@ -68,4 +69,5 @@ ROUTERS = (
     routes_mcp.router,
     routes_telegram_updates.router,
     routes_push.router,
+    routes_spend.router,
 )

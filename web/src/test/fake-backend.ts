@@ -16,6 +16,7 @@ import type {
   RegistryTool,
   RunInfo,
   SettingsInfo,
+  SpendInfo,
   StatsInfo,
   StoredMessage,
   TemplateInfo,
@@ -141,6 +142,7 @@ export class FakeBackend {
   /** What the last answered question was replied with, so a test can assert the words. */
   lastAnswer: string | null = null;
   stats: StatsInfo = { runs: 0, model_calls: 0, spent_usd: 0, unknown_cost_calls: 0, by_agent: {}, by_model: {}, by_day: {}, cache_by_agent: {}, unknown_cache_calls: 0, days: [], models: [], purposes: [], pending_proposals: 0 };
+  spend: SpendInfo = { day: "2026-11-02", month: "2026-11", providers: [], openrouter: null };
   userMd = "";
   facts: FactInfo[] = [];
   agentMemory = new Map<string, AgentMemory>();
@@ -341,6 +343,7 @@ export class FakeBackend {
     }
     if (path === "/activity/runs") return json(this.listRuns(url.searchParams));
     if (path === "/stats") return json(this.stats);
+    if (path === "/spend") return json(this.spend);
     // Like the server, every row says whether its job is in a streak of failures: null
     // unless the test put one on the row.
     if (path === "/jobs") return json(this.jobs.map((row) => ({ failing: null, ...row })));
