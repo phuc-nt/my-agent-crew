@@ -40,6 +40,8 @@ def test_approving_writes_the_fact_and_credits_the_agent_that_asked(tmp_path, st
     (fact,) = user_store.list_facts(user_dir)
     assert fact.name == "ngu-som" and fact.body == "Người dùng muốn ngủ trước 23h."
     assert fact.written_by == "coach" and fact.source == "web"
+    # Proposed unattended: what the person said in a chat later still outranks it.
+    assert fact.stands_on == "extracted"
     assert "ngu-som.md" in user_store.read_index(user_dir)
 
 

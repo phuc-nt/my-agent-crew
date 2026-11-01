@@ -15,6 +15,7 @@ from pathlib import Path
 
 from my_agent_crew.agent.turn_context import WEB
 from my_agent_crew.memory import agent_store, user_store
+from my_agent_crew.memory.fact_model import EXTRACTED
 from my_agent_crew.memory.wiki_apply import WIKI_COMPILE, apply_wiki_proposal
 from my_agent_crew.store import Store
 from my_agent_crew.store.memory_proposals import (
@@ -109,6 +110,7 @@ def _write(
             body=proposal.body,
             written_by=proposal.agent_id,
             source=WEB,
+            basis=EXTRACTED,
         )
     elif proposal.kind == USER_FORGET:
         user_store.delete_fact(user_dir, proposal.name)

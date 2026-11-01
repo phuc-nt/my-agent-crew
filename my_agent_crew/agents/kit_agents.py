@@ -34,6 +34,7 @@ IMPLICIT_TOOLS = (
     "memory_save",
     "memory_search",
     "user_memory_save",
+    "user_memory_get",
     "user_memory_forget",
     "skill_read",
     "image_read",

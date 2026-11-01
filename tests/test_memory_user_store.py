@@ -53,8 +53,8 @@ def test_the_index_lists_every_fact_newest_first(tmp_path: Path):
     write(tmp_path, "moi", description="Mới", type="project", now=datetime(2026, 9, 20, 8, 0))
     index = user_store.read_index(tmp_path)
     assert index.splitlines() == [
-        "- [Mới](moi.md) · project · coach",
-        "- [Cũ](cu.md) · preference · coach",
+        "- [Mới](moi.md) · project · người dùng nói",
+        "- [Cũ](cu.md) · preference · người dùng nói",
     ]
 
 

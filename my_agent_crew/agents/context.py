@@ -15,6 +15,7 @@ from my_agent_crew.memory import user_store
 from my_agent_crew.memory.line_validity import drop_expired
 from my_agent_crew.memory.wiki_index import wiki_section
 from my_agent_crew.texts import USER_FACTS_SECTION_TITLE, USER_MD_SECTION_TITLE
+from my_agent_crew.texts_facts import USER_MEMORY_FACTS_HINT
 
 MAX_SECTION_CHARS = 24000
 # The user sections ride along in every agent's prompt, so they stay far smaller.
@@ -52,11 +53,12 @@ def daily_note_path(memory_dir: Path, day: date) -> Path:
 def user_sections(user_dir: Path) -> list[tuple[str, str]]:
     """What the whole crew knows about the person: the hand-written USER.md and the index
     of remembered facts. The index rather than the facts themselves — it names every fact
-    and lets the agent read the ones it needs with workspace_read."""
+    and lets the agent read the ones it needs with user_memory_get."""
     sections: list[tuple[str, str]] = []
+    index = user_store.read_index(user_dir)
     for title, body in (
         (USER_MD_SECTION_TITLE, user_store.read_user_md(user_dir)),
-        (USER_FACTS_SECTION_TITLE, user_store.read_index(user_dir)),
+        (USER_FACTS_SECTION_TITLE, f"{USER_MEMORY_FACTS_HINT}\n\n{index}" if index else ""),
     ):
         if body:
             sections.append((title, _cap(body, MAX_USER_SECTION_CHARS)))

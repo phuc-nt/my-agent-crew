@@ -11,6 +11,22 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Added
+
+- **Facts that know where they stand.** Each fact about the person now records who stands
+  behind it (`operator` for a hand edit on the web, `said` for what the person said in a chat,
+  `inferred` for an agent's conclusion, `extracted` for an approved proposal), when it holds
+  (`valid_from` / `valid_until`, inclusive days), the conversations it came from and its
+  version. A write is reconciled by code: the same claim again only adds evidence, a new claim
+  replaces the old one and keeps it in `facts/.history/`, and an agent's inference that
+  contradicts the person's word becomes a proposal instead of an overwrite. The prompt's index
+  shows who stands behind each line, drops a fact past its last day and shows a change that
+  starts later as "→ từ <day>". `user_memory_get` reads a fact in full, as of any day, with
+  its versions; it and a `memory_search` hit count as a recall. Over HTTP the listing carries
+  state, recalls and history counts, `GET /api/memory/user/facts/{name}/history` lists the
+  versions, and `DELETE …?purge=true` erases a fact for good where a plain delete now retracts
+  it and keeps its history.
+
 ## [0.32.0] — 2026-11-01
 
 ### Added

@@ -11,10 +11,11 @@ from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.agents.context import daily_note_path
-from my_agent_crew.memory import search, user_store, wiki_links, wiki_store
+from my_agent_crew.memory import fact_recall, search, user_store, wiki_links, wiki_store
 from my_agent_crew.tools.registry import Tool, ToolError
 
 MAX_HITS = 12
+FACT_PREFIX = "user/"
 
 
 def append_daily_note(memory_dir: Path, text: str, now: datetime | None = None) -> Path:
@@ -33,7 +34,7 @@ def append_daily_note(memory_dir: Path, text: str, now: datetime | None = None) 
 def _fact_files(user_dir: Path) -> list[tuple[str, str]]:
     """A fact is one thought: its description and body search and report together."""
     return [
-        (f"user/{fact.name}.md", f"{fact.description}\n{fact.body}")
+        (f"{FACT_PREFIX}{fact.name}.md", f"{fact.description}\n{fact.body}")
         for fact in user_store.list_facts(user_dir)
     ]
 
@@ -118,6 +119,11 @@ def build_memory_tools(
         hits = search_memory(memory_dir, memory_file, str(args.get("query", "")), user_dir)
         if not hits:
             return texts.MEMORY_EMPTY
+        if user_dir is not None:
+            # A fact that comes back from a search was looked up, which is what makes it
+            # count as used (`fact_recall`).
+            found = [s[len(FACT_PREFIX) : -3] for s, _ in hits if s.startswith(FACT_PREFIX)]
+            fact_recall.bump(user_store.facts_dir(user_dir), found)
         return "\n".join(f"[{source}] {line}" for source, line in hits)
 
     return [

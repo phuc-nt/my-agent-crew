@@ -39,7 +39,7 @@ def client(deps):
 
 def test_user_memory_starts_empty_and_user_md_round_trips(client):
     body = client.get("/api/memory/user").json()
-    assert body == {"user_md": "", "facts": [], "index_md": ""}
+    assert body == {"user_md": "", "facts": [], "retracted": [], "index_md": ""}
 
     saved = client.put("/api/memory/user", json={"user_md": "Phúc, làm sản phẩm."})
     assert saved.status_code == 200 and saved.json()["user_md"] == "Phúc, làm sản phẩm."
