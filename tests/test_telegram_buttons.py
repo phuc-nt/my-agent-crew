@@ -11,6 +11,7 @@ import httpx
 
 from my_agent_crew import texts
 from my_agent_crew.agent.events import ApprovalRequiredEvent
+from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.channels.telegram_api import ALLOWED_UPDATES, TelegramApi
 from my_agent_crew.channels.telegram_approvals import (
     APPROVAL_REQUIRED,
@@ -20,9 +21,12 @@ from my_agent_crew.channels.telegram_approvals import (
 from my_agent_crew.channels.telegram_buttons import Press, buttons_for, call_line, read_press
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import ToolCall
+from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.store.approvals import PENDING
+from my_agent_crew.store.runs import AWAITING
 from tests.lapse_helpers import WRITE
 from tests.telegram_fake import CHAT, TOKEN, asks_for, message, poll_each, press, settle
+from tests.test_scheduler import with_schedules
 
 ASK = ToolCall("a1", "ask_user", {"question": "Uống gì?", "options": ["Trà", "Cà phê"]})
 
@@ -185,3 +189,24 @@ async def test_a_press_too_old_to_answer_still_loses_its_buttons(make_channel, d
     assert channel.store.approvals.get(rid).status != PENDING
     assert [e["method"] for e in fake.edits] == ["editMessageText"]
     assert fake.edits[0]["text"].endswith(texts.TELEGRAM_PRESS_DENIED)
+
+
+async def test_a_job_that_spoke_before_it_stopped_still_shows_the_buttons(
+    make_channel, deps_factory, fake
+):
+    """A job whose model wrote a line beside the call it stopped on is delivered with that
+    line, then with the request and its buttons: the line alone leaves nothing to press."""
+    check = Schedule("cleanup", "Dọn", cron="30 7 * * *", prompt="Dọn thư mục")
+    script = [completion("Đã tạo xong. Giờ hỏi:", tool_calls=(ASK,))]
+    deps = with_schedules(deps_factory(script=script), check)
+    channel = make_channel(deps)
+
+    async def deliver(agent_id: str, conv_id: str) -> bool:
+        return await channel.deliver(conv_id)
+
+    scheduler = Scheduler({"default": deps}, channel.hub, deliver=deliver)
+    run = await scheduler.run_job("default/cleanup")
+    assert run.status == AWAITING
+    assert fake.sent[0] == "Đã tạo xong. Giờ hỏi:" and len(fake.sent) == 2
+    assert ASK.arguments["question"] in fake.sent[1]
+    assert fake.buttons[0] is None and fake.buttons[1] is not None

@@ -11,6 +11,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Fixed
+
+- **A job that speaks before it stops still shows the buttons.** A scheduled job whose model
+  wrote a line beside the call it waited on was delivered with that line only, so the chat had
+  nothing to press and the request ran out unseen. The request and its buttons now follow.
+
 ## [0.29.1] — 2026-11-01
 
 ### Fixed

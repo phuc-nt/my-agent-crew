@@ -33,8 +33,7 @@ TYPING_FIRST_TIMEOUT_SECONDS = 3.0
 
 
 def _ending(run: RunRecord) -> str:
-    """Why a run ended, in words: a halted run's summary is the loop's code for it, a
-    failed one's is already the error message."""
+    """Why a run ended, in words: a halted run's code read out, a failed one's error as is."""
     if run.status == HALTED:
         return texts.HALT_REASONS.get(run.summary, run.summary or run.status)
     return run.summary or run.status
@@ -64,10 +63,11 @@ class TelegramOutbound:
     async def deliver(self, conv_id: str) -> bool:
         """Sends every assistant text of the conversation's last turn (the messages after
         the last user message, in order); False when there is none yet. Text written next
-        to a tool call counts: a brief often ends with a bare `MEDIA:` message. The canvases
-        the run wrote are listed after its words, and stand for them when it left none. What
-        the runtime adds around them is said as it stands: why a run stopped quotes an error
-        or a question, and a line of that shaped like an attachment line names no file."""
+        to a tool call counts: a brief often ends with a bare `MEDIA:` message, and a job's
+        words are followed by the request it stopped on, with its buttons. The canvases the
+        run wrote are listed after its words, and stand for them when it left none. What the
+        runtime adds is said as it stands: why a run stopped quotes an error or a question,
+        and a line of that shaped like an attachment line names no file."""
         parts: list[str] = []
         expired: list[str] = []
         for stored in reversed(self._deps.store.history(conv_id)):
@@ -89,9 +89,9 @@ class TelegramOutbound:
         if parts:
             await self.send("\n\n".join(reversed(parts)), conv_id)
             await self.send_written(tags, conv_id)
-            # A run out of steps or budget still leaves text behind; without this the
-            # half-finished answer reads like a complete one.
-            if run is not None and run.status in (HALTED, FAILED):
+            if run is not None and run.status == AWAITING:
+                await ask_waiting(self, self._deps, conv_id)
+            elif run is not None and run.status in (HALTED, FAILED):  # or they read as whole
                 cut = texts.TELEGRAM_RUN_CUT_SHORT.format(reason=_ending(run), spent=run.spent_usd)
                 await self._say(cut)
             return True
