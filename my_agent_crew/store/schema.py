@@ -149,6 +149,9 @@ ADDED_COLUMNS = (
     # The name its sender gave a waiting message, "" when it gave none: the same send made
     # again finds the message here, and in `message_requests` once it is in the log.
     ("queued_messages", "request_id", "TEXT NOT NULL DEFAULT ''"),
+    # Where the person settled an approval (the source of the decision: chat, telegram);
+    # "" when nobody did, as for an expired one, and on rows settled before it was kept.
+    ("approvals", "decided_via", "TEXT NOT NULL DEFAULT ''"),
 )
 
 

@@ -27,7 +27,12 @@ from my_agent_crew.store.models import IDLE, QUESTION
 
 
 async def resolve_approval(
-    deps: AgentDeps, conv_id: str, approval_id: str, approve: bool, always: bool = False
+    deps: AgentDeps,
+    conv_id: str,
+    approval_id: str,
+    approve: bool,
+    always: bool = False,
+    via: str = "",
 ) -> AsyncIterator[Event]:
     """`always` approves and also lets this tool run without asking for the rest of the
     conversation; the ask list for shell commands still applies on top."""
@@ -36,7 +41,7 @@ async def resolve_approval(
         raise KeyError(approval_id)
     if approval.kind == QUESTION:
         raise KeyError(approval_id)  # answers come through `answer_question`
-    deps.store.approvals.resolve(approval_id, approve)
+    deps.store.approvals.resolve(approval_id, approve, via=via)
     fields: dict[str, object] = {"status": IDLE}
     if approve and always:
         allowed = deps.store.get(conv_id).auto_approve
@@ -48,13 +53,13 @@ async def resolve_approval(
 
 
 async def answer_question(
-    deps: AgentDeps, conv_id: str, approval_id: str, answer: str
+    deps: AgentDeps, conv_id: str, approval_id: str, answer: str, via: str = ""
 ) -> AsyncIterator[Event]:
     """Close a waiting question with what the person said, then finish the turn."""
     approval = deps.store.approvals.get(approval_id)
     if approval.conversation_id != conv_id:
         raise KeyError(approval_id)
-    deps.store.approvals.answer(approval_id, answer)  # raises unless pending and a question
+    deps.store.approvals.answer(approval_id, answer, via)  # raises unless pending and a question
     deps.store.update(conv_id, status=IDLE)
     async for event in _resume(deps, conv_id):
         yield event

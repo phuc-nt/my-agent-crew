@@ -62,16 +62,16 @@ class ApprovalStore:
             self._conn.commit()
         return self.get(approval_id)
 
-    def answer(self, approval_id: str, answer: str) -> Approval:
+    def answer(self, approval_id: str, answer: str, via: str = "") -> Approval:
         """Close a pending question with what the person said.
 
         A question has no approve/deny axis, so it gets its own closing status: the loop
         must be able to tell "they answered" from "they allowed the tool to run"."""
         with self._lock:
             cursor = self._conn.execute(
-                "UPDATE approvals SET status = ?, answer = ?, resolved_at = ?"
+                "UPDATE approvals SET status = ?, answer = ?, resolved_at = ?, decided_via = ?"
                 " WHERE id = ? AND status = ? AND kind = ?",
-                (ANSWERED, answer, _stamp(datetime.now(UTC)), approval_id, PENDING, QUESTION),
+                (ANSWERED, answer, _stamp(datetime.now(UTC)), via, approval_id, PENDING, QUESTION),
             )
             self._conn.commit()
         if cursor.rowcount == 0:
@@ -117,6 +117,15 @@ class ApprovalStore:
             ).fetchone()
         return Approval.from_row(row) if row else None
 
+    def waiting(self, limit: int = 20) -> list[Approval]:
+        """Every request still waiting, crew-wide, oldest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM approvals WHERE status = ? ORDER BY created_at, rowid LIMIT ?",
+                (PENDING, limit),
+            ).fetchall()
+        return [Approval.from_row(r) for r in rows]
+
     def overdue(self, now: datetime | None = None) -> list[Approval]:
         """Pending approvals whose deadline has passed, oldest first. Rows written before
         deadlines existed have none and never come back here."""
@@ -128,13 +137,17 @@ class ApprovalStore:
             ).fetchall()
         return [Approval.from_row(r) for r in rows]
 
-    def resolve(self, approval_id: str, approve: bool, status: str | None = None) -> Approval:
-        """Close a pending approval. `status` overrides the approve/deny pair for expiry."""
+    def resolve(
+        self, approval_id: str, approve: bool, status: str | None = None, via: str = ""
+    ) -> Approval:
+        """Close a pending approval. `status` overrides the approve/deny pair for expiry;
+        `via` is where the person decided, kept so the agent and the log can say so."""
         status = status or (APPROVED if approve else DENIED)
         with self._lock:
             cur = self._conn.execute(
-                "UPDATE approvals SET status = ?, resolved_at = ? WHERE id = ? AND status = ?",
-                (status, _stamp(datetime.now(UTC)), approval_id, PENDING),
+                "UPDATE approvals SET status = ?, resolved_at = ?, decided_via = ?"
+                " WHERE id = ? AND status = ?",
+                (status, _stamp(datetime.now(UTC)), via, approval_id, PENDING),
             )
             self._conn.commit()
         if cur.rowcount == 0:

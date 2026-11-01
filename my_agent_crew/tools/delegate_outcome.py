@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from my_agent_crew import texts
+from my_agent_crew.agent.decision_note import delegate_reason
 from my_agent_crew.artifacts.tag import Tag, parse_artifact_tag
 from my_agent_crew.store.approvals import DENIED, EXPIRED
 from my_agent_crew.store.models import TOOL, Approval
@@ -94,7 +95,7 @@ def decide(run: RunRecord, declared: Outcome | None, latest: Approval | None) ->
     if run.status != RUN_DONE:
         return Outcome(FAILED, cut(run.summary or run.status))
     if latest is not None and latest.kind == TOOL and latest.status in (DENIED, EXPIRED):
-        return Outcome(BLOCKED, f"{latest.tool_name} {latest.status}")
+        return Outcome(BLOCKED, delegate_reason(latest))
     return declared or Outcome(DONE)
 
 

@@ -169,7 +169,7 @@ class Inbound(ConversationOpening):
         deps = self.deps_for_conversation(conv_id)
         conv = deps.store.get(conv_id)
         self._claim(conv_id)
-        events = resolve_approval(deps, conv_id, approval_id, approve, always=always)
+        events = resolve_approval(deps, conv_id, approval_id, approve, always, source)
         return tracked(self.hub, events, deps.agent.id, source, conv.title, conv.id)
 
     def answer(
@@ -180,7 +180,7 @@ class Inbound(ConversationOpening):
         deps = self.deps_for_conversation(conv_id)
         conv = deps.store.get(conv_id)
         self._claim(conv_id)
-        events = answer_question(deps, conv_id, approval_id, answer)
+        events = answer_question(deps, conv_id, approval_id, answer, source)
         return tracked(self.hub, events, deps.agent.id, source, conv.title, conv.id)
 
     async def reply(

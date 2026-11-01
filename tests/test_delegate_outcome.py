@@ -193,7 +193,11 @@ def test_a_run_that_did_not_finish_failed_whatever_the_child_wrote():
 def test_a_refused_or_lapsed_last_decision_blocks_a_run_that_says_done(status: str):
     blocked = decide(run_ending(DONE), Outcome(OUTCOME_DONE), decision(status))
 
-    assert blocked == Outcome(BLOCKED, f"workspace_write {status}")
+    said = {
+        DENIED: "người dùng từ chối duyệt workspace_write",
+        EXPIRED: "workspace_write hết hạn chờ duyệt, không ai trả lời",
+    }
+    assert blocked == Outcome(BLOCKED, said[status])
 
 
 def test_an_approved_last_decision_leaves_the_declaration_standing():

@@ -445,7 +445,7 @@ async def test_a_child_whose_last_approval_was_refused_is_blocked(runtime: Runti
     result = await asyncio.wait_for(waiting, 2)
     header, outcome, _ = lines_of(result)
     assert " status=done " in header
-    assert outcome == "outcome=blocked reason=workspace_write denied"
+    assert outcome == "outcome=blocked reason=người dùng từ chối duyệt workspace_write trên web"
     assert result.reply is None
 
 
@@ -479,7 +479,8 @@ async def test_a_question_after_a_refused_tool_does_not_hide_the_refusal(
     await expire_overdue(rt.agents, rt.hub, now=datetime.now(UTC) + timedelta(days=1))
 
     result = await asyncio.wait_for(waiting, 2)
-    assert lines_of(result)[1] == "outcome=blocked reason=workspace_write denied"
+    refused = "outcome=blocked reason=người dùng từ chối duyệt workspace_write trên web"
+    assert lines_of(result)[1] == refused
     assert lines_of(result)[2] == said and result.reply is None
 
 

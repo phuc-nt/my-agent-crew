@@ -8135,3 +8135,9 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
   - Playwright: `web/e2e/desktop.spec.ts` (ở 390px ô cài đặt, thẻ agent cùng ảnh, thẻ của máy và
     ảnh của thao tác chờ duyệt cùng dấu điểm đều nằm trong trang, mọi nút đủ lớn cho ngón tay, và
     bundle id dài xuống dòng).
+- **Model biết lệnh đã được duyệt hay bị từ chối, và ở đâu**:
+  - pytest: `tests/test_decision_note.py` (kết quả của lời gọi đã được duyệt có thêm câu "người dùng
+    đã DUYỆT trên Telegram" và model đọc được nó; nơi quyết được lưu ở `approvals.decided_via`;
+    từ chối nói "đã bấm từ chối trên Telegram"; câu trả lời cũng lưu nơi quyết; nơi không rõ thì
+    không thêm chữ), `tests/test_delegate_outcome.py` và `tests/test_tools_delegate.py` (kết quả giao
+    việc phân biệt "người dùng từ chối duyệt X trên web" với "X hết hạn chờ duyệt, không ai trả lời").

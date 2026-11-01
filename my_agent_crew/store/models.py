@@ -107,6 +107,7 @@ class Approval:
     kind: str = "tool"  # "tool" | "question"; rows older than questions are tools
     options: list[str] = field(default_factory=list)
     answer: str | None = None
+    decided_via: str = ""  # where a person settled it; "" for expiry and older rows
 
     @property
     def question(self) -> str:
@@ -132,4 +133,5 @@ class Approval:
             kind=_column(row, "kind", "tool"),
             options=json.loads(_column(row, "options", "[]")),
             answer=_column(row, "answer", None),
+            decided_via=_column(row, "decided_via", "") or "",
         )

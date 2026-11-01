@@ -49,8 +49,10 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
   tool; phần còn lại của câu trả lời giữ nguyên.
 - **Duyệt.** Tool cần duyệt sẽ tạm dừng lượt bằng một sự kiện `approval_required`
   và một `Approval` được lưu. Web UI hiện một thanh, Telegram hiện `/approve` /
-  `/deny`; quyết định tiếp tục đúng lượt đó. Cuộc trò chuyện (hoặc agent) đánh dấu
-  `autonomous` bỏ qua bước dừng — trừ lệnh `shell_run` khớp
+  `/deny` và nút bấm; quyết định tiếp tục đúng lượt đó. Model được biết kết quả: lời gọi được
+  duyệt có thêm một dòng nói người dùng đã duyệt và ở đâu (web hay Telegram, lưu ở
+  `approvals.decided_via`), lời gọi bị từ chối nói người dùng bấm từ chối ở đâu. Cuộc trò
+  chuyện (hoặc agent) đánh dấu `autonomous` bỏ qua bước dừng — trừ lệnh `shell_run` khớp
   `settings.shell_ask_patterns` (xem [Shell](#shell)), lệnh này vẫn hỏi và nói rõ
   pattern nào khớp. Chiều ngược lại cũng đúng: cuộc trò chuyện *không* autonomous vẫn
   chạy lệnh `shell_run` khớp `settings.shell_allow_patterns` mà không hỏi, để
@@ -186,9 +188,11 @@ Agent con gặp việc cần người dùng đồng ý thì dừng, nói cần l
 Trạng thái run chỉ nói run kết thúc ra sao: con trả lời "không làm được vì thiếu quyền" vẫn kết
 thúc run là `done`. Dòng `outcome=` nói việc được giao ra sao, xét theo thứ tự. Run lỗi, dừng
 (`budget`, `max_steps`, `loop`) hay hết thời gian chờ là `failed`. Approval tool quyết định gần nhất
-của con bị từ chối hay hết hạn là `blocked`. Câu hỏi `ask_user` không bao giờ tính: không ai trả
-lời thì con làm tiếp với mặc định của nó, còn trả lời sau một tool bị từ chối thì không xoá được lần
-từ chối đó. Còn lại theo dòng `Status:` cuối cùng con viết (`done`, `done_with_concerns`, `blocked`,
+của con bị từ chối hay hết hạn là `blocked`, lý do nói rõ trường hợp nào: "người dùng từ chối
+duyệt X trên Telegram" (nơi quyết lưu ở `approvals.decided_via`) hay "X hết hạn chờ duyệt, không ai
+trả lời". Câu hỏi `ask_user` không bao giờ tính: không ai trả lời thì con làm tiếp với mặc định
+của nó, còn trả lời sau một tool bị từ chối thì không xoá được lần từ chối đó.
+Còn lại theo dòng `Status:` cuối cùng con viết (`done`, `done_with_concerns`, `blocked`,
 `needs_context`), đọc theo mọi kiểu model hay viết: khoá in đậm, tiêu đề hay gạch đầu dòng phía
 trước, giá trị có dấu cách hay gạch nối thay gạch dưới, trong backtick hay sau một emoji; dòng không
 kèm lý do thì lý do lấy từ dòng `Summary:` ngay sau. Dòng `Status:` trong khối code là thứ con đang

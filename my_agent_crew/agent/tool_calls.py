@@ -14,9 +14,11 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import aclosing
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from my_agent_crew.agent.approval_lookup import matches, open_new
+from my_agent_crew.agent.decision_note import REFUSALS, refusal_text, with_approval_note
 from my_agent_crew.agent.delegate_relay import relay_reply
 from my_agent_crew.agent.events import (
     ApprovalRequiredEvent,
@@ -30,22 +32,15 @@ from my_agent_crew.agent.tool_gate import ask_reason_text, pauses_for_a_person
 from my_agent_crew.agent.tool_run import CallRun, charge_nested, execute, not_yet_told
 from my_agent_crew.llm.types import Message, ToolCall
 from my_agent_crew.store import Approval, Store, StoredMessage
-from my_agent_crew.store.approvals import ANSWERED, DENIED, EXPIRED, PENDING
+from my_agent_crew.store.approvals import ANSWERED, PENDING
 from my_agent_crew.store.models import QUESTION
-from my_agent_crew.texts import (
-    APPROVAL_CALL_MISMATCH,
-    DENIED_TOOL,
-    EXPIRED_TOOL,
-    INTERRUPTED_TOOL,
-)
+from my_agent_crew.texts import APPROVAL_CALL_MISMATCH, INTERRUPTED_TOOL
 from my_agent_crew.tools.ask_user import answer_result, unanswered_result
 from my_agent_crew.tools.registry import ToolResult
 from my_agent_crew.tools.result import NestedCall
 
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
     from my_agent_crew.agent.loop import AgentDeps
-
-REFUSALS = {DENIED: DENIED_TOOL, EXPIRED: EXPIRED_TOOL}
 
 
 async def _record(
@@ -123,7 +118,7 @@ def close_interrupted(store: Store, conv_id: str) -> None:
         elif approval.kind == QUESTION:
             output = _question_result(approval, call)
         else:
-            output = REFUSALS.get(approval.status, INTERRUPTED_TOOL)
+            output = refusal_text(approval) if approval.status in REFUSALS else INTERRUPTED_TOOL
         store.append(
             conv_id, Message(role="tool", content=output, tool_call_id=call.id, name=call.name)
         )
@@ -179,9 +174,11 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
                 yield await _record(deps, conv_id, call, ToolResult(ok=True, output=output))
                 continue
             if approval.status in REFUSALS:
-                refusal = REFUSALS[approval.status]
+                refusal = refusal_text(approval)
                 yield await _record(deps, conv_id, call, ToolResult(ok=False, output=refusal))
                 continue
+        else:
+            approval = None
         yield ToolCallEvent(tool_call_id=call.id, name=call.name, arguments=call.arguments)
         run = CallRun(deps, conv_id, call)
         # Closed with this turn, not whenever it is collected: closing it ends the call.
@@ -189,6 +186,8 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
             async for nested in said:  # the calls a script makes, each as it ends
                 yield nested
         result = run.result
+        if approval is not None:  # the person said yes: the model is told so
+            result = replace(result, output=with_approval_note(result.output, approval))
         yield await _record(deps, conv_id, call, result, run.told)
         # A finished delegation that was the whole turn ends it in the child's words.
         async for event in relay_reply(deps, conv_id, call, result):
