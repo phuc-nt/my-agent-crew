@@ -20,7 +20,7 @@ def run(**fields: Any) -> dict[str, Any]:
     base = {
         "id": "r1",
         "agent_id": "default",
-        "conversation_id": None,
+        "conversation_id": "c1",
         "source": "job:brief",
         "title": "Bản tin",
         "status": "done",
@@ -70,13 +70,18 @@ def test_a_notice_carries_none_of_the_work(store):
 
 def test_a_job_that_reported_or_failed_is_told(store):
     assert notice_for(run(), store).title == texts_push.JOB_RESULT_TITLE
-    failed = notice_for(run(status="error", summary="boom"), store)
+    failed = notice_for(run(status="error", conversation_id=None), store)
     assert failed.title == texts_push.JOB_FAILED_TITLE
 
 
 @pytest.mark.parametrize("summary", ["OK", "ok.", " OK! ", ""])
 def test_a_job_with_nothing_to_report_is_not(store, summary):
     assert notice_for(run(summary=summary), store) is None
+
+
+def test_a_job_that_went_well_without_a_turn_is_not(store):
+    """A command's output is its summary, and no answer: the chat is not sent it either."""
+    assert notice_for(run(conversation_id=None, summary="synced 0"), store) is None
 
 
 def test_a_run_still_going_or_another_message_is_not(store):

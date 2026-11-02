@@ -176,6 +176,8 @@ export interface MockOptions {
   turns?: object[][];
   agents?: object[];
   runs?: object[];
+  /** What GET /activity/reports answers: each job run's words as the chat is sent them. */
+  reports?: { run_id: string; text: string }[];
   jobs?: object[];
   stats?: object;
   /** What GET /spend answers; no provider, so no pill, when omitted. */
@@ -459,6 +461,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       return found ? json(found) : json({ detail: "run not found" }, 404);
     }
     if (path === "/activity/runs") return json(listRuns(options.runs ?? [], url.searchParams));
+    if (path === "/activity/reports") return json(options.reports ?? []);
     if (path === "/activity/stream")
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: sse(options.stream ?? [{ type: "snapshot", runs: options.runs ?? [] }]) });
     if (path === "/spend")

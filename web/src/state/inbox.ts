@@ -17,14 +17,34 @@ function saysNothing(summary: string): boolean {
 const finishedAt = (run: RunInfo) => Date.parse(run.finished_at ?? run.started_at);
 
 /**
- * What the jobs reported: each finished job run that has something to say, the latest
- * first. A job that failed or halted is not here — it waits on the person with the rest of
- * what went wrong, above this list.
+ * What the jobs reported: each job run whose turn answered something, the latest first —
+ * what the chat is sent. A run with no conversation (a command, a rewrite of memory) has no
+ * answer, only output, and the chat hears of it only when it fails. A job that failed or
+ * halted is not here — it waits on the person with the rest of what went wrong, above this
+ * list.
  */
 export function jobResults(runs: RunInfo[]): RunInfo[] {
   return runs
-    .filter((r) => r.source.startsWith(JOB_SOURCE) && r.status === "done" && r.summary && !saysNothing(r.summary))
+    .filter(
+      (r) =>
+        r.source.startsWith(JOB_SOURCE) &&
+        r.conversation_id !== null &&
+        r.status === "done" &&
+        r.summary &&
+        !saysNothing(r.summary),
+    )
     .sort((a, b) => finishedAt(b) - finishedAt(a));
+}
+
+/**
+ * The job's own name out of its run's title, "[lịch] Bản tin · 2026-11-02 07:00": the card
+ * says when on its own, in the viewer's clock.
+ */
+export function jobName(title: string): string {
+  return title
+    .replace(/^\[[^\]]*\]\s*/, "")
+    .replace(/\s+·\s+\d{4}-\d{2}-\d{2}[^·]*$/, "")
+    .trim();
 }
 
 /** The results that finished after the inbox was last read here; all of them when it never was. */

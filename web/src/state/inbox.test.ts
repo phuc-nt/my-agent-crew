@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fakeRun } from "../test/fake-backend";
-import { jobResults, mergeRuns, unreadResults } from "./inbox";
+import { jobName, jobResults, mergeRuns, unreadResults } from "./inbox";
 
 const job = (id: string, finished: string, overrides = {}) =>
   fakeRun({ id, source: `job:${id}`, finished_at: finished, summary: `Báo cáo ${id}`, ...overrides });
@@ -14,6 +14,8 @@ describe("the jobs' results", () => {
       job("failed", "2026-11-01T04:00:00Z", { status: "error" }),
       job("running", "2026-11-01T05:00:00Z", { status: "running", finished_at: null }),
       job("quiet", "2026-11-01T06:00:00Z", { summary: "" }),
+      // A command's output, not an answer: the chat is not sent it.
+      job("command", "2026-11-01T07:00:00Z", { conversation_id: null }),
     ];
     expect(jobResults(runs).map((r) => r.id)).toEqual(["b", "a"]);
   });
@@ -39,5 +41,11 @@ describe("the jobs' results", () => {
       ["a", "2026-11-01T02:00:00Z"],
       ["b", "x"],
     ]);
+  });
+
+  it("names the job without the schedule's mark or the time the card says", () => {
+    expect(jobName("[lịch] Bản tin sáng · 2026-11-01 07:00")).toBe("Bản tin sáng");
+    expect(jobName("[lịch] A · B · 2026-11-01 07:00")).toBe("A · B");
+    expect(jobName("Bản tin")).toBe("Bản tin");
   });
 });

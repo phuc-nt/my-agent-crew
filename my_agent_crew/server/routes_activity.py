@@ -16,6 +16,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from my_agent_crew.activity import trajectory, trajectory_markdown
 from my_agent_crew.activity.redact import env_secrets
+from my_agent_crew.activity.reports import REPORT_LIMIT, job_reports
 from my_agent_crew.agents.roster import DELEGATE_TOOL_NAME
 from my_agent_crew.clock import local_day
 from my_agent_crew.script.scope import SCRIPT_TOOL
@@ -48,6 +49,13 @@ def list_runs(
         min(max(limit, 1), 500), conversation_ids=family, agent_id=agent_id or None
     )
     return [r.to_dict() for r in runs]
+
+
+@router.get("/activity/reports")
+def list_reports(rt: Rt, limit: int = Query(REPORT_LIMIT, ge=1, le=100)) -> list[dict[str, str]]:
+    """What the latest jobs reported, newest first, each the words its run's turn sent to
+    the chat (`activity/reports.py`)."""
+    return [r.to_dict() for r in job_reports(rt.store, limit)]
 
 
 def conversation_family(rt: Rt, conversation_id: str) -> set[str]:

@@ -1,7 +1,7 @@
 """Which of the activity stream's messages are worth waking a phone for, and what it shows.
 
 Four things are: a request waiting on the person (a tool to allow, a question to answer), a
-job that reported something, a job that failed, and the answer to a long piece of work the
+job whose turn answered something, a job that failed, and the answer to a long piece of work the
 person started on the web and may have walked away from. What a job says when all is well
 ("OK") is not, as the chat is not told it either; nor is anything a delegated child or a
 Telegram chat ran, since the chat that asked is where its answer goes.
@@ -63,6 +63,10 @@ def _quiet(summary: str) -> bool:
 def _job(run: dict[str, Any]) -> Notice | None:
     if run.get("status") == FAILED:
         return Notice(texts_push.JOB_FAILED_TITLE, texts_push.JOB_FAILED_BODY, INBOX_URL, "job")
+    # A run that opened no conversation has no answer: a command or a rewrite of memory that
+    # went well is told nowhere, as the chat is not told it.
+    if not run.get("conversation_id"):
+        return None
     if run.get("status") == DONE and not _quiet(str(run.get("summary") or "")):
         return Notice(texts_push.JOB_RESULT_TITLE, texts_push.JOB_RESULT_BODY, INBOX_URL, "job")
     return None

@@ -32,7 +32,7 @@ interface Props {
  */
 export function InboxScreen(props: Props) {
   const { runs, agentName, onOpenConversation } = props;
-  const { results, fresh, loadFailed } = useInbox(runs);
+  const { results, reports, fresh, loadFailed } = useInbox(runs);
   const push = usePush();
   // Asked of the person first while a press or a step would turn it on; otherwise it is a
   // setting, or a sentence on why there is none, kept at the bottom.
@@ -65,7 +65,7 @@ export function InboxScreen(props: Props) {
           onReload={props.onReload}
         />
         {loadFailed && <p className="muted inbox-note">{vi.inbox.loadFailed}</p>}
-        <InboxResults results={results} fresh={fresh} agentName={agentName} onOpen={open} />
+        <InboxResults results={results} reports={reports} fresh={fresh} agentName={agentName} onOpen={open} />
         {!pushFirst && <PushSettings push={push} />}
       </main>
     </div>

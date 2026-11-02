@@ -217,6 +217,11 @@ def test_jobs_are_listed_and_can_run_now(two_agents):
     assert {r["source"] for r in runs} == {"job:coach/sync", "job:coach/brief"}
     assert runtime.store.list("coach")[0].title.startswith("[lịch] Bản tin")
     assert client.get("/api/jobs").json()[1]["last_run"]["source"] == "job:coach/sync"
+    # Only the turn answered: the command's run is no report, as the chat is not sent it.
+    brief = next(r for r in runs if r["source"] == "job:coach/brief")
+    reports = client.get("/api/activity/reports").json()
+    assert [r["run_id"] for r in reports] == [brief["id"]] and reports[0]["text"]
+    assert client.get("/api/activity/reports?limit=0").status_code == 422
 
 
 def test_a_job_can_be_paused_over_http_and_lists_its_own_runs(two_agents):

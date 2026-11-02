@@ -11,6 +11,13 @@ export const viInbox = {
     // A row's own label: the job, who ran it and when, so a screen reader hears the card.
     resultLabel: (title: string, agent: string, at: string) => `${title}, ${agent}, ${at}`,
     unread: "Mới",
+    // A long report opens folded; the button under it unfolds it in place.
+    unfold: "Xem hết",
+    fold: "Thu gọn",
+    // A picture or a file the report sends is named, and seen in its conversation.
+    sent: (n: number) => `Kèm ${n} ảnh hoặc tệp — mở cuộc trò chuyện để xem.`,
+    reply: "Trả lời",
+    openReport: (job: string) => `Mở cuộc trò chuyện của ${job} để trả lời`,
     loadFailed: "Không tải thêm được kết quả cũ; đang hiện những gì đã có.",
   },
 } as const;

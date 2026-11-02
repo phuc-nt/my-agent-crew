@@ -107,6 +107,19 @@ class RunStore:
             ).fetchall()
         return [RunRecord.from_row(r) for r in rows]
 
+    def answered(self, source_prefix: str, limit: int) -> list[RunRecord]:
+        """Newest first, the runs of one source that ended well in a conversation: the
+        turns that have an answer to read. Asked of the query, so the runs a script or a
+        command leaves every few minutes take none of `limit`."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM runs WHERE source LIKE ? AND status = ?"
+                " AND conversation_id IS NOT NULL"
+                " ORDER BY started_at DESC, rowid DESC LIMIT ?",
+                (f"{source_prefix}%", DONE, limit),
+            ).fetchall()
+        return [RunRecord.from_row(r) for r in rows]
+
     def latest_for_conversation(self, conv_id: str) -> RunRecord | None:
         with self._lock:
             row = self._conn.execute(

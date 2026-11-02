@@ -1,4 +1,4 @@
-/* The phone's inbox: one column, what waits on top, the jobs' results under it. It is a
+/* The phone's inbox: one column, what waits on top, the jobs' reports under it. It is a
    page of its own rather than a manage section, so it carries no nav column: on a phone
    that column is a row of pills, and the inbox is read top to bottom with one thumb. */
 .inbox-layout {
@@ -61,67 +61,82 @@
   gap: var(--space-2);
 }
 
-/* A card that is one button, laid out like a message in a mail list. */
-button.inbox-result {
+/* A report read where it is listed, as a message in a chat app is: who, the job and when
+   over its words, and the way to its conversation under them. */
+.inbox-report {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  width: 100%;
-  min-height: var(--touch-target);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-3);
-  text-align: left;
-  font: inherit;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: none;
 }
-button.inbox-result:hover {
-  background: var(--surface-hover);
-}
-button.inbox-result.fresh {
+.inbox-report.fresh {
   border-color: var(--accent);
   background: var(--accent-softer);
 }
 
-.inbox-result-text {
+.inbox-report-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.inbox-report-who {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   min-width: 0;
   flex: 1;
 }
-.inbox-result-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-}
-.inbox-result-title {
+.inbox-report-agent {
   font-weight: 600;
-  min-width: 0;
+}
+.inbox-report-job {
+  font-size: var(--text-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.inbox-result-at {
-  margin-left: auto;
+.inbox-report-at {
   flex-shrink: 0;
   font-size: var(--text-xs);
 }
-.inbox-result-agent {
-  font-size: var(--text-xs);
+
+.inbox-report-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
-/* The start of what the job said; the whole of it is in its conversation. */
-.inbox-result-summary {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+.inbox-report-body .md > :first-child {
+  margin-top: 0;
+}
+.inbox-report-body .md > :last-child {
+  margin-bottom: 0;
+}
+/* A long report shows its start and fades out above the button that unfolds it. */
+.inbox-report-body.folded {
+  max-height: 16rem;
   overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+.inbox-report-sent {
+  margin: var(--space-2) 0 0;
   font-size: var(--text-sm);
-  color: var(--text-secondary);
-  white-space: pre-line;
+}
+
+.inbox-report-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* A link is not among the controls touch-targets.css widens, and the inbox is read on a phone. */
+.inbox-report-foot .link-button,
+.inbox-report-open {
+  min-height: var(--touch-target);
+}
+.inbox-report-open {
+  margin-left: auto;
 }
 
 /* The chat header's way in, beside the drawer's: a count rather than a dot, since it

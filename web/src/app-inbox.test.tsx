@@ -62,7 +62,7 @@ describe("the inbox on a phone", () => {
     expect(window.location.hash).toBe("#/inbox");
     expect(within(inbox).getByRole("region", { name: vi.attention })).toBeInTheDocument();
     const results = within(inbox).getByRole("region", { name: vi.inbox.results });
-    const card = await within(results).findByRole("button", { name: /Bản tin morning/ });
+    const card = await within(results).findByRole("article", { name: /Bản tin morning/ });
     expect(within(card).getByText(vi.inbox.unread)).toBeInTheDocument();
     expect(within(results).queryByText(/Bản tin check/)).toBeNull();
 
@@ -71,16 +71,44 @@ describe("the inbox on a phone", () => {
     await waitFor(() => expect(inboxButton()).toHaveAccessibleName(vi.inbox.openWith(1)));
   });
 
-  it("opens a result in its conversation, or on its run's page when it has none", async () => {
-    backend.runs = [report("morning"), report("script", { conversation_id: null })];
+  it("opens a report in its conversation to answer it, and lists no command's output", async () => {
+    backend.runs = [report("morning"), report("sync", { conversation_id: null, summary: "synced 0 mail" })];
     window.location.hash = "#/inbox";
     render(<App />);
-    await userEvent.click(await screen.findByRole("button", { name: /Bản tin morning/ }));
+    await userEvent.click(await screen.findByRole("button", { name: vi.inbox.openReport("Bản tin morning") }));
     expect(window.location.hash).toBe("#/chat/conv-morning");
 
     window.location.hash = "#/inbox";
-    await userEvent.click(await screen.findByRole("button", { name: /Bản tin script/ }));
-    expect(window.location.hash).toBe("#/manage/activity/script");
+    await screen.findByRole("article", { name: /Bản tin morning/ });
+    expect(screen.queryByText(/Bản tin sync/)).toBeNull();
+    expect(screen.queryByText("synced 0 mail")).toBeNull();
+  });
+
+  // What the chat is sent, not the start the run kept: formatted, and read in place.
+  it("reads each report whole and formatted, under the agent's name and the job's", async () => {
+    backend.runs = [report("morning", { title: "[lịch] Bản tin sáng · 2026-11-01 07:00" })];
+    backend.reportTexts = { morning: "**Hôm nay** có 3 cuộc họp.\n\n- Họp nhóm\n\nMEDIA:/tmp/chart.png" };
+    window.location.hash = "#/inbox";
+    render(<App />);
+    const card = await screen.findByRole("article", { name: /Bản tin sáng/ });
+    expect(await within(card).findByText("Hôm nay")).toHaveProperty("tagName", "STRONG");
+    expect(within(card).getByRole("listitem")).toHaveTextContent("Họp nhóm");
+    expect(within(card).getByText(vi.inbox.sent(1))).toBeInTheDocument();
+    expect(within(card).queryByText(/\[lịch\]|2026-11-01/)).toBeNull();
+    expect(within(card).queryByText(/MEDIA:/)).toBeNull();
+  });
+
+  it("folds a long report until it is asked to show all of it", async () => {
+    backend.runs = [report("long")];
+    backend.reportTexts = { long: Array.from({ length: 30 }, (_, n) => `Dòng ${n}`).join("\n\n") };
+    window.location.hash = "#/inbox";
+    render(<App />);
+    const card = await screen.findByRole("article", { name: /Bản tin long/ });
+    const unfold = await within(card).findByRole("button", { name: vi.inbox.unfold });
+    expect(card.querySelector(".inbox-report-body")).toHaveClass("folded");
+    await userEvent.click(unfold);
+    expect(card.querySelector(".inbox-report-body")).not.toHaveClass("folded");
+    expect(within(card).getByRole("button", { name: vi.inbox.fold })).toHaveAttribute("aria-expanded", "true");
   });
 
   it("says when no job has reported anything yet", async () => {

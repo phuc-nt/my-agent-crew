@@ -1,6 +1,6 @@
 # Thiết kế
 
-**Phiên bản**: 0.33.1 · **Cập nhật**: 2026-11-01
+**Phiên bản**: 0.34.0 · **Cập nhật**: 2026-11-02
 
 ## Mục tiêu
 
@@ -861,12 +861,17 @@ quản lý thành một hàng pill, tự cuộn tới mục đang mở.
   đang chờ, cộng kết quả job chưa đọc.
 - **Trong Hộp thư:**
   - các yêu cầu được duyệt ngay tại chỗ;
-  - các run job đã xong và có điều để nói được xếp mới nhất trước, đánh dấu những gì mới kể từ
-    lần đọc trước trên thiết bị này;
-  - một câu trả lời chỉ là "OK" không được đưa vào.
+  - báo cáo của job được xếp mới nhất trước, giống những gì Telegram nhận: nguyên văn mọi đoạn
+    agent viết trong lượt của run, render markdown, dưới tên agent và tên job; báo cáo dài mở ở
+    dạng thu gọn, có "Xem hết". Ảnh hay tệp kèm theo chỉ được nhắc tên, nút "Trả lời" mở cuộc trò
+    chuyện của job. Những gì mới kể từ lần đọc trước trên thiết bị này được đánh dấu;
+  - nội dung đọc từ `GET /api/activity/reports` (`activity/reports.py`): chỉ run job có mở cuộc
+    trò chuyện, xong tốt và không chỉ nói "OK". Run lệnh (`command`) hay dọn memory không mở cuộc
+    trò chuyện nên không có ở đây, cũng như Telegram không nhận; run lỗi nằm ở phần cần chú ý.
+    Câu trả lời sau đó trong cùng cuộc trò chuyện không đổi báo cáo.
 - **Thông báo đẩy:** Hộp thư cũng là nơi bật Web Push cho thiết bị (`webpush/`,
   `server/routes_push.py`, `public/sw.js`).
-  - **Có thông báo khi:** có yêu cầu duyệt hoặc câu hỏi, khi một job báo kết quả hoặc lỗi, và khi
+  - **Có thông báo khi:** có yêu cầu duyệt hoặc câu hỏi, khi một job có báo cáo (như trên) hoặc lỗi, và khi
     một lượt chat trên web kéo dài từ một phút trở lên vừa xong.
   - **Nội dung là câu chung:** chỉ có tiêu đề cố định và một đường dẫn trong app, không chứa nội
     dung cuộc trò chuyện. Payload được mã hoá theo RFC 8291 nên dịch vụ push của trình duyệt chỉ

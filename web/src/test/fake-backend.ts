@@ -139,6 +139,9 @@ export class FakeBackend {
   /** Bundled profiles answered by GET /templates; installing one appends to `agents`. */
   templates: TemplateInfo[] = [];
   runs: RunInfo[] = [];
+  /** What a job's run sent to the chat, by run id, for GET /activity/reports; its summary
+   *  where the test gives none. */
+  reportTexts: Record<string, string> = {};
   jobs: JobInfo[] = [];
   /** Rows answered by GET /approvals, newest first. */
   approvals: ApprovalInfo[] = [];
@@ -347,6 +350,13 @@ export class FakeBackend {
       return found ? json(found) : json({ detail: "run not found" }, 404);
     }
     if (path === "/activity/runs") return json(this.listRuns(url.searchParams));
+    if (path === "/activity/reports") {
+      // Like the server: a job's turn that answered something, not a command's run.
+      const answered = this.runs.filter(
+        (r) => r.source.startsWith("job:") && r.status === "done" && r.conversation_id && r.summary !== "OK",
+      );
+      return json(answered.map((r) => ({ run_id: r.id, text: this.reportTexts[r.id] ?? r.summary })));
+    }
     if (path === "/stats") return json(this.stats);
     if (path === "/spend") return json(this.spend);
     // Like the server, every row says whether its job is in a streak of failures: null

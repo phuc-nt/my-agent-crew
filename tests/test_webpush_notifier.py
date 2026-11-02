@@ -55,7 +55,7 @@ async def test_the_watch_pushes_what_the_stream_tells(tmp_path):
     notifier = Notifier(hub, store, subscribed(tmp_path, "https://p/1"), send)
     task = asyncio.create_task(notifier.run())
     await asyncio.sleep(0.01)
-    job = hub.start("default", "job:brief", "Bản tin", None)
+    job = hub.start("default", "job:brief", "Bản tin", store.create(title="Bản tin").id)
     hub.finish(job, status="done", summary="Có tin mới")
     await asyncio.wait_for(told.wait(), 2)
     task.cancel()

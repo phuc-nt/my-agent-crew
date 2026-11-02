@@ -1,9 +1,10 @@
-import type { JobInfo, RunInfo, SpendInfo, StatsInfo } from "../types";
+import type { JobInfo, ReportInfo, RunInfo, SpendInfo, StatsInfo } from "../types";
 import { query, request } from "./http";
 
 export const activityApi = {
   listRuns: (params: { limit?: number; agent_id?: string; conversation_id?: string } = {}) =>
     request<RunInfo[]>(`/activity/runs${query(params)}`),
+  listReports: (limit?: number) => request<ReportInfo[]>(`/activity/reports${query({ limit })}`),
   getRun: (id: string) => request<RunInfo>(`/activity/runs/${encodeURIComponent(id)}`),
   stats: () => request<StatsInfo>("/stats"),
   spend: () => request<SpendInfo>("/spend"),

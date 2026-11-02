@@ -5,7 +5,7 @@ title: Bản đồ mã nguồn
 
 # Bản đồ mã nguồn
 
-**Phiên bản**: 0.33.1 · **Cập nhật**: 2026-11-01
+**Phiên bản**: 0.34.0 · **Cập nhật**: 2026-11-02
 
 Đọc [system-architecture.md](system-architecture.md) trước để biết các khối là gì; tài liệu này
 chỉ nói khối nào nằm ở **gói** nào. Tên tệp, hàm và số liệu không ghi ở đây: mã nguồn là nguồn
@@ -68,7 +68,7 @@ chỉ để hiển thị (chữ đang chảy, `user_context`, `tool_call_delta`)
 | Lượt đang chạy | `GET /api/conversations/{id}/turn` (SSE: xem lượt server đang đọc, kể cả lượt của Telegram hay job; `204` khi không có lượt nào), `POST …/{id}/stop` (trả các tin còn chờ và dừng lượt server đang đọc cho cuộc đó; `cancelled` cho biết có lượt nào bị dừng không) |
 | Tìm trong hội thoại | `GET /api/messages/search?q=&agent_id=&limit=` (FTS5 trên nội dung tin, `conversation_search` là bản cho model) |
 | Duyệt | `GET /api/approvals`, `POST /api/conversations/{id}/approvals/{aid}` (`{"approve": bool}`), `POST …/approvals/{aid}/answer` (câu hỏi của `ask_user`) |
-| Run | `GET /api/activity/runs`, `GET …/runs/{id}`, `GET …/runs/{id}/trajectory?format=json\|md[&full=1]` (cả lượt chạy thành tệp để lưu), `GET …/stream` (SSE: run, step, và event `artifact` mỗi lần một canvas được tạo, ghi, đổi tên, khôi phục hay xoá), `GET /api/stats`, `GET /api/spend` (chi phí theo provider hôm nay và tháng này, kèm số OpenRouter tự báo cho key) |
+| Run | `GET /api/activity/runs`, `GET …/runs/{id}`, `GET …/runs/{id}/trajectory?format=json\|md[&full=1]` (cả lượt chạy thành tệp để lưu), `GET /api/activity/reports?limit=` (báo cáo của job, nguyên văn lượt mà chat được gửi, cho Hộp thư), `GET …/stream` (SSE: run, step, và event `artifact` mỗi lần một canvas được tạo, ghi, đổi tên, khôi phục hay xoá), `GET /api/stats`, `GET /api/spend` (chi phí theo provider hôm nay và tháng này, kèm số OpenRouter tự báo cho key) |
 | Canvas | `GET/POST /api/artifacts` (`?conversation_id=&q=&limit=`), `GET …/usage` (`{count, bytes, cap, by_artifact}`: số canvas, tổng byte của mọi phiên bản, trần chung của kho và cỡ từng canvas), `GET/PUT/PATCH/DELETE …/{id}` (`PUT` cần `base_version`; lưu trên bản cũ là 409 kèm bản mới nhất, không ghi đè), `GET …/{id}/versions[/{n}]`, `POST …/{id}/restore`, `GET …/{id}/raw[?version=&download=1]` (luôn là chữ thuần, không chạy gì), `GET …/{id}/render` (trang chạy cách ly, chỉ cho `html` và `mermaid`), `POST …/{id}/reimport` (`{"base_version"}`; đọc lại tệp workspace mà canvas ghi là nguồn, không đổi thì không thêm phiên bản, trả `{changed, artifact}`); mọi lần ghi qua REST là của người. Agent đưa tệp trong workspace vào canvas bằng `artifact_import` và ghi canvas ra tệp bằng `artifact_export` (cần duyệt); web hiện nguồn của canvas và nút "Nhập lại" |
 | Canvas đang mở | `GET/PUT /api/conversations/{id}/canvas` (`{"artifact_id", "selection"}`, `null` là đóng); mỗi tin chat mang `canvas` của tab gửi nó, nên ghi chú nói đúng canvas thiết bị đó đang mở |
 | Agent | `GET /api/agents`, `GET …/{id}`, `GET …/{id}/files`, `GET …/{id}/script-store` (những gì script của agent đã giữ bằng `store`, theo từng kho, kèm trần của mỗi kho và kho là của lịch hay cuộc trò chuyện nào, còn hay đã mất), `GET …/{id}/script-store/value?namespace=&key=` (một giá trị nguyên vẹn), `DELETE …/{id}/script-store?namespace=[&key=]` (quên một khoá hoặc cả một kho; không có đường ghi một giá trị), `POST /api/agents/install`, `GET /api/templates` |

@@ -157,3 +157,9 @@ export interface SpendInfo {
   /** Null without an OpenRouter key, or when its report could not be read. */
   openrouter: OpenRouterReport | null;
 }
+
+/** One row of `GET /api/activity/reports`: what a job's run sent to the chat, whole. */
+export interface ReportInfo {
+  run_id: string;
+  text: string;
+}
