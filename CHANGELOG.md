@@ -11,6 +11,24 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.34.0] — 2026-11-02
+
+### Added
+
+- **The phone's inbox reads the jobs' reports as Telegram gets them.** Each report is every
+  text the agent wrote in its run's turn, in order, rendered as markdown under the agent's
+  name and the job's (without the `[lịch]` tag or the date); a long one opens folded with
+  "Xem hết", a picture or file it sent is named, and "Trả lời" opens the job's conversation.
+  The words come from `GET /api/activity/reports` (`activity/reports.py`), which lists only
+  job runs that opened a conversation, went well and said more than "OK"; an answer given
+  later in that conversation does not change the report.
+
+### Changed
+
+- **The inbox and push leave out what the chat is not told.** A job run that opened no
+  conversation (a command, a memory rewrite) and went well is no longer listed as a result
+  nor pushed; a failed one still is, under what needs attention.
+
 ## [0.33.1] — 2026-11-01
 
 ### Fixed
