@@ -1116,9 +1116,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - Playwright: `manage-row-phone.spec.ts`
     ("a count arriving leaves the row where the person scrolled it",
     "the current pill stays in view as the counts before it widen the row")
-- **Hộp thư trên điện thoại: yêu cầu duyệt tại chỗ, kết quả job mới nhất trước**
-  - vitest: `app-inbox.test.tsx`; `hooks/use-route.test.ts`
-  - Playwright: `phone-inbox.spec.ts` "the inbox settles a request and opens a job's report from a phone"
+- **Hộp thư: yêu cầu duyệt tại chỗ, kết quả job mới nhất trước; điện thoại mở từ header, màn hình
+  rộng mở từ chân sidebar (trên nút Quản lý)**
+  - vitest: `app-inbox.test.tsx` (kể cả "is offered at the sidebar's foot of a wide screen too, counted
+    the same way"); `hooks/use-route.test.ts`
+  - Playwright: `phone-inbox.spec.ts` "the inbox settles a request and opens a job's report from a phone";
+    `desktop-inbox.spec.ts` "a wide screen opens the inbox from the sidebar and reads a job's report there"
 - **Thông báo đẩy (Web Push)**
   - pytest:
     - `test_webpush_crypto.py`: vector của RFC 8291 §5, giải mã độc lập, claim VAPID;

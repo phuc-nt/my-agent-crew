@@ -22,8 +22,9 @@ interface Props {
 }
 
 /**
- * The phone's way in, in place of a chat app's notifications: what waits on the person
- * first, settled where it is listed, then what the scheduled jobs reported.
+ * The way in, in place of a chat app's notifications: what waits on the person first,
+ * settled where it is listed, then what the scheduled jobs reported. Shaped for a phone and
+ * opened from a wide screen's header too, where it reads as the same centred column.
  *
  * Notifications are turned on here too, since the inbox is where a tapped one lands.
  *

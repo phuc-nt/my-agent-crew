@@ -55,22 +55,26 @@ export function chatMenuButton({ phone, drawer, showDrawer, attentionCount }: Me
 }
 
 /**
- * On a phone, the way to the inbox: what waits on the person and what the jobs reported,
- * read the way a chat app's notifications are. The count is both — a request to settle or
- * a failure to read, and a result not yet seen — since each is a reason to open it.
+ * The way to the inbox: what waits on the person and what the jobs reported, read the way a
+ * chat app's notifications are. The count is both — a request to settle or a failure to read,
+ * and a result not yet seen — since each is a reason to open it. A phone has an icon beside
+ * the drawer's button; a wide screen a row over the manage button at the sidebar's foot,
+ * which is always in view there.
  */
-export function chatInboxButton({ phone, count, onOpenInbox }: { phone: boolean; count: number; onOpenInbox?: () => void }) {
-  return phone && onOpenInbox && (
+export function chatInboxButton({ count, row, onOpenInbox }: { count: number; row: boolean; onOpenInbox?: () => void }) {
+  const badge = count > 9 ? "9+" : count;
+  return onOpenInbox && (
     <button
       type="button"
-      className="icon-button inbox-button"
+      className={row ? "ghost manage-button inbox-row" : "icon-button inbox-button"}
       aria-label={count > 0 ? vi.inbox.openWith(count) : vi.inbox.open}
       onClick={onOpenInbox}
     >
       <Icon name="inbox" />
+      {row && vi.inbox.title}
       {count > 0 && (
-        <span className="inbox-count" aria-hidden="true" data-testid="inbox-count">
-          {count > 9 ? "9+" : count}
+        <span className={row ? "badge warn" : "inbox-count"} aria-hidden="true" data-testid="inbox-count">
+          {badge}
         </span>
       )}
     </button>

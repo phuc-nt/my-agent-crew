@@ -1,4 +1,4 @@
-/* The phone's inbox: one column, what waits on top, the jobs' reports under it. It is a
+/* The inbox, shaped for a phone: one column, what waits on top, the jobs' reports under it. It is a
    page of its own rather than a manage section, so it carries no nav column: on a phone
    that column is a row of pills, and the inbox is read top to bottom with one thumb. */
 .inbox-layout {
@@ -139,8 +139,8 @@
   margin-left: auto;
 }
 
-/* The chat header's way in, beside the drawer's: a count rather than a dot, since it
-   says how much is there to read. */
+/* The phone's way in, beside the drawer's button: a count rather than a dot, since it says
+   how much is there to read. A wide screen has a row at the sidebar's foot instead. */
 .inbox-button {
   position: relative;
   min-width: var(--touch-target);
@@ -162,4 +162,9 @@
   line-height: 18px;
   text-align: center;
   box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* The wide screen's way in: a row drawn as the manage button under it, its count at the end. */
+.inbox-row .badge {
+  margin-left: auto;
 }

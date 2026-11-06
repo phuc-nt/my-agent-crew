@@ -1,4 +1,4 @@
-// The phone's inbox: what waits on the person, then what the jobs reported.
+// The inbox: what waits on the person, then what the jobs reported.
 export const viInbox = {
   inbox: {
     title: "Hộp thư",

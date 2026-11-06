@@ -125,10 +125,11 @@ export function ChatScreen({
   const crewChip = chatCrewChip({ onOpenManage, crewNames });
   // Where the inbox is offered, its count is where waiting work is told; the drawer's dot would say it twice.
   const unread = useUnreadResults(runs);
+  const inboxButton = chatInboxButton({ count: attentionCount + unread, row: !phone, onOpenInbox });
   const menuButton = (
     <>
       {chatMenuButton({ phone, drawer, showDrawer, attentionCount: onOpenInbox ? 0 : attentionCount })}
-      {chatInboxButton({ phone, count: attentionCount + unread, onOpenInbox })}
+      {phone && inboxButton}
     </>
   );
 
@@ -142,7 +143,8 @@ export function ChatScreen({
     <div className={`layout${docked ? (dockOpen ? " with-canvas" : " with-activity") : ""}`}>
       {drawer.open && <div className="scrim" aria-hidden="true" onClick={drawer.hide} />}
       {chatSidebar({
-        list, crew, liveByAgent, onSelectConversation, master, live, phone, drawer, searchRef, create, remove, manageButton,
+        list, crew, liveByAgent, onSelectConversation, master, live, phone, drawer, searchRef, create, remove,
+        manageButton: <>{!phone && inboxButton}{manageButton}</>,
       })}
       {/* The open drawer is modal, and so is a canvas covering the chat: what either covers
           takes no focus and reads as absent. */}

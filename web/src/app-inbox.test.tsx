@@ -118,12 +118,22 @@ describe("the inbox on a phone", () => {
     expect(screen.getByText(vi.attentionEmpty)).toBeInTheDocument();
   });
 
-  // A wide screen has the manage button's counts in its sidebar, always in view.
-  it("is not offered in the header of a wide screen", async () => {
+  // A wide screen has no drawer; the sidebar's foot is always in view, over the manage button.
+  it("is offered at the sidebar's foot of a wide screen too, counted the same way", async () => {
     screenWidth(false);
-    backend.runs = [report("morning")];
+    backend.runs = [
+      fakeRun({ id: "w", status: "awaiting_approval", conversation_id: "c9", finished_at: null }),
+      report("morning"),
+    ];
     render(<App />);
-    await screen.findByText(vi.welcomeTitleFor("Agent"));
-    expect(screen.queryByRole("button", { name: new RegExp(vi.inbox.open) })).toBeNull();
+    await waitFor(() => expect(inboxButton()).toHaveAccessibleName(vi.inbox.openWith(2)));
+    expect(inboxButton().closest(".sidebar-foot")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: new RegExp(vi.openConversations) })).toBeNull();
+
+    await userEvent.click(inboxButton());
+    const inbox = await screen.findByTestId("inbox-screen");
+    expect(await within(inbox).findByRole("article", { name: /Bản tin morning/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: vi.inbox.back }));
+    await waitFor(() => expect(inboxButton()).toHaveAccessibleName(vi.inbox.openWith(1)));
   });
 });

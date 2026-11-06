@@ -20,7 +20,7 @@ export type ManageSection = (typeof MANAGE_SECTIONS)[number];
 
 export type Route =
   | { kind: "chat"; conversationId: string | null }
-  /** What waits on the person and what the jobs reported, read from a phone. */
+  /** What waits on the person and what the jobs reported, on a phone or a wide screen. */
   | { kind: "inbox" }
   | {
       kind: "manage";
