@@ -11,6 +11,15 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.35.0] — 2026-11-06
+
+### Added
+
+- **A wide screen opens the inbox too.** The full web UI has a "Hộp thư" row at the foot of
+  the sidebar, over "Quản lý", counting what waits on the person and the job results not yet
+  read, the way the phone's header button does; it opens the same `#/inbox` page, which reads
+  as a centred column there. Before, only a phone had a way in.
+
 ## [0.34.0] — 2026-11-02
 
 ### Added
