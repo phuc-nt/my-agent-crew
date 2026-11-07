@@ -5,7 +5,7 @@ title: Quy ước code
 
 # Quy ước code
 
-**Phiên bản**: 0.35.0 · **Cập nhật**: 2026-11-06
+**Phiên bản**: 0.36.0 · **Cập nhật**: 2026-11-08
 
 ## 1. Python
 

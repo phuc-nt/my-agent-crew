@@ -11,6 +11,28 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.36.0] — 2026-11-08
+
+### Added
+
+- **A held memory rewrite is told, not left to be found.** When the gate keeps a
+  consolidation's rewrite for the person, the run tells the agent's channel once (Telegram,
+  push), with why it was held and where to decide (`scheduler/proposal_notice.py`). The
+  inbox also links to **Quản lý → Trí nhớ** while any memory proposal waits.
+- **The inbox folds a job that keeps failing.** Failures of one job in a row are one row
+  saying how many times; "Đã xem cả N" reads them all. Each row says its day: the clock for
+  today, "Hôm qua 02:20" for yesterday, the date for an older day (the full time in its title).
+
+### Fixed
+
+- **A failed command says what it reported.** The run summary and the failure notice read
+  from the last line that reports an error (`ERROR:`, `Lỗi:`, `… failed:`) to the end, not
+  the tail of the output, which opened in the middle of an id when a command printed the
+  JSON body it was refused with (`scheduler/command_said.py`).
+- **The rewrite gate reads a hand-wrapped bullet as one line.** A consolidation that joined
+  a bullet wrapped over two lines is no longer held as if it dropped the second half
+  (`memory/wrapped_lines.py`).
+
 ## [0.35.0] — 2026-11-06
 
 ### Added
