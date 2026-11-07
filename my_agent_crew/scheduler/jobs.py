@@ -20,13 +20,14 @@ from typing import Any
 from my_agent_crew import texts
 from my_agent_crew import texts_job_failure as words
 from my_agent_crew.activity import ActivityHub, tracked
-from my_agent_crew.activity.step_previews import CUT, PREVIEW_CHARS
+from my_agent_crew.activity.step_previews import CUT, PREVIEW_CHARS, preview
 from my_agent_crew.agent.events import ToolCallEvent, ToolResultEvent
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.turn_context import JOB
 from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.memory.consolidate import consolidate_memory
 from my_agent_crew.memory.wiki_compile import compile_wiki
+from my_agent_crew.scheduler.command_said import what_failed
 from my_agent_crew.skills import Skill, mentioned_skills
 from my_agent_crew.store.runs import DONE, FAILED, RunRecord
 from my_agent_crew.tools.shell import run_shell
@@ -117,11 +118,15 @@ async def open_turn(
 
 def command_failure(code: int | None, output: str) -> str:
     """Why a command job failed, as the person is told it: the code the command left with
-    and the last line it printed, which is where a command says what went wrong; or, with
-    no code, that it ran past its limit and was stopped, in the shell tool's own words."""
+    and what it said went wrong: from the last line that reports an error when one does
+    (`command_said.py`), else the last line it printed; or, with no code, that it ran past
+    its limit and was stopped, in the shell tool's own words."""
     if code is None:
         return texts.SHELL_TIMEOUT.format(seconds=COMMAND_TIMEOUT_SECONDS)
     exited = words.COMMAND_EXITED.format(code=code)
+    said = what_failed(output)
+    if said:
+        return f"{exited} {words.COMMAND_SAID.format(line=said)}"
     last = next((line.strip() for line in reversed(output.splitlines()) if line.strip()), "")
     return f"{exited} {words.COMMAND_LAST_LINE.format(line=last)}" if last else exited
 
@@ -139,7 +144,11 @@ async def run_command(
     hub.record(
         run, ToolResultEvent("cmd", "shell_run", ok, output or f"exit {code}"), time.monotonic()
     )
-    hub.finish(run, status=DONE if ok else FAILED, summary=ending(output or ""))
+    # A failed command is summed up by what it said went wrong, from its start, as a failed
+    # script is; where it said nothing of the kind, by the end of all it printed.
+    said = "" if ok else what_failed(output or "")
+    summary = preview(said) if said else ending(output or "")
+    hub.finish(run, status=DONE if ok else FAILED, summary=summary)
     return run, "" if ok else command_failure(code, output)
 
 

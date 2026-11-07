@@ -16,6 +16,8 @@ JOB_FAILED = (
 # the sentence the shell tool has for it.
 COMMAND_EXITED = "Lệnh thoát với mã {code}."
 COMMAND_LAST_LINE = "Dòng cuối lệnh in ra: {line}"
+# What it said went wrong, from the line that reports an error (`scheduler/command_said.py`).
+COMMAND_SAID = "Lệnh báo lỗi: {line}"
 
 # The line every message of a failure ends on: when the next one comes. From the second
 # failure in a row it first says how long the job has been failing; `since` is written with
