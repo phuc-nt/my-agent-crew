@@ -197,7 +197,9 @@ dụng được hay không. Một bản chỉ *thêm* dòng, hoặc chỉ *đổ
 nội dung, vẫn tự áp dụng ngay như trước. Một bản *bỏ hoặc đổi* nội dung một dòng, hoặc mang một
 ngày không có trong `MEMORY.md` cũ, không phải ngày của một ghi chú gần đây và cũng không phải
 hôm nay, sẽ dừng lại chờ người quyết định. Tóm tắt run nói nó bị giữ vì lý do nào, và những ngày
-không rõ nguồn được ghi thêm vào danh sách lý do trên thẻ.
+không rõ nguồn được ghi thêm vào danh sách lý do trên thẻ. Một gạch đầu dòng viết tay xuống hai
+dòng (dòng sau thụt vào) được đọc là một dòng: bản viết lại nối nó thành một dòng không bị coi là
+bỏ nửa sau.
 
 Một bản viết lại mới thay chỗ bản viết lại cũ còn đang chờ của cùng agent; duyệt bản đã bị thay
 trả về 409 chứ không ghi đè lên bản mới hơn. Duyệt một bản viết lại khi `MEMORY.md` đã đổi kể từ

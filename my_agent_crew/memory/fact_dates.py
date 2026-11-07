@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from my_agent_crew.memory.wiki_lint import STALE_DAYS
+from my_agent_crew.memory.wrapped_lines import logical_lines
 
 #: A bullet line ending in its confirmation date, e.g. `- Sếp thích trà. (2026-09-29)`,
 #: and for what holds only for a while, the last day it holds after an arrow:
@@ -156,16 +157,11 @@ def removed_lines(previous: str, new: str) -> list[str]:
 
     Matching is exact, never "the old line's key is contained in a new line": that
     shortcut would let "Uống cà phê" survive being changed to "Không uống cà phê", exactly
-    the kind of silent reversal this check exists to catch.
+    the kind of silent reversal this check exists to catch. A bullet wrapped by hand is
+    one line here, in both texts (`wrapped_lines.py`).
     """
-    new_keys = {line_key(line) for line in new.splitlines() if line.strip()}
-    removed = []
-    for line in previous.splitlines():
-        if not line.strip():
-            continue
-        if line_key(line) not in new_keys:
-            removed.append(line.strip())
-    return removed
+    new_keys = {line_key(line) for line in logical_lines(new)}
+    return [line for line in logical_lines(previous) if line_key(line) not in new_keys]
 
 
 def invented_dates(previous: str, notes: list[tuple[str, str]], new: str, today: date) -> list[str]:
