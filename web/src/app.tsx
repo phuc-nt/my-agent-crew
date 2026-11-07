@@ -97,6 +97,8 @@ export function App() {
           onOpenRun={(runId) => navigate({ kind: "manage", section: "activity", param: runId })}
           onBack={() => navigate({ kind: "chat", conversationId: list.activeId })}
           onReload={() => void activity.refresh()}
+          pendingProposals={crew.stats?.pending_proposals ?? 0}
+          onOpenMemory={() => navigate({ kind: "manage", section: "memory" })}
         />
       </ErrorBoundary>
     );

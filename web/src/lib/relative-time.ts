@@ -82,6 +82,15 @@ export function dayClock(iso: string, now: Date = new Date()): string {
   return `${shortDate(date)} ${clock(date)}`;
 }
 
+/** As dayClock, but a day before yesterday is only its date, "24/09": a row that names when a
+ *  thing went wrong keeps to one line on a phone, and the hour of an old day is in its title. */
+export function dayOrClock(iso: string, now: Date = new Date()): string {
+  const date = parse(iso);
+  if (date === null) return iso;
+  const offset = dayOffset(iso, now);
+  return offset === 0 || offset === -1 ? dayClock(iso, now) : shortDate(date);
+}
+
 /** "07:00" on the viewer's clock, written the way timeUntil writes a later day's time. */
 export function clockTime(iso: string): string {
   const date = parse(iso);

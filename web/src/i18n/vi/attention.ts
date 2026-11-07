@@ -21,4 +21,9 @@ export const viAttention = {
   // Over the chat: the requests of the agents this conversation handed work to, decided here.
   attentionDelegated: "Việc đã giao đang chờ bạn",
   attentionFailedElsewhere: (n: number) => `${n} lỗi hoặc dừng chưa xem ở mục Hoạt động`,
+  // A memory rewrite the gate held: it waits on the person as much as an approval does.
+  attentionProposals: (n: number) => `${n} đề xuất trí nhớ chờ bạn duyệt ở mục Trí nhớ`,
+  // A row that stands for every failure in a row of the same job.
+  attentionRepeats: (n: number) => `${n} lần liên tiếp`,
+  attentionSeenAll: (n: number) => `Đã xem cả ${n}`,
 } as const;

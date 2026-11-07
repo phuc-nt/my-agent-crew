@@ -19,6 +19,9 @@ interface Props {
   onOpenRun: (runId: string) => void;
   onBack: () => void;
   onReload: () => void;
+  /** Memory rewrites held for the person, and the page they are decided on. */
+  pendingProposals?: number;
+  onOpenMemory?: () => void;
 }
 
 /**
@@ -64,6 +67,8 @@ export function InboxScreen(props: Props) {
           agentName={agentName}
           onOpenConversation={onOpenConversation}
           onReload={props.onReload}
+          proposalsElsewhere={props.pendingProposals}
+          onOpenProposals={props.onOpenMemory}
         />
         {loadFailed && <p className="muted inbox-note">{vi.inbox.loadFailed}</p>}
         <InboxResults results={results} reports={reports} fresh={fresh} agentName={agentName} onOpen={open} />

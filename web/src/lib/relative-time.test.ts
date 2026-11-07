@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calendarDate, dayClock, dayGroup, dayOffset, timeAgo, timeUntil } from "./relative-time";
+import { calendarDate, dayClock, dayGroup, dayOrClock, dayOffset, timeAgo, timeUntil } from "./relative-time";
 
 // The suite runs in Asia/Ho_Chi_Minh (vite.config.ts), so 17:30Z is 00:30 on the 27th.
 const now = new Date("2026-09-26T17:30:00Z");
@@ -61,6 +61,13 @@ describe("a time as a sentence names it", () => {
     expect(dayClock(iso(25, 23, 59), midMorning)).toBe("25/09 23:59");
     expect(dayClock(iso(1, 7, 5), midMorning)).toBe("01/09 07:05");
     expect(dayClock(iso(28, 0, 0), midMorning)).toBe("28/09 00:00");
+  });
+
+  it("keeps the hour for today and yesterday, and only the date for an older day", () => {
+    expect(dayOrClock(iso(27, 9, 30), midMorning)).toBe("09:30");
+    expect(dayOrClock(iso(26, 2, 20), midMorning)).toBe("Hôm qua 02:20");
+    expect(dayOrClock(iso(25, 2, 20), midMorning)).toBe("25/09");
+    expect(dayOrClock("not a date", midMorning)).toBe("not a date");
   });
 
   it("hands back a timestamp it cannot read", () => {

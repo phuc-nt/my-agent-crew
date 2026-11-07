@@ -1,15 +1,17 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
+import { foldRepeats } from "../lib/attention-repeats";
+import { dayClock, dayOrClock } from "../lib/relative-time";
 import { type HeldRun, heldAt, withHeld } from "../lib/run-order";
 import { runSummaryText } from "../lib/run-summary";
 import { markSeen, seenKey } from "../lib/seen-runs";
+import { AttentionElsewhere, type Elsewhere, elsewhereCount } from "./attention-elsewhere";
 import { icon, label } from "./attention-label";
 import { AttentionRow } from "./attention-row";
-import { formatClock } from "./run-timeline";
 import { Icon } from "./ui/icon";
 
-interface Props {
+interface Props extends Elsewhere {
   runs: RunInfo[];
   agentName: (id: string) => string;
   onOpenConversation: (conversationId: string) => void;
@@ -19,12 +21,6 @@ interface Props {
   inline?: boolean;
   /** Reads the activity list again after a row changed something on the server. */
   onReload?: () => void;
-  /** Requests waiting in another section, so this card never says there is nothing. */
-  waitingElsewhere?: number;
-  onOpenWaiting?: () => void;
-  /** Failures not yet read, listed in another section — the same promise the other way. */
-  failedElsewhere?: number;
-  onOpenFailed?: () => void;
   /** Names the list where it holds only part of what waits, as in the chat. */
   heading?: string;
   /** Drawn only while it holds a row: off the page about waiting work, "nothing" is noise. */
@@ -37,8 +33,6 @@ const noop = () => undefined;
 /** Approvals waiting anywhere plus runs that ended badly, one click from their conversation. */
 export function AttentionCenter(props: Props) {
   const { runs, agentName, onOpenConversation, parentTitle, inline = false, heading: title = vi.attention } = props;
-  const waitingElsewhere = props.waitingElsewhere ?? 0;
-  const failedElsewhere = props.failedElsewhere ?? 0;
   const titles = useId();
   // Rows settled or dismissed from here leave at once, before the list is read again.
   const [settled, setSettled] = useState<string[]>([]);
@@ -50,9 +44,12 @@ export function AttentionCenter(props: Props) {
   const extra = held.filter((h) => !runs.some((run) => run.id === h.run.id));
   const listed = extra.length > 0 ? withHeld(runs, extra) : runs;
   const shown = listed.filter((run) => !settled.includes(seenKey(run)));
+  // A job failing night after night is one row, saying how many nights (`foldRepeats`).
+  const rows = foldRepeats(shown);
+  const earlierOf = (run: RunInfo) => rows.find((row) => row.run.id === run.id)?.earlier ?? [];
   // "Nothing needs you" must hold for the whole manage screen, not just this list: the
   // nav still counts the work listed on the other page, and the two would contradict.
-  const calm = shown.length === 0 && waitingElsewhere === 0 && failedElsewhere === 0;
+  const calm = shown.length === 0 && elsewhereCount(props) === 0;
 
   // A row that leaves takes the focus inside it along, and the next Tab would start over
   // from the top of the page: it goes to the row that took its place, or to the heading.
@@ -60,6 +57,8 @@ export function AttentionCenter(props: Props) {
   const list = useRef<HTMLUListElement>(null);
   const current = useRef(shown);
   current.current = shown;
+  const currentRows = useRef(rows);
+  currentRows.current = rows;
   const leaving = useRef<number | null>(null);
   useEffect(() => {
     const at = leaving.current;
@@ -70,9 +69,9 @@ export function AttentionCenter(props: Props) {
     const next = rows?.[Math.min(at, rows.length - 1)];
     (next?.querySelector<HTMLElement>("button:not(:disabled)") ?? heading.current)?.focus();
   });
-  const leave = (run: RunInfo) => {
-    leaving.current = current.current.findIndex((r) => r.id === run.id);
-    setSettled((keys) => [...keys, seenKey(run)]);
+  const leave = (run: RunInfo, earlier: RunInfo[] = []) => {
+    leaving.current = currentRows.current.findIndex((row) => row.run.id === run.id);
+    setSettled((keys) => [...keys, seenKey(run), ...earlier.map(seenKey)]);
     setHeld((rows) => rows.filter((r) => r.run.id !== run.id));
   };
   const hold = (run: RunInfo) => {
@@ -81,23 +80,28 @@ export function AttentionCenter(props: Props) {
   };
 
   // Said of a failure once it is read, and of a request found closed with nothing to decide.
-  const seenButton = (run: RunInfo) => (
-    <button
-      type="button"
-      className="ghost attention-seen"
-      aria-label={vi.attentionSeenLabel(label(run, agentName(run.agent_id)))}
-      onClick={() => {
-        markSeen(seenKey(run));
-        leave(run);
-      }}
-    >
-      <Icon name="check" />
-      {vi.attentionSeen}
-    </button>
-  );
+  // A row standing for several failures of one job reads them all.
+  const seenButton = (run: RunInfo) => {
+    const earlier = earlierOf(run);
+    return (
+      <button
+        type="button"
+        className="ghost attention-seen"
+        aria-label={vi.attentionSeenLabel(label(run, agentName(run.agent_id)))}
+        onClick={() => {
+          for (const each of [run, ...earlier]) markSeen(seenKey(each));
+          leave(run, earlier);
+        }}
+      >
+        <Icon name="check" />
+        {earlier.length > 0 ? vi.attentionSeenAll(earlier.length + 1) : vi.attentionSeen}
+      </button>
+    );
+  };
 
   const head = (run: RunInfo, preview: boolean) => {
     const parent = parentTitle?.(run);
+    const repeats = earlierOf(run).length;
     return (
       <>
         <span className="attention-icon">
@@ -106,7 +110,13 @@ export function AttentionCenter(props: Props) {
         <span className="attention-text">
           <span className="attention-title" id={`${titles}-${run.id}`}>
             {label(run, agentName(run.agent_id))}
-            <span className="muted tabular"> · {formatClock(run.started_at)}</span>
+            <span className="muted tabular">
+              {" · "}
+              <time className="attention-when" dateTime={run.started_at} title={dayClock(run.started_at)}>
+                {dayOrClock(run.started_at)}
+              </time>
+            </span>
+            {repeats > 0 && <span className="muted attention-repeats"> · {vi.attentionRepeats(repeats + 1)}</span>}
           </span>
           {parent && (
             <span className="attention-child" data-testid="attention-child">
@@ -150,7 +160,7 @@ export function AttentionCenter(props: Props) {
       )}
       {shown.length > 0 && (
         <ul className="attention-list" ref={list}>
-          {shown.map((run) =>
+          {rows.map(({ run }) =>
             inline && run.status === "awaiting_approval" && run.conversation_id ? (
               <AttentionRow
                 key={run.id}
@@ -172,18 +182,7 @@ export function AttentionCenter(props: Props) {
           )}
         </ul>
       )}
-      {waitingElsewhere > 0 && (
-        <button type="button" className="attention-elsewhere" onClick={props.onOpenWaiting}>
-          {vi.attentionWaitingElsewhere(waitingElsewhere)}
-          <Icon name="arrow-right" />
-        </button>
-      )}
-      {failedElsewhere > 0 && (
-        <button type="button" className="attention-elsewhere" onClick={props.onOpenFailed}>
-          {vi.attentionFailedElsewhere(failedElsewhere)}
-          <Icon name="arrow-right" />
-        </button>
-      )}
+      <AttentionElsewhere {...props} />
     </section>
   );
 }
