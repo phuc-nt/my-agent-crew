@@ -201,6 +201,10 @@ không rõ nguồn được ghi thêm vào danh sách lý do trên thẻ. Một 
 dòng (dòng sau thụt vào) được đọc là một dòng: bản viết lại nối nó thành một dòng không bị coi là
 bỏ nửa sau.
 
+Khi bản viết lại bị giữ, agent nhắn một lần lên kênh của nó (Telegram, push) rằng trí nhớ đang
+chờ duyệt và vì sao. Hộp thư cũng có một nút dẫn tới **Quản lý → Trí nhớ** cho đến khi không còn
+đề xuất nào chờ.
+
 Một bản viết lại mới thay chỗ bản viết lại cũ còn đang chờ của cùng agent; duyệt bản đã bị thay
 trả về 409 chứ không ghi đè lên bản mới hơn. Duyệt một bản viết lại khi `MEMORY.md` đã đổi kể từ
 lúc đề xuất — người sửa tay, hay một bản khác vừa được áp dụng — cũng bị từ chối bằng 409, và đề

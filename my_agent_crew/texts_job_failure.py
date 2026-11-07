@@ -28,3 +28,10 @@ JOB_FAILING_SINCE = "%H:%M ngày %d/%m"
 
 # Told once when a job the person had been told of ran well again.
 JOB_RECOVERED = 'Lịch "{name}" đã chạy lại được sau {count} lần hỏng liên tiếp.'
+
+# Told once when a rewrite of an agent's memory was held for the person to approve
+# (`scheduler/proposal_notice.py`): which agent, why it was held, and where to decide.
+MEMORY_HELD = (
+    "Trí nhớ của {agent} vừa được cô đọng nhưng đang chờ bạn duyệt: {why}\n"
+    "Duyệt ở web UI: Hộp thư, hoặc Quản lý → Trí nhớ."
+)

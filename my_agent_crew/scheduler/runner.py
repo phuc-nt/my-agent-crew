@@ -1,6 +1,5 @@
-"""The clock over each agent's schedules: which job is due, what ran last, what runs
-next. Carrying a job out is `scheduler/jobs.py`; this module only decides when, and has the
-person told of what a job came to."""
+"""The clock over each agent's schedules: which job is due, what ran last, what runs next.
+Carrying a job out is `scheduler/jobs.py`; this decides when, and has the person told."""
 
 from __future__ import annotations
 
@@ -21,6 +20,7 @@ from my_agent_crew.scheduler.execute import dispatch
 from my_agent_crew.scheduler.failure_notice import Notify
 from my_agent_crew.scheduler.failure_streaks import Streaks
 from my_agent_crew.scheduler.jobs import JOB_SOURCE, Job, nothing_to_report
+from my_agent_crew.scheduler.proposal_notice import tell_held
 from my_agent_crew.scheduler.table import JobTable
 from my_agent_crew.store.db import now_iso
 from my_agent_crew.store.runs import RunRecord
@@ -38,10 +38,8 @@ class Scheduler:
         deliver: Callable[[str, str], Awaitable[bool]] | None = None,
         notify: Notify | None = None,
     ):
-        self._agents = agents
-        self._hub = hub
-        self._clock = clock
-        self._deliver = deliver
+        self._agents, self._hub, self._clock = agents, hub, clock
+        self._deliver, self._notify = deliver, notify
         self._store = next(iter(agents.values())).store if agents else None
         self._jobs = JobTable(agents, self._store, clock)
         self._streaks = Streaks(notify, clock)
@@ -168,6 +166,8 @@ class Scheduler:
             run, ended_by = await dispatch(job, deps, self._hub, self._clock)
             if job.schedule.kind in DELIVERED:
                 await self.deliver_run(job, run)
+            if job.schedule.consolidate:
+                await tell_held(job, deps, run, self._notify)
             # A job that left the clock while it ran is counted no more: what it came to
             # would be held against whichever job is later made under its id.
             if job.id in self._jobs.rows():
