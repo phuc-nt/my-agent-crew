@@ -11,6 +11,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.37.0] — 2026-11-08
+
+### Changed
+
+- **A job's failure leaves the inbox once the job runs well again.** "Cần bạn xử lý" no
+  longer lists a scheduled job's failure when a later run of the same job is done: the
+  fault is over and the channel was told it recovered. A failed conversation and a request
+  waiting on a decision stay until read or settled (`withoutRecovered` in
+  `web/src/lib/attention-repeats.ts`).
+
 ## [0.36.0] — 2026-11-08
 
 ### Added
