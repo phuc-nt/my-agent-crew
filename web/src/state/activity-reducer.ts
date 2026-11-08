@@ -1,3 +1,4 @@
+import { withoutRecovered } from "../lib/attention-repeats";
 import { newestFirst } from "../lib/run-order";
 import type { RunInfo, RunPayload } from "../api/types";
 import { applyRunEvent } from "./activity-run-event";
@@ -110,9 +111,10 @@ export function conversationFamilyRuns(
   );
 }
 
-/** What needs a human: approvals waiting anywhere, and runs that ended badly. */
+/** What needs a human: approvals waiting anywhere, and runs that ended badly, but not a
+ *  job's failure that a later run of the job already put right (`withoutRecovered`). */
 export function needsAttention(state: ActivityState): RunInfo[] {
-  return sortedRuns(state).filter(
-    (r) => r.status === "awaiting_approval" || r.status === "error" || r.status === "halted",
-  );
+  const runs = sortedRuns(state);
+  const asking = runs.filter((r) => r.status === "awaiting_approval" || r.status === "error" || r.status === "halted");
+  return withoutRecovered(asking, runs);
 }

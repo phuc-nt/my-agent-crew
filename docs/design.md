@@ -728,7 +728,9 @@ luồng tin — để chúng cạnh nhau khiến việc của đội và việc 
 cùng một thứ. Nav của nó gom các mục thành theo dõi (activity, duyệt, chi phí), đội
 (đội, tool, job, trí nhớ) và hệ thống (kết nối, cài đặt); trên điện thoại các nhóm dàn phẳng
 thành một hàng cuộn ngang. Các mục của nó: activity (một mục **Cần bạn xử lý** cho các run
-đã lỗi hoặc bị dừng, mỗi run một nút "Đã xem"; các run đang chạy; rồi lịch sử run đã lưu,
+đã lỗi hoặc bị dừng, mỗi run một nút "Đã xem"; các lần hỏng liên tiếp của một job gộp
+thành một dòng, và lỗi của một job tự rời mục này khi một run sau của job đó chạy tốt; các
+run đang chạy; rồi lịch sử run đã lưu,
 lọc theo agent ngay ở server và theo trạng thái, nguồn trong trang, đọc lùi thêm bằng
 "Xem thêm"), duyệt (các yêu cầu đang chờ, quyết ngay tại chỗ — cho phép, từ chối hay trả lời
 câu hỏi — kèm đồng hồ đếm tới hạn chót; bên dưới là lịch sử các yêu cầu đã quyết kèm kết

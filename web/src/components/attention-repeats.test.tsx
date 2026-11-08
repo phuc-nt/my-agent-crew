@@ -4,7 +4,7 @@ import { describe, expect, it, vi as vitest } from "vitest";
 import type { RunInfo } from "../api/types";
 import { useAttention } from "../hooks/use-attention-badge";
 import { vi } from "../i18n/vi";
-import { foldRepeats } from "../lib/attention-repeats";
+import { foldRepeats, withoutRecovered } from "../lib/attention-repeats";
 import { fakeRun } from "../test/fake-backend";
 import { AttentionCenter } from "./attention-center";
 
@@ -48,6 +48,39 @@ describe("foldRepeats", () => {
     const [row] = foldRepeats([middle, newest, oldest]);
     expect(row.run.id).toBe(newest.id);
     expect(row.earlier.map((r) => r.id).sort()).toEqual([middle.id, oldest.id].sort());
+  });
+});
+
+describe("withoutRecovered", () => {
+  const ids = (runs: RunInfo[]) => runs.map((run) => run.id);
+
+  it("drops a job's failures once a later run of that job went well", () => {
+    const failed = nights("w");
+    const good = fakeRun({ id: "good", source: BACKUP, status: "done", started_at: at(9) });
+    expect(withoutRecovered(failed, [good, ...failed])).toEqual([]);
+  });
+
+  it("keeps a failure that came after the last good run, or with no good run at all", () => {
+    const failed = nights("k");
+    // Rerun by hand the morning after the second failed night.
+    const good = fakeRun({ id: "good", source: BACKUP, status: "done", started_at: new Date(2026, 10, 7, 9, 0).toISOString() });
+    expect(ids(withoutRecovered(failed, [...failed, good]))).toEqual(["k-8"]);
+    expect(ids(withoutRecovered(failed, failed))).toEqual(["k-8", "k-7", "k-6"]);
+  });
+
+  it("is not put right by another job, a conversation, or a run still going", () => {
+    const failed = nights("o");
+    const later = [
+      fakeRun({ id: "other", source: "job:ledger/gold-daily-update", status: "done", started_at: at(9) }),
+      fakeRun({ id: "going", source: BACKUP, status: "running", started_at: at(9), finished_at: null }),
+    ];
+    expect(ids(withoutRecovered(failed, [...later, ...failed]))).toEqual(["o-8", "o-7", "o-6"]);
+
+    const chat = fakeRun({ id: "chat", source: "web", status: "error", started_at: at(6) });
+    const ask = fakeRun({ id: "ask", source: BACKUP, status: "awaiting_approval", started_at: at(6), finished_at: null });
+    const good = fakeRun({ id: "good", source: "web", status: "done", started_at: at(9) });
+    const goodJob = fakeRun({ id: "good-job", source: BACKUP, status: "done", started_at: at(9) });
+    expect(ids(withoutRecovered([chat, ask], [good, goodJob, chat, ask]))).toEqual(["chat", "ask"]);
   });
 });
 

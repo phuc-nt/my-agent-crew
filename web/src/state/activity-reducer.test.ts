@@ -508,6 +508,20 @@ describe("activityReducer", () => {
     expect(needsAttention(state).map((r) => r.id)).toEqual(["wait", "bad"]);
   });
 
+  it("leaves out a job's failure once a later run of the job went well", () => {
+    const job = "job:health-coach/backup-to-drive";
+    const state = activityReducer(emptyActivity, {
+      type: "recent",
+      runs: [
+        run({ id: "night1", status: "error", source: job, started_at: "2026-11-06T19:20:00Z" }),
+        run({ id: "night2", status: "error", source: job, started_at: "2026-11-07T19:20:00Z" }),
+        run({ id: "rerun", status: "done", source: job, started_at: "2026-11-07T20:01:00Z" }),
+        run({ id: "chat", status: "error", started_at: "2026-11-07T08:00:00Z" }),
+      ],
+    });
+    expect(needsAttention(state).map((r) => r.id)).toEqual(["chat"]);
+  });
+
   // Start times are whole seconds. Runs that share their start and their end stay in the
   // list's order, and one the stream announces has just started: the newest of them.
   it("keeps runs of the same second in the list's order, behind one it hears start", () => {

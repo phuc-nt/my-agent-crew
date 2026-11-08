@@ -33,3 +33,24 @@ export function foldRepeats(runs: RunInfo[]): Repeated[] {
   }
   return rows;
 }
+
+/** When a run began, as a number to compare; an unreadable time sorts first. */
+const began = (run: RunInfo) => Date.parse(run.started_at) || 0;
+
+/**
+ * Drops a scheduled job's failure once a later run of the same job went well: the fault is
+ * over, and the channel was told it ran again, so there is nothing left for the person to
+ * do about it. A conversation that failed stays, since no later run answers it, and so does
+ * a request waiting on a decision. `all` is every run known, `runs` the ones asking.
+ */
+export function withoutRecovered(runs: RunInfo[], all: RunInfo[]): RunInfo[] {
+  const wentWell = new Map<string, number>();
+  for (const run of all) {
+    if (run.status !== "done" || !run.source.startsWith("job:")) continue;
+    wentWell.set(run.source, Math.max(wentWell.get(run.source) ?? 0, began(run)));
+  }
+  return runs.filter((run) => {
+    if (run.status === "awaiting_approval" || !run.source.startsWith("job:")) return true;
+    return (wentWell.get(run.source) ?? 0) <= began(run);
+  });
+}
