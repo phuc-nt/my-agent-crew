@@ -78,6 +78,16 @@ async def test_the_command_still_gets_the_names_a_script_needs_to_run(tmp_path: 
     assert env["HOME"] == str(tmp_path)
 
 
+async def test_the_command_runs_in_the_crew_time_zone_not_utc(tmp_path: Path, monkeypatch):
+    """A script that asks for today or now must see the owner's clock: a container whose
+    process sets TZ but whose commands fall back to UTC reads 11:00 as 04:00."""
+    monkeypatch.setenv("TZ", "Asia/Ho_Chi_Minh")
+    assert shell_env()["TZ"] == "Asia/Ho_Chi_Minh"
+    code, output = await run_shell("date +%z", tmp_path, timeout_s=10)
+    assert code == 0
+    assert "+0700" in output
+
+
 async def test_an_unset_path_still_leaves_the_command_able_to_find_binaries(monkeypatch):
     monkeypatch.delenv("PATH", raising=False)
     monkeypatch.delenv("LANG", raising=False)

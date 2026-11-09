@@ -35,7 +35,7 @@ from my_agent_crew.tools.shell_sandbox import SANDBOX_EXEC, sandbox_profile
 SHELL_TOOL_NAME = "shell_run"
 DEFAULT_TIMEOUT_S = 120
 MAX_TIMEOUT_S = 900
-PASSTHROUGH_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "TERM", "TMPDIR", "USER", "SHELL")
+PASSTHROUGH_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "TERM", "TMPDIR", "USER", "SHELL", "TZ")
 
 
 def shell_env() -> dict[str, str]:
