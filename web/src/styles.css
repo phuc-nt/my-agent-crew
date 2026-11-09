@@ -119,6 +119,7 @@
 @import "./styles/thread-composer-sidebar.css";
 @import "./styles/thread-composer-slash.css";
 @import "./styles/thread-composer-phone.css";
+@import "./styles/composer-attachments.css";
 @import "./styles/chat-state.css";
 @import "./styles/script-handoff.css";
 @import "./styles/script-store.css";

@@ -81,6 +81,16 @@ export const viConversation = {
     empty: "Không có lệnh nào khớp.",
     hint: "↑↓ để chọn · Enter hoặc Tab để chèn · Esc để đóng",
   },
+  /** Files and photos the person adds to the next message, shown in the box until sent. */
+  attach: {
+    open: "Đính kèm ảnh hoặc tệp",
+    tray: "Tệp sẽ gửi kèm",
+    remove: (name: string) => `Bỏ ${name}`,
+    uploading: "Đang tải lên…",
+    failed: (reason: string) => `Không tải lên được: ${reason}`,
+    tooLarge: (mb: number) => `Lớn quá: tối đa ${mb} MB mỗi tệp`,
+    drop: "Thả tệp vào đây để gửi kèm",
+  },
   send: "Gửi",
   stop: "Dừng",
   /** The send button's own label while the conversation is busy: what a plain message or

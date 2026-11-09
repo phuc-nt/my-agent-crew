@@ -1,9 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { CommandInfo } from "../api/types";
+import { useAttachments } from "../hooks/use-attachments";
+import { useAutosize } from "../hooks/use-autosize";
 import { useDraft } from "../hooks/use-draft";
 import { useSendLock, type SendWords } from "../hooks/use-send-lock";
 import { vi } from "../i18n/vi";
 import { steerHint } from "../lib/steer-hint";
+import { AttachButton, AttachmentTray, useFileIntake } from "./composer-attachments";
 import { SlashPopover, useSlashMenu } from "./slash-popover";
 import { Icon } from "./ui/icon";
 
@@ -26,6 +29,8 @@ interface Props {
   draftKey?: string;
   /** Who the message goes to, so the empty box says so. */
   agentName?: string;
+  /** The agent whose inbox takes the files attached here; absent offers no attaching. */
+  agentId?: string;
   /** The agent's own commands, offered when the message starts with "/". */
   commands?: CommandInfo[];
   /** Whether Stop should be offered while busy. Defaults to `busy`, so a caller that only
@@ -44,15 +49,13 @@ interface Props {
   onStop: () => void;
 }
 
-/** The box grows with what is typed up to this many pixels, then scrolls. */
-const MAX_HEIGHT = 240;
-
 export function Composer({
   disabled,
   busy,
   draft,
   draftKey,
   agentName,
+  agentId,
   commands = [],
   stoppable = busy,
   restore,
@@ -64,6 +67,8 @@ export function Composer({
   const lock = useSendLock(draftKey ?? null, text, setText);
   const box = useRef<HTMLTextAreaElement>(null);
   const menu = useSlashMenu(commands, text, setText, box, disabled || lock.locked);
+  const attach = useAttachments(agentId, draftKey ?? null);
+  const intake = useFileIntake(attach, Boolean(agentId) && !disabled && !lock.locked);
   const listed = menu.open && menu.shown.length > 0;
   // What a busy send will actually do to this text: the server alone decides for real
   // (`steer_text`, `find_command`), so a stale or unloaded command list only gets the
@@ -91,20 +96,12 @@ export function Composer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restore]);
 
-  // One line when empty, as tall as the message while it is written: a fixed two-row box
-  // either wastes a line on every short message or hides the start of a long one. Empty,
-  // the box keeps its one row: measuring then would size it to the placeholder, which
-  // wraps on a phone and would leave a second, blank line once a short name replaces it.
-  useLayoutEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    el.style.height = "";
-    if (text) el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
-  }, [text]);
+  useAutosize(box, text);
 
   const submit = () => {
-    if (!disabled) lock.send(onSend, text);
+    if (!disabled && !attach.uploading) lock.send(attach.carry(onSend), text, attach.lines.length > 0);
   };
+  const ready = Boolean(text.trim()) || attach.lines.length > 0;
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     // A composition in progress (Vietnamese Telex, Japanese IME) uses Enter to commit the
@@ -121,7 +118,8 @@ export function Composer({
 
   return (
     <form
-      className="composer"
+      className={`composer${intake.over ? " dropping" : ""}`}
+      {...intake.drop}
       onSubmit={(event) => {
         event.preventDefault();
         submit();
@@ -129,6 +127,8 @@ export function Composer({
     >
       <div className={`composer-box${disabled ? " disabled" : ""}`}>
         <SlashPopover menu={menu} />
+        <AttachmentTray attach={attach} />
+        {agentId && <AttachButton attach={attach} disabled={disabled || lock.locked} />}
         <textarea
           ref={box}
           aria-label={vi.composerPlaceholder}
@@ -142,6 +142,7 @@ export function Composer({
           readOnly={lock.locked}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={intake.onPaste}
           onFocus={menu.onFocus}
           onBlur={menu.onBlur}
         />
@@ -175,13 +176,13 @@ export function Composer({
         {/* Busy with nothing typed offers only Stop: a send button with nothing to send
             would just repeat it, and the two side by side at that point read as one
             choice offered twice. */}
-        {(!busy || text.trim()) && (
+        {(!busy || ready) && (
           <button
             type="submit"
             className="composer-action primary"
             aria-label={busy ? sendLabel : vi.send}
             title={busy ? sendLabel : vi.send}
-            disabled={disabled || !text.trim()}
+            disabled={disabled || !ready || attach.uploading}
           >
             <Icon name="arrow-up" />
           </button>

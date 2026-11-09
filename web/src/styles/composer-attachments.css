@@ -1,0 +1,150 @@
+/*
+ * Files going with the next message: the paperclip at the box's start, the tray of
+ * thumbnails above the text, and the outline while a file is dragged over the composer.
+ */
+
+/* The tray takes a row of its own inside the box, above the text and the buttons. */
+.composer-box {
+  flex-wrap: wrap;
+}
+.composer-box:has(> button.composer-action.attach) {
+  padding-left: 6px;
+}
+
+button.composer-action.attach {
+  background: transparent;
+  color: var(--muted);
+}
+button.composer-action.attach:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+button.composer-action.attach svg {
+  width: 20px;
+  height: 20px;
+}
+
+.composer-tray {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 2px 0 var(--space-1) var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.composer-file {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+.composer-file img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* A file that is not a picture reads as its name. */
+.composer-file:not(:has(img)) {
+  width: auto;
+  max-width: 220px;
+  height: 40px;
+  padding: 0 32px 0 var(--space-2);
+}
+.composer-file-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  overflow: hidden;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.composer-file-name svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+/* Still going up: the picture dims under a turning ring. */
+.composer-file.uploading img {
+  opacity: 0.5;
+}
+.composer-file-state {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: composer-file-spin 0.8s linear infinite;
+}
+@keyframes composer-file-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-file-state {
+    animation: none;
+  }
+}
+
+.composer-file.failed {
+  border-color: var(--danger);
+}
+.composer-file-error {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 1px 3px;
+  overflow: hidden;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+button.composer-file-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+}
+button.composer-file-remove svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* A file held over the composer: the box says it will take it. */
+.composer.dropping .composer-box {
+  border-style: dashed;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 720px) {
+  button.composer-action.attach {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    min-height: var(--touch-target);
+  }
+}

@@ -8195,3 +8195,19 @@ desktop mà cả server giả của vitest lẫn mock của Playwright dùng.
     402 không thử lại; sau đó không hỏi lại cho tới hết 15 phút; chuỗi rơi sang OpenRouter; khoá chỉ
     lấy từ môi trường; provider chỉ được dựng khi có khoá, không có thì tuyến `anthropic:` bị bỏ; kiểm
     tra khoá liệt kê model miễn phí và không lặp lại khoá).
+
+## Gửi ảnh và tệp từ ô soạn tin trên web
+
+- **Tệp vào hộp thư của agent như tệp gửi qua Telegram**:
+  - pytest: `tests/test_inbox_upload.py` (tệp được lưu vào `inbox/` của workspace với tên bắt đầu
+    bằng thời điểm, trả về dòng đính kèm và đọc lại được qua route files; hai tệp cùng tên trong
+    cùng một giây không đè nhau; tên do người gửi đặt không ra khỏi `inbox/`; tệp rỗng 422, quá
+    20 MB 413, agent lạ 404; Telegram và web đặt tên cùng một cách).
+- **Ô soạn tin nhận ảnh bằng nút kẹp giấy, dán và kéo thả**:
+  - vitest: `web/src/components/composer-attachments.test.tsx` (ảnh chọn được tải lên hộp thư của
+    agent và dòng của nó đi trước chữ; gửi được ảnh không kèm chữ; chưa gửi khi tệp còn đang tải;
+    tệp ở lại khi tin chưa được nhận, đi khi đã nhận; tệp tải hỏng nói lý do và bỏ được; tệp quá
+    20 MB không gửi đi đâu; ảnh dán và tệp thả vào được nhận; không có agent thì không có nút kẹp).
+  - Playwright: `web/e2e/composer-attach.spec.ts` "a photo picked with the paperclip goes with the
+    message and shows in the thread", "a screenshot pasted into the box joins the message on a
+    phone too".

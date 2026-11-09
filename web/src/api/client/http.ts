@@ -23,7 +23,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   return (await response.json()) as T;
 }
 
-async function failure(response: Response): Promise<ApiError> {
+export async function failure(response: Response): Promise<ApiError> {
   try {
     const body = (await response.json()) as { detail?: unknown };
     const message = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? body);

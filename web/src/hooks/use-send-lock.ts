@@ -38,9 +38,10 @@ export function useSendLock(key: string | null, text: string, setText: (text: st
     else if (now.text.endsWith(typed)) now.setText(now.text.slice(0, -typed.length).replace(/\n+$/, ""));
   };
 
-  const send = (onSend: SendWords, typed: string): void => {
+  /** `carried` says the message has something besides the words (files), so it may go with none. */
+  const send = (onSend: SendWords, typed: string, carried = false): void => {
     const words = typed.trim();
-    if (!words || sending.current.has(key)) return;
+    if ((!words && !carried) || sending.current.has(key)) return;
     const answer = onSend(words);
     if (!(answer instanceof Promise)) {
       setText("");
