@@ -11,6 +11,16 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.38.0] — 2026-11-09
+
+### Added
+
+- **Photos and files from the web composer.** A paperclip button, paste and drag-and-drop put
+  files in a tray inside the message box. Each goes to the agent's `inbox/` as soon as it is
+  added (`POST /api/agents/{id}/inbox`, raw body, 20 MB per file) and its attachment line leads
+  the message, the same shape Telegram sends, so the thread shows the thumbnail and the agent
+  looks at it with `image_read`. A photo can be sent without words.
+
 ## [0.37.1] — 2026-11-09
 
 ### Fixed
