@@ -153,3 +153,7 @@ VOICE_REASON_UNCLEAR = "không nghe rõ tiếng nói"
 # what it is (a machine's guess at speech) so the model reads it with the same caution the
 # person just got from "Đã nghe: …", and never as a caption written by the sender.
 TELEGRAM_VOICE_TURN = "{file}\nTin nhắn thoại (lời chép, có thể nghe sai): {text}\n{caption}"
+
+# A file the person adds to a message in the web box (`routes_inbox_upload`).
+UPLOAD_TOO_LARGE = "Tệp lớn quá: tối đa {limit} MB mỗi tệp."
+UPLOAD_EMPTY = "Tệp rỗng, không có gì để gửi."

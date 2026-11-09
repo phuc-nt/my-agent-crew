@@ -11,7 +11,6 @@ text like any other. An album arrives as several updates handled together (see
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -36,14 +35,13 @@ from my_agent_crew.channels.voice import (
     listen,
     refusal,
 )
+from my_agent_crew.inbox_files import INBOX_DIR, inbox_file
 from my_agent_crew.llm.metered_chain import MeteredChain
 
 if TYPE_CHECKING:
     from my_agent_crew.channels.telegram_channel import TelegramChannel
 
 logger = logging.getLogger(__name__)
-INBOX_DIR = "inbox"
-_UNSAFE = re.compile(r"[^\w.\-]+")
 
 
 @dataclass(frozen=True)
@@ -74,8 +72,7 @@ def attachment_path(inbox: Path, attachment: Attachment, remote_name: str, now: 
     """`inbox/<timestamp>-<name>`: the timestamp keeps two photos from one minute apart,
     the name is the sender's when there is one, else Telegram's own. Both are reduced to
     a plain file name so a crafted `file_name` cannot leave the inbox."""
-    plain = _UNSAFE.sub("_", Path(attachment.name or remote_name).name).strip("._")
-    return inbox / f"{now:%Y%m%d-%H%M%S}-{plain or attachment.kind}"
+    return inbox_file(inbox, attachment.name or remote_name, attachment.kind, now)
 
 
 async def save_attachment(
