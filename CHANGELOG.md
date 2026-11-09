@@ -11,6 +11,14 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+## [0.37.1] — 2026-11-09
+
+### Fixed
+
+- **Shell commands run on the crew's clock.** `shell_run` now passes `TZ` through to the
+  command. Before, a container that set `TZ` for the engine still ran commands in UTC, so a
+  script asking for today or now at 11:00 local saw 04:00 and missed the morning's records.
+
 ## [0.37.0] — 2026-11-08
 
 ### Changed
