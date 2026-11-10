@@ -46,6 +46,5 @@ export const agentsApi = {
     request<{ prompt: string; chars: number; opening: string; opening_chars: number }>(
       `/agents/${encodeURIComponent(agentId)}/prompt`,
     ),
-  reloadAgents: () => request<{ added: string[] }>("/agents/reload", { method: "POST" }),
   listTools: () => request<RegistryTool[]>("/tools"),
 };

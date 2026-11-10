@@ -342,8 +342,6 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
         return answer();
       }
     }
-    // Ahead of the single-agent routes, or the id reads as "reload".
-    if (path === "/agents/reload" && method === "POST") return json({ added: [] });
     // A file of an agent's workspace, by the path the query names: the server answers with
     // the file itself, and says which of the two was not found.
     const workspaceFile = path.match(/^\/agents\/([^/]+)\/files$/);

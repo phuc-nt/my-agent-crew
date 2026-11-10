@@ -157,11 +157,6 @@ export function runElapsedMs(run: RunInfo, now: number): number {
   return Math.max(0, end - started);
 }
 
-/** A tool step's own duration, falling back to nothing when it never closed. */
-export function stepDurationMs(step: RunStep): number | null {
-  return step.duration_ms;
-}
-
 /**
  * The sum of everything the run actually spent time in, for the proportion
  * bar. Steps without a recorded duration contribute nothing rather than being

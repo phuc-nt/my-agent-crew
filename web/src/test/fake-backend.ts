@@ -297,9 +297,6 @@ export class FakeBackend {
       this.connections = { ...this.connections, routes: body.routes, routes_source: "config" };
       return json({ ...this.connections, ...this.machines(), restart_required: null });
     }
-    // Before the single-agent routes: `/agents/reload` would otherwise read as an agent
-    // whose id happens to be "reload".
-    if (path === "/agents/reload" && method === "POST") return json({ added: [] });
     const persona = path.match(/^\/agents\/([^/]+)\/files\/([^/]+)$/);
     if (persona && method === "PUT") {
       this.personaFiles.set(`${decodeURIComponent(persona[1])}/${persona[2]}`, body.content);

@@ -50,5 +50,3 @@ export const api = {
   ...memoryApi,
   ...pushApi,
 };
-
-export type Api = typeof api;
