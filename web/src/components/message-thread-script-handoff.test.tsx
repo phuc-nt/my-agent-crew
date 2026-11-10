@@ -15,9 +15,9 @@ const LONG = Array.from({ length: 40 }, (_, i) => `đơn ${i + 1}`).join("\n");
 
 const user = (text: string, extra: Partial<Extract<ThreadItem, { kind: "user" }>> = {}): ThreadItem => ({ kind: "user", id: "7", text, ...extra });
 
-function thread(items: ThreadItem[], onFork?: (item: ThreadItem) => void) {
+function thread(items: ThreadItem[]) {
   return render(
-    <MessageThread items={items} streaming={null} busy={false} onSuggestion={() => {}} echoOnly={false} agentId="purchases" onFork={onFork} />,
+    <MessageThread items={items} streaming={null} busy={false} onSuggestion={() => {}} echoOnly={false} agentId="purchases" />,
   );
 }
 
@@ -157,15 +157,6 @@ describe("a message that is not exactly one handed on", () => {
 });
 
 describe("what is sent again or copied of a handed-on message", () => {
-  it("is the message as it is stored: the fork is handed the whole of it", async () => {
-    const forked: ThreadItem[] = [];
-    thread([user(STORED)], (item) => forked.push(item));
-
-    await userEvent.click(screen.getByRole("button", { name: vi.fork.fromHere }));
-
-    expect(forked).toEqual([user(STORED)]);
-  });
-
   it("is the message as it is stored: the exported conversation holds every line of it", () => {
     const detail = new FakeBackend().create({ title: "Đơn mới", messages: [storedMessage("user", STORED)] });
 

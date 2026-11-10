@@ -3,9 +3,8 @@ and what happens to it on the way.
 
 Every message that opens a turn carries it: the one a turn begins with, a steer, a batch
 that waited in line. The loop's own notes and a turn carried on without a new message carry
-none. A fork keeps what its copied messages were told, a conversation begun before messages
-carried this still reads its memory, and a builder that fails costs the notes, not the
-message."""
+none. A conversation begun before messages carried this still reads its memory, and a
+builder that fails costs the notes, not the message."""
 
 from __future__ import annotations
 
@@ -115,31 +114,6 @@ async def test_the_block_stands_in_front_of_the_canvas_note_and_the_message(deps
     assert canvas_note and opening.content == (
         f"{framed(told(WHOLE, title, EARLY))}\n\n{canvas_note}\n\ntiếp nhé"
     )
-
-
-async def test_a_fork_keeps_what_its_messages_were_told_and_hears_only_what_changed(
-    deps_factory,
-):
-    deps = deps_factory(script=[completion("a"), completion("b"), completion("c")])
-    earlier = deps.store.create(agent_id="default", channel="")
-    deps.store.update(earlier.id, summary="Đã bàn về giấc ngủ.")
-    conv = deps.store.create(agent_id="default", channel="")
-    title = write_note(deps, EARLY)
-    await collect(run_turn(deps, conv.id, "một"))
-    await collect(run_turn(deps, conv.id, "hai"))
-    second_message = deps.store.history(conv.id)[2]
-
-    fork, draft = deps.store.fork(conv.id, second_message.id, autonomous=False)
-    write_note(deps, GROWN)
-    await collect(run_turn(deps, fork.id, "hai khác"))
-
-    source, _, forked = asked(deps)
-    assert draft == "hai" and forked[: len(source)] == source
-    assert forked[-1].content == before("hai khác", told(ADDED, title, RUN))
-    # The summary its first message read stands: a fork has none of its own to compare it
-    # with, and is not told that one is gone.
-    said = "\n".join(message.content for message in forked)
-    assert said.count("Đã bàn về giấc ngủ.") == 1 and "nay đã trống" not in said
 
 
 async def test_a_conversation_begun_before_messages_carried_this_still_reads_its_memory(

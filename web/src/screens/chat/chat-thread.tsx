@@ -5,7 +5,7 @@ import { ErrorBoundary } from "../../components/error-boundary";
 import { MessageThread } from "../../components/message-thread";
 import type { CanvasWriting } from "../../hooks/use-canvas-writing";
 import type { ConversationMoney } from "../../state/conversation-money";
-import type { ThreadItem, ThreadState } from "../../state/thread-reducer";
+import type { ThreadState } from "../../state/thread-reducer";
 import type { ChatProps } from "./chat-props";
 import type { useChatCanvas } from "./use-chat-canvas";
 
@@ -20,7 +20,6 @@ interface ThreadParts extends Pick<ChatProps, "crew" | "onSelectConversation"> {
   setDraft: Dispatch<SetStateAction<string | undefined>>;
   master: AgentInfo | null;
   crewNames: string[];
-  onFork: (item: ThreadItem) => void;
 }
 
 /** What was said, under a boundary of its own. */
@@ -37,7 +36,6 @@ export function chatThread({
   setDraft,
   master,
   crewNames,
-  onFork,
 }: ThreadParts) {
   return (
     <ErrorBoundary>
@@ -57,10 +55,6 @@ export function chatThread({
         onSuggestion={(text) => setDraft(text)}
         masterName={master?.name}
         crewNames={crewNames}
-        // A delegate's own conversation (`parent_call_id` set) is not a valid fork
-        // source — the server rejects it with 400 — so the button is withheld there
-        // rather than offering something that would only fail on click.
-        onFork={active && !active.parent_call_id ? onFork : undefined}
       />
     </ErrorBoundary>
   );

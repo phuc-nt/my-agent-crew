@@ -81,9 +81,8 @@ export function chatInboxButton({ count, row, onOpenInbox }: { count: number; ro
   );
 }
 
-interface HeaderParts extends Pick<ChatProps, "list" | "crew" | "settings" | "onSelectConversation"> {
+interface HeaderParts extends Pick<ChatProps, "list" | "crew" | "settings"> {
   active: Conversation | null;
-  forkSource: string | null;
   runs: RunInfo[];
   money: ConversationMoney | null;
   state: ThreadState;
@@ -103,9 +102,7 @@ export function chatHeader({
   list,
   crew,
   settings,
-  onSelectConversation,
   active,
-  forkSource,
   runs,
   money,
   state,
@@ -157,8 +154,6 @@ export function chatHeader({
       }
       lead={menuButton}
       compact={compact}
-      sourceTitle={list.conversations.find((c) => c.id === forkSource)?.title}
-      onOpenSource={forkSource ? () => onSelectConversation(forkSource) : undefined}
     />
   ) : (
     <header className="conversation-header">

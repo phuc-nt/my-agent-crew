@@ -2,8 +2,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import { vi } from "../src/i18n/vi";
 import { type Conversation, mockApi } from "./mock-api";
 
-// A phone, where the button under each of the person's own messages is a full finger tall:
-// when a turn starts those buttons leave, and everything below them moves up by their height.
+// A phone, where a screen of the thread holds little and the newest line is quickly out of view.
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
 const TURNS_BEFORE = 8;
@@ -55,8 +54,6 @@ async function send(page: Page, text: string) {
   await box.fill(text);
   await box.press("Enter");
   await expect(page.getByTestId("thinking")).toBeVisible();
-  // Nothing can be forked while the turn runs, which is what takes the height out above.
-  await expect(page.locator(".fork-button")).toHaveCount(0);
 }
 
 test("a turn that starts with the thread on its newest line leaves it there", async ({ page }) => {
@@ -95,7 +92,7 @@ test("the browser's own anchoring is off while the thread follows its newest lin
   await expect(page.getByTestId("jump-newest")).toHaveCount(0);
 });
 
-test("a reader who scrolled back keeps their place when the buttons above leave", async ({ page }) => {
+test("a reader who scrolled back keeps their place when a turn starts", async ({ page }) => {
   const release = await open(page);
   // The top of the thread is the reply's own top, so what the browser holds in place is the reply.
   const reading = page.getByTestId("message-assistant").filter({ hasText: "Trả lời số 5." });

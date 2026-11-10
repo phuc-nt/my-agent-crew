@@ -61,7 +61,7 @@ export function withoutLocalBubble(items: ThreadItem[], text: string): ThreadIte
 }
 
 /** The latest user message with `context` as its canvas note, left as it was and in its place:
- *  the bubble was drawn before the server stored the message, and forking finds it by position. */
+ *  the bubble was drawn before the server stored the message. */
 export function withContext(items: ThreadItem[], context: string): ThreadItem[] {
   for (let at = items.length - 1; at >= 0; at--) {
     const item = items[at];

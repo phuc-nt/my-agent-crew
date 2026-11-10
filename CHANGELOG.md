@@ -28,6 +28,13 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   built on every start whether or not anything listened, so a crew hosted in a container
   listed a provider it could never reach. **Breaking:** a route naming `ollama` is dropped
   like any route whose provider is not built; a home with no other route does not start.
+- **Conversation fork.** The button "Sửa và gửi lại từ đây" under a message of the person,
+  `POST /api/conversations/{id}/fork`, the `forked_from` field of a conversation and the line
+  "Rẽ nhánh từ …" in the header. It went unused, and it reached into the
+  store, the canvas links, the spill folders and the turn notes. **Breaking** for API
+  clients: the route and the `forked_from` field of the conversation JSON are gone. A
+  database that already has the column keeps it, unread; conversations that were forks stay
+  as ordinary conversations.
 
 ## [0.38.0] — 2026-11-09
 

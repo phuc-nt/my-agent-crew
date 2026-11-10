@@ -33,11 +33,6 @@ interface Props {
   /** The master introduces itself by name and names the team it can hand work to. */
   masterName?: string;
   crewNames?: string[];
-  /** Rewinds and forks the conversation at a saved user message; absent hides the button
-   *  entirely, and it is also hidden while `busy` — see `use-fork.ts` for why: the
-   *  `local-N` resolution it does counts bubbles by position, which a turn still writing
-   *  new ones would throw off mid-click. */
-  onFork?: (item: ThreadItem) => void;
 }
 
 export function MessageThread({
@@ -54,7 +49,6 @@ export function MessageThread({
   writing,
   masterName,
   crewNames = [],
-  onFork,
 }: Props) {
   const scroll = useAutoScroll<HTMLElement>();
   const speaker = agentName?.(agentId) ?? vi.agent;
@@ -105,7 +99,6 @@ export function MessageThread({
             agentName={agentName}
             onOpenConversation={onOpenConversation}
             canvas={canvas}
-            onFork={!busy ? onFork : undefined}
           />
       ))}
       {streaming !== null && (

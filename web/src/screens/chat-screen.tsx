@@ -14,14 +14,13 @@ import { conversationMoney } from "../state/conversation-money";
 import { chatChildRequests } from "./chat/chat-child-requests";
 import { chatApproval, chatComposer, chatQuestion } from "./chat/chat-composer";
 import { chatCrewChip, chatHeader, chatInboxButton, chatMenuButton } from "./chat/chat-header";
-import { chatNotice, forkErrorNotice, loadFailedNotice, overBudgetNotice } from "./chat/chat-notices";
+import { chatNotice, loadFailedNotice, overBudgetNotice } from "./chat/chat-notices";
 import type { ChatProps } from "./chat/chat-props";
 import { chatAsk, chatSend } from "./chat/chat-send";
 import { chatManageButton, chatSidebar } from "./chat/chat-sidebar";
 import { chatStanding } from "./chat/chat-standing";
 import { chatActivityPane, chatThread } from "./chat/chat-thread";
 import { useChatCanvas } from "./chat/use-chat-canvas";
-import { useChatFork } from "./chat/use-chat-fork";
 import { useChatShortcuts } from "./chat/use-chat-shortcuts";
 import { useFocusAfterRaise } from "./chat/use-focus-after-raise";
 import { useQueuedSend } from "./chat/use-queued-send";
@@ -61,10 +60,6 @@ export function ChatScreen({
   const active: Conversation | null =
     list.conversations.find((c) => c.id === list.activeId) ??
     (thread.detail && thread.detail.id === list.activeId ? thread.detail : null);
-  // Narrowed once here rather than at each use: `forked_from` is `string | undefined` on
-  // the type (kept optional so ~15 existing fixtures need no edit), but empty and absent
-  // mean the same thing — "not a fork" — so this also folds that into one falsy check.
-  const forkSource = active?.forked_from || null;
   // `live` is newest-first, so the first match is the turn being waited on even
   // when an earlier run was left open.
   const activeRun = list.activeId
@@ -119,7 +114,6 @@ export function ChatScreen({
     if (cleared.length > 0) restoreText(cleared.join("\n\n"));
   };
   const { mainRef, raiseFromNotice } = useFocusAfterRaise(onRaiseCap);
-  const { fork, onFork } = useChatFork({ list, onSelectConversation, state, active, mainRef });
   const notice = chatNotice({ state, money, active, overBudget, raiseFromNotice });
   const manageButton = chatManageButton({ onOpenManage, attentionCount, waiting: waiting.length, running });
   const crewChip = chatCrewChip({ onOpenManage, crewNames });
@@ -150,16 +144,15 @@ export function ChatScreen({
           takes no focus and reads as absent. */}
       <main className="main" ref={mainRef} inert={drawer.open || overlayOpen || undefined}>
         {chatHeader({
-          list, crew, settings, onSelectConversation, active, forkSource, runs, money, state, onRaiseCap,
+          list, crew, settings, active, runs, money, state, onRaiseCap,
           dock, canvasTrigger, showing, leaveWriting, crewChip, menuButton, compact: phone,
         })}
         {loadFailedNotice(list)}
-        {forkErrorNotice(fork)}
         <CanvasChatNotices dock={dock} />
         {notice}
         {chatThread({
           crew, onSelectConversation, state, externalRun, activeRun, echoOnly, active, canvasLinks, writing, setDraft,
-          master, crewNames, onFork,
+          master, crewNames,
         })}
         {!docked && activityPane}
         {chatChildRequests({ crew, activity, onSelectConversation, waiting, runs, conversationId: list.activeId })}

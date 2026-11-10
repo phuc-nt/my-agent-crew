@@ -8,7 +8,6 @@ import type { CanvasLinks } from "./canvas/canvas-card";
 import { CanvasNoteChip } from "./canvas/canvas-note-chip";
 import { CanvasRefChip } from "./canvas/canvas-ref-chip";
 import { BubbleActions } from "./copy-button";
-import { ForkButton } from "./fork-button";
 import { MarkdownBody } from "./markdown-body";
 import { ScriptPrinted } from "./script-printed";
 import { ToolCallCard } from "./tool-call-card";
@@ -34,7 +33,6 @@ export function Item({
   agentName,
   onOpenConversation,
   canvas,
-  onFork,
 }: {
   item: ThreadItem;
   agentId: string;
@@ -42,9 +40,6 @@ export function Item({
   agentName?: (id: string) => string;
   onOpenConversation?: (conversationId: string) => void;
   canvas?: CanvasLinks;
-  /** Already `undefined` while busy — `MessageThread` clears it before passing it down —
-   *  so `Item` only has to decide whether the item itself can ever be forked. */
-  onFork?: (item: ThreadItem) => void;
 }) {
   if (item.kind === "tool")
     return (
@@ -113,7 +108,6 @@ export function Item({
       )}
       {assistant && item.usage && <TurnUsageLine usage={item.usage} />}
       {assistant && item.text.trim() !== "" && <BubbleActions text={item.text} />}
-      {!assistant && onFork && <ForkButton onClick={() => onFork(item)} />}
     </div>
   );
   // The canvas note a message carried hangs under its bubble, not inside it: the bubble's

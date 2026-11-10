@@ -12,7 +12,6 @@ from my_agent_crew.texts import (
     APPROVAL_CALL_MISMATCH,
     DENIED_TOOL,
     EXPIRED_TOOL,
-    FORK_CALL_NOT_RUN,
     INTERRUPTED_TOOL,
     LOOP_HALTED_TOOL,
     NESTED_HALTED_TOOL,
@@ -29,8 +28,7 @@ SOURCE = Path(__file__).resolve().parents[1] / "web" / "src" / "lib" / "tool-rep
 # Every sentence the server fails a call with that is a sentence and nothing more, in the
 # order the web lists their openings: the registry's three, arguments that were not valid or
 # were cut off, a turn out of steps, a turn stopped for repeating itself, a turn whose scripts
-# made all the calls it may, an id approved for another call, a conversation branched before
-# the call ran, a run cut before it answered.
+# made all the calls it may, an id approved for another call, a run cut before it answered.
 WRITTEN = [
     TOOL_FAILED,
     UNKNOWN_TOOL,
@@ -41,7 +39,6 @@ WRITTEN = [
     LOOP_HALTED_TOOL,
     NESTED_HALTED_TOOL,
     APPROVAL_CALL_MISMATCH,
-    FORK_CALL_NOT_RUN,
     INTERRUPTED_TOOL,
 ]
 

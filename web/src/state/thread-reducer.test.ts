@@ -361,8 +361,8 @@ describe("threadReducer streaming turn", () => {
     const earlier: ThreadItem = { kind: "user", id: "m-1", text: "câu cũ", context: "ghi chú cũ" };
     const sent = threadReducer({ ...emptyThread, items: [earlier] }, { type: "user_sent", text: "sửa chỗ này" });
     const noted = run([{ type: "user_context", context: NOTE }], { ...sent, busy: true });
-    // The bubble keeps its local id: forking finds it by position, and a note changes nothing
-    // about where the message stands. The message before it is left as it was.
+    // The bubble keeps its local id: a note changes nothing about where the message stands.
+    // The message before it is left as it was.
     expect(noted.items).toEqual([earlier, { kind: "user", id: "local-1", text: "sửa chỗ này", context: NOTE }]);
     expect(noted.items[0]).toBe(earlier);
     expect(noted.busy).toBe(true);

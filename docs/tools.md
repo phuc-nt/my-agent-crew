@@ -147,8 +147,7 @@ phần script cầm được (200.000 ký tự) thay cho trần của agent, xem
   phải ghi `tool_output_read` thì mới có tool, tệp spill và dòng trỏ. Agent không ghi thì hành
   xử y như trước. Template kongming và researcher đã ghi sẵn. Với agent đang chạy thật, thêm
   tên này vào `tools:` là việc của người giữ home của agent đó.
-- **Dọn dẹp.** Xoá cuộc trò chuyện xoá luôn thư mục spill của nó; fork sao chép thư mục sang
-  id của fork để fork vẫn đọc được bản gốc khi nguồn đã bị xoá; một vòng quét mỗi ngày (chạy
+- **Dọn dẹp.** Xoá cuộc trò chuyện xoá luôn thư mục spill của nó; một vòng quét mỗi ngày (chạy
   khi khởi động rồi mỗi 24 giờ, cùng lúc scheduler) xoá tệp cũ hơn 7 ngày và không theo symlink.
 - **Khi prompt bị lược.** Kết quả cũ bị thay bằng một dòng stub; với agent có tool này, stub nêu
   id để đọc lại thay vì bảo gọi lại tool.
@@ -1811,7 +1810,7 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
 - **Sau khi tải lại trang.** Kết quả của script được lưu kèm danh sách lời gọi và hai số đo, nên
   thẻ tool trong khung chat vẫn liệt kê chúng sau khi tải lại, không cần tới thẻ run. Phần lưu
   kèm đó chỉ để hiển thị: model không bao giờ được gửi nó, lượt sau chỉ đọc lại phần script in
-  ra. Nhánh rẽ (fork) của cuộc trò chuyện chép nó theo. Bản xuất quỹ đạo của một run ghi các lời
+  ra. Bản xuất quỹ đạo của một run ghi các lời
   gọi ở step của run, không chép phần lưu kèm vào tin nhắn. Bản xuất Markdown của cuộc trò chuyện
   ghi các lời gọi thành một danh sách đánh số dưới lượt của agent (tên tool, có lỗi không, thời
   gian, giá nếu có), không ghi tham số và câu trả lời.
@@ -1871,8 +1870,7 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   thì cuộn trong ô của riêng nó và tới được bằng bàn phím, và ký tự ẩn trong đó được viết thành mã
   (`[U+200B]`). Web chỉ đọc như vậy một tin có đúng hình server viết: dòng đóng ở cuối, dòng mở cùng
   số, và ngay trên dòng mở là đúng câu của server, từng chữ một; tin chỉ nhắc tới hai dòng đánh dấu
-  vẫn là tin thường. Chữ được lưu không đổi: "Sửa và gửi lại từ đây" và bản xuất Markdown dùng tin
-  như được lưu.
+  vẫn là tin thường. Chữ được lưu không đổi: bản xuất Markdown dùng tin như được lưu.
 - **Giữ lại giữa các lần chạy (`store` / `load`).** Script chạy xong là quên hết: lần sau nó không
   biết lần trước đã thấy gì, đã báo việc nào. Hai tên dùng thẳng như `print`, không qua `tools.`:
   `store(khoá, giá_trị)` giữ một giá trị dưới một khoá, `store(khoá, None)` bỏ khoá đó, và

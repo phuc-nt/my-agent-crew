@@ -6,7 +6,7 @@ import type { SendNames, SentName } from "../lib/send-names";
 import type { SendResult } from "../lib/send-result";
 import { FakeBackend, storedMessage } from "../test/fake-backend";
 import { memoryStorage } from "../test/memory-storage";
-import { holdDraft, saveDraft } from "./use-draft";
+import { holdDraft, useDraft } from "./use-draft";
 import { type ThreadController, useThread } from "./use-thread";
 import { useThreadSend } from "./use-thread-send";
 
@@ -18,6 +18,13 @@ import { useThreadSend } from "./use-thread-send";
  */
 
 const WORDS = "tiếp tục";
+
+/** The words as a composer keeps them: the conversation's draft. */
+function saveDraft(key: string, text: string) {
+  const box = renderHook(() => useDraft(key));
+  act(() => box.result.current[1](text));
+  box.unmount();
+}
 const HEX = /^[0-9a-f]{32}$/;
 const DONE: AgentEvent = { type: "done", spent_usd: 0, unknown_cost_calls: 0 };
 

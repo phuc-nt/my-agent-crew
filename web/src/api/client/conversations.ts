@@ -5,7 +5,6 @@ import type {
   Conversation,
   ConversationDetail,
   ConversationPatch,
-  ForkResult,
   StopResult,
 } from "../types";
 import { follow, query, request, stream } from "./http";
@@ -20,13 +19,6 @@ export const conversationsApi = {
     request<Conversation>(`/conversations/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteConversation: (id: string) =>
     request<void>(`/conversations/${id}`, { method: "DELETE" }),
-  /** Rewind and fork: a new conversation holding every message before `beforeMessageId`,
-   *  with that message's own text handed back as a draft. */
-  forkConversation: (id: string, beforeMessageId: number) =>
-    request<ForkResult>(`/conversations/${id}/fork`, {
-      method: "POST",
-      body: JSON.stringify({ before_message_id: beforeMessageId }),
-    }),
   summarizeConversation: (id: string) =>
     request<{ id: string; summary: string }>(`/conversations/${id}/summary`, { method: "POST" }),
   /** `canvas` is the canvas open in this tab. Left out, the server keeps the one it has

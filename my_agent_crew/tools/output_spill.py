@@ -4,9 +4,9 @@ re-running whatever produced it.
 
 Every path is built from a hash of the call id and a conversation id checked against a fixed
 shape, never from the id itself: a model-supplied id, however it is spelled, never becomes a
-path component. `sweep`, `remove_conversation` and `copy_conversation` also confirm the path
-they end up with is still inside `<home>/spill` before touching it, and none follow a
-symlink out of that tree."""
+path component. `sweep` and `remove_conversation` also confirm the path they end up with is
+still inside `<home>/spill` before touching it, and neither follows a symlink out of that
+tree."""
 
 from __future__ import annotations
 
@@ -115,25 +115,6 @@ def remove_conversation(home: Path, conv_id: str) -> None:
     if conv_dir is None or not conv_dir.exists() or not _inside(root, conv_dir):
         return
     shutil.rmtree(conv_dir, ignore_errors=True)
-
-
-def copy_conversation(home: Path, src_conv_id: str, dst_conv_id: str) -> None:
-    """Copies a conversation's spill files to a fork's own folder, so the fork keeps reading
-    the true original even after the source conversation (and its spill files) are deleted.
-    `copyfile` rather than a hardlink or rename, so the copy gets its own fresh mtime and the
-    two conversations' 7-day clocks run independently. Best effort: a failure is logged and
-    the fork still works, reading whatever the DB kept instead."""
-    src_dir = _conv_dir(home, src_conv_id)
-    dst_dir = _conv_dir(home, dst_conv_id)
-    if src_dir is None or dst_dir is None or not src_dir.is_dir():
-        return
-    try:
-        dst_dir.mkdir(parents=True, exist_ok=True)
-        for path in src_dir.iterdir():
-            if path.is_file() and not path.is_symlink():
-                shutil.copyfile(path, dst_dir / path.name)
-    except OSError:
-        logger.exception("could not copy spill files from %s to %s", src_conv_id, dst_conv_id)
 
 
 async def shape_with_spill(

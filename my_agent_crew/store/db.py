@@ -17,7 +17,6 @@ from my_agent_crew.store.connection import connect
 from my_agent_crew.store.conversation_lookup import ConversationLookups
 from my_agent_crew.store.created_schedules import CreatedSchedulesStore
 from my_agent_crew.store.episodes import EpisodeStore
-from my_agent_crew.store.fork import Forks
 from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
 from my_agent_crew.store.message_log import MessageLog
@@ -43,7 +42,7 @@ OWNED_BY_CONVERSATION = ("messages", "approvals", "queued_messages")
 OWNED_BY_CONVERSATION += ("conversation_artifacts", "canvas_focus", "message_requests")
 
 
-class Store(ConversationLookups, Forks, MessageLog, Spending):
+class Store(ConversationLookups, MessageLog, Spending):
     def __init__(self, path: Path | str = ":memory:"):
         self._conn = connect(path)
         self._lock = threading.RLock()
@@ -84,7 +83,6 @@ class Store(ConversationLookups, Forks, MessageLog, Spending):
         channel: str = "",
         parent_call_id: str = "",
         approval_ttl_seconds: int | None = None,
-        forked_from: str = "",
         root_id: str = "",
         root_source: str = "",
     ) -> Conversation:
@@ -93,8 +91,8 @@ class Store(ConversationLookups, Forks, MessageLog, Spending):
             [row] = self._conn.execute(
                 "INSERT INTO conversations (id, title, created_at, updated_at, autonomous,"
                 " cost_cap_usd, skills, agent_id, channel, parent_call_id, approval_ttl_seconds,"
-                " forked_from, root_id, root_source)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                " root_id, root_source)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
                 (
                     conv_id,
                     title,
@@ -107,7 +105,6 @@ class Store(ConversationLookups, Forks, MessageLog, Spending):
                     channel,
                     parent_call_id,
                     approval_ttl_seconds,
-                    forked_from,
                     root_id,
                     root_source,
                 ),
@@ -171,11 +168,6 @@ class Store(ConversationLookups, Forks, MessageLog, Spending):
                 # What its scripts kept goes with it: nothing else is ever kept under its id.
                 kept = conversation_namespace(conv_id)
                 self._conn.execute("DELETE FROM script_store WHERE namespace = ?", (kept,))
-                # A fork's header links back here; once this conversation is gone that link
-                # must go too, or it would point at an id that no longer exists.
-                self._conn.execute(
-                    "UPDATE conversations SET forked_from = '' WHERE forked_from = ?", (conv_id,)
-                )
                 cur = self._conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
                 self._conn.commit()
             except BaseException:

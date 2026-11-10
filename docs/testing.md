@@ -788,10 +788,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "gives a reply the same status read back as it had when it arrived": cùng một lời đáp cho
     cùng một trạng thái ở luồng trực tiếp và khi dựng lại từ tin đã lưu);
     `state/thread-stored-status.test.tsx` nhóm "a call that failed, read back from the stored
-    thread" ("stays failed when …": mười hai kiểu server làm hỏng một lời gọi — tool báo lỗi,
+    thread" ("stays failed when …": mười một kiểu server làm hỏng một lời gọi — tool báo lỗi,
     không có tool tên đó, hook chặn, tham số không phải JSON hợp lệ, tham số bị cắt, lượt hết số
     bước, lượt bị dừng vì lặp, các script của lượt đã dùng hết số lời gọi lồng, id đã được duyệt
-    cho lời gọi khác, hết thời gian chờ agent con, hội thoại rẽ nhánh trước khi lệnh chạy, lời
+    cho lời gọi khác, hết thời gian chờ agent con, lời
     gọi bị ngắt giữa chừng — đều cho thẻ `failed` và dấu lỗi trên thẻ; "has the status it had as
     it arrived when …": mười kiểu có lời đáp tới trong luồng trực tiếp cho cùng một trạng thái ở
     cả hai đường; "is not a reply that only holds the words further in, as when …" và "reads a
@@ -819,7 +819,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trị đầu tiên server điền vào, hoặc là cả câu khi câu không điền gì: `DENIED_TOOL` và
     `EXPIRED_TOOL`, `TOOL_FAILED`, `UNKNOWN_TOOL`, `TOOL_BLOCKED_BY_HOOK`, `TOOL_ARGS_INVALID`,
     `TOOL_ARGS_CUT_OFF`, `STEPS_HALTED_TOOL`, `LOOP_HALTED_TOOL`, `NESTED_HALTED_TOOL`,
-    `APPROVAL_CALL_MISMATCH`, `FORK_CALL_NOT_RUN`, `INTERRUPTED_TOOL`
+    `APPROVAL_CALL_MISMATCH`, `INTERRUPTED_TOOL`
     (`test_each_opening_the_web_reads_as_a_failure_is_how_the_server_words_one`), và registry
     chạy thật trả đúng các lời mở đó, nên hai bên không lệch nhau khi một bên đổi chữ);
     `tests/test_tool_reply_openings_turn.py` (qua cả một lượt: tham số không đọc được hoặc bị
@@ -882,7 +882,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - vitest: `components/conversation-list.test.tsx` ("the sidebar's day groups", "the unread dot");
     `lib/relative-time.test.ts`
     "puts 23:00 local in yesterday although it shares the UTC date with now";
-    `hooks/use-draft.test.ts`; `components/composer-draft.test.tsx`;
+    `hooks/use-draft.test.ts` (trong đó nhóm `forgetDraft` "empties what the box had kept");
+    `components/composer-draft.test.tsx`;
     `hooks/use-conversations.test.ts` "takes its unsent draft with it, and only its own". Trình
     duyệt nhớ được hay từ chối lưu trữ đều dựng bằng `test/memory-storage.ts`
   - Playwright: `phone-smoke.spec.ts`
@@ -1574,86 +1575,6 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "names a voice note transcription row by its own purpose"; `components/global-routes-editor.test.tsx`,
     `test/fake-backend.ts`, `e2e/mock-api.ts` mang trường `audio_routes` trong mọi fixture
     `ConnectionsInfo` để không mock nào lệch kiểu thật
-- **"Sửa và gửi lại từ đây": rẽ nhánh hội thoại ở một tin user đã lưu, giữ gốc nguyên vẹn**
-  - pytest: `tests/test_store_fork.py`
-    (`test_copies_every_message_before_the_cut_with_its_columns`,
-    `test_cutting_at_the_first_user_message_makes_an_empty_fork_with_the_right_draft`,
-    `test_tool_calls_and_tool_messages_survive_the_copy`,
-    `test_provider_cost_and_token_columns_are_null_on_the_copy`,
-    `test_the_fork_has_zero_spend_and_zero_unknown_cost_calls`,
-    `test_usage_totals_are_identical_before_and_after_forking` (`by_model`, `by_purpose`, `by_day`
-    và `/api/stats` không đổi vì bản chép không mang `provider`, nên không lượt gọi model nào bị
-    đếm hai lần), `test_agent_id_cost_cap_and_skills_are_copied_others_are_reset`,
-    `test_autonomous_follows_the_agent_default_not_the_source` (nhánh không thừa hưởng
-    `autonomous` hay `auto_approve` của gốc dù gốc đã bật),
-    `test_the_suffix_is_added_once_and_not_doubled_on_a_fork_of_a_fork`,
-    `test_a_default_titled_source_stays_default_on_the_fork`,
-    `test_cutting_at_an_assistant_or_tool_message_is_a_value_error`,
-    `test_a_message_of_another_conversation_is_a_key_error`,
-    `test_an_unknown_message_id_is_a_key_error`, `test_an_unknown_conversation_is_a_key_error`,
-    `test_a_delegated_child_conversation_cannot_be_forked`,
-    `test_the_source_conversation_is_unchanged_after_forking`,
-    `test_a_pending_approval_on_the_source_survives_forking_at_an_earlier_point`,
-    `test_forking_a_telegram_conversation_makes_a_web_fork_and_keeps_the_channel`,
-    `test_an_open_call_is_copied_still_open_ready_for_the_route_to_close_it` (lịch sử thật
-    `[assistant(A,B), tool(A), user]` khi một lượt bị ngắt giữa chừng rồi người nhắn tiếp; call B
-    còn mở sau khi chép, chờ route đóng lại),
-    `test_a_failed_copy_leaves_no_fork_behind` (chép tin hay chép liên kết canvas lỗi đều không
-    để lại nhánh hay hàng nào),
-    `test_only_the_source_conversations_own_messages_are_copied` (tin của hội thoại khác có
-    `seq` nhỏ hơn điểm cắt không lọt vào nhánh),
-    `test_forked_from_marks_the_conversation_so_the_recap_can_be_skipped`,
-    `test_deleting_the_source_clears_forked_from_and_the_fork_keeps_its_messages`,
-    `test_deleting_the_fork_does_not_touch_the_sources_delegate_children`,
-    `test_a_shared_line_finds_a_single_hit_belonging_to_the_fork` (chỉ mục FTS của tính năng tìm hội thoại gộp
-    phần chữ chung của gốc và nhánh về một hit, thuộc về nhánh vì `id` lớn hơn));
-    `tests/test_api_fork.py`
-    (`test_forking_returns_the_new_conversation_and_the_cut_messages_own_text`,
-    `test_unknown_conversation_is_404`, `test_unknown_message_id_is_404`,
-    `test_a_message_belonging_to_another_conversation_is_404`,
-    `test_cutting_at_a_non_user_message_is_400`, `test_forking_a_delegated_child_is_400`,
-    `test_before_message_id_must_be_a_positive_integer`,
-    `test_an_open_call_is_closed_and_never_run_again` (chạy một lượt ở nhánh với tool đếm số lần
-    gọi: tool bị đóng ở điểm cắt không được gọi lại),
-    `test_a_refusal_that_fails_to_write_leaves_no_fork_behind` (`refuse_unanswered` ném lỗi thì
-    route trả 500 và không còn nhánh),
-    `test_the_fork_runs_on_its_own_only_when_the_agent_default_says_so` (cả hai giá trị của
-    `autonomous_default`, gốc luôn mang giá trị ngược lại));
-    `tests/test_memory_session_summary.py::test_a_fork_is_not_told_about_the_conversation_it_was_cut_from`
-    (hội thoại liền trước nhánh thường là chính gốc của nó; tóm tắt của gốc kể phần sau điểm cắt
-    mà nhánh sinh ra để bỏ, nên không vào prompt của nhánh)
-  - vitest: `hooks/use-fork.test.ts`
-    ("uses a numeric id straight away, with no extra read of the conversation",
-    "resolves a local-N id by reading the conversation once and counting from the end" (bubble vừa
-    gửi chưa nạp lại nên còn giữ id `local-N`; khớp theo vị trí tin user tính từ cuối và đúng
-    chữ của nó),
-    "gives up without ever calling the fork API when the text at that position no longer matches",
-    "saves the fork's draft, refreshes the list, and selects the fork",
-    "shows forkFailed and stays put when the server refuses the fork",
-    "only on the conversation it failed in, and not again on the way back to it",
-    "never, when it fails after the person has already moved to another conversation" — lỗi rẽ
-    nhánh chỉ hiện ở đúng cuộc trò chuyện vừa lỗi, không theo người sang cuộc khác);
-    `app-fork.test.tsx` (cả app trên `FakeBackend`: "opens the branch with the old words ready to
-    edit, and links back to an untouched source" — ô soạn tin mang chữ cũ và có focus, nhánh được
-    chọn trong sidebar, dòng "Rẽ nhánh từ" dẫn về gốc còn đủ bốn tin và gốc không có dòng đó;
-    "reports a refused fork on its own conversation only");
-    `components/message-thread.test.tsx`
-    ("sits under the user bubble but not under the assistant's reply",
-    "is absent without an onFork handler, even while idle", "is hidden while the thread is busy",
-    "calls onFork with the item it sits under, not the conversation as a whole");
-    `components/conversation-header.test.tsx`
-    ("is absent when the conversation is not a fork",
-    "is absent when the conversation carries no forked_from field at all",
-    "names the source conversation and opens it on click",
-    "falls back to the generic label when the source is not in the loaded list");
-    `hooks/use-draft.test.ts`
-    ("is read back by useDraft once it mounts on that key",
-    "is picked up by a useDraft already mounted, the moment its key switches to it",
-    "forgetDraft still empties what saveDraft wrote")
-  - Playwright: `e2e/fork.spec.ts`
-    ("forking at the second saved message keeps the first turn, prefills the composer, and links
-    back" — gốc không có dòng "Rẽ nhánh từ" cả trước khi rẽ lẫn lúc quay về, "forking right after sending, before any reload, still resolves to the real message" —
-    ca `local-N` trên mock, riêng với self-test thủ công trên server thật)
 - **Tìm hội thoại FTS5: gõ không dấu khớp có dấu, `conversation_search` cho model, "Trong nội
   dung" trong sidebar cho người**
   - pytest: `tests/test_search_index.py` (thiếu module fts5 báo lỗi rõ; tin `user`/`assistant`
@@ -1780,12 +1701,10 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `tests/test_agent_templates.py` ("test_every_tool_a_template_lists_is_a_real_tool",
     "test_the_counsel_and_the_researcher_can_read_a_long_output_back");
     `tests/test_housekeeping.py` (quét ngay khi khởi động, quét lại mỗi chu kỳ, lần quét lỗi
-    không giết vòng, huỷ được, lifespan chỉ quét khi `schedule=True`); `tests/test_api_fork.py`
+    không giết vòng, huỷ được, lifespan chỉ quét khi `schedule=True`);
+    `tests/test_api_conversation_spill.py`
     ("test_deleting_a_conversation_removes_its_spill_folder",
-    "test_deleting_an_unknown_conversation_is_404_and_touches_no_spill_folder",
-    "test_forking_copies_the_spill_files_to_the_fork",
-    "test_a_failed_spill_copy_does_not_break_the_fork",
-    "test_a_fork_still_reads_the_original_after_its_source_is_deleted_and_swept")
+    "test_deleting_an_unknown_conversation_is_404_and_touches_no_spill_folder")
   - Behavior eval: `evals/` của home, một ca chạy lệnh in khoảng 24 000 ký tự rồi hỏi một giá
     trị ở giữa (kỳ vọng `tool_output_read`, tối đa một `shell_run`)
 - **Id lời gọi tool không còn trùng hay bị dùng lại sai**
@@ -2666,10 +2585,6 @@ tên một test thì sửa dòng của nó trong cùng commit.
     hàng đợi giao đọc ghi chú trọn trong lượt của nó, system prompt giống hệt dù ghi chú khác
     nhau, hội thoại không có canvas tới model đúng như đã lưu và cùng object, khung prompt gọi
     những gì canvas chứa, kể cả chữ ghi chú trích, là dữ liệu ở cả hai ngôn ngữ);
-    `tests/test_canvas_fork.py` (mỗi tin chép giữ ghi chú của nó, nhánh liên kết những canvas gốc
-    đã liên kết tới điểm rẽ mà chưa thấy, chưa đọc, chưa báo gì, canvas liên kết sau điểm rẽ bị bỏ
-    còn cùng giây thì giữ, canvas đang mở ở gốc không mở ở nhánh, ghi chú đầu ở nhánh báo mỗi
-    canvas là mới, nhánh chỉ đọc trang cuối vẫn không viết lại được);
     `tests/test_canvas_note_imports.py` (mỗi phần dựng ghi chú import được đầu tiên trong một
     trình thông dịch mới, phần ở tầng lưu trữ không kéo gói agent, tên nguồn web chat của ghi chú
     trùng tên nguồn của agent); `tests/test_canvas_note_app.py` (qua app với `fake:echo`: tin từ
@@ -4491,12 +4406,12 @@ tên một test thì sửa dòng của nó trong cùng commit.
     trả lời của lượt mới được giữ lại tới khi test thả ra; "the browser's own anchoring is off while
     the thread follows its newest line and on once it is read": `overflow-anchor` tính ra là `none`
     khi thread bám, `auto` khi người đọc cuộn lên và `none` lại sau "Tin mới nhất", đây là test ghim
-    nguyên nhân; "a reader who scrolled back keeps their place when the buttons above leave": đầu câu
-    trả lời đang đọc không xê dịch khi nút rẽ nhánh phía trên biến mất, chặn việc tắt neo cuộn cho
+    nguyên nhân; "a reader who scrolled back keeps their place when a turn starts": đầu câu
+    trả lời đang đọc không xê dịch khi một lượt mới bắt đầu, chặn việc tắt neo cuộn cho
     mọi thread; "a turn that starts with the thread on its newest line leaves it there": lượt bắt đầu
     rồi câu trả lời về xong, thread vẫn ở dòng mới nhất và không có "Tin mới nhất")
   - Nguyên nhân thứ hai của cùng triệu chứng, thấy khi kiểm tay ở 390 px với câu hỏi về một đoạn
-    canvas: lúc lượt bắt đầu các nút rẽ nhánh phía trên biến mất (khoảng 44 px mỗi tin của người) và
+    canvas, khi dưới mỗi tin của người còn một hàng nút nay đã gỡ: lúc lượt bắt đầu các nút ấy biến mất (khoảng 44 px mỗi tin của người) và
     Chrome hạ vị trí cuộn theo (scroll anchoring) để giữ yên dòng đang xem, trong khi khoảng 93 px
     nội dung mới (tin của người và khối đang nghĩ) hiện ra bên dưới: chỗ còn lại cách đáy
     93 − 44 × (số hàng nút từ điểm neo trở xuống) px, tức 49 px khi còn một hàng, vượt ngưỡng 48 px.
@@ -5201,23 +5116,20 @@ prompt chỉ còn dòng ngày là đổi, và lịch sử là một prefix chỉ
   - pytest: `tests/test_turn_notes_carriers.py` (tin chen ngang mang phần đổi từ lúc lượt bắt đầu; loạt tin
     chờ được giao kèm phần đổi; lượt đi tiếp sau duyệt không kể gì, chỉ tin của người mang khối, và
     `GET /api/conversations/{id}` không có khoá `turn_notes`; khối đứng trước ghi chú canvas rồi mới tới
-    tin; fork giữ khối của các tin chép sang, chỉ nghe phần đổi, tóm tắt xuất hiện một lần và không bao giờ
-    bị gọi là đã trống; cuộc trò chuyện bắt đầu trước khi có cột đọc trí nhớ hiện tại trước tin đầu và thôi
+    tin; cuộc trò chuyện bắt đầu trước khi có cột đọc trí nhớ hiện tại trước tin đầu và thôi
     ngay khi tin kế tiếp được lưu; database cũ nhận thêm cột; dựng khối lỗi thì tin vẫn lưu và có log; khối
     lưu hỏng được đọc như không có gì).
   - pytest: `tests/test_memory_session_summary.py` (tóm tắt cuộc trước được kể trước tin mở lượt và không
-    nằm trong system prompt; lượt được giao việc và fork không có mục này, kèm đối chứng: bỏ `forked_from`
-    thì mục xuất hiện), `tests/test_agent_context.py` (hai mục ghi chú đúng tên và thứ tự, ngày không có
+    nằm trong system prompt; lượt được giao việc không có mục này), `tests/test_agent_context.py` (hai mục ghi chú đúng tên và thứ tự, ngày không có
     ghi chú vẫn được nêu tên với thân rỗng), `tests/test_canvas_prompt_tail.py` (ghi chú ngày nằm cạnh tin,
     không nằm trong system prompt có mục canvas).
   - pytest: `tests/test_api_agent_prompt.py` (`opening` rỗng khi agent chưa có ghi chú; có ghi chú thì bằng
     đúng khối mà tin đầu của một cuộc thật được đọc sau, `opening_chars` là độ dài của nó, và ghi chú không
     nằm trong `prompt`), `tests/test_trajectory.py` (trajectory mang khối đã che secret, tin không có gì mới
     thì không có khoá, bản Markdown xếp khối, ghi chú canvas rồi tin).
-  - Kiểm chứng đột biến: ba mươi ba sửa đổi ở server (bỏ `turn_notes` ở từng chỗ trong ba chỗ lưu tin mở
-    lượt và ở từng tầng store; không gắn khối khi đọc lịch sử; đổi chỗ khối với ghi chú canvas; fork không
-    chép cột; coi mọi ghi chú dài hơn là "chỉ thêm"; coi cùng độ dài là không đổi; không nói mục đã trống;
-    ghi độ dài của phần đã kể thay cho cả mục; cho fork hay con mục "Cuộc trước"; lưu chuỗi rỗng khi không
+  - Kiểm chứng đột biến: hơn ba mươi sửa đổi ở server (bỏ `turn_notes` ở từng chỗ trong ba chỗ lưu tin mở
+    lượt và ở từng tầng store; không gắn khối khi đọc lịch sử; đổi chỗ khối với ghi chú canvas; coi mọi ghi chú dài hơn là "chỉ thêm"; coi cùng độ dài là không đổi; không nói mục đã trống;
+    ghi độ dài của phần đã kể thay cho cả mục; cho con mục "Cuộc trước"; lưu chuỗi rỗng khi không
     có gì mới; bỏ hay giữ mãi đường lùi cho cuộc cũ; bỏ khung; trajectory bỏ khối hay để JSON thô; preview
     bỏ `opening`; chỉ đọc ghi chú hôm nay), mỗi cái đều làm ít nhất một test đỏ.
   - vitest: `components/agent-editor/prompt-section.test.tsx` (khối hiện dưới lời nhắc với tiêu đề và độ
@@ -5850,7 +5762,7 @@ khi chạy; phần đó có mục riêng ở dưới.
     được gửi cái script in ra, không gì trong phần lưu kèm; lượt sau không thấy ghi chú canvas
     nào đứng trước kết quả của script; lượt nào đọc lại thì tin nhắn cũng là đúng tin đã lưu;
     script không gọi gì vẫn giữ hai số đo; kết quả của tool khác không giữ gì; phần lưu kèm rỗng
-    trừ khi một script đặt nó; nhánh rẽ chép theo; bản ghi quỹ đạo của run chỉ nói cái model đã
+    trừ khi một script đặt nó; bản ghi quỹ đạo của run chỉ nói cái model đã
     đọc, còn lời gọi nằm ở step của run).
 - **Tham số rút gọn của một lời gọi có trần về số tham số**:
   - pytest: `tests/test_activity.py` (tham số vẫn là một bảng tên và giá trị; giá trị dài và
@@ -7055,11 +6967,10 @@ khi chạy; phần đó có mục riêng ở dưới.
     một cái; ký tự không ai thấy trong cái script in được viết thành mã của nó khi khối mở, và lại
     như thế mỗi lần mở; khối dài còn gấp thì không vẽ chúng ở đâu; chỗ các mã ấy chiếm không làm một
     đoạn thành dài; tin không đúng hẳn là tin chuyển tiếp, như câu trả lời mà agent viết y hệt, được
-    vẽ như chính nó; gửi lại hay chép một tin chuyển tiếp thì dùng tin như được lưu: nhánh mới nhận
-    cả tin, và bản xuất cuộc trò chuyện có mọi dòng của nó).
+    vẽ như chính nó; bản xuất cuộc trò chuyện dùng tin như được lưu và có mọi dòng của nó).
   - Playwright: `script-handoff.spec.ts` (ở 1440px và 390px: prompt nằm trong bong bóng và cái
     script in ra nằm dưới nó, không dấu đánh dấu nào trên màn; đoạn dài được giữ gấp, mở ra thì cuộn
-    trong ô của nó và xuống dòng; ngoài ra: gửi lại tin của job script bắt đầu từ tin như được lưu;
+    trong ô của nó và xuống dòng; ngoài ra:
     tin chỉ trích hai dấu đánh dấu vẫn là tin thường).
 - Kiểm chứng đột biến: sáu trăm bốn mươi sáu sửa đổi ở server. Chín mươi ở chính tool (mở cho
   script một tool hỏi trước, có lý do hỏi, không gọi lại được, hay một trong bốn tool nói thay

@@ -17,7 +17,6 @@ from my_agent_crew import texts
 from my_agent_crew.tools.output_spill import (
     MAX_SPILL_BYTES,
     Spill,
-    copy_conversation,
     remove_conversation,
     sweep,
 )
@@ -167,39 +166,3 @@ def test_remove_conversation_on_a_conversation_with_no_spill_directory_does_noth
     home: Path,
 ) -> None:
     remove_conversation(home, "never-had-one")  # must not raise
-
-
-def test_copy_conversation_duplicates_every_file_with_a_fresh_mtime(home: Path) -> None:
-    spill = Spill(home)
-    spill.write("source-conv", "call1", "bản gốc")
-    src_file = next((home / "spill" / "source-conv").iterdir())
-    old_stamp = os.stat(src_file).st_mtime - 100
-    os.utime(src_file, (old_stamp, old_stamp))
-
-    copy_conversation(home, "source-conv", "fork-conv")
-
-    assert spill.read("fork-conv", "call1") == "bản gốc"
-    dst_file = next((home / "spill" / "fork-conv").iterdir())
-    assert os.stat(dst_file).st_mtime > old_stamp
-
-
-def test_copy_conversation_does_not_copy_what_a_symlink_points_at(
-    home: Path, tmp_path: Path
-) -> None:
-    outside = tmp_path.parent / "outside-copy-target"
-    outside.mkdir(exist_ok=True)
-    secret = outside / "secret.txt"
-    secret.write_text("không thuộc spill")
-    src = home / "spill" / "source-conv"
-    src.mkdir(parents=True)
-    (src / "link.txt").symlink_to(secret)
-
-    copy_conversation(home, "source-conv", "fork-conv")
-
-    assert not (home / "spill" / "fork-conv" / "link.txt").exists()
-
-
-def test_copy_conversation_from_a_source_with_no_spill_directory_does_nothing(home: Path) -> None:
-    copy_conversation(home, "never-had-one", "fork-conv")  # must not raise
-
-    assert not (home / "spill" / "fork-conv").exists()

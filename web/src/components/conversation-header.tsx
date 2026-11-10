@@ -32,14 +32,6 @@ interface Props {
   extra?: ReactNode;
   /** A control before the title, e.g. the button that opens the list on a phone. */
   lead?: ReactNode;
-  /** The source conversation's title, when `conversation.forked_from` names one still in
-   *  the loaded list. Left `undefined` — the source has scrolled out of the sidebar's page,
-   *  or belongs to another agent — falls back to a generic label rather than hiding the
-   *  line: the conversation is still a fork even when its origin cannot be named. */
-  sourceTitle?: string;
-  /** Opens the source conversation; only ever rendered when `conversation.forked_from` is
-   *  set, so `chat-screen.tsx` need not guard this itself. */
-  onOpenSource?: () => void;
   /** A phone: the title row alone, with the pills and the recap behind a toggle. */
   compact?: boolean;
 }
@@ -99,14 +91,6 @@ export function ConversationHeader(props: Props) {
         </div>
         {open && <HeaderControls {...props} />}
       </div>
-      {open && c.forked_from ? (
-        <div className="header-fork-origin" data-testid="fork-origin">
-          <span className="muted">{vi.fork.from}</span>
-          <button type="button" className="link-button" onClick={props.onOpenSource}>
-            {props.sourceTitle ?? vi.fork.original}
-          </button>
-        </div>
-      ) : null}
       {open && <HeaderSummary summary={c.summary} onSummarize={props.onSummarize} />}
     </header>
   );

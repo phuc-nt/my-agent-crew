@@ -71,11 +71,8 @@ def _sections(deps: AgentDeps, conv: Conversation | None) -> list[tuple[str, str
     notes = daily_note_sections(deps.agent, deps.settings.today())
     sections = [(title, title, body) for title, body in notes]
     # A delegated turn is one job with a fresh brief; the summary of some earlier job on
-    # the same channel is noise to it. A fork is newest on its channel by rowid, so "the
-    # conversation before it" usually is the very one it was cut from — whose summary
-    # covers the part after the cut that the fork exists to drop. Neither has the section
-    # at all: what a fork's copied messages were told of it stands, and is not called gone.
-    if conv is None or conv.parent_call_id or conv.forked_from:
+    # the same channel is noise to it, so it has no such section at all.
+    if conv is None or conv.parent_call_id:
         return sections
     previous = deps.store.previous_for_channel(conv.agent_id, conv.channel, conv.id)
     when = day_and_time(previous.updated_at, deps.settings.zone) if previous else "?"

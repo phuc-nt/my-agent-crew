@@ -320,9 +320,7 @@ Mấy điều đi kèm:
   trò chuyện cùng tin mở lượt kế tiếp, không chen vào trước tin đang mở lượt này.
 - Tin do vòng lặp tự viết (nhắc khi lặp, nhắc con gói việc) và lượt đi tiếp sau duyệt hay sau
   restart không kể gì: chúng không mở lượt.
-- Lượt được giao việc (con) và cuộc tách nhánh (fork) không có mục "Cuộc trước": con làm một việc
-  với đề bài mới, còn cuộc đứng trước một fork thường chính là cuộc nó tách ra. Fork giữ nguyên
-  khối của các tin nó chép sang, nên chỉ nghe phần đổi từ đó.
+- Lượt được giao việc (con) không có mục "Cuộc trước": nó làm một việc với đề bài mới.
 - Cuộc trò chuyện bắt đầu trước khi có cột này (không tin nào mang khối) đọc trí nhớ hiện tại
   trước tin đầu tiên của nó, cho tới khi tin kế tiếp được lưu kèm trọn vẹn.
 - Dựng khối lỗi thì tin vẫn được lưu, chỉ không có khối. Mỗi mục có trần 24 000 ký tự.

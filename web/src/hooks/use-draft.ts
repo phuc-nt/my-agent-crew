@@ -19,13 +19,6 @@ export function forgetDraft(key: string): void {
   write(key, "");
 }
 
-/** Seeds a conversation's draft before its `useDraft` ever mounts — a fork opens on a
- *  conversation that did not exist a moment ago, so its composer has to find the text
- *  already there on its very first read rather than racing a `setText` after mount. */
-export function saveDraft(key: string, text: string): void {
-  write(key, text);
-}
-
 // The boxes a send is holding: until it settles, their words are not the page's to take.
 const held = new Map<string, number>();
 // The boxes on screen, told when words are taken back out of a draft.

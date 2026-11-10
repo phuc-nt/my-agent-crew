@@ -12,7 +12,7 @@ function conversation(id: string): Conversation {
   return {
     id, parent_call_id: "", agent_id: "default", channel: "", title: `Việc ${id}`, created_at: "", updated_at: "", autonomous: false,
     cost_cap_usd: 1, spent_usd: 0, unknown_cost_calls: 0, status: "idle", over_budget: false,
-    summary: "Đã tạo thư mục", skills: [], auto_approve: [], forked_from: "",
+    summary: "Đã tạo thư mục", skills: [], auto_approve: [],
   };
 }
 

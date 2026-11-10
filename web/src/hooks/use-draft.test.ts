@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { type ReactNode, useLayoutEffect } from "react";
 import { afterEach, describe, expect, it, vi as vitest } from "vitest";
 import { memoryStorage, refusingStorage } from "../test/memory-storage";
-import { forgetDraft, holdDraft, saveDraft, useDraft, withdrawDraft } from "./use-draft";
+import { forgetDraft, holdDraft, useDraft, withdrawDraft } from "./use-draft";
 
 // The holds a test took: what holds a box lives with the module, so each is let go again.
 const holds: (() => void)[] = [];
@@ -20,6 +20,13 @@ afterEach(() => {
 
 function draft(key: string | null) {
   return renderHook(({ key }) => useDraft(key), { initialProps: { key } });
+}
+
+/** Leaves `text` as a conversation's draft, the way a composer no longer on screen did. */
+function saveDraft(key: string, text: string): void {
+  const box = draft(key);
+  act(() => box.result.current[1](text));
+  box.unmount();
 }
 
 /** Takes the words back out of a conversation's box, and says whether they are taken. */
@@ -82,27 +89,16 @@ describe("the unsent text kept per conversation", () => {
   });
 });
 
-describe("saveDraft: seeding a draft before its useDraft ever mounts", () => {
-  it("is read back by useDraft once it mounts on that key", () => {
-    memoryStorage();
-    saveDraft("c-fork", "hỏi lại");
-    const hook = draft("c-fork");
-    expect(hook.result.current[0]).toBe("hỏi lại");
-  });
-
-  it("is picked up by a useDraft already mounted, the moment its key switches to it", () => {
-    memoryStorage();
-    const hook = draft("c1");
-    saveDraft("c-fork", "chữ đã lưu trước");
-    hook.rerender({ key: "c-fork" });
-    expect(hook.result.current[0]).toBe("chữ đã lưu trước");
-  });
-
-  it("forgetDraft still empties what saveDraft wrote", () => {
+describe("forgetDraft: the draft of a conversation that is gone", () => {
+  it("empties what the box had kept", () => {
     const store = memoryStorage();
-    saveDraft("c-fork", "sẽ bị xoá");
-    forgetDraft("c-fork");
-    expect(draft("c-fork").result.current[0]).toBe("");
+    const kept = draft("c-gone");
+    act(() => kept.result.current[1]("sẽ bị xoá"));
+    kept.unmount();
+    expect(store.size).toBe(1);
+
+    forgetDraft("c-gone");
+    expect(draft("c-gone").result.current[0]).toBe("");
     expect(store.size).toBe(0);
   });
 });

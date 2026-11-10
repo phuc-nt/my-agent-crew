@@ -6,7 +6,6 @@ the language of the text follows the product's default (Vietnamese)."""
 # `texts.<NAME>` whichever module a string ended up in.
 from my_agent_crew.texts_delegate import *  # noqa: F403
 from my_agent_crew.texts_escalation import *  # noqa: F403
-from my_agent_crew.texts_fork import *  # noqa: F403
 from my_agent_crew.texts_halt import *  # noqa: F403
 from my_agent_crew.texts_hygiene import *  # noqa: F403
 from my_agent_crew.texts_image import *  # noqa: F403

@@ -14,7 +14,7 @@ from my_agent_crew.agent.events import ToolResultEvent
 from my_agent_crew.agent.loop import run_turn
 from my_agent_crew.agent.payload_trim import attach_canvas_notes
 from my_agent_crew.llm.fake import completion
-from my_agent_crew.llm.types import Message, ToolCall
+from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.script.tool import SCRIPT_TOOL, script_tool
 from my_agent_crew.store import StoredMessage
 from my_agent_crew.texts_canvas import CANVAS_NOTE_STUB
@@ -158,19 +158,6 @@ def test_what_a_result_keeps_is_empty_unless_a_script_set_it():
         "received_chars": None,
         "printed_chars": None,
     }
-
-
-async def test_a_fork_copies_what_the_script_called(deps_factory):
-    deps = a_turn(deps_factory, [completion(tool_calls=[scripted()]), completion("Xong.")])
-    conv = deps.store.create()
-    await collect(run_turn(deps, conv.id, "đọc hai dòng"))
-    at = deps.store.append(conv.id, Message(role="user", content="đọc lại")).id
-
-    fork, _ = deps.store.fork(conv.id, at, autonomous=False)
-
-    [source] = tool_messages(deps, conv.id)
-    [copied] = tool_messages(deps, fork.id)
-    assert copied.context == source.context != ""
 
 
 async def test_a_run_written_out_says_what_the_model_read_and_no_more(deps_factory):

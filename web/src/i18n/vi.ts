@@ -77,12 +77,6 @@ export const vi = {
     failed: "Trình duyệt không cho chép tự động. Chọn đoạn dưới đây rồi chép tay.",
     manual: "Nội dung để chép tay",
   },
-  fork: {
-    fromHere: "Sửa và gửi lại từ đây",
-    from: "Rẽ nhánh từ",
-    original: "cuộc trò chuyện gốc",
-    failed: "Không rẽ nhánh được: không tìm thấy đúng tin nhắn.",
-  },
   // Under the message a script job opened a turn with: what its script printed, set apart
   // from the schedule's prompt in the bubble above. The label says how long it is, since a
   // long one stays folded; the line under it says how the model was given it.

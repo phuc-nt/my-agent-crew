@@ -18,8 +18,8 @@ const EXPIRED = "Người dùng đã TỪ CHỐI hành động này (hết hạn
  * sentence when it fills in nothing. In order: the tool raised or crashed, no tool has the
  * name, a kit hook stopped it, its arguments were not valid JSON or were cut off, the turn was
  * out of steps, the turn was stopped for repeating itself, the turn's scripts had made all
- * the calls a turn may, its id had been approved for another call, the conversation was
- * branched before it ran, the run was cut before it answered.
+ * the calls a turn may, its id had been approved for another call, the run was cut before it
+ * answered.
  */
 const FAILED = [
   "Công cụ lỗi: ",
@@ -30,7 +30,6 @@ const FAILED = [
   "Không chạy: lệnh này đã được gọi y hệt nhiều lần liên tiếp nên lượt bị dừng tại đây.",
   "Không chạy: lượt đã dùng hết ",
   "Lời gọi này trùng id với một lời gọi khác đã được duyệt cho một việc khác, nên không dùng lại quyết định đó. Hãy gọi lại nếu vẫn cần.",
-  "Lệnh này chưa chạy vì hội thoại đã được rẽ nhánh trước khi nó kết thúc. Gọi lại nếu vẫn cần.",
   "Lời gọi này bị ngắt giữa chừng: không rõ nó đã chạy hay chưa. Nếu vẫn cần, hãy kiểm tra trước rồi mới gọi lại.",
 ];
 

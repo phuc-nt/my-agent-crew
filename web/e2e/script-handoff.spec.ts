@@ -107,15 +107,6 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
   });
 }
 
-test("sending a script job's message again starts from the message as it is stored", async ({ page }) => {
-  const stored = handedOn(PROMPT, SHORT);
-  await open(page, stored);
-
-  await page.getByTestId("message-user").locator(".fork-button").click();
-
-  await expect(page.getByRole("textbox", { name: vi.composerPlaceholder })).toHaveValue(stored);
-});
-
 test("a message that only quotes the markers stays the plain message it is", async ({ page }) => {
   const [, quoted] = lookalikes(PROMPT, SHORT).find(([what]) => what === "an opening marker with another number") ?? [];
   expect(quoted).toBeDefined();

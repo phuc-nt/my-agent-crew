@@ -18,7 +18,6 @@ from my_agent_crew.server import (
     routes_chat,
     routes_conversations,
     routes_credentials,
-    routes_fork,
     routes_inbound,
     routes_inbox_upload,
     routes_jobs,
@@ -40,7 +39,6 @@ from my_agent_crew.server import (
 
 ROUTERS = (
     routes_conversations.router,
-    routes_fork.router,
     routes_chat.router,
     routes_turn.router,
     routes_inbound.router,

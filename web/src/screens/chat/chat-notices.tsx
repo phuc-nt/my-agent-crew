@@ -1,7 +1,6 @@
 import type { Conversation } from "../../api/types";
 import { RaiseCapButton } from "../../components/budget-indicator";
 import { Icon, type IconName } from "../../components/ui/icon";
-import type { ForkController } from "../../hooks/use-fork";
 import { vi } from "../../i18n/vi";
 import { runSummaryText } from "../../lib/run-summary";
 import type { ConversationMoney } from "../../state/conversation-money";
@@ -60,16 +59,6 @@ export function loadFailedNotice(list: ChatProps["list"]) {
     <div className="notice error">
       <Icon name="alert" />
       {vi.loadFailed}
-    </div>
-  );
-}
-
-/** The last fork did not go through. */
-export function forkErrorNotice(fork: ForkController) {
-  return fork.error && (
-    <div className="notice error" data-testid="fork-error">
-      <Icon name="alert" />
-      {fork.error}
     </div>
   );
 }

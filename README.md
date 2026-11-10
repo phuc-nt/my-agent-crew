@@ -230,8 +230,7 @@ A tool result too long for the output cap is shortened in the prompt, but the wh
 kept under `spill/<conversation>/` in the home (at most 5 MB a file) and the shortened text ends
 with a line naming the call. The agent reads the rest with `tool_output_read`, in segments that
 always fit the cap, instead of running the command again. It reads only its own conversation;
-a conversation's spill goes with it, a fork gets its own copy, and a daily sweep removes files
-older than seven days. Agents without a `tools:` list have it; an agent with its own list needs
+a conversation's spill goes with it, and a daily sweep removes files older than seven days. Agents without a `tools:` list have it; an agent with its own list needs
 `tool_output_read` added there.
 
 ## Tools from MCP servers
@@ -526,10 +525,6 @@ on the timeline so the viewer sees progress instead of a spinner. Also in the ch
   yesterday, older) on the viewer's own calendar, says how long ago each one changed, and puts an
   unread dot on a conversation that changed since this browser last had it open. The composer
   keeps each conversation's unsent draft across switches and reloads.
-- **Sửa và gửi lại từ đây** (edit and resend from here) under a message of yours forks the
-  conversation there: a new conversation holds everything before it, the composer opens with
-  that message to edit, and a line "Rẽ nhánh từ …" (forked from) leads back. The original is left
-  untouched, and the fork starts with no spend and no standing approvals.
 - A `/` at the start of the composer lists the commands of the agent the conversation talks to,
   narrowed as the name is typed.
 - Each agent reply can be copied, or shared where the device has a share sheet, and each code

@@ -13,7 +13,6 @@ const STEPS = "Không chạy: lượt đã hết số bước tối đa nên d�
 const LOOP = "Không chạy: lệnh này đã được gọi y hệt nhiều lần liên tiếp nên lượt bị dừng tại đây.";
 const NESTED = "Không chạy: lượt đã dùng hết 120 lời gọi lồng của script nên dừng trước lệnh này.";
 const MISMATCH = "Lời gọi này trùng id với một lời gọi khác đã được duyệt cho một việc khác, nên không dùng lại quyết định đó. Hãy gọi lại nếu vẫn cần.";
-const BRANCHED = "Lệnh này chưa chạy vì hội thoại đã được rẽ nhánh trước khi nó kết thúc. Gọi lại nếu vẫn cần.";
 const CUT_SHORT = "Lời gọi này bị ngắt giữa chừng: không rõ nó đã chạy hay chưa. Nếu vẫn cần, hãy kiểm tra trước rồi mới gọi lại.";
 const NOT_JSON = "Không chạy artifact_create: tham số gửi lên không phải một JSON object hợp lệ nên đã bị bỏ qua. Hãy gửi lại lời gọi này. Trong chuỗi JSON, xuống dòng phải viết là \\n và dấu nháy kép là \\\"; nội dung dài thì gửi phần khung trước rồi bổ sung dần từng phần.\nChi tiết: 40 chars; Unterminated string starting at char 12";
 const CUT_OFF = "Không chạy artifact_create: câu trả lời chạm giới hạn độ dài đầu ra khi lời gọi này còn đang viết, nên tham số bị cắt và đã bị bỏ qua. Đừng gửi lại nguyên văn: lần gửi lại sẽ bị cắt đúng chỗ cũ. Chia nội dung thành nhiều lời gọi nhỏ hơn, gửi phần khung trước rồi bổ sung dần.\nChi tiết: cut off at the output limit; 51 chars; cut off at char 51";
@@ -41,10 +40,9 @@ const FAILED: [how: string, tool: string, reply: string][] = [
   ["the turn's scripts had made every call a turn may", "workspace_write", NESTED],
   ["its id had been approved for another call", "workspace_write", MISMATCH],
   ["the wait for a handed-off task ran out", "delegate", result(TIMED_OUT, [], WAITED)],
-  ["the conversation was branched before it ran", "workspace_read", BRANCHED],
   ["the run was cut before it answered", "shell_run", CUT_SHORT],
 ];
-// The last two are written into a thread nobody is watching, so no reply of theirs ever arrives.
+// The last one is written into a thread nobody is watching, so no reply like it ever arrives.
 const ARRIVING = FAILED.slice(0, 10);
 // All but the handed-off task, which is known by more than how its reply opens.
 const BY_OPENING = FAILED.filter(([, tool]) => tool !== "delegate");
@@ -114,7 +112,6 @@ describe("a call that failed, read back from the stored thread", () => {
     "Không chạy: lượt đã dùng hết.", // the count a turn may make is not named
     "Không chạy: lượt đã dùng hết120 lời gọi lồng của script nên dừng trước lệnh này.",
     MISMATCH.slice(0, -1),
-    BRANCHED.slice(0, -1),
     CUT_SHORT.slice(0, -1),
     "Lời gọi này đã chạy xong.",
     "Lệnh này chưa chạy.",
