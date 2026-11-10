@@ -65,17 +65,17 @@ describe("ConnectionsPanel", () => {
       ...base,
       providers: [
         { name: "openrouter", built: true },
-        { name: "ollama", built: true },
+        { name: "anthropic", built: true },
       ],
       routes: [
         { provider: "openrouter", model: "gpt-4" },
-        { provider: "ollama", model: "qwen" },
+        { provider: "anthropic", model: "qwen" },
       ],
     };
     render(<ConnectionsPanel connections={connections} credentials={controller([])} mcp={mcp()} onChanged={noop} />);
 
     expect(screen.getByTestId("providers")).toHaveTextContent("openrouter");
-    expect(screen.getByTestId("providers")).toHaveTextContent("ollama");
+    expect(screen.getByTestId("providers")).toHaveTextContent("anthropic");
     const models = within(screen.getByTestId("routes")).getAllByLabelText(vi.editor.model);
     expect(models.map((field) => (field as HTMLInputElement).value)).toEqual(["gpt-4", "qwen"]);
     expect(screen.getByText(vi.connectionsPage.noVisionRoutes)).toBeInTheDocument();
@@ -194,14 +194,12 @@ describe("ConnectionsPanel", () => {
     expect(row.getByText(vi.connectionsPage.fileOnly)).toBeInTheDocument();
   });
 
-  it("shows a host address and its default, since they are not secrets", () => {
+  it("shows a host address, since it is not a secret", () => {
     const credentials = controller([
-      item({ name: "OLLAMA_BASE_URL", secret: false, url: true, value: "", default: "http://127.0.0.1:11434/v1" }),
       item({ name: "FIRECRAWL_BASE_URL", group: "search", secret: false, url: true, present: true, source: "file", value: "http://127.0.0.1:3002" }),
     ]);
     render(<ConnectionsPanel connections={base} credentials={credentials} mcp={mcp()} onChanged={noop} />);
 
-    expect(screen.getByTestId("credential-OLLAMA_BASE_URL")).toHaveTextContent("Mặc định: http://127.0.0.1:11434/v1");
     expect(screen.getByTestId("credential-FIRECRAWL_BASE_URL")).toHaveTextContent("http://127.0.0.1:3002");
   });
 

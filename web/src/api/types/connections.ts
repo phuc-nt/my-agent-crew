@@ -30,7 +30,6 @@ export interface ConnectionsInfo {
   /** Search backends in priority order, best first. Never empty. */
   search_backends: string[];
   firecrawl_base_url: string;
-  ollama_base_url?: string;
   telegram: TelegramConnection[];
   /** The machine's browser. Absent from a server older than the key: nothing is shown. */
   browser?: BrowserConnection;
@@ -53,16 +52,15 @@ export interface CredentialInfo {
   /** "file": saved in the env file. "process": given to the server when it started, so
    * removing it from here is not possible and a restart may bring the old value back. */
   source: "file" | "process" | null;
-  /** A free check can run now: there is a value, or a default to try. */
+  /** A free check can run now: there is a value to check. */
   checkable: boolean;
   /** The check spends from the key's own quota (a real search), so the button says so. */
   check_spends?: boolean;
   /** False for a name read from the file that the API will not write (lower-case or
    * reserved): it is shown, and edited in the file itself. */
   editable: boolean;
-  /** Non-secrets only: the value in use and what applies when none is set. */
+  /** Non-secrets only: the value in use. */
   value?: string;
-  default?: string;
   /** Telegram only: the agents whose profile names this token. */
   agents?: string[];
   /** MCP only: the servers whose headers read this variable. */

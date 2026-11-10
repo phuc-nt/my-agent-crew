@@ -55,7 +55,7 @@ def prepare(rt: Runtime, env: Mapping[str, str], routes: Sequence[Route] | None 
     settings = with_secrets(rt.settings, env)
     if routes is not None:
         settings = replace(settings, routes=tuple(routes))
-    providers = build_providers(settings, rt.client, env)
+    providers = build_providers(settings, rt.client)
     agents = {
         profile.id: build_agent_deps(
             profile, providers, rt.client, rt.store, settings.routes, browser=rt.browsers.pool

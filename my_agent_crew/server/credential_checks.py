@@ -1,7 +1,7 @@
 """One free request per kind of connection, to tell a working key from a wrong one.
 
 Each check picks an endpoint that costs nothing and changes nothing: OpenRouter's key
-info, Anthropic's and ollama's model lists, Telegram's `getMe`, a GET on the firecrawl
+info, Anthropic's model list, Telegram's `getMe`, a GET on the firecrawl
 host, Tavily's usage. Brave has no such endpoint, so its check is one real search of a single result
 — one query off the plan, which the button says before it is pressed. Whatever comes
 back has the value cut out before it is shown, because an httpx error names the URL it
@@ -18,7 +18,6 @@ import httpx
 from my_agent_crew import texts_credentials as t
 from my_agent_crew.channels.telegram_api import hide_token
 from my_agent_crew.llm.anthropic import API_VERSION as ANTHROPIC_VERSION
-from my_agent_crew.llm.ollama import base_url as ollama_base_url
 
 CHECK_TIMEOUT_SECONDS = 10.0
 OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key"
@@ -87,15 +86,6 @@ async def _telegram(client: httpx.AsyncClient, token: str) -> dict[str, Any]:
     return _result(True, t.CHECK_BOT.format(username=username))
 
 
-async def _ollama(client: httpx.AsyncClient, url: str) -> dict[str, Any]:
-    response = await client.get(f"{url.rstrip('/')}/models", timeout=CHECK_TIMEOUT_SECONDS)
-    if not response.is_success:
-        return _failed(response)
-    models = _field(response, "data")
-    models = models if isinstance(models, list) else []
-    return _result(True, t.CHECK_MODELS.format(count=len(models)))
-
-
 async def _tavily(client: httpx.AsyncClient, key: str) -> dict[str, Any]:
     response = await client.get(
         TAVILY_USAGE_URL, headers={"Authorization": f"Bearer {key}"}, timeout=CHECK_TIMEOUT_SECONDS
@@ -133,16 +123,10 @@ CHECKS = {
     "openrouter": _openrouter,
     "anthropic": _anthropic,
     "telegram": _telegram,
-    "ollama": _ollama,
     "firecrawl": _reachable,
     "tavily": _tavily,
     "brave": _brave,
 }
-
-
-def default_value(kind: str) -> str:
-    """What a check runs against when the variable is unset: only ollama has a default."""
-    return ollama_base_url({}) if kind == "ollama" else ""
 
 
 async def run_check(kind: str, value: str, client: httpx.AsyncClient) -> dict[str, Any]:

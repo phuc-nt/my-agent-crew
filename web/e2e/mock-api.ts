@@ -119,7 +119,7 @@ export const connections = {
 /** The keys the Connections page lists, as the server describes them: never a secret's value. */
 export const credentialItems = [
   { name: "OPENROUTER_API_KEY", group: "model", secret: true, url: false, present: true, source: "file", checkable: true, editable: true },
-  { name: "OLLAMA_BASE_URL", group: "model", secret: false, url: true, present: false, source: null, checkable: true, editable: true, value: "", default: "http://127.0.0.1:11434/v1" },
+  { name: "FIRECRAWL_BASE_URL", group: "search", secret: false, url: true, present: true, source: "file", checkable: true, editable: true, value: "http://127.0.0.1:3002" },
   { name: "BRAVE_API_KEY", group: "search", secret: true, url: false, present: false, source: null, checkable: false, editable: true },
   { name: "TELEGRAM_BOT_TOKEN", group: "telegram", secret: true, url: false, present: true, source: "file", checkable: true, editable: true, agents: ["default"] },
 ];

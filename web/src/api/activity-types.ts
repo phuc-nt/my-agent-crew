@@ -126,7 +126,7 @@ export interface StatsInfo {
 
 /** One provider's spend from the crew's own ledger, in the server's zone. */
 export interface ProviderSpend {
-  /** `anthropic`, `openrouter`, `ollama`... */
+  /** `anthropic`, `openrouter`... */
   provider: string;
   today_usd: number;
   month_usd: number;

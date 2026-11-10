@@ -15,9 +15,9 @@ def _client(handler) -> httpx.AsyncClient:
 
 async def test_a_reply_that_is_not_an_object_is_reported_not_raised() -> None:
     async with _client(lambda request: httpx.Response(200, json=[1, 2])) as client:
-        models = await run_check("ollama", "http://127.0.0.1:11434/v1", client)
+        usage = await run_check("tavily", "tvly-secret", client)
         bot = await run_check("telegram", "123:abc", client)
-    assert models["ok"] is True and "0" in models["detail"]
+    assert usage == {"ok": True, "detail": "Hoạt động"}
     assert bot["ok"] is True
 
 
@@ -69,7 +69,7 @@ async def test_a_search_key_out_of_quota_is_told_apart_from_a_wrong_one() -> Non
 
 async def test_a_reply_that_is_not_json_is_a_failed_check() -> None:
     async with _client(lambda request: httpx.Response(200, text="<html>")) as client:
-        result = await run_check("ollama", "http://127.0.0.1:11434/v1", client)
+        result = await run_check("tavily", "tvly-secret", client)
     assert result["ok"] is False
 
 

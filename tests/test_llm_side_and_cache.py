@@ -54,7 +54,7 @@ def test_an_hour_marks_the_tools_and_system_but_not_the_moving_tail():
 
 def test_the_provider_is_built_with_the_configured_lifetime(settings):
     keyed = replace(settings, anthropic_api_key="k", llm=LlmSettings(anthropic_cache_ttl="1h"))
-    provider = build_providers(keyed, httpx.AsyncClient(), env={})["anthropic"]
+    provider = build_providers(keyed, httpx.AsyncClient())["anthropic"]
     assert provider._cache_ttl == "1h"
 
 

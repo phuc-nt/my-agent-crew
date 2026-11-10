@@ -1824,7 +1824,6 @@ tên một test thì sửa dòng của nó trong cùng commit.
     (mảnh xen với chữ theo đúng thứ tự gửi, `Completion` cuối y như cũ) và
     "test_a_delta_that_brings_words_and_a_fragment_passes_both_on_the_words_first" (một delta
     mang cả chữ lẫn mảnh thì mảnh không bị bỏ và đi sau chữ);
-    `tests/test_ollama.py::test_a_local_model_passes_on_the_pieces_of_a_tool_call_too`;
     `tests/test_route_retry.py`
     ("test_a_route_is_still_asked_again_after_part_of_a_tool_call_arrived",
     "test_a_tool_call_piece_does_not_use_up_the_retry_that_text_would": mảnh lời gọi không phải

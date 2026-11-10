@@ -1,9 +1,6 @@
-"""The OpenAI-compatible chat API, shared by every provider that speaks it.
-
-OpenRouter and a local ollama differ in three things: the base url, whether a key is sent,
-and whether the stream reports a price. Everything else — the wire shape of messages and
-tools, the fragmented tool_call deltas, the `data:` stream framing — is the same, and was
-duplicated once before this module existed.
+"""The OpenAI-compatible chat API: the wire shape of messages and tools, the fragmented
+tool_call deltas and the `data:` stream framing. OpenRouter speaks it; the base url, the
+key and whether the stream reports a price are the caller's.
 """
 
 from __future__ import annotations

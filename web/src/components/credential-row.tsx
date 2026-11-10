@@ -71,7 +71,7 @@ export function CredentialRow({ item, credentials }: Props) {
       return { tone: result.ok ? "ok" : "danger", text: result.detail };
     });
 
-  const shown = !item.secret && (item.value || (item.default && t.defaultValue(item.default)));
+  const shown = !item.secret && item.value;
   const sub = !item.editable
     ? t.fileOnly
     : item.source === "process"

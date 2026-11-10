@@ -19,7 +19,6 @@ from my_agent_crew.browser.pool import BrowserPool
 from my_agent_crew.config import Route, Settings
 from my_agent_crew.llm.anthropic import AnthropicProvider
 from my_agent_crew.llm.fake import EchoProvider
-from my_agent_crew.llm.ollama import OllamaProvider, base_url
 from my_agent_crew.llm.openrouter import OpenRouterProvider
 from my_agent_crew.llm.provider import Provider, ProviderChain
 from my_agent_crew.script.tool import hand_script
@@ -31,11 +30,8 @@ from my_agent_crew.tools import Tool
 logger = logging.getLogger(__name__)
 
 
-def build_providers(
-    settings: Settings, client: httpx.AsyncClient, env: Mapping[str, str] | None = None
-) -> dict[str, Provider]:
-    """Providers from the settings' keys; ollama's host from `env` (the process's by
-    default), so connections can be rebuilt from an environment not yet in force."""
+def build_providers(settings: Settings, client: httpx.AsyncClient) -> dict[str, Provider]:
+    """Providers from the settings' keys: one that needs a key is built only with it."""
     providers: dict[str, Provider] = {"fake": EchoProvider()}
     if settings.openrouter_api_key:
         providers["openrouter"] = OpenRouterProvider(
@@ -48,10 +44,6 @@ def build_providers(
         providers["anthropic"] = AnthropicProvider(
             settings.anthropic_api_key, client, settings.llm.anthropic_cache_ttl
         )
-    # Ollama needs no key, so it is always built rather than gated on configuration. If
-    # nothing is listening the route fails at call time and the chain falls through to the
-    # next one, which is the same handling as any other provider being down.
-    providers["ollama"] = OllamaProvider(base_url(env))
     return providers
 
 

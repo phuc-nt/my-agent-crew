@@ -49,7 +49,7 @@ def test_saved_routes_reach_the_crew_and_keep_the_file_as_typed(home: Path) -> N
             json={
                 "routes": [
                     {"provider": "fake", "model": "second"},
-                    {"provider": "ollama", "model": "qwen3:8b"},
+                    {"provider": "fake", "model": "qwen3:8b"},
                 ]
             },
         )
@@ -57,13 +57,13 @@ def test_saved_routes_reach_the_crew_and_keep_the_file_as_typed(home: Path) -> N
     assert reply.status_code == 200, reply.text
     assert reply.json()["routes"] == [
         {"provider": "fake", "model": "second"},
-        {"provider": "ollama", "model": "qwen3:8b"},
+        {"provider": "fake", "model": "qwen3:8b"},
     ]
     assert reply.json()["restart_required"] is None
     text = (home / "config.yaml").read_text()
     assert "# my crew" in text and "# keep Vietnamese" in text
-    assert "- fake:second" in text and "- ollama:qwen3:8b" in text
-    assert runtime.settings.routes == (Route("fake", "second"), Route("ollama", "qwen3:8b"))
+    assert "- fake:second" in text and "- fake:qwen3:8b" in text
+    assert runtime.settings.routes == (Route("fake", "second"), Route("fake", "qwen3:8b"))
     # An agent with no routes of its own answers with the new ones from the next turn.
     assert runtime.default.chain.routes[0] == Route("fake", "second")
     assert load_settings(env={"MY_AGENT_HOME": str(home)}).routes == runtime.settings.routes
@@ -125,31 +125,33 @@ def test_a_home_with_no_config_file_gets_one_with_just_the_routes(tmp_path: Path
     with client:
         assert client.get("/api/connections").json()["routes_source"] == "default"
         reply = client.put(
-            "/api/connections/routes", json={"routes": [{"provider": "ollama", "model": "qwen"}]}
+            "/api/connections/routes",
+            json={"routes": [{"provider": "openrouter", "model": "qwen"}]},
         )
 
     assert reply.status_code == 200
-    assert load_settings(env={"MY_AGENT_HOME": str(home)}).routes == (Route("ollama", "qwen"),)
+    assert load_settings(env={"MY_AGENT_HOME": str(home)}).routes == (Route("openrouter", "qwen"),)
 
 
 def test_a_real_crew_does_not_gain_the_echo_provider(tmp_path: Path, environ) -> None:
     home = tmp_path / "home"
     home.mkdir()
-    (home / "config.yaml").write_text("routes:\n  - ollama:qwen\n")
-    client, runtime = _crew(home)
+    (home / "config.yaml").write_text("routes:\n  - openrouter:qwen\n")
+    environ["OPENROUTER_API_KEY"] = "sk-or-v1-test"
+    client, runtime = _crew(home, OPENROUTER_API_KEY="sk-or-v1-test")
     with client:
         reply = client.put(
             "/api/connections/routes",
             json={
                 "routes": [
-                    {"provider": "ollama", "model": "qwen"},
+                    {"provider": "openrouter", "model": "qwen"},
                     {"provider": "fake", "model": "x"},
                 ]
             },
         )
 
     assert reply.status_code == 409 and "fake" in reply.json()["detail"]
-    assert runtime.settings.routes == (Route("ollama", "qwen"),)
+    assert runtime.settings.routes == (Route("openrouter", "qwen"),)
 
 
 def test_a_config_file_that_cannot_be_written_is_said_not_raised(home: Path) -> None:

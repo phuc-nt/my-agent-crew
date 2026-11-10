@@ -59,7 +59,6 @@ Secrets are read **only** from environment variables; `config.yaml` holds only n
 | `MY_AGENT_TIMEZONE` | your timezone (IANA name, e.g. `Asia/Ho_Chi_Minh`) for schedules, "today" in the prompt and statistics; the DB still stores UTC | machine timezone |
 | `MY_AGENT_ALLOWED_HOSTS` | host names (besides `localhost` and IPs) allowed to call the API, comma-separated — e.g. a Tailscale MagicDNS name | empty |
 | `MY_AGENT_WEB_URL` | the address you open the web UI at (plain `http`/`https`: host, port and path only), used for the canvas links sent to Telegram; wins over `web_url` in `config.yaml`; a host name here also needs `MY_AGENT_ALLOWED_HOSTS` | empty (no links) |
-| `OLLAMA_BASE_URL` | where local ollama listens; no key needed, so this provider is always available | `http://127.0.0.1:11434/v1` |
 | `OPENROUTER_API_KEY` | enables the OpenRouter provider | — |
 | `TAVILY_API_KEY` / `BRAVE_API_KEY` | paid search sources; if unset, `web_search` still runs via DuckDuckGo | — |
 | `FIRECRAWL_BASE_URL` | firecrawl host for search and for reading pages as markdown | — |

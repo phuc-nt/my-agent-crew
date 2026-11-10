@@ -22,6 +22,12 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
   `agent.yaml` still carries `computer` or `computer_apps`, or whose `config.yaml` carries
   `desktop_socket`, is refused at start as an unknown key; delete the key first. The browser
   tools are untouched.
+- **The ollama provider.** `ollama:<model>` routes, the `OLLAMA_BASE_URL` row and its check on
+  the connections page, `ollama_base_url` in `GET /api/connections`, and the `default` field
+  of `GET /api/credentials` (ollama's host was the only value that had one). The provider was
+  built on every start whether or not anything listened, so a crew hosted in a container
+  listed a provider it could never reach. **Breaking:** a route naming `ollama` is dropped
+  like any route whose provider is not built; a home with no other route does not start.
 
 ## [0.38.0] — 2026-11-09
 

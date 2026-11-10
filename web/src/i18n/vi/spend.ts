@@ -4,7 +4,7 @@ export const viSpend = {
     title: "Chi phí model",
     // The pill's hover: the figures are this month's.
     pillHint: "Chi phí model tháng này. Bấm để xem chi tiết.",
-    providers: { anthropic: "Claude", openrouter: "OpenRouter", ollama: "Ollama" } as Record<string, string>,
+    providers: { anthropic: "Claude", openrouter: "OpenRouter" } as Record<string, string>,
     month: (month: string) => `Tháng ${month.slice(5)}/${month.slice(0, 4)}`,
     today: (usd: string) => `Hôm nay ${usd}`,
     unpriced: (n: number) => `${n} lượt chưa có giá`,

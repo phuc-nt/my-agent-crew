@@ -206,7 +206,6 @@ export class FakeBackend {
     ],
     search_backends: ["duckduckgo"],
     firecrawl_base_url: "",
-    ollama_base_url: "http://127.0.0.1:11434/v1",
     telegram: [],
   };
   /** The wiki vault, empty until a test puts pages in it. */

@@ -45,14 +45,14 @@ describe("applyRunEvent", () => {
     expect(a.steps[0]).toMatchObject({ kind: "model", chars: 200, model: "deepseek", tool_calls: ["read_file"] });
     expect((a.steps[0] as { preview: string }).preview.endsWith("…")).toBe(true);
     expect(a.spent_usd).toBeCloseTo(0.002);
-    // A local model reports no price: counted as unknown, never as free.
+    // A reply that reports no price: counted as unknown, never as free.
     const b = applyRunEvent(a, {
       type: "assistant_message",
       message_id: "m2",
       content: "",
       tool_calls: [],
-      provider: "ollama",
-      model: "llama3",
+      provider: "fake",
+      model: "echo",
       cost_usd: null,
     });
     expect(b.unknown_cost_calls).toBe(1);

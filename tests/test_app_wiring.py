@@ -12,12 +12,12 @@ def env_for(tmp_path: Path, **extra: str) -> dict[str, str]:
 
 
 def test_fake_provider_always_registered_and_openrouter_only_with_key(tmp_path: Path):
-    """Ollama needs no key so it is always there, like `web_search` below; OpenRouter is
-    the one that appears only once a key is set."""
+    """The echo provider needs no key so it is always there, like `web_search` below;
+    OpenRouter appears only once a key is set."""
     without = build_deps(load_settings(env=env_for(tmp_path)))
     with_key = build_deps(load_settings(env=env_for(tmp_path, OPENROUTER_API_KEY="k")))
-    assert set(without.chain.providers) == {"fake", "ollama"}
-    assert set(with_key.chain.providers) == {"fake", "ollama", "openrouter"}
+    assert set(without.chain.providers) == {"fake"}
+    assert set(with_key.chain.providers) == {"fake", "openrouter"}
 
 
 def test_web_search_tool_exists_with_or_without_a_key(tmp_path: Path):

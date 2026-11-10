@@ -2269,16 +2269,8 @@ khi model được nói phần tham số đúng như máy chủ viết, và là 
 
 ## Provider không cần khoá
 
-Hai trong số các provider không cần thông tin xác thực, và cả hai tồn tại để vẫn có thứ hữu ích
-chạy được khi không có khoá và không có mạng.
-
-`ollama` nói chuyện với server tương thích OpenAI cục bộ tại `OLLAMA_BASE_URL`, mặc định
-`http://127.0.0.1:11434/v1`. Vì không cần khoá nên nó luôn được dựng, nên tuyến như
-`ollama:qwen3:8b` có sẵn bất cứ khi nào ollama thực sự đang chạy; không có gì lắng nghe thì chỉ
-rơi về như mọi tuyến hỏng khác. Nó là nhà tự nhiên cho việc rẻ, khối lượng lớn —
-chẳng hạn tóm tắt đầu ra tool dài, việc nếu không sẽ thêm một lời gọi trả phí vào
-mỗi kết quả lớn. Model cục bộ không báo giá, nên thẻ run hiện chi phí là
-không rõ thay vì bằng không, vì đó là hai khẳng định khác nhau.
+Provider `fake` không cần thông tin xác thực: nó có để test và live smoke chạy được khi không có
+khoá và không có mạng.
 
 Với `MY_AGENT_ROUTES=fake:echo` không model nào được gọi và một tin nhắn `/tool <name>
 {json}` chạy tool đó qua registry thật và đường duyệt thật. Đây là cách live

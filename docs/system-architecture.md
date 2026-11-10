@@ -183,7 +183,7 @@ Chi tiết từng tool ở [tools.md](tools.md).
 
 ### 2.5 Provider: model là dịch vụ ngoài
 
-Gói `llm/` nói chuyện với OpenRouter (và Ollama, và Anthropic khi có `ANTHROPIC_API_KEY`) và bọc thành một chuỗi tuyến: một danh sách model theo thứ tự (`routes:` trong `agent.yaml`), model đầu lỗi hoặc quá tải thì thử model tiếp và phát `RouteFallback` để người dùng thấy. Provider Anthropic (`llm/anthropic*.py`) gọi thẳng Messages API bằng httpx, đánh dấu prompt caching, tính tiền từ usage (kể cả token đọc và ghi cache) theo bảng giá trong `anthropic_pricing.py`; hết credit thì báo lỗi không thử lại để chuỗi rơi sang tuyến sau, rồi tạm không gọi trong 15 phút. Provider giả (`MY_AGENT_ROUTES=fake:echo`) để chạy test và thử harness không tốn tiền.
+Gói `llm/` nói chuyện với OpenRouter (và Anthropic khi có `ANTHROPIC_API_KEY`) và bọc thành một chuỗi tuyến: một danh sách model theo thứ tự (`routes:` trong `agent.yaml`), model đầu lỗi hoặc quá tải thì thử model tiếp và phát `RouteFallback` để người dùng thấy. Provider Anthropic (`llm/anthropic*.py`) gọi thẳng Messages API bằng httpx, đánh dấu prompt caching, tính tiền từ usage (kể cả token đọc và ghi cache) theo bảng giá trong `anthropic_pricing.py`; hết credit thì báo lỗi không thử lại để chuỗi rơi sang tuyến sau, rồi tạm không gọi trong 15 phút. Provider giả (`MY_AGENT_ROUTES=fake:echo`) để chạy test và thử harness không tốn tiền.
 
 ### 2.6 Scheduler
 

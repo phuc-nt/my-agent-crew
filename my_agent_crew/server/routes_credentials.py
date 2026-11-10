@@ -36,11 +36,7 @@ from my_agent_crew.env_file import set_env as write_env
 from my_agent_crew.server.agent_edit_common import write_lock
 from my_agent_crew.server.connection_apply import apply, prepared_or_refused
 from my_agent_crew.server.credential_catalog import catalog, describe, name_allowed
-from my_agent_crew.server.credential_checks import (
-    CHECK_TIMEOUT_SECONDS,
-    default_value,
-    run_check,
-)
+from my_agent_crew.server.credential_checks import CHECK_TIMEOUT_SECONDS, run_check
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.server.runtime_connections import channel_key
@@ -126,7 +122,7 @@ async def check_credential(name: str, rt: Rt) -> dict[str, Any]:
     known = catalog(rt).get(name)
     if known is None or known.check is None:
         raise HTTPException(404, t.NOT_CHECKABLE.format(name=name))
-    value = os.environ.get(name) or default_value(known.check)
+    value = os.environ.get(name)
     if not value:
         raise HTTPException(409, t.NOT_SET.format(name=name))
     if rt.client is not None:

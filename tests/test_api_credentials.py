@@ -51,7 +51,7 @@ def test_the_list_names_every_known_connection_and_holds_no_secret(crew) -> None
 
     assert reply.status_code == 200
     names = [i["name"] for i in reply.json()["items"]]
-    assert names[:2] == ["OPENROUTER_API_KEY", "OLLAMA_BASE_URL"]
+    assert names[:2] == ["OPENROUTER_API_KEY", "ANTHROPIC_API_KEY"]
     assert "GOODREADS_ID" in names
     key = _item(reply, "OPENROUTER_API_KEY")
     assert key["present"] is True and key["source"] == "file" and "value" not in key
@@ -245,14 +245,11 @@ async def test_a_working_bot_check_names_the_bot() -> None:
     assert result["ok"] is True and "@crew_bot" in result["detail"]
 
 
-def test_ollama_can_be_checked_at_its_default_host_before_anything_is_set(crew) -> None:
+def test_nothing_can_be_checked_before_it_is_set(crew) -> None:
     client, _, _ = crew
 
     reply = client.get("/api/credentials")
 
-    ollama = _item(reply, "OLLAMA_BASE_URL")
-    assert ollama["present"] is False and ollama["checkable"] is True
-    assert ollama["default"].startswith("http://")
     assert _item(reply, "FIRECRAWL_BASE_URL")["checkable"] is False
     assert _item(reply, "OPENROUTER_API_KEY")["checkable"] is False
 

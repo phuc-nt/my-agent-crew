@@ -260,7 +260,7 @@ test("a run opened on its own still fits, timeline and all", async ({ page }) =>
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.width);
 });
 
-test("connections fit, keys, host defaults and an open key field included", async ({ page }) => {
+test("connections fit, keys, a host address and an open key field included", async ({ page }) => {
   await mockApi(page, { agents: [defaultAgent, coachAgent] });
   await page.goto("/#/manage/connections");
 
@@ -268,7 +268,7 @@ test("connections fit, keys, host defaults and an open key field included", asyn
   const router = page.getByTestId("credential-OPENROUTER_API_KEY");
   await router.getByRole("button", { name: "Thay" }).click();
   await expect(router.getByLabel("Giá trị cho OPENROUTER_API_KEY")).toBeVisible();
-  await expect(page.getByTestId("credential-OLLAMA_BASE_URL")).toContainText("11434");
+  await expect(page.getByTestId("credential-FIRECRAWL_BASE_URL")).toContainText("3002");
 
   const overflow = await widestOverflow(page);
   expect(overflow.offenders).toEqual([]);
@@ -329,7 +329,7 @@ test("the costs page fits, cache columns and today's tiles included", async ({ p
   const days = Array.from({ length: 7 }, (_, i) => ({ day: `2026-09-${20 + i}`, ...usage }));
   const models = [
     { model: "openrouter:deepseek/deepseek-v4-flash-preview-2026-09", ...usage },
-    { model: "ollama:qwen3", ...usage, cached_tokens: 0 },
+    { model: "anthropic:claude-haiku-5-5", ...usage, cached_tokens: 0 },
   ];
   // The longest name the page gives a purpose, and one it has no name for yet.
   const purposes = [

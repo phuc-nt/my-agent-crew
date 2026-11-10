@@ -32,7 +32,7 @@ from my_agent_crew.server.runtime_connections import channel_key
 
 MAX_ROUTES = 10
 FAKE = "fake"
-# A provider is a plain name; a model id may carry `/`, `:`, `.` or `@` (an Ollama tag,
+# A provider is a plain name; a model id may carry `/`, `:`, `.` or `@` (a tag,
 # an OpenRouter variant) but never a space or a comma, which the env form splits on.
 PROVIDER_RE = re.compile(r"^[a-z0-9_-]{1,40}$")
 MODEL_RE = re.compile(r"^[^\s,]{1,200}$")

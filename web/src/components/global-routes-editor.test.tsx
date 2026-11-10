@@ -10,7 +10,7 @@ const t = vi.connectionsPage;
 const connections: ConnectionsInfo = {
   providers: [
     { name: "openrouter", built: true },
-    { name: "ollama", built: true },
+    { name: "anthropic", built: true },
   ],
   routes: [{ provider: "openrouter", model: "deepseek/v4" }],
   routes_source: "config",
@@ -55,14 +55,14 @@ describe("GlobalRoutesEditor", () => {
   });
 
   it("says why a list was refused and keeps the draft to fix", async () => {
-    mock.spyOn(api, "setRoutes").mockRejectedValue(new Error("chưa có nhà cung cấp ollama"));
+    mock.spyOn(api, "setRoutes").mockRejectedValue(new Error("chưa có nhà cung cấp anthropic"));
     render(<GlobalRoutesEditor connections={connections} onSaved={mock.fn()} />);
 
-    fireEvent.change(screen.getByLabelText(vi.editor.provider), { target: { value: "ollama" } });
+    fireEvent.change(screen.getByLabelText(vi.editor.provider), { target: { value: "anthropic" } });
     fireEvent.click(screen.getByRole("button", { name: t.routesSave }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("ollama"));
-    expect(screen.getByLabelText(vi.editor.provider)).toHaveValue("ollama");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("anthropic"));
+    expect(screen.getByLabelText(vi.editor.provider)).toHaveValue("anthropic");
     fireEvent.click(screen.getByRole("button", { name: t.routesReset }));
     expect(screen.getByLabelText(vi.editor.provider)).toHaveValue("openrouter");
   });
@@ -109,7 +109,7 @@ describe("GlobalRoutesEditor", () => {
     const { rerender } = render(<GlobalRoutesEditor connections={connections} onSaved={mock.fn()} />);
     rerender(
       <GlobalRoutesEditor
-        connections={{ ...connections, routes: [{ provider: "ollama", model: "llama" }] }}
+        connections={{ ...connections, routes: [{ provider: "anthropic", model: "llama" }] }}
         onSaved={mock.fn()}
       />,
     );

@@ -89,11 +89,11 @@ def test_the_provider_is_built_only_with_a_key_and_its_routes_drop_without_one(t
     base = Settings(home=tmp_path, routes=routes, openrouter_api_key="or")
     client = httpx.AsyncClient()
 
-    without = build_providers(base, client, env={})
+    without = build_providers(base, client)
     assert "anthropic" not in without
     assert usable_routes(routes, without, routes) == [routes[1]]
 
-    with_key = build_providers(replace(base, anthropic_api_key="k"), client, {})
+    with_key = build_providers(replace(base, anthropic_api_key="k"), client)
     assert isinstance(with_key["anthropic"], AnthropicProvider)
     assert usable_routes(routes, with_key, routes) == list(routes)
 

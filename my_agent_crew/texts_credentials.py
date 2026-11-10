@@ -30,7 +30,6 @@ NOT_REMOVABLE = (
 APPLY_FAILED = "Đã lưu nhưng chưa áp dụng được ngay: {error}. Khởi động lại máy chủ."
 CHECK_OK = "Hoạt động"
 CHECK_BOT = "Bot @{username}"
-CHECK_MODELS = "{count} mô hình"
 CHECK_REACHABLE = "Kết nối được (HTTP {status})"
 CHECK_REJECTED = "Bị từ chối (HTTP {status}) — khoá sai hoặc đã thu hồi."
 CHECK_HTTP = "Lỗi HTTP {status}"
