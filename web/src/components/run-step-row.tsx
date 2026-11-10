@@ -1,5 +1,4 @@
 import { vi } from "../i18n/vi";
-import type { FramePaths } from "../lib/desktop-frame";
 import { modelUsageParts } from "../lib/format-usage";
 import { isAnswered } from "../lib/run-progress";
 import type { RunRow } from "../lib/run-rows";
@@ -48,12 +47,10 @@ interface Props {
   row: RunRow;
   /** Whose run this is, which is whose workspace a step's screenshot was saved in. */
   agentId?: string;
-  /** The desktop pictures the run's screenshots saved, by frame. */
-  frames?: FramePaths;
   onOpenConversation?: (conversationId: string) => void;
 }
 
-export function StepRow({ row, agentId, frames, onOpenConversation }: Props) {
+export function StepRow({ row, agentId, onOpenConversation }: Props) {
   const { step } = row;
   // A note's duration is always zero — it is stamped and closed on the same clock. "0 ms"
   // on every note row is noise that says nothing about the work the note describes. A
@@ -146,7 +143,7 @@ export function StepRow({ row, agentId, frames, onOpenConversation }: Props) {
       )}
       {/* The picture a screenshot saved, once the call is known to have gone through. */}
       {step.kind === "tool" && step.ok === true && (
-        <ScreenshotThumb agentId={agentId} toolName={step.name} output={step.output} frames={frames} />
+        <ScreenshotThumb agentId={agentId} toolName={step.name} output={step.output} />
       )}
       {step.kind === "tool" && step.output && <ToolOutput text={step.output} failed={step.ok === false} />}
     </li>

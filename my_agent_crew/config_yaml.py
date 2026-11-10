@@ -30,7 +30,6 @@ YAML_KEYS = (
     "browser_idle_minutes",
     "browser_max_tabs",
     "browser_ask_patterns",
-    "desktop_socket",
     "anthropic_cache_ttl",
     "side_routes",
 )

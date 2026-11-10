@@ -177,9 +177,5 @@ def test_the_answer_is_the_connections_page_as_it_now_reads(home: Path) -> None:
 
     assert reply.status_code == 200, reply.text
     assert reply.json() == {**page, "restart_required": None}
-    # All of it, the machine's desktop helper with the rest: this home has none.
-    unknown = ("version", "protocol", "locked", "display_asleep", "screen_recording")
-    assert reply.json()["desktop"] == {
-        "present": False,
-        **dict.fromkeys((*unknown, "accessibility")),
-    }
+    # All of it, what the machine has for a browser with the rest.
+    assert "browser" in reply.json()

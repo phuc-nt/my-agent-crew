@@ -18,8 +18,7 @@ WORKSPACE_ESCAPE = (
 # Names what is kept there, so a model that was only following a page's words sees why.
 WORKSPACE_PRIVATE = (
     "Đường dẫn này dẫn vào thư mục máy chủ giữ riêng (hồ sơ trình duyệt: cookie, phiên đăng "
-    "nhập; cổng của trình trợ giúp desktop). Không công cụ tệp nào đọc hay ghi ở đó; đừng "
-    "tìm đường khác để vào."
+    "nhập). Không công cụ tệp nào đọc hay ghi ở đó; đừng tìm đường khác để vào."
 )
 WORKSPACE_NOT_FOUND = "Không có tệp hoặc thư mục: {path}"
 WORKSPACE_IS_DIR = "{path} là thư mục, không phải tệp."
@@ -35,7 +34,7 @@ SHELL_WRITE_DENIED = (
 SHELL_PRIVATE_DENIED = (
     "Sandbox đã chặn một thao tác: lệnh của agent này chỉ ghi được dưới {paths} và thư mục "
     "tạm, và không đọc, ghi hay nối vào được thư mục máy chủ giữ riêng (hồ sơ trình duyệt: "
-    "cookie, phiên đăng nhập; cổng của trình trợ giúp desktop). " + REPORT_BACK
+    "cookie, phiên đăng nhập). " + REPORT_BACK
 )
 SHELL_WRITES_NOWHERE = "(không thư mục nào của workspace)"
 

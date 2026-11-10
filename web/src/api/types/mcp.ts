@@ -18,9 +18,6 @@ export interface RegistryTool extends ToolInfo {
   /** Only on the eight `browser_*` tools: the agent's `browser` key alone brings them,
    * whatever its allow-list and mode say. */
   with_browser?: boolean;
-  /** Only on the four `computer_*` tools: the agent's `computer` key alone brings them,
-   * whatever its allow-list and mode say. */
-  with_desktop?: boolean;
 }
 
 /**

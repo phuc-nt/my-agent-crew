@@ -3,7 +3,6 @@ import { agentsApi } from "./client/agents";
 import { browserApi } from "./client/browser";
 import { connectionsApi } from "./client/connections";
 import { conversationsApi } from "./client/conversations";
-import { desktopApi } from "./client/desktop";
 import { query } from "./client/http";
 import { memoryApi } from "./client/memory";
 import { pushApi } from "./client/push";
@@ -14,12 +13,6 @@ export { ApiError, query, request } from "./client/http";
 /** URL of a file inside an agent's workspace, for images the agent produced. */
 export function agentFileUrl(agentId: string, path: string): string {
   return `/api/agents/${encodeURIComponent(agentId)}/files${query({ path })}`;
-}
-
-/** URL of a desktop frame's picture as the screenshot tool took it for the agent: the server
- *  answers 404 for one the agent rewrote since, or one it no longer keeps. */
-export function desktopPictureUrl(agentId: string, frame: string): string {
-  return `/api/agents/${encodeURIComponent(agentId)}/desktop/pictures/${encodeURIComponent(frame)}`;
 }
 
 /** A run written out whole, which the server sends as a file to save. */
@@ -53,7 +46,6 @@ export const api = {
   ...browserApi,
   ...connectionsApi,
   ...conversationsApi,
-  ...desktopApi,
   ...activityApi,
   ...memoryApi,
   ...pushApi,

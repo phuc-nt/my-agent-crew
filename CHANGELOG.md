@@ -11,6 +11,18 @@ single release, `pyproject.toml` and `web/package.json` always carry the same nu
 
 ## [Unreleased]
 
+### Removed
+
+- **The desktop (computer use) tools and their macOS helper.** The four `computer_*` tools,
+  the `computer` and `computer_apps` keys of `agent.yaml`, `desktop_socket` in `config.yaml`,
+  the routes under `/api/agents/{id}/desktop`, the `desktop` block of `GET /api/connections`,
+  the Desktop cards of the agent editor and the connections page, the Swift package
+  `desktop-helper/` with its scripts and its macOS CI job. No agent ever called one of the
+  tools, and a crew hosted in a Linux container cannot run them. **Breaking:** a home whose
+  `agent.yaml` still carries `computer` or `computer_apps`, or whose `config.yaml` carries
+  `desktop_socket`, is refused at start as an unknown key; delete the key first. The browser
+  tools are untouched.
+
 ## [0.38.0] — 2026-11-09
 
 ### Added

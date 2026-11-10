@@ -1,7 +1,6 @@
 import type { AgentInfo } from "./agent-profile";
 import type { RouteInfo, SkillInfo, ToolInfo } from "./agents";
 import type { BrowserConnection } from "./browser";
-import type { DesktopConnection } from "./desktop";
 
 /** An API key by the name of its environment variable. The value never leaves the server. */
 export interface KeyStatus {
@@ -35,8 +34,6 @@ export interface ConnectionsInfo {
   telegram: TelegramConnection[];
   /** The machine's browser. Absent from a server older than the key: nothing is shown. */
   browser?: BrowserConnection;
-  /** The machine's desktop helper. Absent from a server older than the key: nothing is shown. */
-  desktop?: DesktopConnection;
 }
 
 /** Which card of the connections page an environment variable sits on. */

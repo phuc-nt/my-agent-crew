@@ -3,7 +3,6 @@ import type { AgentEvent, AgentInfo, ContentHit, QueuedMessage, WikiPage, WikiPa
 import { fold } from "../src/components/conversation-search";
 import { type BrowserCrewMember, FakeBrowser } from "../src/test/fake-browser";
 import { FakeCanvas, type FakeReply } from "../src/test/fake-canvas";
-import { type DesktopCrewMember, FakeDesktop } from "../src/test/fake-desktop";
 import { FakeMcp, type CrewMember } from "../src/test/fake-mcp";
 import { FakeScriptStore } from "../src/test/fake-script-store";
 import { applyAgentPatch, jobsAfterSave } from "../src/test/schedule-contract";
@@ -204,14 +203,9 @@ export interface MockOptions {
   /** The machine's browser and the agents' own: installed and left off, with nobody's up,
    *  when omitted. A spec keeps the object to see what a stop or a closed tab left. */
   browser?: FakeBrowser;
-  /** The machine's desktop helper and the agents' own setting: no helper, and every agent
-   *  off until its file says on, when omitted. A spec keeps the object to count the presses
-   *  that asked macOS for the permissions, or to put a helper on the machine. */
-  desktop?: FakeDesktop;
   /** The pictures agents saved in their workspaces, each under "<agent id>/<path>" with its
    *  width and height: served as a flat picture of that size. Any other file asked of a
-   *  workspace is not there. One in the agent's desktop folder is also what the screenshot
-   *  tool took of its frame, which the card that asks about an action shows. */
+   *  workspace is not there. */
   pictures?: Record<string, [width: number, height: number]>;
   /** How many messages, from the first, the server takes and then fails to answer: the turn
    *  runs and is stored, and the connection drops before a byte of it reaches the page. */
@@ -257,10 +251,8 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   canvas.conversationExists = (id) => conversations.some((c) => c.id === id);
   const browser = options.browser ?? new FakeBrowser();
   browser.crew = () => agents as BrowserCrewMember[];
-  const desktop = options.desktop ?? new FakeDesktop();
-  desktop.crew = () => agents as DesktopCrewMember[];
   // The keys of the connections page a server older than them leaves out.
-  const machines = () => ({ browser: browser.status(), ...(desktop.status() ? { desktop: desktop.status() } : {}) });
+  const machines = () => ({ browser: browser.status() });
   const scriptStore = options.scriptStore ?? new FakeScriptStore();
   scriptStore.knownAgent = (id) => (agents as AgentInfo[]).some((a) => a.id === id);
   scriptStore.schedule = (agentId, scheduleId) =>
@@ -309,11 +301,10 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       return json({ installed: [template], live: [template], needs_restart: false }, 201);
     }
     if (path === "/tools")
-      return json([...(options.tools ?? registryTools), ...browser.registryTools(), ...desktop.registryTools(), ...mcp.registryTools()]);
+      return json([...(options.tools ?? registryTools), ...browser.registryTools(), ...mcp.registryTools()]);
     const mcpReply = mcp.route(path, method);
     if (mcpReply) return json(mcpReply.body, mcpReply.status);
-    // Like the server, what the machine has for a browser and a desktop is read as the page
-    // is answered.
+    // Like the server, what the machine has for a browser is read as the page is answered.
     if (path === "/connections") return json({ ...connections, routes, ...machines() });
     if (path === "/connections/routes" && method === "PUT") {
       const body = route.request().postDataJSON() as { routes: typeof routes };
@@ -361,16 +352,6 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       if (!agents.some((a) => (a as { id: string }).id === agentId)) return json({ detail: "agent not found" }, 404);
       const size = options.pictures?.[`${agentId}/${url.searchParams.get("path") ?? ""}`];
       return size ? route.fulfill({ status: 200, contentType: "image/png", body: flatPng(...size) }) : json({ detail: "file not found" }, 404);
-    }
-    // A frame's picture as the screenshot tool took it: by the server's record of where it
-    // put it, the desktop folder under the agent's first write path or in its workspace.
-    const framePicture = path.match(/^\/agents\/([^/]+)\/desktop\/pictures\/([^/]+)$/);
-    if (framePicture && method === "GET") {
-      const agent = agents.find((a) => (a as { id: string }).id === decodeURIComponent(framePicture[1])) as DesktopCrewMember | undefined;
-      if (!agent) return json({ detail: "agent not found" }, 404);
-      const folder = agent.write_paths?.[0] ? `${agent.write_paths[0]}/desktop` : "desktop";
-      const size = options.pictures?.[`${agent.id}/${folder}/${decodeURIComponent(framePicture[2])}.png`];
-      return size ? route.fulfill({ status: 200, contentType: "image/png", body: flatPng(...size) }) : json({ detail: "no such picture" }, 404);
     }
     const persona = path.match(/^\/agents\/([^/]+)\/files\/([^/]+)$/);
     if (persona) {
@@ -421,11 +402,6 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     if (kept) return json(kept.body, kept.status);
     const browsed = browser.route(path, method, route.request().postDataJSON());
     if (browsed) return json(browsed.body, browsed.status);
-    const desktopReply = desktop.route(path, method);
-    if (desktopReply) {
-      if (desktopReply.wait) await desktopReply.wait;
-      return json(desktopReply.body, desktopReply.status);
-    }
     const single = path.match(/^\/agents\/([^/]+)$/);
     if (single && (method === "PATCH" || method === "DELETE")) {
       const at = agents.findIndex((a) => (a as { id: string }).id === single[1]);

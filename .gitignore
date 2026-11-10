@@ -16,5 +16,3 @@ web/playwright-report/
 AGENTS.md
 plans/
 CLAUDE.local.md
-desktop-helper/.build/
-desktop-helper/dist/

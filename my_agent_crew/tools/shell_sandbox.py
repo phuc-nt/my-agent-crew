@@ -22,9 +22,8 @@ to its data: it can fetch and record, but it cannot edit the code, the scripts o
 config, and it cannot get `launchctl` or `osascript` to do that for it. Nor the server it
 runs under: see `server_rules`.
 
-Reading has one exception: a folder the server keeps private (a browser's logins, the
-desktop helper's socket), which a sandboxed command neither reads nor writes nor connects
-into, see `private_rules`."""
+Reading has one exception: a folder the server keeps private (a browser's logins), which a
+sandboxed command neither reads nor writes nor connects into, see `private_rules`."""
 
 from __future__ import annotations
 
@@ -115,8 +114,7 @@ def private_rules(folders: Sequence[Path]) -> str:
     takes no write either, and no folder above it can be moved or removed.
 
     Nor is a socket in it connected to. With the network on, that is a rule of its own: a
-    Unix socket is reached by `connect`, which the file rules do not judge, and whoever
-    reaches the desktop helper's sees the screen and types on the keyboard."""
+    Unix socket is reached by `connect`, which the file rules do not judge."""
     if not folders:
         return ""
     inside = " ".join(f"(subpath {_quoted(folder)})" for folder in folders)

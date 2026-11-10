@@ -142,48 +142,6 @@ function readTelegram(value: unknown): Read<TelegramBlock | null> {
   return { ok: block };
 }
 
-/** A few of the browsers the server knows (`desktop/browsers.py`), by name whatever its case
- *  and by bundle id or one that goes on from it after a dot: enough for a page to be refused. */
-function isBrowser(name: string): boolean {
-  const lowered = name.toLowerCase();
-  if (["safari", "google chrome", "chrome", "firefox"].includes(lowered)) return true;
-  return ["com.apple.safari", "com.google.chrome", "org.mozilla.firefox"].some((id) => lowered === id || lowered.startsWith(`${id}.`));
-}
-
-/**
- * `profile_desktop`: `computer` is the word "on" or "off" and nothing a parser made of another
- * word, with a bare true refused in a sentence of its own; null and false read as off.
- * `computer_apps` is a list of names, each trimmed, kept once, one printable line of 1 to 200
- * characters, and no web browser's; null reads as none. A refusal names the agent, as the
- * server's does.
- */
-function readDesktop(agentId: string, patch: Record<string, unknown>): Read<Record<string, unknown>> {
-  const ok: Record<string, unknown> = {};
-  if ("computer" in patch) {
-    const value = patch.computer;
-    const known = `agent ${agentId}: computer must be off or on`;
-    if (value === true)
-      return { error: `${known}, written as a text: put "on" in quotes, since YAML reads a bare on, yes or true as a switch and not as that word` };
-    if (value !== null && value !== false && value !== "off" && value !== "on") return { error: known };
-    ok.computer = value || "off";
-  }
-  if ("computer_apps" in patch) {
-    const refusal = { error: `agent ${agentId}: computer_apps must be a list of application names or bundle ids, such as Notes or com.apple.Notes` };
-    const value = patch.computer_apps ?? [];
-    if (!Array.isArray(value)) return refusal;
-    const apps: string[] = [];
-    for (const entry of value) {
-      const name = typeof entry === "string" ? entry.trim() : "";
-      if (name.length === 0 || name.length > 200 || /[\p{C}\p{Z}]/u.test(name.replace(/ /g, ""))) return refusal;
-      if (isBrowser(name))
-        return { error: `agent ${agentId}: computer_apps cannot name a web browser (${name}): the desktop never acts in one; the web is for the browser tools (browser: read or act)` };
-      if (!apps.includes(name)) apps.push(name);
-    }
-    ok.computer_apps = apps;
-  }
-  return { ok };
-}
-
 /**
  * The agent a patch turns `agent` into, or the reason the server would refuse it.
  *
@@ -244,10 +202,6 @@ export function applyAgentPatch<T extends object>(agent: T, patch: Record<string
     if ("error" in read) return read;
     next.browser_hosts = read.ok;
   }
-  // The desktop's two keys, as `profile_desktop` reads them.
-  const desktop = readDesktop(String((agent as { id?: unknown }).id), patch);
-  if ("error" in desktop) return desktop;
-  Object.assign(next, desktop.ok);
   // A null clears the key, and a cleared consolidation reads back as no cron at all.
   if ("memory_consolidate" in patch) next.memory_consolidate = patch.memory_consolidate ?? "";
   // While consolidation is on its job runs as `memory-consolidate` beside the rows.
