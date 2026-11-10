@@ -9,7 +9,7 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
-## [Unreleased]
+## [0.39.0] — 2026-11-10
 
 ### Removed
 
