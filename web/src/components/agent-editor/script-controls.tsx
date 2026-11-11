@@ -2,7 +2,6 @@ import { useId } from "react";
 import type { ScriptCalls } from "../../api/types";
 import { scriptsAskNobody } from "../../hooks/agent-draft-shape";
 import type { AgentDraft } from "../../hooks/use-agent-draft";
-import { routeHash } from "../../hooks/use-route";
 import { vi } from "../../i18n/vi";
 
 interface Props {
@@ -23,10 +22,6 @@ const CALLS: ScriptCalls[] = ["none", "read_only", "gated"];
  * the consequence is read where the choice is made. With `gated` chosen on an agent the
  * form has running by itself, that line says what the two mean together: nobody is asked.
  * The same line stands under the autonomy tick, at the top of the form.
- *
- * Last comes the way to what those scripts keep from one run to the next, on the screen
- * that shows it with this agent chosen. The form's type allows no agent at all, which no
- * screen opens this on: the link is made of the agent's id, so it waits for one.
  */
 export function ScriptControls({ form, readOnly }: Props) {
   const callsHint = useId();
@@ -34,7 +29,6 @@ export function ScriptControls({ form, readOnly }: Props) {
   const t = vi.editor;
   const calls = form.draft.script_calls ?? "read_only";
   const unasked = scriptsAskNobody(form.draft);
-  const kept = form.original && routeHash({ kind: "manage", section: "memory", param: "scripts", focus: form.original.id });
 
   return (
     <>
@@ -74,11 +68,6 @@ export function ScriptControls({ form, readOnly }: Props) {
           {t.scriptLlmHint}
         </span>
       </div>
-      {kept && (
-        <a className="editor-link" href={kept}>
-          {t.scriptStoreLink}
-        </a>
-      )}
     </>
   );
 }

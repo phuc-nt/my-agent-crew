@@ -389,8 +389,8 @@ parse). Một patch chỉ nêu vài khoá; ghi nó đè lên tệp đã hỏng s
 khác mà người đó vẫn còn trong đó.
 
 **Xoá vẫn giữ tệp.** `DELETE` chuyển `agents/<id>` sang `agents/.trash/<id>-<stamp>`
-và báo nó đã đi đâu; không tệp nào của agent bị xoá. Thứ nằm trong database thì khác: những gì
-script của nó giữ lại, lịch nó được tạo từ chat và công tắc bật/tắt của từng job bị xoá hẳn
+và báo nó đã đi đâu; không tệp nào của agent bị xoá. Thứ nằm trong database thì khác: lịch nó
+được tạo từ chat và công tắc bật/tắt của từng job bị xoá hẳn
 (hai đoạn dưới và [tools.md](tools.md)), và hộp xoá trên web nói điều đó trước khi người dùng
 gõ id. Các cuộc trò chuyện agent đó từng giữ vẫn ở nguyên và rơi về master. Nó từ chối (409) với master, và với agent mà một agent khác
 vẫn nêu tên trong `delegates` — xoá nó sẽ để profile kia không hợp lệ và server
@@ -452,9 +452,6 @@ Khi form đang có cả "Cả công cụ thay đổi dữ liệu" lẫn ô "Tự
 ngay dưới ô "Tự chủ" ở phần Nhận dạng, đầu form: bật ô nào sau thì người sửa cũng đọc được nó ở chỗ
 vừa bấm. Lời cảnh báo xét theo form đang hiện, chưa cần lưu, và hiện cả ở agent mà form không sửa
 được (agent từ kit).
-
-Cuối mục là liên kết "Xem những gì script của agent này giữ lại", mở màn "Script giữ lại" với đúng
-agent đó ([tools.md](tools.md#gọi-tool-từ-script), bullet "Trên web").
 
 **Mục "Trình duyệt"** đứng ngay sau mục Script và ghi hai khoá của `agent.yaml`; các tool và các rào
 ở [tools.md](tools.md#trình-duyệt):
@@ -564,16 +561,11 @@ và script dài quá 20.000 ký tự (nêu ngay khi vượt, đếm theo ký t�
 xét cú pháp Python: server xét khi lưu, và lời từ chối 422 của nó hiện nguyên văn ở đầu form, những
 gì đã gõ vẫn còn đó để sửa.
 
-**Dòng script phải có mã.** Những gì script giữ bằng `store` nằm dưới `job:<schedule id>`, và dòng
-không có `id` trong tệp được đánh số theo vị trí ở mỗi lần khởi động (`job-<index>`): thêm hay bớt
-một lịch phía trên là job đọc sang chỗ của dòng khác. Vì vậy form không lưu một dòng script mà ô
-"Mã" còn trống (chỉ có dấu cách cũng là trống), dù dòng ấy mới thêm hay vừa được đổi từ lời nhắc hay
-lệnh sang. Lần lưu bị giữ lại, và khi đã thử lưu thì ô "Mã" nêu lý do: "Nhập mã cho lịch này: những
-gì script giữ lại được lưu theo mã, còn mã bỏ trống thì đổi theo vị trí của lịch trong danh sách."
-Dòng gợi ý dưới ô "Mã" của một dòng script cũng nói mã dùng để làm gì, thay cho "Bỏ trống để tự
-đặt". Form không tự đặt mã hộ, và dòng của hai loại kia vẫn để trống mã được như trước.
+**Mã của một dòng.** Dòng nào cũng để trống ô "Mã" được, dù nó chạy lời nhắc, lệnh hay script: dòng
+không có `id` trong tệp được server đánh số theo vị trí (`job-<index>`), và dòng gợi ý dưới ô "Mã"
+nói như nhau với cả ba loại ("Bỏ trống để tự đặt. Giữ nguyên mã thì lịch sử chạy không bị tách.").
 
-Dòng script mà server đã đánh số (`job-2`) mở ra với mã ấy trong ô, nên mở agent không tính là có
+Dòng mà server đã đánh số (`job-2`) mở ra với mã ấy trong ô, nên mở agent không tính là có
 thay đổi và không ai phải gõ gì. Lần lưu kế tiếp có gửi `schedules` gửi lại mã ấy, từ đó tệp ghi nó,
 và dòng giữ mã dù các dòng phía trên bị xoá.
 
@@ -589,8 +581,7 @@ sau khi cập nhật mã mà chưa khởi động lại, trang mới nói chuy�
 0.15.0 trả `script_calls` nhưng chưa trả `script_llm` và `listable_tools`. Trình sửa vẫn mở được
 trên một server như thế: khoá nào vắng trong câu trả lời thì form đọc như mặc định (`script_calls`
 là "Chỉ công cụ đọc", `script_llm` là có đánh dấu), và danh sách công cụ rơi về bảng công cụ như nêu
-ở trên. Màn "Script giữ lại" trong khoảng ấy thì có giới hạn riêng
-([tools.md](tools.md#gọi-tool-từ-script), bullet "Trên web").
+ở trên.
 
 Server trước 0.18.0 không trả khoá `browser` và sẽ từ chối một lần lưu có nó. Trên server như thế
 web không vẽ gì của trình duyệt: trình sửa không có mục "Trình duyệt", không có thẻ, không có dòng
@@ -1154,8 +1145,7 @@ job prompt gọi một script shell trong workspace.)
   ([channels.md](channels.md#giao-theo-lịch)), bốn dòng: `Lịch "<tên lịch>" gặp lỗi khi chạy
   script:`, rồi lý do, rồi `Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.`, rồi `Nếu lịch còn
   hỏng, tin nhắc kế tiếp sẽ đến sau 6 giờ.` Lý do là thứ đã làm
-  script dừng: dòng lỗi của nó (`Lỗi ở dòng N: …` hay `Dừng ở dòng N: …`), hoặc dòng nói rằng script
-  chạy xong mà không giữ được gì bằng `store`. Nó được gộp về một dòng: nguyên văn khi không quá 600
+  script dừng: dòng lỗi của nó (`Lỗi ở dòng N: …` hay `Dừng ở dòng N: …`). Nó được gộp về một dòng: nguyên văn khi không quá 600
   ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký tự cuối, nên câu chỉ cách sửa ở cuối một lời
   từ chối vẫn tới nơi. Lý do không mang chữ nào script đã in trước khi hỏng (những chữ ấy vẫn nằm ở
   bước `tool_script` của run), và tin không bao giờ chứa nguyên văn script. Lời của một tool hỏng
@@ -1190,12 +1180,9 @@ job prompt gọi một script shell trong workspace.)
   và câu trả lời cuối của nó được gửi đi theo đúng luật của job prompt (kể cả luật "chỉ trả lời
   `OK` thì không gửi"). Script không in gì, hỏng, hoặc lịch không có `then_prompt` thì không
   lượt nào được mở và không gì được gửi.
-- **Nhớ giữa các lần chạy.** `store(khoá, giá_trị)` và `load(khoá)` giữ dữ liệu của job dưới
-  `job:<schedule id>` ([tools.md](tools.md#gọi-tool-từ-script), bullet "Giữ lại giữa các lần
-  chạy"); lượt của `then_prompt` đọc và ghi cùng chỗ đó. Cái script ghi được lưu trước khi lượt
-  ấy mở, nên lượt ấy hỏng giữa chừng thì sổ vẫn đã ghi: trong ví dụ dưới, việc đã vào `told` sẽ
-  không được nhắc lại dù tin nhắc chưa tới tay ai. Lịch nào có script cần nhớ thì khai `id`: `id`
-  mặc định theo vị trí trong danh sách, chèn một lịch phía trên là job đọc sang chỗ khác.
+- **Không nhớ gì giữa các lần chạy.** Script chạy xong là quên hết: không có chỗ nào để nó giữ
+  một giá trị cho lần sau. Việc nào cần nhớ thì để trong một tệp của workspace mà một tool đọc và
+  ghi được, hoặc viết sao cho mỗi lần chạy tự biết phải làm gì từ dữ liệu nó đọc (như ví dụ dưới).
 
 Ví dụ: một job nhắc hạn. Bản viết bằng `prompt` gọi model mỗi sáng dù không có gì tới hạn; bản
 dưới đây chỉ gọi model vào sáng có việc mới tới hạn, và model chỉ lo phần câu chữ. Tệp
@@ -1209,19 +1196,16 @@ schedules:
     cron: "30 7 * * *"
     script: |
       rows = json.loads(tools.workspace_read(path="data/deadlines.json"))
-      told = load("told") or []
-      due = [row for row in rows if row["days_left"] <= 3 and row["id"] not in told]
+      due = [row for row in rows if row["days_left"] == 3]
       for row in due:
           print(row["title"], "- còn", row["days_left"], "ngày")
-      store("told", told + [row["id"] for row in due])
     then_prompt: |
       Dưới đây là các việc vừa tới hạn. Viết một tin nhắc ngắn, việc gấp nhất đứng trước.
 ```
 
 Sáng không có việc nào mới tới hạn thì script không in gì: run ghi lại một bước, không model nào
-được gọi và không tin nào được gửi. Việc đã nhắc được nhớ trong `told` nên sáng hôm sau không
-nhắc lại. Tệp không đọc được thì script hỏng, run là `error`, và `told` giữ nguyên như trước lần
-chạy.
+được gọi và không tin nào được gửi. Mỗi việc chỉ được nhắc vào đúng sáng nó còn ba ngày, nên sáng
+hôm sau không nhắc lại. Tệp không đọc được thì script hỏng và run là `error`.
 
 Trình sửa agent trên web sửa được cả `script` lẫn `then_prompt` của một dòng lịch
 ([Trình sửa trên web](#trình-sửa-trên-web)), và không lưu một dòng script chưa có `id`. Một lần

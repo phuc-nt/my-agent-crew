@@ -48,18 +48,15 @@ from my_agent_crew.llm.fake import ScriptedProvider, completion
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.scheduler import Job, Scheduler, script_job
 from my_agent_crew.scheduler.failure_notice import failure_notice
-from my_agent_crew.script import limits
-from my_agent_crew.script.store_session import job_kept
 from my_agent_crew.server import create_app
 from my_agent_crew.server.runtime import Runtime
 from my_agent_crew.store.runs import DONE, FAILED, RunRecord
-from my_agent_crew.texts_script_store import STORE_NOT_KEPT
 from my_agent_crew.tools.registry import Tool, ToolError
 from my_agent_crew.tools.shell import SHELL_TOOL_NAME
 from tests.test_scheduler import with_schedules
 from tests.test_script_gate import ASK_LIST, SECRET, agent, shelled
 from tests.test_script_job_gate import MORNING
-from tests.test_script_tool import SCHEMA, Reads, erred, halted, unfinished
+from tests.test_script_tool import Reads, erred, halted, unfinished
 from tests.test_telegram_runtime_sentences import attachable
 
 NAME, DUE = "Nhắc hạn", "default/due"
@@ -250,39 +247,6 @@ async def test_a_long_value_an_error_quotes_is_cut_as_every_reason_is(deps_facto
     assert len(reason) == 601 and text == notice(reason)
     assert "Mở đầu trang." in text and text.split("\n")[1].endswith("Hết trang, mã 4471.'")
     assert "đã tải trang" not in text
-
-
-async def test_a_script_that_ended_well_and_kept_nothing_is_told_by_the_line_that_says_so(
-    deps_factory, monkeypatch
-):
-    """Another run filled the schedule's store while this one ran, and what this one stored
-    no longer fits beside it: it ran to its end, and the run failed. What ended it is that
-    one line, and what it printed on the way is not told."""
-    most = 60
-    monkeypatch.setattr(limits, "MAX_STORE_TOTAL_CHARS", most)
-    theirs = {"theirs": '"' + "y" * 40 + '"'}
-
-    async def other_run_ends(arguments: dict[str, Any]) -> str:
-        store, namespace = deps.store.script_store, job_kept(deps, "due").namespace
-        assert store.apply(deps.agent.id, namespace, theirs, most)
-        return "xong"
-
-    other = Tool("other_run_ends", "Đọc.", SCHEMA, other_run_ends, replay_safe=True)
-    deps = deps_factory(extra_tools=[other])
-    source = """
-        store("mine", "x" * 30)
-        tools.other_run_ends()
-        print("đã xem 3 thư")
-        """
-    rig = told(deps, due(source))
-
-    run = await rig.sched.run_job(DUE)
-
-    lost = STORE_NOT_KEPT.format(most=most)
-    [(_, text)] = rig.notices
-    assert (run.status, run.conversation_id) == (FAILED, None)
-    assert text == notice(lost) and "đã xem" not in text
-    assert run.steps[0]["output"] == unfinished("đã xem 3 thư", lost).replace("\n", " ")
 
 
 async def test_a_job_whose_script_could_not_be_run_at_all_is_told_by_the_kind_of_error(

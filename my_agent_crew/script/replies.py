@@ -1,7 +1,7 @@
 """What the parent answers when the process that runs a script asks for something.
 
 The process asks one of three things, each as one JSON line: a tool call, several calls made
-together, or a question (what it may call, what it kept, what a model makes of a text). Each
+together, or a question (what it may call, what a model makes of a text). Each
 is answered with one line, and in each the answer is the caller's to give, since the caller
 holds the tools. A question about the tools is answered at once; one put to a model is
 waited for, as a tool call is. A line that is none of these, or is shaped wrongly, is not

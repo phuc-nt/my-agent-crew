@@ -157,13 +157,9 @@ test("a script left empty, or grown past the parser's bound, holds the save and 
 
 // What a script keeps is stored under its schedule's id, and a row left unnamed is numbered
 // by its place at every start. The reason is a long line: it has to fit a phone's width.
-test("a row that runs a script is not saved without an id, and its id box says why", async ({ page }) => {
+test("a row that runs a script is saved without an id, as a row of any other kind is", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, { agents: [master, declaring(brief)] });
-  let saves = 0;
-  page.on("request", (r) => {
-    if (r.method() === "PATCH") saves += 1;
-  });
   await page.goto("/#/manage/crew/coach/schedules");
   await page.getByTestId("agent-editor").getByRole("button", { name: t.addSchedule }).click();
   const row = rows(page).nth(1);
@@ -171,31 +167,18 @@ test("a row that runs a script is not saved without an id, and its id box says w
   await box(row, t.scheduleName).fill("Đồng bộ đơn");
   await box(row, t.scheduleCron).fill("40 6 * * *");
 
-  // A prompt may go without an id and is told so; made a script, the row is told otherwise.
+  // The id box says the same thing whatever the row runs: it may be left empty.
   await expect(row.getByText(t.scheduleIdHint, { exact: true })).toBeVisible();
   await pick(row, t.scheduleScript);
   await box(row, t.scheduleScript).fill("print(1)");
-  await expect(row.getByText(t.scheduleIdHintScript, { exact: true })).toBeVisible();
-  await expect(row.getByText(t.scheduleIdHint, { exact: true })).toHaveCount(0);
-
-  // Empty is not said to be wrong until a save is tried.
-  await expect(row.getByText(t.scheduleIdMissing)).toHaveCount(0);
-  await save(page).click();
-  await expect(row.getByText(t.scheduleIdMissing)).toBeVisible();
-  await expect(id).toHaveAttribute("aria-invalid", "true");
-  await expect(id).toHaveAccessibleDescription(t.scheduleIdMissing);
-  await expect(save(page)).toBeDisabled();
-  expect(saves).toBe(0);
+  await expect(row.getByText(t.scheduleIdHint, { exact: true })).toBeVisible();
   expect(await spills(page, '[data-testid="schedule-row"]')).toEqual([]);
   expect(await pageWidth(page)).toBeLessThanOrEqual(390);
 
-  await id.fill("orders");
-  await expect(row.getByText(t.scheduleIdMissing)).toHaveCount(0);
   const patch = page.waitForRequest((r) => r.method() === "PATCH" && /\/api\/agents\/coach$/.test(r.url()));
   await save(page).click();
   const sent = (await patch).postDataJSON() as { profile: { schedules: Record<string, unknown>[] } };
-  expect(sent.profile.schedules[1]).toEqual({ id: "orders", name: "Đồng bộ đơn", cron: "40 6 * * *", script: "print(1)", enabled: true, skills: [] });
-  await page.reload();
-  await expect(box(rows(page).nth(1), t.scheduleId)).toHaveValue("orders");
+  expect(sent.profile.schedules[1]).toEqual({ name: "Đồng bộ đơn", cron: "40 6 * * *", script: "print(1)", enabled: true, skills: [] });
+  await expect(id).not.toHaveAttribute("aria-invalid", "true");
   await expect(save(page)).toBeDisabled();
 });

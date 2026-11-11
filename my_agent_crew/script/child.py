@@ -75,7 +75,7 @@ def _call_tools(calls: list[tuple[str, dict[str, Any]]]) -> list[tuple[bool, str
 
 def _ask(kind: str, arguments: dict[str, Any]) -> Any:
     """A question put to the parent, answered with a value or a refusal: what the script may
-    call, what it kept, what a model makes of a text. One the parent ends the script on
+    call, what a model makes of a text. One the parent ends the script on
     cannot be caught, like a call it may not make."""
     reply = _exchange({"ask": {"kind": kind, "arguments": arguments}})
     if "halted" in reply:

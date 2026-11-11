@@ -4,7 +4,6 @@ import { fold } from "../src/components/conversation-search";
 import { type BrowserCrewMember, FakeBrowser } from "../src/test/fake-browser";
 import { FakeCanvas, type FakeReply } from "../src/test/fake-canvas";
 import { FakeMcp, type CrewMember } from "../src/test/fake-mcp";
-import { FakeScriptStore } from "../src/test/fake-script-store";
 import { applyAgentPatch, jobsAfterSave } from "../src/test/schedule-contract";
 import { flatPng } from "./flat-png";
 import { renderRoute } from "./mock-render";
@@ -197,9 +196,6 @@ export interface MockOptions {
   contentHits?: ContentHit[];
   /** The canvases the canvas routes answer from; a fresh, empty one when omitted. */
   canvas?: FakeCanvas;
-  /** What each agent's scripts keep between runs; nothing when omitted. A spec keeps the
-   *  object to see what a delete left. */
-  scriptStore?: FakeScriptStore;
   /** The machine's browser and the agents' own: installed and left off, with nobody's up,
    *  when omitted. A spec keeps the object to see what a stop or a closed tab left. */
   browser?: FakeBrowser;
@@ -253,14 +249,6 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   browser.crew = () => agents as BrowserCrewMember[];
   // The keys of the connections page a server older than them leaves out.
   const machines = () => ({ browser: browser.status() });
-  const scriptStore = options.scriptStore ?? new FakeScriptStore();
-  scriptStore.knownAgent = (id) => (agents as AgentInfo[]).some((a) => a.id === id);
-  scriptStore.schedule = (agentId, scheduleId) =>
-    (agents as AgentInfo[]).find((a) => a.id === agentId)?.schedules.find((s) => s.id === scheduleId);
-  scriptStore.conversation = (id) => {
-    const found = conversations.find((c) => c.id === id);
-    return found && { title: String(found.title ?? "") };
-  };
   await page.route(/^https?:\/\/[^/]+\/api\//, async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/api/, "");
@@ -396,8 +384,6 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
         .map((p) => ({ slug: p.slug, kind: p.kind, title: p.title, status: p.status, updated: p.updated, sources: p.sources, question_count: p.questions.length }));
       return json({ pages: summaries, kinds: [...new Set(summaries.map((p) => p.kind))], count: summaries.length });
     }
-    const kept = scriptStore.route(path, method, url.searchParams);
-    if (kept) return json(kept.body, kept.status);
     const browsed = browser.route(path, method, route.request().postDataJSON());
     if (browsed) return json(browsed.body, browsed.status);
     const single = path.match(/^\/agents\/([^/]+)$/);

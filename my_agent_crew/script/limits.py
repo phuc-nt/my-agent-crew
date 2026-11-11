@@ -60,11 +60,6 @@ MAX_NESTING = 50
 MAX_WALK = 200_000
 # What a number, a flag or None is counted as when written.
 SCALAR_CHARS = 24
-# What a script keeps from one run to the next (`kept.py`): the longest key, the longest
-# value written as JSON, and the most one namespace holds, its keys and values together.
-MAX_STORE_KEY_CHARS = 200
-MAX_STORE_VALUE_CHARS = 65_536
-MAX_STORE_TOTAL_CHARS = 262_144
 # What a script asks a model itself (`llm_calls.py`). Each asking is paid for, so a script
 # has few of them, each over a text short enough to be read whole: a longer one is refused
 # and never cut, since which part to drop is the script's to say.

@@ -306,8 +306,8 @@ Nếu lịch còn hỏng, tin nhắc kế tiếp sẽ đến sau 6 giờ.
 
 Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạy script:`; ba dòng còn lại như trên.
 
-- Lý do của job script là thứ đã làm script dừng: dòng lỗi (`Lỗi ở dòng N: …`, `Dừng ở dòng N: …`),
-  hoặc dòng nói rằng script chạy xong mà không giữ được gì bằng `store`. Lý do nào cũng được gộp
+- Lý do của job script là thứ đã làm script dừng: dòng lỗi (`Lỗi ở dòng N: …`, `Dừng ở dòng N: …`).
+  Lý do nào cũng được gộp
   thành một dòng, nguyên vẹn khi không quá 600 ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký
   tự cuối, để câu dặn ở cuối một lời từ chối không bị cắt mất.
 - Lý do của job script **không** mang chữ nào script đã in trước khi hỏng. Thứ script in là thứ các

@@ -84,10 +84,6 @@ export const viEditor = {
     schedulesEmpty: "Agent này chưa có lịch nào.",
     scheduleId: "Mã",
     scheduleIdHint: "Bỏ trống để tự đặt. Giữ nguyên mã thì lịch sử chạy không bị tách.",
-    // For a row that runs a script, in place of the hint above: what the script keeps is
-    // stored under the row's id, so the row is not saved without one.
-    scheduleIdHintScript: "Những gì script giữ lại được lưu theo mã này. Giữ nguyên mã thì script đọc lại được và lịch sử chạy không bị tách.",
-    scheduleIdMissing: "Nhập mã cho lịch này: những gì script giữ lại được lưu theo mã, còn mã bỏ trống thì đổi theo vị trí của lịch trong danh sách.",
     scheduleIdTaken: "Mã này đã có ở lịch khác; mỗi lịch cần một mã riêng.",
     scheduleIdReserved: "Mã memory-consolidate dành cho lịch gom ghi nhớ; đặt mã khác.",
     scheduleName: "Tên",
@@ -131,7 +127,7 @@ export const viEditor = {
     deleteHint: (id: string) => `Gõ ${id} để xác nhận. Thư mục được chuyển vào .trash chứ không xoá hẳn.`,
     // What the folder in .trash does not bring back: the server drops these with the agent.
     deleteLost:
-      "Xoá hẳn, không lấy lại được: những gì script của agent này giữ lại, các lịch nó được tạo từ chat và trạng thái bật/tắt của từng lịch. Hội thoại và lịch sử run vẫn giữ nguyên.",
+      "Xoá hẳn, không lấy lại được: các lịch nó được tạo từ chat và trạng thái bật/tắt của từng lịch. Hội thoại và lịch sử run vẫn giữ nguyên.",
     deleteConfirm: "Xoá agent",
     deleted: (id: string, kept: string) => `Đã gỡ ${id}. Thư mục còn ở ${kept}.`,
     deleteFailed: (message: string) => `Không xoá được: ${message}`,
@@ -159,8 +155,6 @@ export const viEditor = {
     scriptLlm: "Cho script hỏi mô hình",
     scriptLlmHint:
       "Đây là phần duy nhất của script tốn tiền: mỗi script hỏi mô hình tối đa 10 lần. Tắt thì script trong lượt và script của lịch chạy đều không hỏi được.",
-    // The way from here to the screen that shows what this agent's scripts keep.
-    scriptStoreLink: "Xem những gì script của agent này giữ lại",
     // A schedule that runs a script, written in the form. Under the box of the prompt its
     // output goes on with: when a turn is opened, and that otherwise nobody hears of the run.
     scheduleThenPromptHint:

@@ -1,7 +1,7 @@
 // A row the file leaves unnamed is numbered by its place every time the server starts, and
-// the server declares it under that number. What a script keeps is stored under the id, so
-// the form hands the number back as the row's id: once the schedules are saved the file
-// holds it, and the row is the same job wherever it stands in the list.
+// the server declares it under that number. A job's run history goes by its id, so the form
+// hands the number back as the row's id: once the schedules are saved the file holds it,
+// and the row is the same job wherever it stands in the list.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -22,7 +22,6 @@ describe("a script row the server numbered by its place", () => {
     expect(screen.getByText(t.clean)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: t.save })).toBeDisabled();
     expect(form.ids()).toEqual(["brief", "job-1"]);
-    expect(form.rows()[1].queryByText(t.scheduleIdMissing)).toBeNull();
     expect(idBox(form.rows()[1])).not.toHaveAttribute("aria-invalid");
   });
 

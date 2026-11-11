@@ -50,7 +50,7 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
   một đoạn script gọi nối các tool trong một bước, và chỉ phần script in ra mới vào ngữ cảnh.
   Mặc định script chỉ gọi tool chỉ đọc; agent khai `script_calls: gated` thì script gọi được cả
   tool đổi trạng thái, mỗi lời gọi qua cổng duyệt trước khi chạy, và script không bao giờ chờ
-  người. Script giữ được giá trị giữa các lần chạy (`store`, `load`), hỏi được model của agent
+  người. Script hỏi được model của agent
   (`llm.classify`, `llm.summarise`), và ở chế độ `gated` giao được việc cho agent khác, ghi được
   canvas. Một lịch chạy được thẳng một script, không mở lượt model nào. Xem
   [tools.md](tools.md#gọi-tool-từ-script).

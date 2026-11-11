@@ -143,8 +143,6 @@ cấm, kết thúc script bằng một dòng bảo model gọi trực tiếp, v�
 chế độ đó script ghi được canvas như một lời gọi trực tiếp, và script của agent giữ `delegate` giao
 được việc cho agent khác bằng `tools.delegate`: cuộc trò chuyện con treo dưới lượt đã giao, và số
 agent kia tiêu đi theo lời gọi chứ không cộng vào run.
-Script giữ giá trị JSON giữa các lần chạy bằng `store` và `load` (bảng `script_store`, theo agent
-và theo job hay cuộc trò chuyện); các lần ghi chỉ được áp khi script chạy xong.
 Chưa rõ tên hay tham số của một tool thì script tra bằng `tools.names`, `tools.search` và
 `tools.describe`: những lời tra đó chỉ hỏi tiến trình giữ tool, không chạy tool nào và không
 phải một lời gọi. Nhiều lời gọi không cần nhau thì script gộp một lô bằng `tools.batch`: server

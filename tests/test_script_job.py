@@ -4,9 +4,8 @@ No model is asked for the script itself. It runs as a script of `tool_script` ru
 as a run of that one step with no conversation. Only when it ended well and printed
 something is a turn opened, with the schedule's `then_prompt` and what was printed, and that
 turn is what the person is told of, by the rules of a prompt job. What was printed is what
-tools gave the script, so it stands in that message fenced, as a text to work on. What the
-script kept is written before that turn begins, under the schedule's own id, where the
-turn's scripts find it. What such a script may call unasked, and what it reads of the turns
+tools gave the script, so it stands in that message fenced, as a text to work on. What such
+a script may call unasked, and what it reads of the turns
 around it, is in `test_script_job_gate.py`. Every script here runs in a real child process.
 """
 
@@ -41,8 +40,7 @@ from my_agent_crew.texts_canvas import ARTIFACT_NO_CONVERSATION
 from my_agent_crew.tools.artifact import build_artifact_tools
 from my_agent_crew.tools.registry import truncate
 from tests.test_scheduler import with_schedules
-from tests.test_script_store import Waits
-from tests.test_script_tool import erred, unfinished
+from tests.test_script_tool import Waits, erred, unfinished
 from tests.test_script_turns import reading
 
 MORNING = datetime(2026, 9, 19, 7, 0)
@@ -84,10 +82,6 @@ class Crew:
 
     def said(self, conv_id: str) -> list[tuple[str, str]]:
         return [(m.message.role, m.message.content) for m in self.deps.store.history(conv_id)]
-
-    def kept(self) -> dict[tuple[str, str], str]:
-        rows = self.deps.store.script_store.kept_by(self.deps.agent.id)
-        return {(row.namespace, row.key): row.text for row in rows}
 
 
 def crew(
@@ -461,7 +455,7 @@ async def test_a_job_whose_script_could_not_be_run_at_all_fails_and_the_next_one
 
 async def test_a_job_stopped_while_its_script_runs_is_not_left_running(deps_factory):
     waits = Waits()
-    rig = crew(deps_factory, 'store("n", 1)\ntools.hung_read()', THEN, tools=[waits.tool])
+    rig = crew(deps_factory, "tools.hung_read()", THEN, tools=[waits.tool])
 
     going = asyncio.create_task(rig.due())
     await waits.entered.wait()
@@ -471,7 +465,7 @@ async def test_a_job_stopped_while_its_script_runs_is_not_left_running(deps_fact
 
     [run] = rig.runs()
     assert (run.status, run.summary) == (FAILED, INTERRUPTED)
-    assert rig.kept() == {} and rig.deps.store.list() == []
+    assert rig.deps.store.list() == []
     # The job is free to come round again.
     assert rig.sched.describe()[0]["running"] is False
 
@@ -500,70 +494,3 @@ async def test_the_calls_of_a_jobs_script_are_listed_and_charged_as_each_ends(de
     names = [call["name"] for call in ended.steps[0]["calls"]]
     assert names == ["first_read", "second_read", "hung_read"]
     assert ended.status == DONE and ended.spent_usd == pytest.approx(0.005)
-
-
-# --- what the script keeps ---
-
-
-async def test_a_jobs_script_keeps_under_the_schedule_from_one_morning_to_the_next(deps_factory):
-    rig = crew(
-        deps_factory,
-        """
-        seen = load("seen") or []
-        store("seen", seen + [len(seen) + 1])
-        if seen:
-            print("đã thấy", seen)
-        """,
-    )
-
-    first, second, third = [await rig.due() for _ in range(3)]
-
-    assert (first.summary, second.summary, third.summary) == ("", "đã thấy [1]", "đã thấy [1, 2]")
-    assert rig.kept() == {("job:due", "seen"): "[1,2,3]"}
-
-
-async def test_a_jobs_script_that_failed_keeps_nothing(deps_factory):
-    rig = crew(deps_factory, 'store("seen", [1])\nprint(nowhere_named)')
-
-    run = await rig.due()
-
-    assert run.status == FAILED and rig.kept() == {}
-
-
-async def test_what_the_script_kept_is_there_for_the_turn_it_opens_and_the_turns_for_it(
-    deps_factory,
-):
-    """Written before the turn begins, and under the one name both read."""
-    reads = 'print(load("told"))\nstore("answered", True)'
-    asks = completion(tool_calls=(ToolCall("p1", SCRIPT_TOOL, {"script": reads}),))
-    rig = crew(
-        deps_factory,
-        """
-        print(load("answered"), load("told"))
-        store("told", ["HP3-12"])
-        """,
-        THEN,
-        says=[asks, "Đã nhắc.", "Đã nhắc rồi."],
-    )
-    hand_script(rig.deps)
-
-    first = await rig.due()
-
-    said = rig.said(first.conversation_id)
-    assert (said[0][0], handed(said[0][1])) == ("user", "None None")
-    assert ("tool", "['HP3-12']") in said
-    assert rig.kept() == {("job:due", "answered"): "true", ("job:due", "told"): '["HP3-12"]'}
-
-    second = await rig.due()
-
-    role, message = rig.said(second.conversation_id)[0]
-    assert (role, handed(message)) == ("user", "True ['HP3-12']")
-
-
-async def test_a_script_job_with_nothing_printed_still_keeps_what_it_wrote(deps_factory):
-    rig = crew(deps_factory, 'store("checked", "2026-09-19")', THEN)
-
-    run = await rig.due()
-
-    assert (run.status, run.steps[0]["output"]) == (DONE, NOTHING_PRINTED)
-    assert rig.kept() == {("job:due", "checked"): '"2026-09-19"'}

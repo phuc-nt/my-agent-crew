@@ -53,6 +53,20 @@ class Reads:
         return self.answer
 
 
+class Waits:
+    """A tool that only reads and does not answer until it is let go; `entered` is set once
+    a script got as far as calling it."""
+
+    def __init__(self) -> None:
+        self.entered, self.go = asyncio.Event(), asyncio.Event()
+        self.tool = Tool("hung_read", "Đọc.", SCHEMA, self._run, replay_safe=True)
+
+    async def _run(self, arguments: dict[str, Any]) -> str:
+        self.entered.set()
+        await self.go.wait()
+        return "muộn"
+
+
 class Hooks:
     """An agent's hooks: they refuse the tools in `blocked`, leave a note after the ones
     in `noted`, and keep what they were asked."""

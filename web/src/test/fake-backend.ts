@@ -27,7 +27,6 @@ import { fold } from "../components/conversation-search";
 import { FakeBrowser } from "./fake-browser";
 import { FakeCanvas, type FakeReply } from "./fake-canvas";
 import { FakeMcp } from "./fake-mcp";
-import { FakeScriptStore } from "./fake-script-store";
 import { FakeWiki } from "./fake-wiki";
 import { applyAgentPatch, jobsAfterSave } from "./schedule-contract";
 
@@ -220,13 +219,6 @@ export class FakeBackend {
       for (const source of FakeEventSource.instances) if (!source.closed) source.emit(event);
     },
   });
-  /** What each agent's scripts keep between runs: nothing until a test keeps something. */
-  scriptStore: FakeScriptStore = Object.assign(new FakeScriptStore(), {
-    knownAgent: (id: string) => this.agents.some((a) => a.id === id),
-    schedule: (agentId: string, scheduleId: string) =>
-      this.agents.find((a) => a.id === agentId)?.schedules.find((s) => s.id === scheduleId),
-    conversation: (id: string) => this.conversations.get(id),
-  });
   /** The machine's browser and the agents' own: installed and left off until a test turns it
    *  on, and nobody's up until a test starts one. */
   browser: FakeBrowser = Object.assign(new FakeBrowser(), { crew: () => this.agents });
@@ -286,8 +278,6 @@ export class FakeBackend {
     if (path === "/tools") return json(this.tools());
     const mcp = this.mcp.route(path, method);
     if (mcp) return json(mcp.body, mcp.status);
-    const kept = this.scriptStore.route(path, method, url.searchParams);
-    if (kept) return json(kept.body, kept.status);
     const browser = this.browser.route(path, method, body);
     if (browser) return json(browser.body, browser.status);
     // Like the server, what the machine has for a browser is read as the page is answered.

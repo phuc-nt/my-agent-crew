@@ -29,8 +29,6 @@
  *   run-timeline   → the process visualisation inside an open run card.
  *             Continues in -row, -script-calls, -progress, -reduced-motion.
  *   script-handoff → what a script job's script printed, under the message that handed it on.
- *   script-store → what an agent's scripts keep between runs, on the memory screen.
- *   script-store-entry → one key of that store, and its whole value.
  *   canvas  → the canvas dock beside the chat: its column, overlay, panel and history, and the
  *             note a message carries from it, under the message in the thread.
  *             Continues in -panel, -text, -picker, -history, -in-chat.
@@ -121,8 +119,6 @@
 @import "./styles/composer-attachments.css";
 @import "./styles/chat-state.css";
 @import "./styles/script-handoff.css";
-@import "./styles/script-store.css";
-@import "./styles/script-store-entry.css";
 @import "./styles/canvas.css";
 @import "./styles/canvas-panel.css";
 @import "./styles/canvas-text.css";

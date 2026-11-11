@@ -47,8 +47,7 @@ from tests.test_script_gate import agent, played, ran, shelled
 from tests.test_script_job import crew as job_crew
 from tests.test_script_job_gate import DUE, scheduled
 from tests.test_script_model_calls import CATCHES, NOT_HERE, SORTING
-from tests.test_script_store import Waits
-from tests.test_script_tool import OPENED, Reads, erred, halted, play, unfinished
+from tests.test_script_tool import OPENED, Reads, Waits, erred, halted, play, unfinished
 from tests.test_script_turns import reading
 
 BOOLEAN = (

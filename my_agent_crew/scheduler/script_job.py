@@ -20,9 +20,7 @@ output from reading as more of the prompt.
 
 Nobody watches a job and a script waits for nobody, so a call the approval gate would ask
 about ends it (`script/gate.py`). It has no conversation either: a tool that works through
-one fails there, and what the script keeps (`store`, `load`) is kept under the schedule's
-own id, where a script of the turn it opens finds it. What it kept is written before that
-turn begins.
+one fails there.
 """
 
 from __future__ import annotations
@@ -42,7 +40,6 @@ from my_agent_crew.scheduler.jobs import JOB_SOURCE, Job, ending, open_turn
 from my_agent_crew.script.gate import job_gate
 from my_agent_crew.script.model_calls import scripts_model
 from my_agent_crew.script.scope import SCRIPT_TOOL, writes_too
-from my_agent_crew.script.store_session import job_kept
 from my_agent_crew.script.tool import Ran, run_source
 from my_agent_crew.store.runs import DONE, FAILED, RUNNING, RunRecord
 from my_agent_crew.texts import TOOL_FAILED
@@ -79,10 +76,9 @@ async def _carry_out(job: Job, deps: AgentDeps, hub: ActivityHub, run: RunRecord
         told += 1
 
     gate = job_gate(deps) if writes_too(deps.settings) else None
-    kept = job_kept(deps, job.schedule.id)
     try:
         with job_context(call_id), outside_a_turn(tell):
-            ran = await run_source(source, deps.tools, gate, kept, scripts_model(deps))
+            ran = await run_source(source, deps.tools, gate, scripts_model(deps))
     except Exception as exc:  # a bug here fails this job, and the jobs due beside it still run
         logger.exception("script job %s crashed", job.id)
         failed = TOOL_FAILED.format(error=type(exc).__name__)

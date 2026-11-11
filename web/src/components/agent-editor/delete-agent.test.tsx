@@ -23,10 +23,11 @@ describe("DeleteAgent", () => {
     const lost = screen.getByTestId("delete-agent-lost");
     expect(lost).toBeVisible();
     expect(lost).toHaveTextContent(vi.editor.deleteLost);
-    // The three things the server drops with the agent, and the two it keeps.
-    for (const named of [/script của agent này giữ lại/, /lịch nó được tạo từ chat/, /bật\/tắt của từng lịch/]) {
+    // The two things the server drops with the agent, and the two it keeps.
+    for (const named of [/lịch nó được tạo từ chat/, /bật\/tắt của từng lịch/]) {
       expect(vi.editor.deleteLost).toMatch(named);
     }
+    expect(vi.editor.deleteLost).not.toMatch(/script/);
     expect(vi.editor.deleteLost).toMatch(/^Xoá hẳn, không lấy lại được:/);
     expect(vi.editor.deleteLost).toMatch(/Hội thoại và lịch sử run vẫn giữ nguyên\.$/);
     // It stands between the hint and the box, so it is read before the id is typed.

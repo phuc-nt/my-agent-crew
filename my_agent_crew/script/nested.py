@@ -29,10 +29,9 @@ from my_agent_crew.script.delegation import (
 )
 from my_agent_crew.script.discovery import discover
 from my_agent_crew.script.fit import fit
-from my_agent_crew.script.kept import KINDS, nowhere
 from my_agent_crew.script.limits import MAX_PARALLEL, RAW_LIMIT
 from my_agent_crew.script.one_by_one import one_by_one
-from my_agent_crew.script.replies import Answer, Calls, Lookup
+from my_agent_crew.script.replies import Answer, Calls
 from my_agent_crew.script.scope import callable_tools, only_reads, unknown_tool, why_not
 from my_agent_crew.script.signature import call_line, misfits
 from my_agent_crew.texts import TOOL_FAILED
@@ -54,8 +53,6 @@ class ScriptRun:
     # Set for an agent whose scripts may also call the tools that change things: each such
     # call is put to it before any call of its batch runs.
     gate: Gate | None = None
-    # Answers `store` and `load`. Where a run keeps things is its caller's to say, not here.
-    keep: Lookup = nowhere
     # The characters the script was handed by the calls it made, of a tool or of a model.
     received: int = 0
     # The calls asked for so far. Each is numbered as it was written: an answer kept whole
@@ -86,8 +83,6 @@ class ScriptRun:
         return sum(call.child_spent_usd for call in self.calls)
 
     def lookup(self, kind: str, arguments: dict[str, Any]) -> Any:
-        if kind in KINDS:
-            return self.keep(kind, arguments)
         return discover(self.held, kind, arguments, self.gated, self.delegates)
 
     def _refusal(self, tool: Tool | None, arguments: dict[str, Any]) -> str | None:

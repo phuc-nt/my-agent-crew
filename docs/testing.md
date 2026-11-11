@@ -5923,102 +5923,16 @@ khi chạy; phần đó có mục riêng ở dưới.
     câu không hỏi được model; sửa một khoá khác giữ nguyên cả hai; tạo agent mới kèm cả hai được;
     giá trị không phải boolean cho `script_llm`, và boolean cho `script_calls`, bị từ chối 422 trước
     khi ghi tệp, câu lỗi của `script_calls` dặn chữ phải gửi).
-- **Script giữ lại giữa các lần chạy (`store` / `load`)**:
-  - pytest: `tests/test_script_store.py` (script đọc lại được điều chính nó vừa ghi, và không gì
-    vào bảng trước khi nó chạy xong; cái đã giữ còn đó cho script sau của cùng cuộc trò chuyện;
-    `store(khoá, None)` bỏ khoá, khoá chưa từng có cũng không sao, còn `None` nằm trong một list
-    hay dict thì được giữ như mọi giá trị; script hỏng vì một lỗi không
-    ai bắt hay bị dừng ở lời gọi nó không được gọi thì giá trị mới và khoá nó vừa bỏ đều không
-    được ghi; script hết giờ hay bị dừng giữa chừng không giữ gì; lần chạy xong sau mà làm chỗ
-    giữ quá mức thì không cái nào của nó được giữ, kể cả cái đứng riêng thì vừa, và kết quả là
-    script lỗi nói rõ điều đó; hai cuộc trò chuyện của một agent giữ riêng; hai agent có job
-    cùng tên không đọc được của nhau; lượt của cuộc trò chuyện do job mở giữ dưới lịch của job;
-    lượt người tiếp lời trong cuộc ấy giữ dưới chính cuộc trò chuyện; script chạy ngoài mọi cuộc
-    trò chuyện được báo là không có chỗ giữ, bắt được và chạy tiếp; model được kể hai tên, rằng
-    khoá chưa có thì đọc ra None, rằng `store(khoá, None)` là quên khoá đó và rằng chỉ giữ khi
-    script xong không lỗi, ở cả hai chế độ `script_calls`).
-  - pytest: `tests/test_script_limits.py` (khoá là chuỗi không rỗng, dài đúng tới mức và không
-    hơn, kể cả khi bỏ khoá; giá trị dài đúng tới mức và không hơn, giá trị quá dài không được
-    giữ và script đọc lại giá trị có trước đó; giá trị được đo theo JSON nó được lưu thành, tính
-    theo ký tự: một chữ có dấu là một, một dấu xuống dòng là hai; set, NaN, vô cực và dict có
-    khoá không phải chuỗi là lỗi script bắt được, không ghi gì; cái JSON viết được thì đọc lại y
-    như đã ghi, riêng tuple thành list; một chỗ giữ chứa khoá và giá trị đúng tới mức, đo theo
-    cái nó sẽ chứa sau lần ghi, nên ghi đè hay bỏ khoá thì trả lại chỗ; chỗ đã đầy vẫn bỏ được
-    khoá; chỗ khác và agent khác không lấy gì của chỗ này; cái không giữ được bị từ chối ngay
-    trong tiến trình chạy script, trước khi hỏi server; server đo lại mọi thứ tiến trình gửi lên
-    và tự từ chối cái làm đầy chỗ; `store` nhận đúng một khoá và một giá trị, `load` đúng một
-    khoá; `store` không trả gì và `load` khoá chưa có trả None; giữ và đọc lại nhiều hơn cả số
-    lời gọi lẫn số lần tra cứu vẫn không lấy gì của hai trần đó).
-  - pytest: `tests/test_api_script_store.py` (agent chưa giữ gì thì danh sách rỗng; mỗi chỗ giữ
-    kèm tổng số ký tự, mỗi giá trị kèm số ký tự của nó và giờ ghi theo UTC, xếp theo chỗ rồi
-    theo khoá; giá trị dài chỉ hiện phần đầu kèm độ dài thật; agent chỉ thấy cái script của
-    chính nó giữ; agent không có thì 404; `limit_chars` nằm một lần ở gốc, là đúng mức mà
-    `store` của script bị giữ, 262.144, cả khi agent chưa giữ gì; chỗ giữ của một lịch mang
-    `kind: job`, `ref` là id của lịch và `title` là tên lịch; lịch cùng id của agent khác không
-    đặt tên cho chỗ của agent này, chỗ ấy là `orphan`; lịch tạo từ một cuộc trò chuyện đặt tên
-    cho chỗ của nó cho tới khi bị gỡ, gỡ rồi thì chỗ ấy còn đó và là `orphan`; chỗ giữ của một
-    cuộc trò chuyện mang `kind: conv` và tiêu đề của cuộc ấy, cuộc không còn thì `title` là
-    `null` và là `orphan`; tiêu đề chỉ có khoảng trắng thì `title` là `null` mà không phải
-    `orphan`; chỗ không thuộc hai loại, kể cả tên chỉ gần giống tiền tố, là `other`, `ref` là cả
-    tên, không bao giờ `orphan`; POST, PUT và PATCH không ghi được gì qua địa chỉ này; cái script
-    của một lượt giữ thì hiện ra, và mất theo khi xoá cuộc trò chuyện).
-  - pytest: `tests/test_api_script_store_edit.py` (một giá trị được đọc nguyên dù dài tới đâu,
-    kèm số ký tự và giờ ghi như trong danh sách; khoá có `&`, `=`, `/`, `#`, `?`, `%`, dấu cách,
-    dấu `+`, chữ có dấu, hay dài hết mức, được gọi đúng như script đã viết, khi đọc cũng như khi
-    xoá; giá trị không có ở đó là 404, kể cả tên chỗ hay khoá chỉ giống phần đầu, chứa ký tự đại
-    diện của `LIKE`, khoá rỗng, hay giá trị agent khác giữ ở chỗ cùng tên; agent không có thì 404
-    dù bảng có dòng mang id ấy; thiếu `namespace` hay `key` khi đọc là 422; `namespace` hay `key`
-    nêu hai lần, khi đọc cũng như khi xoá, là 422 nêu tên tham số ấy, không gì được đọc và không
-    gì bị xoá, dù hai lần nêu cùng một giá trị hay lần xoá không nêu khoá; xoá một khoá thì chỉ
-    khoá ấy mất, ở danh sách, ở lần đọc và với script đọc kế tiếp; không nêu khoá thì xoá cả chỗ,
-    và chỗ chỉ giống phần đầu tên là chỗ khác; xoá cái không có trả `deleted: 0` và không phải
-    lỗi, khoá rỗng không bao giờ là cả chỗ; agent chỉ xoá được cái script của chính nó giữ; agent
-    không có thì 404 và không gì bị xoá; xoá mà không nêu `namespace` là 422, không địa chỉ nào
-    xoá hết mọi thứ của một agent trong một lần; cái đã xoá vẫn mất khi script kế tiếp bị từ chối
-    vì ghi quá mức; script đang chạy mà đã đọc chỗ giữ thì đi tiếp theo cái nó đã thấy và khi xong
-    chỉ ghi lại khoá chính nó ghi, cái nó chỉ đọc vẫn mất; script chưa đọc thì thấy chỗ giữ như
-    sau lần xoá; script bỏ một khoá đã bị xoá vẫn xong êm; xoá agent thì mọi chỗ giữ của nó mất,
-    của agent khác còn nguyên, và agent mới mang cùng id bắt đầu trống; agent không xoá được, vì
-    còn agent khác giao việc cho nó, vì là master, hay vì thư mục không dời đi được, thì giữ
-    nguyên cái nó đã giữ).
-  - pytest: `tests/test_script_store_agent_removed.py` (script chạy xong êm thì giữ được cái nó ghi,
-    trong một lượt cũng như khi một lịch chạy nó; script đang chạy lúc agent bị gỡ thì không dòng
-    nào còn dưới id ấy, và nó được trả lời như script hỏng, kèm dòng nói agent đã bị gỡ; agent mới
-    được tạo cùng id trước khi script cũ xong thì bắt đầu trống, không nhận gì của script ấy, và tự
-    giữ được như mọi agent; script mà một lượt sống lâu hơn agent chạy sau lúc gỡ cũng không giữ
-    được gì, kể cả khi id đã có chủ mới; script không ghi gì thì xong êm như thường; gỡ một agent
-    không lấy gì của script agent khác đang chạy; lưu agent không phải là gỡ, script đang chạy lúc
-    lưu vẫn giữ được; ở bảng: lần ghi mang đời của một agent đã bị gỡ không ghi gì, bỏ khoá cũng là
-    ghi; mỗi lần gỡ một id cho một đời khác mọi đời trước, id khác không đổi; script được báo agent
-    đã bị gỡ chứ không phải kho đầy; script của agent đã bị gỡ `load` lần đầu sau lúc gỡ thì nhận
-    rỗng và được trả lời như script hỏng với cùng dòng ấy, khi id chưa có chủ cũng như khi agent
-    mới đã giữ giá trị ở đúng chỗ đó; script đang chạy lúc gỡ mà chưa đọc cũng vậy; cái script đã
-    đọc trước lúc gỡ thì nó đọc tiếp và xong êm; ở bảng: lần đọc mang đời đã qua không trả gì, đời
-    hiện tại đọc được của mình, và không lần gỡ nào lọt vào giữa lúc so đời và lúc đọc; script
-    chỉ đọc cho agent đã bị gỡ vẫn được báo agent đã bị gỡ).
-    Script ở đây chờ ở một công cụ chỉ trả lời khi test cho phép,
-    nên lần gỡ rơi đúng chỗ test đặt: sau khi script đã ghi, trước khi nó xong. Kiểm chứng đột biến:
-    năm sửa đổi (lần ghi không so đời, gỡ agent không đổi đời, lấy đời lúc script bắt đầu thay vì
-    lúc agent được dựng, agent được dựng không nhận đời hiện tại, luôn báo kho đầy) đều bị test bắt.
-    Phía đọc, thêm năm sửa đổi (lần đọc không so đời, so đời ở một lần giữ khoá riêng trước lần
-    đọc, script đọc không nêu đời, không ghi nhớ rằng agent đã đi, không báo cho script chỉ đọc)
-    đều bị test bắt.
-  - pytest: `tests/test_store.py` (xoá một cuộc trò chuyện xoá cả chỗ giữ của nó, của agent nào
-    cũng vậy, và không đụng chỗ của cuộc khác hay của job; lần xoá hỏng giữa chừng thì cái đã
-    giữ còn nguyên, vì xoá trong cùng một giao dịch).
-  - Kiểm chứng đột biến: tám sửa đổi (ghi cả khi script không xong, không đo lại trong giao dịch
-    ghi, xoá cuộc trò chuyện để lại cái đã giữ, nhận dict có khoá là số, tính `load` là một lần
-    tra cứu, lượt của cuộc trò chuyện do job mở giữ dưới cuộc trò chuyện, lời mô tả không nói
-    khi nào thì giữ, lời mô tả không nói khoá chưa có thì đọc ra gì) đều bị test bắt.
-  - Kiểm chứng đột biến lần hai, do người không viết mã làm, trên cả phần giữ lẫn job script: bốn
-    mươi hai sửa đổi. Ba mươi bảy bị test bắt ngay. Năm sửa đổi còn lại sống sót vì thiếu test,
-    và mỗi cái nay có test riêng: giá trị là tuple thì không được soi vào bên trong (dict có
-    khoá là số nằm trong tuple vẫn được nhận; `tests/test_script_limits.py`, hai ca mới trong
-    danh sách không phải JSON), `store(khoá, None)` xoá luôn khoá cùng tên ở chỗ giữ khác của
-    cùng agent hay ở agent khác (`tests/test_script_store.py`, hai test về hai cuộc trò chuyện
-    và hai agent nay xoá ở một bên rồi đếm lại bên kia), và job script chỉ báo các lời gọi của
-    nó khi script đã xong, hoặc báo lời gọi nào cũng là lời gọi đầu
-    (`tests/test_script_job.py::test_the_calls_of_a_jobs_script_are_listed_and_charged_as_each_ends`).
+- **Script không giữ gì giữa các lần chạy**:
+  - pytest: `tests/test_script_limits.py`
+    (`test_a_script_has_no_name_to_keep_a_value_by_for_a_later_run`: `store` và `load` không còn
+    là tên script gọi được; script kết thúc bằng đúng câu nói tên ấy không có và không hỏi bên cha
+    điều gì), `tests/test_store.py`
+    (`test_a_database_that_has_the_table_scripts_once_kept_in_keeps_it_unread`: tệp cũ còn bảng
+    `script_store` thì mở ra bảng và dòng của nó còn nguyên, cả sau khi xoá một cuộc trò chuyện;
+    tệp mới không có bảng ấy), `tests/test_script_job.py`
+    (`test_the_calls_of_a_jobs_script_are_listed_and_charged_as_each_ends`: job script báo từng
+    lời gọi của nó ngay khi lời gọi ấy xong, không đợi script xong).
 - **Agent bị xoá mang lịch của nó đi cùng; job đến giờ mà không còn agent thì bị bỏ qua**:
   - pytest: `tests/test_scheduler_agent_removed.py` (trên một home có master, hai agent yaml mà
     id của agent ở lại bắt đầu bằng id của agent bị xoá và hai job trùng tên, cùng một agent
@@ -6040,8 +5954,8 @@ khi chạy; phần đó có mục riêng ở dưới.
     đã báo, hạ dòng log xuống mức gỡ lỗi, và hai sửa đổi để lần gửi kết quả tra thẳng agent)
     đều bị test bắt.
   - Vitest: `components/agent-editor/delete-agent.test.tsx` (hộp xoá agent nói, trước ô gõ id,
-    thứ thư mục trong `.trash` không mang về: những gì script của agent giữ lại, lịch nó được tạo
-    từ chat và trạng thái bật/tắt của từng lịch; hội thoại và lịch sử run được nêu là giữ nguyên).
+    thứ thư mục trong `.trash` không mang về: lịch nó được tạo từ chat và trạng thái bật/tắt của
+    từng lịch, không nhắc gì tới script; hội thoại và lịch sử run được nêu là giữ nguyên).
 - **Lịch trong tệp lên đồng hồ ngay khi lưu; không lần lưu nào đòi khởi động lại**:
   - pytest: `tests/test_profile_schedules_live.py` (qua API, trên một home có một agent yaml, đồng
     hồ đứng ở chỗ test đặt và lệnh của job được thay bằng một bản ghi lại: đổi cron thì job chạy ở
@@ -6295,9 +6209,7 @@ khi chạy; phần đó có mục riêng ở dưới.
     khi model đọc; script hỏng là run `error`, tóm tắt là đúng dòng đã làm nó dừng, không mở lượt;
     tóm tắt ấy không kèm chữ nào script đã in; script không chạy nổi thì job hỏng, run chỉ nêu loại lỗi, và
     job sau vẫn chạy; job bị dừng giữa lúc script chạy không để lại run đang chạy và lần sau
-    lại chạy được; script của job giữ dưới lịch từ sáng này sang sáng sau; script hỏng không
-    giữ gì; cái script giữ có sẵn cho lượt nó mở, và cái lượt ấy giữ có sẵn cho lần chạy sau;
-    script không in gì vẫn giữ cái nó ghi).
+    lại chạy được).
   - Kiểm chứng đột biến cho hàng rào quanh cái script in ra: mười sửa đổi (cái in ra được nối
     thẳng vào prompt, hai dòng đánh dấu lần nào cũng mang một số, số ngắn hơn, dòng đóng không
     mang số, model không được bảo hai dòng ấy là gì, cái in ra đứng trên câu nói về nó, không gì
@@ -6324,7 +6236,7 @@ khi chạy; phần đó có mục riêng ở dưới.
     lỗi trình thông dịch ném ra trên thứ một tool trả về, `int(...)` của một chuỗi hay một khoá
     mà mapping không có, được kể đúng lời của nó, trích cả giá trị ấy, còn chữ đã in thì không;
     giá trị dài thì bị cắt như mọi lý do, 200 ký tự đầu và 400 ký tự cuối;
-    script chạy xong mà không giữ được gì bằng `store` thì lý do là đúng dòng nói vậy; script không
+    script không
     chạy nổi thì lý do là loại lỗi, như run ghi; câu từ chối của cổng duyệt tới nơi nguyên vẹn, dài
     hơn 160 ký tự và kết bằng phần dặn gọi trực tiếp, không kèm chữ đã in; lỗi dài thì tin mang 200
     ký tự đầu và 400 ký tự cuối của dòng lỗi, 601 ký tự, trong khi tóm tắt của run là 160 ký tự đầu
@@ -6735,8 +6647,6 @@ khi chạy; phần đó có mục riêng ở dưới.
     thuộc về nó; ô vẫn có ở agent không được trao tool script nào, vì script của lịch vẫn chạy),
     `components/agent-editor/script-controls-undo.test.tsx` (ở agent mà đội không trả thiết lập nào:
     chọn rồi chọn lại, qua `gated` hay qua `none`, không để lại gì để lưu; ô hỏi model cũng vậy),
-    `components/agent-editor/script-controls-store-link.test.tsx` (sau hai thiết lập có một liên kết
-    tới màn "Script giữ lại" với agent này đã chọn; có cả ở agent không sửa được ở đây),
     `components/agent-editor/autonomy-unasked-scripts.test.tsx` (dòng dưới ô "Tự chủ" nói không ai
     được hỏi: hiện khi bật tự chủ ở agent mà script đã được đổi dữ liệu, khi cho script đổi dữ liệu
     ở agent đã tự chủ, có sẵn ở agent được lưu với cả hai, có ở agent form không sửa được, và không
@@ -6752,11 +6662,10 @@ khi chạy; phần đó có mục riêng ở dưới.
     nhận và trả lại nó; từ chối mọi thứ khác: một nhãn, chữ hoa chữ thường khác, một chuỗi thay cho
     đúng/sai; khoá bị xoá đọc lại là mức đội đang chạy agent).
   - Playwright: `script-controls.spec.ts` (hai thiết lập được đặt, lưu, và còn đó sau khi tải lại;
-    màn rộng 1440px: liên kết dưới hai thiết lập mở những gì script của agent này giữ, và Back về
-    lại trình sửa; điện thoại 390px cảm ứng: hai thiết lập đặt được bằng ngón tay và không tràn
+    điện thoại 390px cảm ứng: hai thiết lập đặt được bằng ngón tay và không tràn
     trang; bật tự chủ ở agent mà script được đổi dữ liệu thì ngay dưới ô có câu nói không ai được
-    hỏi; liên kết đủ cao để chạm, mở kho của đúng agent này, và Back quay về).
-- **web: viết script của một lịch trong trình sửa, dòng script phải có mã, và "Sửa lịch" tới đúng
+    hỏi).
+- **web: viết script của một lịch trong trình sửa, mã của dòng để trống được, và "Sửa lịch" tới đúng
   dòng**:
   - vitest: `components/agent-editor/schedule-script-edit.test.tsx` (dòng mới chạy script được gửi
     đi đúng như bộ đọc của server nhận; dấu tab dán vào, dấu cách đầu dòng và dấu xuống dòng cuối
@@ -6779,10 +6688,9 @@ khi chạy; phần đó có mục riêng ở dưới.
     sửa mở từ "Sửa lịch" của một job: dừng ở dòng của job ấy giữa các dòng khác; liên kết quay lại
     nói về danh sách lịch; không job nào dẫn tới thì dừng ở tiêu đề và liên kết quay lại như thường;
     vẫn ở dòng đã dừng khi danh sách quanh nó đổi),
-    `components/agent-editor/schedule-script-id.test.tsx` (dòng script không có mã không lưu được:
-    lần lưu bị giữ lại, và ô mã nói lý do khi đã thử lưu; ô mã chỉ có dấu cách cũng là không có mã;
-    dưới ô mã của nó là lời nói mã dùng để làm gì, nơi dòng loại khác được bảo là có thể để trống;
-    dòng thôi là script thì lại để trống mã được),
+    `components/agent-editor/schedule-script-id.test.tsx` (dòng không có mã vẫn lưu được và được
+    server đánh số, dù nó chạy script, lời nhắc hay lệnh; script của tệp bị xoá trắng mã, hay mã chỉ
+    còn dấu cách, cũng lưu được; dưới ô mã, dòng loại nào cũng được bảo là có thể để trống),
     `components/agent-editor/schedule-placed-id.test.tsx` (dòng script mà server đánh số theo vị
     trí: mở agent thì không có gì để lưu và không có gì phải điền; lần lưu lịch kế tiếp gửi lại đúng
     mã ấy dù không ai gõ gì vào dòng; dòng giữ mã ấy khi một dòng phía trên bị xoá, qua từng lần
@@ -6794,137 +6702,16 @@ khi chạy; phần đó có mục riêng ở dưới.
     đổi loại gửi đi đúng một việc nó đang làm dù các khoá khác còn giữ gì; hai khoá script là `null`
     ở nơi tệp không có thì không tính là đã đổi, còn script hay prompt nối tiếp có thật thì tính, và
     ở mọi khoá khác `null` vẫn khác một giá trị), `hooks/agent-draft-checks.test.ts` (nhóm
-    "a row that runs a script and has no id": giữ lần lưu lại, chưa nêu tên, cho tới khi thử lưu;
-    được nêu ở ô mã khi đã thử lưu; không áp cho script có mã, cho lời nhắc hay lệnh không mã; không
-    đụng tới form mà lịch không ai đổi).
+    "a row that has no id": mã trống hay chỉ có dấu cách không giữ lần lưu nào lại, trước hay sau
+    khi thử lưu, ở dòng script cũng như ở dòng lời nhắc hay lệnh).
   - Playwright: `schedule-script-editor.spec.ts` (ở 1280px và 390px: một lịch chạy script được viết,
     lưu và đọc lại; "Sửa lịch" của một job script dừng ở dòng của job ấy chứ không ở dòng đầu, khi
     tới bằng liên kết lẫn khi tải lại; ngoài ra: script bị server từ chối được nói bằng lời của
     server và không mất chữ nào đã gõ; script để trống hay dài quá giới hạn giữ lần lưu lại và nói
-    lý do; ở 390px, dòng script không có mã không lưu được và ô mã nói lý do),
+    lý do; ở 390px, dòng script không có mã lưu được như dòng loại khác, và lời dưới ô mã không đổi
+    theo loại dòng),
     `manage-smoke.spec.ts` (ca thêm lịch từ danh sách lịch nay kiểm bàn phím nằm ở dòng của job vừa
     bấm, không ở tiêu đề).
-- **web: màn "Script giữ lại", xem một giá trị, xoá một khoá hay cả một kho, và tên được viết ra như
-  nhau ở mọi chỗ**:
-  - vitest: `api/script-store.test.ts` (liệt kê kho của một agent dù id của nó chứa gì; đọc một giá
-    trị theo tên kho và khoá, mỗi cái gửi trọn; xoá một khoá theo tên kho và khoá; chỉ xoá cả kho
-    khi không khoá nào được nêu; khoá rỗng vẫn được nêu, nên một dòng được hỏi tới chứ không bao giờ
-    là tất cả; lỗi mang mã và lời của server), `hooks/use-script-store.test.ts` (chưa có gì, cũng
-    chưa có lỗi nào, cho tới khi lần đọc đầu được trả lời; chỉ nhận câu trả lời của lần đọc sau
-    cùng, dù cái nào về sau; không báo lỗi của lần đọc đã bị lần sau thay; giữ danh sách đang có khi
-    lần đọc sau hỏng, và buông lỗi khi một lần đọc được; được báo là đã mất thì bỏ dòng ngay, bỏ cả
-    kho khi đó là khoá cuối, rồi đọc lại; khoá được báo mất mà chưa từng có thì danh sách như cũ;
-    server từ chối một lần xoá thì không gì đổi và lời từ chối về tay nơi đã hỏi; đọc một giá trị
-    trả về chữ kèm độ dài và giờ ghi, và không đọc thêm gì khi danh sách nói y như vậy; không đọc
-    thêm cho khoá danh sách không có, hay cho câu trả lời về sau khi màn đã đóng),
-    `components/script-store-section.test.tsx` (mỗi kho được gọi bằng lời, có lối tới nơi dùng nó,
-    và tên như bảng lưu vẫn trong tầm mắt; các khoá của một kho xếp theo thứ tự, mỗi khoá kèm phần
-    đầu giá trị, độ dài và giờ ghi; kho được đo với mức tối đa của một kho, bằng con số và bằng một
-    thanh; kho không còn gì đọc nữa thì được đánh dấu, được nói là xoá được, và không có lối tới nơi
-    dùng đã mất; kho không của lịch cũng không của cuộc trò chuyện mang tên như bảng lưu, một lần;
-    cái một server cũ gửi thì hiện thành tên như bảng lưu, độ dài không có mức tối đa, không dấu,
-    không thanh; script chưa giữ gì thì một câu nói màn này là gì; đang đọc thì nói đang đọc chứ
-    không nói chưa có gì; đọc hỏng thì hiện lỗi thường lệ và đọc lại khi được bảo; mời các agent của
-    đội và báo cho nơi chứa nó agent nào được chọn; không bao giờ hiện khoá của agent này dưới tên
-    agent kế), `components/script-store-value.test.tsx` (giá trị chỉ được đọc khi được hỏi, bày
-    thành JSON trong một ô riêng, và cất đi được; hiện trọn, quá chỗ danh sách đã cắt; không phải
-    JSON thì hiện như được giữ, kèm một dòng nói vậy; ký tự không ai thấy được viết ra, ở khoá lẫn ở
-    giá trị, còn lời hỏi server dùng khoá như được giữ; nói đang đọc trong lúc server trả lời; về
-    sau khi người dùng đã đóng thì vẫn cất; khoá đã mất: nói vậy, bỏ dòng, đọc lại danh sách và đưa
-    bàn phím sang khoá kế; không đọc được: hiện lỗi thường lệ ngay tại dòng, giữ dòng, đọc lại khi
-    được bảo; khoá được ghi lại thì giá trị được cất, để giá trị cũ không bao giờ bị đọc là của
-    khoá), `components/script-store-value-rewritten.test.tsx` (giá trị đã được ghi lại từ lúc danh
-    sách được đọc: danh sách được đọc lại, đúng một lần, để giá trị đứng cạnh độ dài và giờ ghi của
-    chính nó; giá trị ở yên trong ô trong lúc danh sách được đọc lại; nó được cất khi danh sách đọc
-    lại cho thấy một lần ghi muộn hơn lần ghi của giá trị; giá trị đúng như danh sách nói thì danh
-    sách không được đọc lần hai), `components/script-store-value-overlap.test.tsx` (hai lần đọc giá
-    trị của một khoá cùng lúc: lần trước về trước thì ô vẫn chờ, rồi nhận giá trị của lần sau; lần
-    trước về sau thì ô giữ giá trị của lần sau; lời từ chối của lần trước không hiện trong lúc chờ
-    lần sau; hiện lời từ chối của lần sau chứ không phải giá trị của lần trước; lần trước thấy khoá
-    đã mất thì khoá không bị bỏ, lần sau thấy vậy thì bị bỏ dù lần trước đọc được gì; người dùng đã
-    đóng ô thì không lần nào điền gì; một lần đọc bị đóng trước khi về vẫn bỏ khoá khi server nói
-    khoá đã mất), `components/script-store-delete.test.tsx` (xoá một khoá: hỏi trước, xoá đúng khoá
-    ấy, nói cái gì đã đi và đọc lại danh sách; nói không thì server không được hỏi gì; bàn phím sang
-    khoá thế chỗ, không có thì sang khoá cuối; khoá cuối đi thì kho đi theo và bàn phím sang tiêu đề
-    của kho thế chỗ; server từ chối thì lý do hiện ngay tại dòng được hỏi và không gì bị dời; server
-    không còn khoá ấy thì nói không còn gì để xoá và vẫn bỏ dòng; bấm xoá lần nữa trước khi có trả
-    lời thì người dùng và server chỉ được hỏi một lần; khoá khác vẫn xoá được trong lúc lần xoá đầu
-    chưa có trả lời; bàn phím ở lại nơi người dùng đã đưa nó tới trong lúc server trả lời; đọc lại
-    danh sách hỏng thì màn giữ cái đang có, trừ khoá vừa xoá),
-    `components/script-store-delete-all.test.tsx` (xoá cả một kho: hỏi trước và nêu bao nhiêu khoá
-    sẽ đi, xoá hết, đưa bàn phím sang kho thế chỗ; đó là kho cuối thì còn lại trạng thái trống và
-    bàn phím về ô chọn agent; không hỏi về khoá nào của một kho đang đi cả; nói không thì server
-    không được hỏi gì; server từ chối thì lời của nó hiện dưới kho, không ở dòng nào, và không gì bị
-    dời), `components/script-store-delete-all-recount.test.tsx` (câu hỏi trước khi xoá cả kho nêu số
-    khoá server đang có, không phải số danh sách đã hiện; nói không thì trên màn là danh sách vừa
-    đọc; kho được gọi bằng tên nó đang mang; xoá một khoá thì không đọc lại trước khi hỏi, câu hỏi
-    ấy không nêu con số nào; kho đã mất lúc bấm xoá thì được nói là không còn gì và không ai bị hỏi,
-    và nếu là kho cuối thì còn trạng thái trống, bàn phím ở ô chọn agent; trong lúc đọc lại: bấm lần
-    nữa, hay bấm xoá một khoá của kho ấy, không hỏi thêm gì; người dùng sang agent khác được và sau
-    đó không bị hỏi gì; server từ chối lần đọc thì điều đó được nói dưới kho, không ai bị hỏi, và
-    lần bấm sau lại hỏi), `components/script-store-delete-names.test.tsx` (khoá trong câu hỏi xoá và
-    dòng báo sau đó: nằm trên một dòng giữa hai dấu ngoặc kép, dấu ngoặc kép và dấu xuống dòng của
-    chính nó được viết thành chuỗi thoát; cắt ở tám mươi ký tự mà vẫn bị xoá trọn; dấu cách ở cuối
-    và ký tự không ai thấy được viết ra giữa hai dấu ngoặc; dòng báo đã xoá gọi nó y như thế; lịch
-    hay cuộc trò chuyện được gọi bằng tiêu đề, bỏ dấu cách ở cuối tiêu đề; dấu ngoặc kép và dấu
-    xuống dòng của tiêu đề được viết thành chuỗi thoát, cả trong câu hỏi về một khoá; tiêu đề dài
-    thì cắt ở tám mươi ký tự; kho không thuộc hai loại ấy là tên như bảng lưu giữa hai dấu ngoặc,
-    được viết ra), `components/script-store-written-names.test.tsx` (những khoá chỉ khác nhau ở thứ
-    trang web gộp lại hay vẽ thành không gì: mỗi khoá được viết theo cách riêng ở dòng của nó, ở tên
-    của nút xem giá trị, ở tên của nút xoá, trên một giá trị đang mở và ở nút đóng nó; được hỏi tới,
-    và được báo là đã đi hay đã mất, theo đúng cách viết ở dòng; tên kho cũng vậy ở tiêu đề, dưới
-    tiêu đề, ở tên của thanh và của nút, trong câu hỏi và dòng báo đã xoá hết),
-    `components/memory-panel-script-store.test.tsx` (kho của script có tab riêng, sau wiki; mở ở
-    agent màn đang xem và ghi agent ấy vào địa chỉ; địa chỉ nêu nó thì mở nó, ở agent địa chỉ nêu,
-    không nêu agent thì ở agent của màn; agent đội không có thì về agent của màn mà không hỏi server
-    gì về nó; đội chưa đọc xong thì tin lời địa chỉ; chọn agent khác trong tab thì địa chỉ nêu agent
-    ấy và khoá của nó thay khoá kia; rời tab bằng tab khác thì địa chỉ thôi nêu nó và tab kế hiện
-    agent vừa xem; Back của trình duyệt về tab người dùng đã ở trước đó),
-    `lib/script-store-namespace.test.ts` (kho của lịch được gọi bằng tên lịch, có lối tới dòng của
-    nó trong Lịch chạy; kho của cuộc trò chuyện được gọi bằng tiêu đề, có lối tới cuộc ấy; không có
-    tiêu đề thì gọi bằng id; nơi dùng đã mất thì không có lối và nói đó là loại nơi dùng nào; không
-    thuộc hai loại, hay thuộc loại không biết, thì chỉ là tên như bảng lưu; server không gửi gì thêm
-    thì là tên như bảng lưu, không có chữ nào cho loại; thiếu id thì không có lối nào; ký tự không
-    ai thấy trong tên được viết ra, còn id trong địa chỉ thì giữ nguyên; câu nhắc tới một kho viết
-    dấu ngoặc kép và dấu xuống dòng của tiêu đề thành chuỗi thoát, ở tiêu đề cũng như trong câu; bỏ
-    dấu cách đầu và cuối của tiêu đề; cắt tiêu đề ở tám mươi ký tự trong câu và giữ trọn ở tiêu đề;
-    tên như bảng lưu nằm giữa hai dấu ngoặc với dấu cách cuối được viết ra; độ đầy là khoá và giá
-    trị trên mức tối đa của một kho, sắp đầy từ bốn phần năm và đầy khi chạm mức; không đo khi không
-    có mức tối đa), `lib/quoted-name.test.ts` (tên được viết ra: giữ nguyên khi không có gì trong nó
-    không ai thấy; dấu ngoặc kép và dấu `\` của chính nó thành chuỗi thoát, để một chuỗi thoát không
-    bị đọc thành hai ký tự viết nên nó; LF, CR, tab và các ký tự cùng lớp thành chuỗi thoát của
-    chúng; không ký tự điều khiển, dấu ngắt dòng hay dấu cách loại khác nào còn nguyên; một dấu cách
-    giữa hai chữ thì để nguyên; tên dài mấy cũng còn trọn; tên trong một câu: nằm giữa hai dấu ngoặc
-    kép, dấu ngoặc đóng là dấu cuối cùng; ở trên một dòng; dấu cách đầu và cuối được viết ra từng
-    cái để đếm được; trọn tới tám mươi ký tự, quá thì cắt ở đó với dấu cắt trước dấu ngoặc đóng; đếm
-    theo ký tự, không theo nửa ký tự; không cắt đôi một chuỗi thoát; một dấu cách được viết như cả
-    tên viết nó, dù chỗ cắt rơi vào đâu), `lib/pretty-json.test.ts` (JSON được bày mỗi phần tử một
-    dòng, thụt hai dấu cách mỗi mức, và đọc lại vẫn là đúng giá trị ấy; list rỗng và object rỗng nằm
-    trên một dòng; mỗi con số được chép như nó được viết; những gì một chuỗi chứa thì để nguyên; chữ
-    tới đã có dấu cách riêng được bày cùng một cách; giá trị không phải list hay object thì để
-    nguyên; chữ không phải JSON thì không có cách bày nào), `test/fake-script-store.test.ts` (máy
-    chủ giả mà vitest và Playwright dùng chung trả lời các route của kho: liệt kê kho theo tên và
-    khoá theo khoá, mỗi giá trị là JSON viết gọn; dòng của agent nào chỉ thuộc agent ấy; `preview`
-    cắt ở 200 ký tự có dấu cắt, còn độ dài đo trên cả giá trị; nói kho của ai từ đội và các cuộc trò
-    chuyện nó được trỏ tới; trả lời được như server trước khi nó nói một kho là gì; đọc trọn một giá
-    trị, 404 cho khoá hay kho nó không giữ; xoá một khoá, và thôi liệt kê kho khi khoá cuối đã đi;
-    xoá cả kho khi không khoá nào được nêu, và chỉ kho ấy; khoá rỗng vẫn là nêu một khoá; 200 với
-    không gì bị xoá khi không gì khớp; 404 cho agent đội không có, ở mọi route; từ chối một loại
-    request chừng nào còn được bảo vậy và không đổi gì trong lúc ấy; không nhận request không nói
-    kho nào hay khoá nào; mọi đường dẫn khác để lại cho máy chủ giả chứa nó, còn phương thức khác
-    thì không ai nhận).
-  - Playwright: `script-store.spec.ts` (ở 1440px, 1000px và 390px: khoá dài, tiêu đề dài và nhiều
-    khoá đều nằm trong màn; một giá trị dài cuộn trong ô của nó, cả bằng bàn phím; script chưa giữ
-    gì thì màn nói nó là gì; nói đang tải cho tới khi server trả lời; đọc hỏng thì hiện lỗi thường
-    lệ kèm lối đọc lại), `script-store-actions.spec.ts` (ở 1440px và 390px: xoá một khoá thì hỏi
-    trước, bỏ dòng và đưa bàn phím sang khoá kế; nói không thì không gì bị xoá; xoá một kho nêu bao
-    nhiêu khoá sẽ đi, và bàn phím dừng ở tiêu đề của kho thế chỗ; khoá đã mất lúc giá trị của nó
-    được hỏi thì rời danh sách và bàn phím sang khoá kế; kho của một lịch dẫn tới dòng của job, kho
-    của một cuộc trò chuyện dẫn tới cuộc ấy; màn được mở từ Ghi nhớ bằng bàn phím, đi theo agent
-    được chọn, và Back lùi từng tab), `script-store-written-names.spec.ts` (ở 1440px và 390px, với
-    những khoá mà trang web vẽ giống nhau: mỗi khoá được vẽ theo cách riêng, trong bề ngang của
-    trang; mỗi khoá có nút riêng theo tên mà trình đọc màn hình nhận; câu hỏi xoá dùng đúng cách
-    viết ở dòng, và chỉ khoá được hỏi tới bị xoá).
 - **web: lý do của một bước hỏng hiện ngay, trọn vẹn, không cần bấm**:
   - vitest: `components/failed-step-output.test.tsx` (ở thẻ run: cái một bước hỏng trả về nằm ngay
     trên dòng, không cần bấm, trọn vẹn, trong một ô không cuộn; gấp lại khi được bảo và mở lại được;
@@ -7167,15 +6954,13 @@ khi chạy; phần đó có mục riêng ở dưới.
   (máy chủ giả đánh dấu sai, không biết agent đọc bằng tool của mình, coi mọi agent hay mọi tool
   là đọc, đòi mọi tool đều đọc, quên agent đọc qua máy chủ, đổi thứ tự hai dòng, không xếp tên
   agent) và một ở `i18n/vi.ts` (chữ của dòng chú giải).
-- Kiểm chứng đột biến ở các phần web nêu trên: một trăm ba mươi bảy sửa đổi, qua vitest, đều bị test
+- Kiểm chứng đột biến ở các phần web nêu trên: ba mươi chín sửa đổi, qua vitest, đều bị test
   bắt. Ở tin của job script: mười hai ở chỗ nhận ra tin theo đúng câu của server, hai ở chỗ viết ra
-  ký tự không ai thấy trong cái script in. Ở màn "Script giữ lại": chín ở giá trị đã được ghi lại,
-  mười bốn ở tên trong câu hỏi xoá, mười hai ở lần đếm lại trước "Xoá tất cả", sáu ở hai lần đọc
-  chồng nhau, hai mươi tám ở cách viết ra một khoá và một tên kho ở mọi chỗ màn có nó. Ở bước hỏng:
+  ký tự không ai thấy trong cái script in. Ở bước hỏng:
   bảy ở khoảng trắng của lý do. Ở trình sửa agent: năm ở thiết lập script và prompt nối tiếp được
-  lấy lại, bốn ở kỹ năng của dòng lệnh, chín ở câu dưới ô "Tự chủ", hai mươi chín ở luật dòng script
-  phải có mã. Lần dựng đầu của các phần này (mục "Script", ô gõ script, màn kho, bước hỏng mở sẵn,
-  khối "Script in ra") không có con số nào được ghi lại.
+  lấy lại, bốn ở kỹ năng của dòng lệnh, chín ở câu dưới ô "Tự chủ". Lần dựng đầu của các phần này
+  (mục "Script", ô gõ script, bước hỏng mở sẵn, khối "Script in ra") không có con số nào được ghi
+  lại.
 
 ## Master được kể mỗi agent đang có gì
 

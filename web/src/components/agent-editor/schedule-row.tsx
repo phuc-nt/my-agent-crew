@@ -1,6 +1,6 @@
 import { type MouseEvent, useRef } from "react";
 import type { RowProblems } from "../../hooks/agent-draft-checks";
-import { type ScheduleRow, usesEvery, usesScript } from "../../hooks/schedule-row-shape";
+import { type ScheduleRow, usesEvery } from "../../hooks/schedule-row-shape";
 import { vi } from "../../i18n/vi";
 import { cronText, everyText } from "../../lib/cron-text";
 import { TextField } from "./fields";
@@ -104,7 +104,7 @@ export function ScheduleRowEditor(props: Props) {
       </div>
       <TextField
         label={vi.editor.scheduleId}
-        hint={usesScript(row) ? vi.editor.scheduleIdHintScript : vi.editor.scheduleIdHint}
+        hint={vi.editor.scheduleIdHint}
         value={row.id}
         error={problems?.id}
         mono

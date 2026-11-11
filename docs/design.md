@@ -32,7 +32,7 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
                                                         │           │  provider chain (ordered routes, fallback before first item)
                                                         │           │  tool registry (workspace, web, memory, shell, delegate, canvas)
                                                         │           │  skills + persona/memory + crew roster (system prompt)
-                                                        │           └─ store (SQLite: conversations, messages, approvals, runs, canvases, script_store)
+                                                        │           └─ store (SQLite: conversations, messages, approvals, runs, canvases)
                                                         ├─ activity hub (live runs → SSE /api/activity/stream)
                                                         ├─ QueueDrain   (what waited while busy → a turn of its own)
                                                         └─ Scheduler    (cron/every jobs per agent, 20 s tick)
@@ -410,16 +410,6 @@ prompt, `/status`, thống kê activity và sổ cái sử dụng.
 trong database, sống qua restart và chỉ áp dụng với lịch
 mà profile bật — lịch tắt trong yaml được báo là `enabled: false, paused: false` và
 không bật được từ UI. `GET /api/jobs/{id}/runs` liệt kê các run đã qua của job đó.
-
-**Sổ của script.** Bảng `script_store` (`agent_id`, `namespace`, `key`, `value_json`,
-`updated_at`; khoá chính là ba cột đầu) giữ những gì một script ghi bằng `store` để lần chạy sau
-đọc bằng `load`. Script nêu khoá, còn `namespace` do server chọn: `job:<schedule_id>` cho job
-script và cho lượt mà một job mở, `conv:<conversation_id>` cho mọi lượt khác, và dòng nào cũng
-thuộc riêng một agent. Lần ghi của một script chỉ được áp khi nó chạy xong, tất cả trong một
-transaction, và kho được đo lại ngay trong transaction đó: ghi ngay từng lần thì một script hỏng
-giữa chừng để lại nửa sổ, một trạng thái mà không lần chạy nào từng muốn có. Kho `conv:` bị xoá
-trong cùng transaction với cuộc trò chuyện của nó (`Store.delete`). Chi tiết và giới hạn ở
-[tools.md](tools.md#gọi-tool-từ-script).
 
 **Lịch trong tệp theo đội đang chạy.** Job sinh từ `schedules` và `memory_consolidate` được đọc
 từ chính các agent đang chạy, và đọc lại mỗi khi đội đổi: một agent được lưu, được cài, được nhận

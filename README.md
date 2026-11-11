@@ -268,7 +268,7 @@ A script may call only tools that read and ask nobody, unless the agent's file s
 `script_calls: gated`. Then it may call the tools that change things too, and each such call
 meets the approval gate before it runs: what would run unasked runs, and what a person would be
 asked about ends the script with a line saying to call it directly. A script never waits for a
-person. Any script can keep JSON values between runs (`store`, `load`) and ask the agent's own
+person. Any script can ask the agent's own
 model a small question (`llm.classify`, `llm.summarise`); under `gated` it can also hand a task
 to another agent and write a canvas. A schedule can run a script with no model turn: give the
 row `script:` in place of `prompt:` or `command:`, and `then_prompt:` to hand what the script
