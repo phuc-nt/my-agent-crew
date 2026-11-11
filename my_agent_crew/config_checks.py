@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from my_agent_crew.clock import zone_for
+from my_agent_crew.config_parse import name_list
 
 if TYPE_CHECKING:
     from my_agent_crew.config import Settings
@@ -29,3 +30,11 @@ def jobs_day_cap(env: Mapping[str, str], file_values: Mapping[str, Any]) -> floa
     """The day's cap on scheduled jobs: the environment's, else the file's, else none (0)."""
     stated = env.get("MY_AGENT_JOBS_DAILY_COST_CAP_USD")
     return float(stated or file_values.get("jobs_daily_cost_cap_usd") or 0.0)
+
+
+def outbound_hosts(env: Mapping[str, str], file_values: Mapping[str, Any]) -> tuple[str, ...]:
+    """The hosts an agent may reach unasked, from its shell and by an address it put together
+    itself: comma-separated in the environment, a list in the file. `api.example` is that
+    host alone, `*.api.example` it and everything under it."""
+    stated = name_list(env.get("MY_AGENT_OUTBOUND_HOSTS"), file_values.get("outbound_hosts"))
+    return tuple(host.lower() for host in stated)

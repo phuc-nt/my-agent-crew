@@ -75,6 +75,11 @@ def settings_from(
             if "shell_allow_patterns" in raw
             else base.shell_allow_patterns
         ),
+        outbound_hosts=(
+            tuple(host.lower() for host in names(raw, "outbound_hosts", agent_id))
+            if "outbound_hosts" in raw
+            else base.outbound_hosts
+        ),
         tool_output_chars=int(raw.get("tool_output_chars", base.tool_output_chars)),
         shell_network=shell_network(raw, agent_id),
         shell_write_paths=names(raw, "shell_write_paths", agent_id),

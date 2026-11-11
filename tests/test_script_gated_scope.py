@@ -47,6 +47,7 @@ READS_ONLY_PART = "Công cụ phải hỏi trước hoặc có ghi dữ liệu t
 # the agent holds them. A new tool that changes things lands here, or is kept from scripts.
 GAINED = [
     "workspace_write",
+    "fetch_url",  # an address the agent wrote itself is put to the gate
     "memory_save",
     "user_memory_save",
     "user_memory_forget",

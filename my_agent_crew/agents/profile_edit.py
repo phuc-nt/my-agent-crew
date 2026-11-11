@@ -57,6 +57,7 @@ def apply_patch(raw: Any, patch: dict[str, Any]) -> Any:
         "shell_ask_patterns",
         "shell_allow_patterns",
         "shell_deny_patterns",
+        "outbound_hosts",
         "shell_write_paths",
         "write_paths",
         "browser_hosts",

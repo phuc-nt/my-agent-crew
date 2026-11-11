@@ -6,6 +6,7 @@ from my_agent_crew.config import Route, Settings
 from my_agent_crew.tools.registry import ToolRegistry
 from my_agent_crew.tools.web import build_web_tools, html_to_text
 from my_agent_crew.tools.web_fetch import MAX_PAGE_BYTES
+from tests.browser_tools import under
 
 PUBLIC = lambda host: ["93.184.216.34"]  # noqa: E731
 PRIVATE = lambda host: ["10.0.0.5"]  # noqa: E731
@@ -27,7 +28,7 @@ async def test_fetch_public_page_returns_text():
         return httpx.Response(200, text="<p>hello</p>", headers={"content-type": "text/html"})
 
     result = await registry(handler).execute("fetch_url", {"url": "https://example.com/"})
-    assert result.ok and result.output == "hello"
+    assert result.ok and under(result.output) == ("", "hello")
 
 
 async def test_private_address_is_refused_before_any_request():
@@ -77,7 +78,9 @@ async def test_the_body_is_read_only_up_to_the_byte_cap_and_the_rest_is_never_pu
         return httpx.Response(200, content=body(), headers={"content-type": "text/plain"})
 
     result = await registry(handler).execute("fetch_url", {"url": "https://example.com/big"})
-    assert result.ok and len(result.output) == 6000
+    said, text = under(result.output)
+    # The page is cut at 6000 characters, and all of them fit under the default cap.
+    assert result.ok and (said, text) == ("", "a" * 6000)
     assert len(pulled) == MAX_PAGE_BYTES // chunk
 
 
@@ -94,7 +97,9 @@ async def test_redirect_is_reported_not_followed():
         return httpx.Response(302, headers={"location": "http://10.0.0.1/admin"})
 
     result = await registry(handler).execute("fetch_url", {"url": "https://example.com/"})
-    assert result.ok and "http://10.0.0.1/admin" in result.output
+    # Where a redirect points is the server's word: it stands inside the fence.
+    assert result.ok
+    assert under(result.output) == ("", texts.URL_REDIRECT.format(location="http://10.0.0.1/admin"))
 
 
 async def test_http_error_and_unreachable_are_distinct_messages():
@@ -145,7 +150,7 @@ async def test_a_script_page_with_a_title_still_reads_as_its_title():
         return httpx.Response(200, text=html, headers={"content-type": "text/html"})
 
     result = await registry(handler).execute("fetch_url", {"url": "https://example.com/"})
-    assert result.ok and result.output == "Giá vàng"
+    assert result.ok and under(result.output) == ("", "Giá vàng")
 
 
 CRAWLED = Settings(
@@ -166,7 +171,7 @@ async def test_a_blank_scrape_falls_back_to_the_page_itself():
     handler = crawl_then_page(" \n ", "<p>Nội dung thật</p>")
 
     result = await registry(handler, CRAWLED).execute("fetch_url", {"url": "https://example.com/"})
-    assert result.ok and result.output == "Nội dung thật"
+    assert result.ok and under(result.output) == ("", "Nội dung thật")
 
 
 async def test_a_blank_scrape_of_a_blank_page_is_an_error():

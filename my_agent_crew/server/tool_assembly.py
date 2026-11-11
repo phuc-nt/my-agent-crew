@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from functools import partial
 
 import httpx
 
@@ -27,6 +28,7 @@ from my_agent_crew.tools.hooks import HookRunner
 from my_agent_crew.tools.image import build_image_tool
 from my_agent_crew.tools.memory import build_memory_tools
 from my_agent_crew.tools.memory_user import build_user_memory_tools
+from my_agent_crew.tools.outbound import outside_text
 from my_agent_crew.tools.output_read import build_output_read_tool
 from my_agent_crew.tools.output_spill import READ_TOOL, Spill
 from my_agent_crew.tools.output_summary import chain_summariser
@@ -108,7 +110,7 @@ def assemble(
     pages = MeteredChain(vision, store, profile.id, "pdf") if vision is not None else None
     tools: list[Tool] = [
         *build_workspace_tools(profile.workspace, profile.settings.write_paths),
-        *build_web_tools(profile.settings, client),
+        *build_web_tools(profile.settings, client, seen=partial(outside_text, store)),
         *build_memory_tools(
             profile.memory_dir,
             profile.memory_file,

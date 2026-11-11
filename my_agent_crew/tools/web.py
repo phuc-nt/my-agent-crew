@@ -1,6 +1,8 @@
 """Web tools. `fetch_url` refuses private addresses, does not follow redirects on its
 own (the model sees the hop and may ask again) and reads a page only as far as
-`web_fetch` allows. `web_search` always exists because
+`web_fetch` allows. An address the agent put together itself stops for a person
+(`outbound.py`), and what a page answers stands inside the fence a browser tool puts around
+a page. `web_search` always exists because
 DuckDuckGo needs no key; keys and a firecrawl host only change which backend answers
 first, and the model key adds a paid backend for when DuckDuckGo turns a script away."""
 
@@ -18,7 +20,9 @@ from urllib.parse import urlsplit
 import httpx
 
 from my_agent_crew import texts
+from my_agent_crew.browser.fence import answer, room
 from my_agent_crew.config import Settings
+from my_agent_crew.tools.outbound import Seen, composed_reason
 from my_agent_crew.tools.registry import Tool, ToolError
 from my_agent_crew.tools.web_fetch import fetch_page
 from my_agent_crew.tools.web_providers import firecrawl_scrape
@@ -82,22 +86,42 @@ async def _guard_url(url: str, resolver: Resolver) -> None:
 
 
 def build_web_tools(
-    settings: Settings, client: httpx.AsyncClient, resolver: Resolver = resolve_host
+    settings: Settings,
+    client: httpx.AsyncClient,
+    resolver: Resolver = resolve_host,
+    seen: Seen | None = None,
 ) -> list[Tool]:
+    """`seen` is what the turn's conversation was handed from outside the model; without it
+    every address outside the agent's `outbound_hosts` is taken as one the agent wrote."""
+    limit = settings.tool_output_chars
+    size = room(limit, texts.URL_PART.format(start=10**6, end=10**6, total=10**6))
+
+    def page(body: str, start: int) -> str:
+        """Whatever a server answered is data: its words, and where a redirect points. What
+        the agent's cap has no room for is read by asking again from where this part ends:
+        cut by the registry, the fence would lose its closing line."""
+        part = body[start : start + size]
+        whole = len(part) == len(body)
+        told = texts.URL_PART.format(start=start, end=start + len(part), total=len(body))
+        return answer(limit, [] if whole else [told], part)
+
     async def fetch_url(args: dict[str, Any]) -> str:
-        url = str(args["url"])
+        url, start = str(args["url"]), max(0, int(args.get("offset") or 0))
         await _guard_url(url, resolver)
         if settings.firecrawl_base_url:
             markdown = await _scrape(settings, client, url)
             if markdown.strip():
-                return markdown[:MAX_MARKDOWN_CHARS]
+                return page(markdown[:MAX_MARKDOWN_CHARS], start)
         body, content_type = await fetch_page(client, url)
         if "html" in content_type:
             body = html_to_text(body)
         if not body.strip():
             # An empty answer reads to the model as "the page says nothing".
             raise ToolError(texts.URL_EMPTY_BODY)
-        return body[:MAX_PAGE_CHARS]
+        return page(body[:MAX_PAGE_CHARS], start)
+
+    def asks(args: dict[str, Any]) -> str | None:
+        return composed_reason(str(args.get("url", "")), settings.outbound_hosts, seen)
 
     async def web_search(args: dict[str, Any]) -> str:
         query = str(args["query"])
@@ -114,11 +138,22 @@ def build_web_tools(
             description="Tải nội dung văn bản của một trang web công khai.",
             parameters={
                 "type": "object",
-                "properties": {"url": {"type": "string"}},
+                "properties": {
+                    "url": {"type": "string"},
+                    "offset": {
+                        "type": "integer",
+                        "description": "Đọc tiếp từ ký tự này khi trang dài hơn một lần trả.",
+                    },
+                },
                 "required": ["url"],
             },
             run=fetch_url,
-            replay_safe=True,
+            # Asked of the gate for one thing only: an address the agent wrote itself. Every
+            # other call is routine, in a supervised conversation as in an autonomous one.
+            # A call a person may have to allow is not made again by a restart on its own.
+            requires_approval=True,
+            ask_when=asks,
+            allow_when=lambda args: asks(args) is None,
         ),
         Tool(
             name="web_search",

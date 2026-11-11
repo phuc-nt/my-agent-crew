@@ -9,11 +9,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
+from my_agent_crew import texts_outbound
 from my_agent_crew.llm.types import ToolCall
 from my_agent_crew.store.models import Conversation
 from my_agent_crew.texts import SHELL_ASK_REASON
 from my_agent_crew.tools.ask_user import ASK_USER_TOOL_NAME
 from my_agent_crew.tools.shell import SHELL_TOOL_NAME, ask_reason, deny_reason
+from my_agent_crew.tools.shell_network import unlisted_host
 from my_agent_crew.tools.shell_temp_paths import deletes_only_temp_paths
 
 if TYPE_CHECKING:  # the loop owns the deps; importing it back would be a cycle
@@ -90,6 +92,21 @@ def ask_reason_for(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str
     return reason
 
 
+def network_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str:
+    """Why a shell command that reaches another machine stops for a person, or "": it names
+    a host outside the agent's `outbound_hosts`, or none that can be read. Above the allow
+    list and autonomy, as the ask list is. An agent whose shell is kept offline is not read:
+    the sandbox already holds what this only asks about."""
+    if name != SHELL_TOOL_NAME or not deps.settings.shell_network:
+        return ""
+    host = unlisted_host(str(arguments.get("command", "")), deps.settings.outbound_hosts)
+    if host is None:
+        return ""
+    if not host:
+        return texts_outbound.SHELL_HOST_UNREAD
+    return texts_outbound.SHELL_HOST_UNLISTED.format(host=host[:80])
+
+
 def ask_reason_text(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str:
     """The line a person reads beside the request saying why it stopped, or "" when
     nothing did. A tool's own reason is shown exactly as it wrote it; only the shell ask
@@ -100,7 +117,9 @@ def ask_reason_text(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> st
     if tool_reason is not None:
         return tool_reason
     pattern = ask_reason_for(deps, name, arguments)
-    return SHELL_ASK_REASON.format(pattern=pattern) if pattern else ""
+    if pattern:
+        return SHELL_ASK_REASON.format(pattern=pattern)
+    return network_reason(deps, name, arguments)
 
 
 def needs_decision(conv: Allowed, name: str, reason: str | None, allowed: bool = False) -> bool:
@@ -157,7 +176,7 @@ def verdict(deps: AgentDeps, conv: Allowed, name: str, arguments: dict[str, Any]
     asks = needs_decision(
         conv,
         name,
-        ask_reason_for(deps, name, arguments),
+        ask_reason_for(deps, name, arguments) or network_reason(deps, name, arguments),
         allowed_by_pattern(deps, name, arguments),
     )
     return ASK if asks else RUN

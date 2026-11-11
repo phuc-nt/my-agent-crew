@@ -21,6 +21,7 @@ YAML_KEYS = (
     "autonomous_default",
     "shell_ask_patterns",
     "shell_allow_patterns",
+    "outbound_hosts",
     "approval_ttl_seconds",
     "tool_output_chars",
     "openrouter_providers",

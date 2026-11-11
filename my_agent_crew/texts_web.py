@@ -13,6 +13,11 @@ URL_EMPTY_BODY = (
     "Trang không có chữ nào đọc được (thân rỗng, hoặc nội dung chỉ dựng bằng JavaScript). "
     "Tìm nguồn khác."
 )
+# Said above the fence when the agent's cap holds only part of the page.
+URL_PART = (
+    "Trang dài {total} ký tự, đây là đoạn {start}–{end}. Gọi lại fetch_url với offset={end} "
+    "để đọc tiếp."
+)
 
 SEARCH_UNREACHABLE = "Không tới được dịch vụ tìm kiếm: {error}"
 SEARCH_EMPTY = "Không có kết quả cho: {query}"

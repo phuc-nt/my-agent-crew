@@ -1372,6 +1372,25 @@ tên một test thì sửa dòng của nó trong cùng commit.
     model, lịch sử ngắn thì không; output vừa giới hạn hoặc không ghi được ra đĩa thì không đếm;
     hook đếm theo từng hook, hook không khớp thì không; lệnh đếm theo tên cả khi rảnh lẫn khi chen
     vào lượt đang chạy, tin thường thì không)
+- **Lệnh shell gửi ra ngoài thì hỏi người, cả khi autonomous: lệnh chạy chương trình mạng tới host
+  ngoài `outbound_hosts`, hoặc không nêu host nào đọc được**
+  - pytest: `tests/test_shell_network.py` (bảng lệnh không ra ngoài, lệnh nêu host lạ qua `curl`,
+    `wget`, `ssh`, `scp`, `nc`, `rsync`, `git push`, `/dev/tcp`, code truyền cho `python`/`node`,
+    `$(…)`, dấu huyền, `bash -c`; địa chỉ trong biến hay thiếu scheme; host trong danh sách và
+    host chỉ giống đuôi; cổng duyệt: autonomous vẫn hỏi, danh sách cho phép và "luôn cho phép"
+    không miễn, agent `shell_network: false` không bị đọc, lý do nêu host mà không nêu tham số;
+    đọc khoá từ env, `config.yaml`, `agent.yaml`, và patch chuỗi trần bị từ chối)
+- **`fetch_url` hỏi người khi địa chỉ do agent tự ghép; địa chỉ có nguyên văn trong tin của người
+  hay kết quả web, hoặc ở host trong `outbound_hosts`, thì chạy; trang trả về nằm trong hàng rào
+  và trang dài đọc từng đoạn**
+  - pytest: `tests/test_outbound_fetch.py` (địa chỉ nguyên văn, có `#` hay `/` cuối, bị sửa một
+    tham số, đổi scheme, host chỉ giống đầu; thứ được tính là nhận từ ngoài: tin của người,
+    `web_search`, `fetch_url`, `browser_*`, không tính lời của model, shell hay tệp; cuộc được
+    giao đọc cuộc phía trên và không tính lời giao việc, tối đa 5 tầng; cổng duyệt ở cuộc
+    autonomous, cuộc giám sát và khi đã "luôn cho phép"; script chỉ đọc không gọi được; trang ra
+    lệnh được rào; đọc tiếp bằng `offset` ghép lại đúng cả trang);
+    `tests/test_tool_replay.py` (không còn được gọi lại sau restart),
+    `tests/test_script_gated_scope.py` (script `gated` gọi được)
 - **Tool không trả kết quả rỗng: `fetch_url` báo 202 và trang không còn chữ là lỗi, markdown rỗng
   của firecrawl vẫn rơi về tải trực tiếp; `shell_run` không in gì vẫn nói lệnh kết thúc ra sao**
   - pytest: `tests/test_tools_web.py::test_a_page_accepted_but_not_ready_is_an_error_not_an_empty_read`,

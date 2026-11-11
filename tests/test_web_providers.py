@@ -10,6 +10,7 @@ from my_agent_crew.tools.web_providers import (
     firecrawl_search,
     parse_duckduckgo,
 )
+from tests.browser_tools import under
 
 PUBLIC = lambda host: ["93.184.216.34"]  # noqa: E731
 FIRECRAWL = "http://127.0.0.1:3002"
@@ -134,7 +135,7 @@ async def test_fetch_url_prefers_firecrawl_markdown():
 
     config = settings(firecrawl_base_url=FIRECRAWL)
     result = await registry(handler, config).execute("fetch_url", {"url": "https://a.b/"})
-    assert result.ok and result.output.startswith("# Tiêu đề")
+    assert result.ok and under(result.output) == ("", "# Tiêu đề\n\n- một")
 
 
 async def test_fetch_url_falls_back_to_plain_text_when_scrape_fails():
@@ -145,7 +146,7 @@ async def test_fetch_url_falls_back_to_plain_text_when_scrape_fails():
 
     config = settings(firecrawl_base_url=FIRECRAWL)
     result = await registry(handler, config).execute("fetch_url", {"url": "https://a.b/"})
-    assert result.ok and result.output == "raw"
+    assert result.ok and under(result.output) == ("", "raw")
 
 
 @pytest.mark.parametrize("markdown", ["", "   "])
@@ -157,4 +158,4 @@ async def test_blank_markdown_falls_back_to_plain_text(markdown: str):
 
     config = settings(firecrawl_base_url=FIRECRAWL)
     result = await registry(handler, config).execute("fetch_url", {"url": "https://a.b/"})
-    assert result.output.strip() in {"raw", markdown.strip()}
+    assert under(result.output) == ("", "raw")

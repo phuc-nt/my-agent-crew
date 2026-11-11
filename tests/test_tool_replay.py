@@ -44,7 +44,6 @@ READS = {
     "artifact_read",
     "conversation_search",
     "delegate",  # finds the child it already opened, and waits for it again
-    "fetch_url",
     "image_read",
     "memory_search",
     "pdf_read",

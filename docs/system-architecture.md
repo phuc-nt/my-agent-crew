@@ -108,8 +108,8 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 |---|---|---|
 | Workspace | `workspace_list`, `workspace_read`, `workspace_glob`, `workspace_grep` | không |
 | Workspace | `workspace_write`, `workspace_edit` | có |
-| Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns` và `shell_deny_patterns`; `shell_network: false` hoặc `shell_write_paths` thì chạy trong `sandbox-exec` (Linux: `bwrap`), chỉ ghi dưới các đường dẫn đó, không mạng nếu `shell_network: false`) | có |
-| Web | `fetch_url`, `web_search` | không |
+| Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns` và `shell_deny_patterns`; `shell_network: false` hoặc `shell_write_paths` thì chạy trong `sandbox-exec` (Linux: `bwrap`), chỉ ghi dưới các đường dẫn đó, không mạng nếu `shell_network: false`; lệnh chạy chương trình mạng tới host ngoài `outbound_hosts` thì hỏi cả khi autonomous) | có |
+| Web | `fetch_url`, `web_search` | không, trừ `fetch_url` tới địa chỉ agent tự ghép ở host ngoài `outbound_hosts` |
 | Trình duyệt | `browser_snapshot`, `browser_text`, `browser_tabs`, `browser_screenshot`, `browser_pdf` (chỉ agent có khoá `browser`) | không |
 | Trình duyệt | `browser_navigate`, `browser_act`, `browser_download` (`browser_act` và `browser_download` chỉ khi `browser: act`) | có; host trong `browser_hosts` thì `browser_navigate` không hỏi, còn host ngoài danh sách, tên phần tử mang từ như "thanh toán", hay một lần tải tệp lên thì hỏi cả khi autonomous |
 | Trí nhớ | `memory_save`, `memory_search`, `user_memory_save`, `user_memory_forget`, `wiki_get`, `wiki_search`, `wiki_apply` | không |

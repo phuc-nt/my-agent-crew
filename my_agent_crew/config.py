@@ -14,7 +14,7 @@ from pathlib import Path
 
 from my_agent_crew.clock import zone_for
 from my_agent_crew.config_browser import BrowserSettings, browser_settings
-from my_agent_crew.config_checks import checked, jobs_day_cap
+from my_agent_crew.config_checks import checked, jobs_day_cap, outbound_hosts
 from my_agent_crew.config_llm import LlmSettings, llm_settings, provider_fallbacks
 from my_agent_crew.config_parse import (
     DEFAULT_SHELL_ASK_PATTERNS,
@@ -78,6 +78,8 @@ class Settings:
     # Commands routine enough to run without asking, even outside an autonomous
     # conversation. Empty by default, and never above `shell_ask_patterns`.
     shell_allow_patterns: tuple[str, ...] = ()
+    # Hosts reached unasked by a shell command or a composed `fetch_url` (`tools/outbound.py`).
+    outbound_hosts: tuple[str, ...] = ()
     approval_ttl_seconds: int = DEFAULT_APPROVAL_TTL_SECONDS
     tool_output_chars: int = DEFAULT_TOOL_OUTPUT_CHARS
     # The upstreams OpenRouter may serve a model from, best first; empty lets it choose.
@@ -171,6 +173,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         shell_allow_patterns=allow_patterns(
             env.get("MY_AGENT_SHELL_ALLOW_PATTERNS"), file_values.get("shell_allow_patterns")
         ),
+        outbound_hosts=outbound_hosts(env, file_values),
         approval_ttl_seconds=int(
             env.get("MY_AGENT_APPROVAL_TTL_SECONDS")
             or file_values.get("approval_ttl_seconds", DEFAULT_APPROVAL_TTL_SECONDS)
