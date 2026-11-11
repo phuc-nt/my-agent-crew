@@ -1348,6 +1348,20 @@ tên một test thì sửa dòng của nó trong cùng commit.
     một lần; thứ tự khoá của tham số không làm lời gọi khác đi; tham số khác vẫn hỏi; lượt sau
     hỏi lại; lời gọi đã được duyệt mà gọi lại vẫn hỏi chứ không tự chạy; sau một tin `/steer`
     thì hỏi lại; lượt của agent con theo cùng luật)
+- **Báo cáo sử dụng (`GET /api/activity/usage`) đếm theo tên những gì đã thật sự chạy, giữ đúng
+  cửa sổ ngày, và không nhắc lại tham số hay chữ của ai**
+  - pytest: `tests/test_usage_report.py` (một lượt thật qua route: tool, lệnh, số lần gọi model,
+    không chữ nào của tin nhắn hay tham số lọt ra; `days` thu hẹp cả run lẫn bảng đếm và giá trị
+    ngoài khoảng bị từ chối; tool theo agent kèm số lần hỏng và tool do script gọi; skill theo
+    tên, tên không trọn vẹn đếm dưới `?`; giao việc theo `outcome`; lịch theo cách run kết thúc;
+    phần cache chỉ tính lần gọi mà provider có báo; bảng đếm trải ra theo agent và tên)
+- **Bốn thứ run không lưu được đếm ngay lúc xảy ra và còn sau khi khởi động lại: prompt gửi đi
+  với output tool cũ bị rút gọn, output được giữ trên đĩa, hook chạy và chặn, lệnh được gõ**
+  - pytest: `tests/test_usage_counters.py` (cộng dồn theo ngày và đọc lại được từ tệp kho mở
+    lần hai; đếm không ghi được thì không làm hỏng gì; prompt bị rút gọn đếm một lần mỗi lần gọi
+    model, lịch sử ngắn thì không; output vừa giới hạn hoặc không ghi được ra đĩa thì không đếm;
+    hook đếm theo từng hook, hook không khớp thì không; lệnh đếm theo tên cả khi rảnh lẫn khi chen
+    vào lượt đang chạy, tin thường thì không)
 - **Tool không trả kết quả rỗng: `fetch_url` báo 202 và trang không còn chữ là lỗi, markdown rỗng
   của firecrawl vẫn rơi về tải trực tiếp; `shell_run` không in gì vẫn nói lệnh kết thúc ra sao**
   - pytest: `tests/test_tools_web.py::test_a_page_accepted_but_not_ready_is_an_error_not_an_empty_read`,

@@ -16,11 +16,13 @@ import os
 import re
 import shutil
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from my_agent_crew import texts
 from my_agent_crew.agent.turn_context import tool_call_id, turn_conversation_id
+from my_agent_crew.store.counters import SPILL
 from my_agent_crew.tools.output_shaping import Shaped, shape_output_async
 
 if TYPE_CHECKING:  # registry.py imports this module; this avoids the reverse import cycle
@@ -54,8 +56,16 @@ def _inside(root: Path, path: Path) -> bool:
 
 
 class Spill:
-    def __init__(self, home: Path):
+    def __init__(
+        self, home: Path, count: Callable[[str, str, str], None] | None = None, agent_id: str = ""
+    ):
         self._home = home
+        # Told each output kept on disk, by the tool it came from (`store/counters.py`).
+        self._count, self._agent_id = count, agent_id
+
+    def kept(self, tool_name: str) -> None:
+        if self._count is not None:
+            self._count(SPILL, self._agent_id, tool_name)
 
     def write(self, conv_id: str, call_id: str, text: str) -> bool:
         conv_dir = _conv_dir(self._home, conv_id)
@@ -148,5 +158,6 @@ async def shape_with_spill(
         return await shape_output_async(text, limit, summariser)
     if not spill.write(conv_id, call_id, text):
         return await shape_output_async(text, limit, summariser)
+    spill.kept(name)
     shaped = await shape_output_async(text, limit - len(pointer), summariser)
     return Shaped(shaped.text + pointer, shaped.kind, shaped.original_chars, shaped.cost_usd)

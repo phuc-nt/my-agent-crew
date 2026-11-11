@@ -175,7 +175,7 @@ def assemble(
     # Rereading is a capability like any other: listed in `tools`, or everything is allowed.
     # The spill file and the pointer to it exist only for an agent that can follow the
     # pointer, so a narrowed agent without it behaves exactly as before.
-    spill = Spill(profile.settings.home)
+    spill = Spill(profile.settings.home, store.counters.add, profile.id)
     limit = profile.settings.tool_output_chars
     tools.append(build_output_read_tool(store, spill, limit))
     why = listed_elsewhere(profile, {tool.name for tool in work_only})
@@ -184,7 +184,7 @@ def assemble(
     # written before the key was set would otherwise quietly leave its tools out.
     kept += browser_tools_of(browser, profile, limit, pictures)
     can_reread = any(tool.name == READ_TOOL for tool in kept)
-    hooks = HookRunner(profile.hooks, profile.id) if profile.hooks else None
+    hooks = HookRunner(profile.hooks, profile.id, store.counters.add) if profile.hooks else None
     summariser = None
     if chain is not None:
         summariser = chain_summariser(MeteredChain(chain, store, profile.id, "tool_summary"))

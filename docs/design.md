@@ -263,6 +263,22 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   trò chuyện như một completion; giá không rõ được đếm riêng, không bao giờ coi là 0. Lần gọi bị bỏ dở sau chunk
   đầu tiên vẫn được ghi, với giá không rõ. Bản tóm tắt hết giờ hay rỗng — tool rơi về cắt —
   chỉ nằm trong sổ cái: run và cuộc trò chuyện không có con số nào để cộng.
+- **Báo cáo sử dụng để quyết định xoá gì.** `GET /api/activity/usage?days=N` (mặc định 30, từ 1
+  đến 366) trả về số lần, theo agent rồi theo tên, trong N ngày gần nhất: mỗi tool được gọi bao
+  nhiêu lần và hỏng bao nhiêu (`tools`, tool của MCP mang tên `mcp__…`), tool nào được script
+  gọi (`tools_from_scripts`), output nào bị cắt, tóm tắt hay thu gọn (`shaped_outputs`), skill
+  nào được đọc (`skills`), mỗi lần giao việc kết thúc ra sao (`delegations`, theo `outcome`), mỗi
+  lịch chạy mấy lần và xong, lỗi hay dừng giữa chừng (`schedules`), mỗi hook chạy và chặn mấy lần
+  (`hooks`), mỗi lệnh `/tên` được gõ mấy lần (`commands`), bao nhiêu prompt được gửi đi với
+  output tool cũ đã bị rút gọn (`prompt_trims`), bao nhiêu output được giữ nguyên bản trên đĩa
+  (`spilled_outputs`), phần prompt đọc từ cache theo agent (`cache_by_agent`) và chi phí cùng
+  phần cache theo provider (`providers`, lấy từ sổ cái nên gồm cả các lần gọi ngoài lượt). Phần
+  lớn được đếm từ các bước mà run vốn đã lưu; bốn thứ run không lưu (rút gọn prompt, giữ output
+  trên đĩa, hook, lệnh) được cộng dồn theo ngày UTC vào một bảng đếm trong kho ngay lúc xảy ra,
+  nên còn nguyên sau khi khởi động lại và chỉ có từ phiên bản biết đếm trở đi. Báo cáo chỉ mang
+  tên và con số: không tham số của lời gọi, không chữ của tin nhắn hay của kết quả nào; tên skill
+  không đọc được trọn vẹn được đếm dưới `?`. Thứ không ai dùng thì vắng mặt chứ không có dòng số
+  0. Lịch bị bỏ qua không được đếm vì chưa có nơi nào ghi lại một lần bỏ qua.
 - **Chi phí theo provider trên header.** `GET /api/spend` cắt sổ cái theo provider cho hôm nay
   và tháng này theo múi giờ của người dùng. Có `OPENROUTER_API_KEY` thì kèm số liệu OpenRouter
   tự báo cho cả key (`/api/v1/key`: hôm nay, tuần, tháng theo giờ UTC, hạn mức còn lại), hỏi tối

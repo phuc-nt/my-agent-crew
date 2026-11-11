@@ -22,10 +22,11 @@ from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.resume import answer_question, resolve_approval
 from my_agent_crew.agent.turn_context import CHAT
-from my_agent_crew.agents.kit_commands import steer_text
+from my_agent_crew.agents.kit_commands import invoked, steer_text
 from my_agent_crew.inbound_conversations import ConversationOpening, OnReplaced, channel_label
 from my_agent_crew.inbound_queue import enqueue, in_line
 from my_agent_crew.memory.conversation_title import title_on_first_message
+from my_agent_crew.store.counters import COMMAND
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.turn_host import TurnHost
 
@@ -81,6 +82,9 @@ class Inbound(ConversationOpening):
         # `/steer text` and `/name args` from the agent's kit ask to jump the queue; idle,
         # they are simply the text the agent reads. A bare `/steer` is refused either way.
         steer = steer_text(text, deps.agent.commands)
+        if steer is not None:  # counted by name, for the usage report
+            name = invoked(text, deps.agent.commands) or ""
+            deps.store.counters.add(COMMAND, deps.agent.id, name)
         if self.hub.busy.busy(conv_id):
             return enqueue(deps, conv_id, text, steer, source, request_id)
         if conv.status == AWAITING_APPROVAL or deps.store.approvals.pending(conv_id) is not None:

@@ -20,6 +20,7 @@ from my_agent_crew.config import Settings
 from my_agent_crew.llm.types import Message
 from my_agent_crew.skills import Skill
 from my_agent_crew.store import Conversation, StoredMessage
+from my_agent_crew.store.counters import PROMPT_TRIM
 from my_agent_crew.texts_canvas import CANVAS_AWAY_BODY, CANVAS_CLOSED_BODY, CANVAS_CLOSED_TITLE
 from my_agent_crew.tools.artifact_scope import CANVAS_WRITE_TOOLS
 from my_agent_crew.tools.output_spill import READ_TOOL
@@ -179,4 +180,7 @@ def turn_messages(
     messages = trim_canvas_payloads(history, turn_start)
     messages = attach_canvas_notes(history, messages, turn_start)
     messages = attach_turn_notes(deps, conv, history, messages)
-    return [system, *trim_tool_outputs(messages, can_reread=can_reread)]
+    trimmed = trim_tool_outputs(messages, can_reread=can_reread)
+    if any(sent is not kept for sent, kept in zip(trimmed, messages, strict=True)):
+        deps.store.counters.add(PROMPT_TRIM, deps.agent.id)  # this prompt went out trimmed
+    return [system, *trimmed]

@@ -10,12 +10,13 @@ import asyncio
 import json
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.agents.kit_hooks import POST, PRE, Hook, tool_alias
+from my_agent_crew.store.counters import HOOK_BLOCK, HOOK_RUN
 
 logger = logging.getLogger(__name__)
 BLOCK_EXIT = 2
@@ -88,9 +89,19 @@ async def run_hook(hook: Hook, payload: dict[str, Any]) -> HookOutcome:
 class HookRunner:
     """The hooks of one agent, asked before and after each tool call."""
 
-    def __init__(self, hooks: Sequence[Hook], agent_id: str):
+    def __init__(
+        self,
+        hooks: Sequence[Hook],
+        agent_id: str,
+        count: Callable[[str, str, str], None] | None = None,
+    ):
         self.hooks = tuple(hooks)
         self.agent_id = agent_id
+        self._count = count  # told each run and each block, by hook (`store/counters.py`)
+
+    def _counted(self, kind: str, hook: Hook) -> None:
+        if self._count is not None:
+            self._count(kind, self.agent_id, f"{hook.event}: {hook.command}")
 
     def _payload(self, event: str, name: str, arguments: dict[str, Any], cwd: str) -> dict:
         return {
@@ -109,7 +120,9 @@ class HookRunner:
             if hook.event != PRE or not hook.matches(name):
                 continue
             outcome = await run_hook(hook, self._payload(PRE, name, arguments, str(hook.cwd)))
+            self._counted(HOOK_RUN, hook)
             if outcome.blocked:
+                self._counted(HOOK_BLOCK, hook)
                 return outcome.reason
         return None
 
@@ -122,6 +135,7 @@ class HookRunner:
             payload = self._payload(POST, name, arguments, str(hook.cwd))
             payload["tool_response"] = {"ok": ok, "output": output}
             outcome = await run_hook(hook, payload)
+            self._counted(HOOK_RUN, hook)
             if outcome.reason:
                 notes.append(outcome.reason)
         return "".join(texts.TOOL_HOOK_NOTE.format(note=note) for note in notes)

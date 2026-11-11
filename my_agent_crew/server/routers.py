@@ -34,6 +34,7 @@ from my_agent_crew.server import (
     routes_spend,
     routes_telegram_updates,
     routes_turn,
+    routes_usage,
 )
 
 ROUTERS = (
@@ -53,6 +54,7 @@ ROUTERS = (
     routes_credentials.router,
     routes_model_routes.router,
     routes_activity.router,
+    routes_usage.router,
     routes_jobs.router,
     routes_memory_user.router,
     routes_memory_facts.router,

@@ -107,6 +107,14 @@ class RunStore:
             ).fetchall()
         return [RunRecord.from_row(r) for r in rows]
 
+    def since(self, stamp: str) -> list[RunRecord]:
+        """Every run that started at or after `stamp` (a UTC stamp), oldest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM runs WHERE started_at >= ? ORDER BY started_at, rowid", (stamp,)
+            ).fetchall()
+        return [RunRecord.from_row(r) for r in rows]
+
     def answered(self, source_prefix: str, limit: int) -> list[RunRecord]:
         """Newest first, the runs of one source that ended well in a conversation: the
         turns that have an answer to read. Asked of the query, so the runs a script or a

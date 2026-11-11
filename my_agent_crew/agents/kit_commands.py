@@ -106,6 +106,14 @@ def steer_text(text: str, commands: Sequence[Command]) -> str | None:
     return None if command is None else command.render(arguments)
 
 
+def invoked(text: str, commands: Sequence[Command]) -> str | None:
+    """The name of the command a message invokes, `steer` or one of the kit's; None for an
+    ordinary message. The name alone: what follows it is the person's own words."""
+    match = _INVOCATION.match(text.strip())
+    name = match.group(1) if match else ""
+    return name if name == STEER_COMMAND or find_command(commands, name) else None
+
+
 def commands_section(commands: Sequence[Command]) -> tuple[str, str] | None:
     """A prompt section naming the commands, so the agent can point the person at one."""
     if not commands:
