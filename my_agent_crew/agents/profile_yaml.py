@@ -28,7 +28,7 @@ from my_agent_crew.agents.profile import (
 )
 from my_agent_crew.agents.profile_places import followed, persona_names
 from my_agent_crew.agents.profile_settings import listed, memory_budget, names, settings_from
-from my_agent_crew.agents.schedule import ACTIONS, SCHEDULE_KEYS, Schedule, each_on_its_own_id
+from my_agent_crew.agents.schedule import ACTIONS, ROW_KEYS, Schedule, check_of, each_on_its_own_id
 from my_agent_crew.config import Settings
 from my_agent_crew.script.check import parse
 from my_agent_crew.script.limits import MAX_SOURCE_CHARS, ScriptError
@@ -59,7 +59,7 @@ def _script(raw: dict[str, Any], where: str) -> tuple[str | None, str | None]:
 
 
 def _schedule(raw: dict[str, Any], agent_id: str, index: int) -> Schedule:
-    unknown = set(raw) - SCHEDULE_KEYS
+    unknown = set(raw) - ROW_KEYS
     if unknown:
         raise ValueError(f"agent {agent_id}: schedule has unknown keys {sorted(unknown)}")
     if bool(raw.get("cron")) == bool(raw.get("every")):
@@ -86,6 +86,7 @@ def _schedule(raw: dict[str, Any], agent_id: str, index: int) -> Schedule:
         approval_ttl_seconds=parse_approval_ttl(raw.get("approval_ttl_seconds"), where),
         script=script,
         then_prompt=then_prompt,
+        check=check_of(raw, where),
     )
 
 

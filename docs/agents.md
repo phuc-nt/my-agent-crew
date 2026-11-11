@@ -1031,6 +1031,37 @@ nút xoá, vì bỏ một job nghĩa là lưu agent không còn dòng đó.
 | `enabled` | mặc định `true`. Lịch đang bật có thể tạm dừng và tiếp tục từ thẻ job (`PATCH /api/jobs/{agent}/{id}/state`); công tắc đó lưu trong bảng `job_state` và sống qua khởi động lại. Lịch tắt ở đây chỉ bật lại được bằng cách sửa yaml |
 | `skills` | danh sách tên skill gắn toàn văn vào cuộc trò chuyện mà job prompt mở ra; mặc định rỗng, và tên không skill nào cung cấp được ghi log cảnh báo lúc khởi động. Tên skill có gạch nối viết trong `prompt` cũng được gắn. Với job script, đó là cuộc trò chuyện mở cho `then_prompt`, và tên skill viết trong `then_prompt` cũng được gắn |
 | `approval_ttl_seconds` | số giây một yêu cầu duyệt trong cuộc trò chuyện job prompt mở ra chờ người trả lời: số nguyên từ 60 đến 43200 (12 giờ), không đặt trong ngoặc kép; không đặt thì theo `approval_ttl_seconds` của `config.yaml`. Job chạy lúc không ai thức nên đặt dài hơn, ví dụ `7200`. Cuộc trò chuyện giữ hạn này cho mọi yêu cầu về sau, kể cả sau khi server khởi động lại, và cuộc của agent con được giao việc chép lại nó. Trình sửa trên web giữ khoá này qua các lần sửa nhưng không có ô nhập; `PATCH /api/agents/{id}` gửi `schedules` mà dòng nào thiếu khoá thì dòng đó mất khoá |
+| `check` | một lệnh shell chạy **sau khi** việc của job kết thúc `done`, để xác nhận job đã làm được điều nó sinh ra để làm (tệp đã có, số dòng đủ, trang trả 200). Dùng được với cả ba loại dòng. Lệnh chạy đúng như lệnh của job `command`: cùng shell, trong workspace của agent, cùng danh sách biến môi trường được phép và cùng hạn 900 giây. Thoát mã 0 thì không có gì đổi. Thoát mã khác, hoặc chạy quá hạn, thì run bị ghi là `error` và chủ được báo qua kênh báo job hỏng, bằng một câu riêng: `Lịch "<tên>" báo đã chạy xong, nhưng lệnh kiểm tra sau khi chạy không xác nhận:` kèm mã thoát và dòng cuối lệnh kiểm in ra. Phải là chuỗi không rỗng; không đặt thì job chạy như trước. Xem [Lệnh kiểm sau khi chạy](#lệnh-kiểm-sau-khi-chạy) |
+
+### Lệnh kiểm sau khi chạy
+
+Một job kết thúc `done` chỉ nói rằng không có gì chặn nó lại. Lượt của agent có thể khép bằng câu
+"đã xong" trong khi tệp chưa được ghi; lệnh có thể thoát mã 0 mà chưa đồng bộ được gì. Khoá `check`
+của một dòng lịch là câu hỏi thứ hai, do máy trả lời chứ không do model:
+
+```yaml
+schedules:
+  - id: so-chi-tieu
+    cron: "0 7 * * *"
+    prompt: Cập nhật sổ chi tiêu tháng này vào reports/chi-tieu.csv
+    check: test -s reports/chi-tieu.csv && find reports/chi-tieu.csv -mmin -30 | grep -q .
+```
+
+- **Chạy khi nào.** Sau khi việc của job kết thúc `done`, và với job mở một lượt thì sau khi câu
+  trả lời của lượt đã được giao vào kênh như mọi ngày. Run đã `error` thì không kiểm nữa (nó đã
+  được báo theo cách của nó), run `halted` cũng không. Lượt dừng lại chờ duyệt thì **không được
+  kiểm**: lượt chạy tiếp sau khi duyệt không còn do scheduler cầm.
+- **Chạy thế nào.** Đúng con đường của job `command`: cùng shell, trong workspace của agent, cùng
+  danh sách biến môi trường, hạn 900 giây. Lệnh kiểm hiện là một bước `shell_run` nữa trong run.
+- **Không đạt thì sao.** Run đổi thành `error`, tóm tắt của nó là "Chạy xong nhưng lệnh kiểm tra
+  không xác nhận." kèm lý do, và chủ nhận tin riêng của trường hợp này (khác tin "gặp lỗi khi
+  chạy" của job hỏng), kể cả khi run là của một lượt. Lần không đạt được đếm vào chuỗi hỏng của
+  job như mọi lần hỏng: tin đầu đến ngay, sau đó nhiều nhất 6 giờ một tin, và một dòng khi job
+  chạy lại được (xem [channels.md](channels.md#giao-theo-lịch)).
+- **Chỗ thấy.** `GET /api/jobs` và `declared.schedules` của agent có khoá `check` ở dòng nào đặt
+  nó; dòng không đặt thì không có khoá ấy. Trình sửa agent trên web chưa có ô cho khoá này và
+  không gửi lại nó: lưu các dòng lịch từ trình sửa sẽ làm mất `check` của chúng, nên dòng có
+  `check` hiện phải sửa trong tệp `agent.yaml`.
 
 ### Lịch trong tệp lên đồng hồ ngay khi lưu
 

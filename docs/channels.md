@@ -351,6 +351,11 @@ Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạ
   chưa tin nào tới nơi thì không có dòng này. Dòng ấy gửi một lần: kênh không nhận thì thôi, không
   gửi lại. Lần hỏng sau đó mở một chuỗi mới và được báo ngay. Mọi kết cục khác (run bị dừng
   `halted`, lượt mà script mở ra bị hỏng) cũng đóng chuỗi, nhưng không có dòng nào.
+- **Job chạy xong mà lệnh kiểm không xác nhận cũng được báo.** Dòng lịch có khoá `check`
+  ([agents.md](agents.md#lệnh-kiểm-sau-khi-chạy)) mà lệnh kiểm thoát mã khác 0 thì run thành
+  `error` và kênh nhận `Lịch "<tên lịch>" báo đã chạy xong, nhưng lệnh kiểm tra sau khi chạy không
+  xác nhận:` kèm lý do của lệnh kiểm, kể cả khi run là của một lượt đã được giao. Nó được đếm và
+  giãn nhịp như mọi lần hỏng ở trên.
 - Chuỗi được ghi vào database (bảng `job_failure_streaks`: số lần hỏng, lúc bắt đầu, lúc kênh nhận
   tin gần nhất), nên server khởi động lại vẫn đếm tiếp và vẫn giữ khoảng 6 giờ: job còn hỏng sau
   khi khởi động lại không được báo lại trước hạn. Job rời đồng hồ (agent bị xoá, dòng lịch bị xoá,

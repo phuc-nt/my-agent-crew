@@ -23,6 +23,9 @@ SCHEDULE_KEYS = {
     "skills",
     "approval_ttl_seconds",
 }
+# Every key a row may state in its file. `check` stands apart from `SCHEDULE_KEYS`, the table
+# the web editor's form is held to, because that form does not carry it yet.
+ROW_KEYS = SCHEDULE_KEYS | {"check"}
 # What a row does, one of these and never two.
 ACTIONS = ("prompt", "command", "script")
 PROMPT, COMMAND, SCRIPT, CONSOLIDATE = "prompt", "command", "script", "consolidate"
@@ -50,6 +53,9 @@ class Schedule:
     # Beside a script only: when the script printed something, a turn is opened with this
     # and what it printed, as a prompt job opens one.
     then_prompt: str | None = None
+    # A command run once the job's own work ended well; leaving with anything but 0, it
+    # makes the run a failed one (`scheduler/check.py`).
+    check: str | None = None
 
     @property
     def kind(self) -> str:
@@ -61,6 +67,8 @@ class Schedule:
         return COMMAND if self.command else PROMPT
 
     def to_dict(self) -> dict[str, Any]:
+        # A row that states no check shows none, as it did before a row could state one.
+        check = {"check": self.check} if self.check else {}
         return {
             "id": self.id,
             "name": self.name,
@@ -74,7 +82,19 @@ class Schedule:
             "skills": list(self.skills),
             "approval_ttl_seconds": self.approval_ttl_seconds,
             "kind": self.kind,
+            **check,
         }
+
+
+def check_of(raw: dict[str, Any], where: str) -> str | None:
+    """A row's `check` as its file states it: a command, or nothing. Read as a job's command
+    is run, as a text; one that is none would fail every run of a job that did its work."""
+    check = raw.get("check")
+    if check is None:
+        return None
+    if not isinstance(check, str) or not check.strip():
+        raise ValueError(f"{where}: check must be a non-empty string")
+    return check
 
 
 def each_on_its_own_id(agent_id: str, schedules: Sequence[Schedule]) -> tuple[Schedule, ...]:

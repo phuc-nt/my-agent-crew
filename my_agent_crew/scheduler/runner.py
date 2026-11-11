@@ -13,10 +13,9 @@ from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.approval_expiry import expire_overdue
 from my_agent_crew.agent.loop import AgentDeps
-from my_agent_crew.agents.schedule import DELIVERED
 from my_agent_crew.scheduler.cron import due_between
 from my_agent_crew.scheduler.describe import describe_job
-from my_agent_crew.scheduler.execute import dispatch
+from my_agent_crew.scheduler.execute import carry_out
 from my_agent_crew.scheduler.failure_notice import Notify
 from my_agent_crew.scheduler.failure_streaks import Streaks
 from my_agent_crew.scheduler.jobs import JOB_SOURCE, Job, nothing_to_report
@@ -163,9 +162,7 @@ class Scheduler:
         deps = self._agents[job.agent_id]
         self._running.add(job.id)
         try:
-            run, ended_by = await dispatch(job, deps, self._hub, self._clock)
-            if job.schedule.kind in DELIVERED:
-                await self.deliver_run(job, run)
+            run, ended_by = await carry_out(job, deps, self._hub, self._clock, self.deliver_run)
             if job.schedule.consolidate:
                 await tell_held(job, deps, run, self._notify)
             # A job that left the clock while it ran is counted no more: what it came to

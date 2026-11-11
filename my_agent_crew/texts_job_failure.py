@@ -19,6 +19,17 @@ COMMAND_LAST_LINE = "Dòng cuối lệnh in ra: {line}"
 # What it said went wrong, from the line that reports an error (`scheduler/command_said.py`).
 COMMAND_SAID = "Lệnh báo lỗi: {line}"
 
+# Told when the job itself ended well and the command its row states as `check` then left
+# with something other than 0 (`scheduler/check.py`): worded apart from `JOB_FAILED`, so
+# the person can tell "it said done, the check disagrees" from a job that broke. The reason
+# is the check's own: its code and last line, or that it ran past its limit.
+JOB_CHECK_FAILED = (
+    'Lịch "{name}" báo đã chạy xong, nhưng lệnh kiểm tra sau khi chạy không xác nhận:\n'
+    "{reason}\nXem lượt chạy ở web UI, mục Quản lý → Hoạt động."
+)
+# What such a run is summed up by.
+JOB_CHECK_SUMMARY = "Chạy xong nhưng lệnh kiểm tra không xác nhận. {reason}"
+
 # The line every message of a failure ends on: when the next one comes. From the second
 # failure in a row it first says how long the job has been failing; `since` is written with
 # `JOB_FAILING_SINCE`.

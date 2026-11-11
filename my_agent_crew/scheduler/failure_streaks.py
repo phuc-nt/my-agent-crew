@@ -9,8 +9,8 @@ between is only counted. When the job runs well again the streak ends, with one 
 the person had been told of it and none if they had not.
 
 A failure is one `failure_notice.py` has a message for: a run that failed and opened no
-conversation. Any other ending closes the streak, and only a run that ended well is worth
-the line.
+conversation, or one that ended well and whose check disagreed. Any other ending closes
+the streak, and only a run that ended well is worth the line.
 
 Told means the channel took the message. One that was not sent, was not said in time, or
 had no channel to go to leaves the streak untold, so the next failure tries again and says

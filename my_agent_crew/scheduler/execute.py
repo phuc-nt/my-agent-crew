@@ -1,15 +1,18 @@
-"""Picking which of the four run kinds a due job needs. Split out of `Scheduler` itself
-only to keep that class within the file's own size budget; delivery stays in `runner.py`
-because an existing test pins the logger name that records a delivery's outcome."""
+"""Carrying a due job out: which of the four run kinds it needs, then its answer sent on
+and its check. Split out of `Scheduler` itself only to keep that class within the file's
+own size budget; delivery stays in `runner.py` and is handed in, because an existing test
+pins the logger name that records a delivery's outcome."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
+from my_agent_crew.agents.schedule import DELIVERED
+from my_agent_crew.scheduler.check import checked
 from my_agent_crew.scheduler.jobs import Job, run_command, run_consolidate, run_prompt
 from my_agent_crew.scheduler.script_job import run_script_job
 from my_agent_crew.store.runs import RunRecord
@@ -35,3 +38,20 @@ async def dispatch(
     if job.schedule.command:
         return await run_command(job, deps, hub, job_title(job, clock))
     return await run_prompt(job, deps, hub, job_title(job, clock)), ""
+
+
+async def carry_out(
+    job: Job,
+    deps: AgentDeps,
+    hub: ActivityHub,
+    clock: Callable[[], datetime],
+    deliver: Callable[[Job, RunRecord], Awaitable[None]],
+) -> tuple[RunRecord, str]:
+    """A due job from its start to what it came to: the run, the answer sent on where the
+    job is of a kind that has one, then the check the row states. The check comes after the
+    answer, so what the agent said reaches the person as it always did, and a check that
+    disagrees is told after it."""
+    run, ended_by = await dispatch(job, deps, hub, clock)
+    if job.schedule.kind in DELIVERED:
+        await deliver(job, run)
+    return run, await checked(job, deps, hub, run, ended_by)

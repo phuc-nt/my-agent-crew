@@ -5979,6 +5979,21 @@ khi chạy; phần đó có mục riêng ở dưới.
     không đọc lại job" còn bị `manage-smoke.spec.ts` bắt trong trình duyệt thật. Câu ấy rút đi ở
     lần sửa kế tiếp nên lần lưu bị từ chối không còn nhánh riêng: muốn lưu lại thì phải sửa một ô
     trước, và lần sửa ấy đã rút câu.
+- **Job chạy xong mà lệnh kiểm (`check`) không xác nhận thì run là `error` và chủ được báo bằng
+  câu riêng**:
+  - pytest: `tests/test_job_check.py` (lệnh kiểm thoát 0 thì run vẫn `done`, không ai được báo,
+    và nó chạy trong workspace của agent với đúng hạn 900 giây của job lệnh, sau lệnh của job;
+    thoát mã khác thì run thành `error`, được lưu như vậy, tóm tắt nói job chạy xong mà lệnh kiểm
+    không xác nhận, và tin tới kênh là câu riêng chứ không phải câu của job hỏng; lệnh kiểm quá
+    hạn được kể là chạy quá hạn; job tự hỏng thì không được kiểm và được báo như cũ; lệnh kiểm
+    không đạt mãi thì đi theo nhịp 6 giờ của job hỏng và có dòng chạy lại khi đạt; job hỏng rồi
+    tới lượt lệnh kiểm không đạt là một chuỗi, mỗi tin nói bằng câu của nó; job không đặt `check`
+    chỉ chạy một lệnh; với job prompt, câu trả lời được giao trước khi kiểm, rồi run thành `error`
+    và chủ được báo dù run có cuộc trò chuyện; lệnh kiểm đạt thì chỉ có câu trả lời; không đạt
+    rồi đạt thì có dòng chạy lại; lượt hỏng bình thường vẫn không được báo ở đây; với shell thật,
+    lệnh kiểm thấy tệp mà lệnh của job vừa ghi trong workspace; khoá được đọc từ tệp cho mọi
+    loại dòng, giá trị không phải chuỗi không rỗng bị từ chối lúc đọc tệp; `GET /api/jobs` có
+    `check` ở dòng đặt nó và không có ở dòng không đặt).
 - **Job hỏng mà không có cuộc trò chuyện được báo cho chủ: lần đầu báo ngay, sau đó nhiều nhất 6
   giờ một tin, và một dòng khi job chạy lại được**:
   - pytest: `tests/test_job_streaks_outlive_restart.py` (khởi động lại là một scheduler mới trên

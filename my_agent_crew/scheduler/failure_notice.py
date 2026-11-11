@@ -24,7 +24,9 @@ number, a key no mapping holds), which may be what a tool gave back. Each is why
 ended, and is cut as every reason is.
 
 Only a run with no conversation is told. A turn is a conversation's, and is sent on, failed
-or not, as a prompt job's is (`runner.py`).
+or not, as a prompt job's is (`runner.py`). But for one case: a run that ended well and whose
+check then disagreed (`check.py`). What was sent on of it says the job is done, so the
+person is told here that the check says otherwise, turn or no turn, and in words of its own.
 """
 
 from __future__ import annotations
@@ -36,6 +38,7 @@ from collections.abc import Awaitable, Callable
 from my_agent_crew import texts_job_failure, texts_script_job
 from my_agent_crew.activity.step_previews import failure_preview, preview
 from my_agent_crew.agents.schedule import SCRIPT
+from my_agent_crew.scheduler.check import CheckFailed
 from my_agent_crew.scheduler.jobs import Job
 from my_agent_crew.store.runs import FAILED, RunRecord
 
@@ -50,12 +53,17 @@ NOTICE_TIMEOUT_SECONDS = 60.0
 
 def failure_notice(job: Job, run: RunRecord, ended_by: str) -> str | None:
     """The message for the run a job came to, or None when there is nothing to tell: the run
-    ended some other way than failing, or it is that of a turn. `ended_by` is why it failed.
-    Where nobody said, the run is told by its status alone, and never by what it kept of
-    what the job said."""
-    if run.status != FAILED or run.conversation_id is not None:
+    ended some other way than failing, or it is that of a turn whose check did not fail it.
+    `ended_by` is why it failed. Where nobody said, the run is told by its status alone,
+    and never by what it kept of what the job said."""
+    disagreed = isinstance(ended_by, CheckFailed)
+    if run.status != FAILED or (run.conversation_id is not None and not disagreed):
         return None
     reason = failure_preview(ended_by) or run.status
+    if disagreed:
+        return texts_job_failure.JOB_CHECK_FAILED.format(
+            name=preview(job.schedule.name), reason=reason
+        )
     script = job.schedule.kind == SCRIPT
     head = texts_script_job.JOB_SCRIPT_FAILED if script else texts_job_failure.JOB_FAILED
     # A name is the owner's text, of any shape: one line of it opens the message.
