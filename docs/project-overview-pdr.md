@@ -23,7 +23,7 @@ my-agent-crew: một tiến trình Python, một tệp SQLite, một thư mục 
 | Người tự xây agent | thêm agent bằng thư mục, thêm tool bằng một hàm, thêm skill bằng markdown |
 | Người học harness | đọc code và tài liệu hiểu được cấu thành, không cần biết trước |
 
-## 4. Tính năng (v0.5.0)
+## 4. Tính năng
 
 - Nhiều agent với persona, tool, model, lịch riêng; master giao việc qua `delegate`.
 - Web UI hai khu: **khung chat** (chat SSE có markdown, tiêu đề tự đặt, tiến trình lượt chạy và

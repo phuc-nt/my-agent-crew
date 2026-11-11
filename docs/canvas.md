@@ -370,7 +370,7 @@ nhưng chỉ thành canvas `code` để đọc và sửa chữ; canvas không d�
 
 - Job đã ghi canvas nhưng trả lời `OK` hiện không báo gì vào chat. Có nên vẫn gửi danh sách
   "Canvas vừa ghi:" cho trường hợp này không?
-- Agent researcher có nên giữ thêm tool canvas, ngoài những tool danh sách `tools:`
-  của nó đang nêu, không?
+- Agent có danh sách `tools:` thu hẹp có nên giữ thêm tool canvas, ngoài những tool danh sách
+  đó đang nêu, không?
 - Mở một canvas từ chip rồi gửi tin nhắn có nên chia sẻ canvas đó với hội thoại, như khi mở nó
   từ danh sách của hội thoại, không?

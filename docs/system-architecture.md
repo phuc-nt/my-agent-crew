@@ -433,4 +433,4 @@ Không có điểm cắm cho "thay vòng lặp": vòng lặp lượt là bất b
 ## Câu hỏi mở
 
 - Master hiện là agent duy nhất có Telegram; nếu sau này muốn một bot cho mỗi agent, sơ đồ §2 cần thêm một poller cho mỗi agent và Inbound cần khoá theo `(agent, chat, ngày)`.
-- Lượt con của delegate không có TTL riêng; một agent con treo ở model chậm sẽ giữ master treo theo tới `max_steps` của chính nó.
+- Lời gọi `delegate` chờ lượt con tối đa bằng hạn chờ duyệt của cuộc con cộng thêm năm phút; quá hạn đó cha nhận kết quả thất bại với lý do `timeout` và đi tiếp, còn lượt con vẫn chạy tới `max_steps` hay trần chi phí của chính nó. Có nên dừng luôn lượt con khi cha thôi chờ không?

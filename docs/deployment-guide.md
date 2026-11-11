@@ -321,5 +321,5 @@ Sơ đồ chạy đầy đủ, nhưng link `.md` giữa các tài liệu không 
 
 ## Câu hỏi mở
 
-- Chưa có Dockerfile; người dùng Linux hiện tự viết unit systemd.
+- Repo này không kèm Dockerfile: bản chạy trong container được đóng gói ở một repo nền tảng riêng, ngoài phạm vi tài liệu này. Người chạy thẳng trên Linux hiện tự viết unit systemd; có nên kèm một unit mẫu không?
 - GitHub Pages với Jekyll bỏ qua thư mục bắt đầu bằng `_`; `docs/diagrams/` không bị ảnh hưởng nhưng cần nhớ nếu sau này thêm thư mục con.
