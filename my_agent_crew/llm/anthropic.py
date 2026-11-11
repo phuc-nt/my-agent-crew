@@ -20,6 +20,7 @@ from collections.abc import AsyncIterator, Sequence
 
 import httpx
 
+from my_agent_crew.egress import counted_client
 from my_agent_crew.llm.anthropic_errors import OutOfCredit, http_error
 from my_agent_crew.llm.anthropic_stream import ReplyReader
 from my_agent_crew.llm.anthropic_wire import request_body
@@ -44,7 +45,7 @@ class AnthropicProvider:
     ):
         self._api_key = api_key
         self._cache_ttl = cache_ttl
-        self._client = client or httpx.AsyncClient(timeout=httpx.Timeout(120.0))
+        self._client = client or counted_client(timeout=httpx.Timeout(120.0))
         self._no_credit_until = 0.0
 
     def _headers(self) -> dict[str, str]:

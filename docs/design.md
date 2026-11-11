@@ -279,6 +279,25 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   tên và con số: không tham số của lời gọi, không chữ của tin nhắn hay của kết quả nào; tên skill
   không đọc được trọn vẹn được đếm dưới `?`. Thứ không ai dùng thì vắng mặt chứ không có dòng số
   0. Lịch bị bỏ qua không được đếm vì chưa có nơi nào ghi lại một lần bỏ qua.
+- **Engine gọi ra những host nào.** `GET /api/activity/egress?days=N` (mặc định 7, từ 1 đến 90,
+  ngoài khoảng là 422) trả về `{"days", "since", "hosts": [{"host", "calls", "days",
+  "last_day"}], "not_seen"}`: mỗi host mà chính tiến trình engine đã gửi request tới trong N
+  ngày gần nhất (tính cả hôm nay, theo múi giờ của người dùng), số lần gọi, số ngày có gọi và
+  ngày gần nhất, xếp theo số lần giảm dần rồi theo tên. Được đếm: mọi HTTP client engine tạo ra
+  đều đi qua `egress.counted_client` (`my_agent_crew/egress.py`), một request hook của httpx đếm
+  host của từng request, kể cả từng chặng redirect: model provider, Telegram, tìm kiếm và tải
+  trang, Web Push, MCP server qua HTTP cùng phần đăng nhập OAuth của nó, các lần kiểm tra
+  credential; proxy của trình duyệt (`browser/proxy.py`) đếm host của từng kết nối nó mở, nên
+  mọi thứ trình duyệt của crew tải cũng có mặt (kết nối bị từ chối vì trỏ vào mạng riêng thì
+  không đếm). Không được đếm, và `not_seen` nói rõ điều đó: lệnh `shell_run` (curl, git, script
+  Python, CLI như `gws`) và lệnh của hook (`"shell"`, `"hooks"`) là tiến trình riêng, tự mở kết
+  nối của chúng; engine không đặt proxy trước chúng. Chỉ tên host được giữ: không đường dẫn,
+  không query, không header, không nội dung; tên được đưa về chữ thường, bỏ dấu chấm cuối, và
+  thứ gì không phải tên host (ký tự ngoài `a-z0-9.-`, dài quá 253, địa chỉ IPv6) được đếm dưới
+  `invalid`. Số đếm gom trong bộ nhớ rồi ghi vào bảng `egress_hosts` (ngày, host, số lần) theo
+  lô: đủ 50 lần gọi hoặc 60 giây, khi đọc báo cáo và khi server dừng; tiến trình bị giết đột
+  ngột mất tối đa lô đang gom. Dòng cũ hơn 90 ngày bị xoá mỗi lần ghi. Việc đếm không cho phép
+  hay chặn gì, và đếm không ghi được thì bỏ số đếm chứ không làm hỏng hay làm chậm request.
 - **Chi phí theo provider trên header.** `GET /api/spend` cắt sổ cái theo provider cho hôm nay
   và tháng này theo múi giờ của người dùng. Có `OPENROUTER_API_KEY` thì kèm số liệu OpenRouter
   tự báo cho cả key (`/api/v1/key`: hôm nay, tuần, tháng theo giờ UTC, hạn mức còn lại), hỏi tối

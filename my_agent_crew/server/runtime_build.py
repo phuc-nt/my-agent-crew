@@ -14,6 +14,7 @@ from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents import AgentProfile, load_profiles
 from my_agent_crew.channels import build_channel
 from my_agent_crew.config import Settings, ensure_home
+from my_agent_crew.egress import counted_client
 from my_agent_crew.mcp.hub import McpHub
 from my_agent_crew.mcp.tokens import TokenStore
 from my_agent_crew.server.agent_assembly import build_agent_deps, build_providers
@@ -45,7 +46,7 @@ def build_runtime(
     settings never hold them, so a profile can be committed while its token stays out.
     A sign-in to an MCP server writes its tokens there too."""
     settings = ensure_home(settings)
-    client = client or httpx.AsyncClient(timeout=httpx.Timeout(PROVIDER_TIMEOUT_SECONDS))
+    client = client or counted_client(timeout=httpx.Timeout(PROVIDER_TIMEOUT_SECONDS))
     store = Store(settings.db_path)
     providers = build_providers(settings, client)
     profiles = load_profiles(settings)

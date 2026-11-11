@@ -16,6 +16,7 @@ from my_agent_crew.store.canvas_note import build_note
 from my_agent_crew.store.connection import connect
 from my_agent_crew.store.conversation_lookup import ConversationLookups
 from my_agent_crew.store.counters import CounterStore
+from my_agent_crew.store.egress import EgressStore
 from my_agent_crew.store.episodes import EpisodeStore
 from my_agent_crew.store.job_cap import JobCapStore
 from my_agent_crew.store.job_state import JobStateStore
@@ -59,6 +60,7 @@ class Store(ConversationLookups, MessageLog, Spending):
         self.streaks = JobStreakStore(self._conn, self._lock)
         self.told = ToldStore(self._conn, self._lock)
         self.job_cap = JobCapStore(self._conn, self._lock)
+        self.egress = EgressStore(self._conn, self._lock)
         self.usage = UsageStore(self._conn, self._lock)
         self.counters = CounterStore(self._conn, self._lock)
         self.side_calls = SideCallStore(self._conn, self._lock)

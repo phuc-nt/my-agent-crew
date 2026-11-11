@@ -9,6 +9,7 @@ from typing import Any
 
 import httpx
 
+from my_agent_crew.egress import counted_client
 from my_agent_crew.llm.openai_compat import (
     stream_chat,
     to_wire,
@@ -34,7 +35,7 @@ class OpenRouterProvider:
         allow_fallbacks: bool = True,
     ):
         self._api_key = api_key
-        self._client = client or httpx.AsyncClient(base_url=BASE_URL, timeout=httpx.Timeout(120.0))
+        self._client = client or counted_client(base_url=BASE_URL, timeout=httpx.Timeout(120.0))
         # OpenRouter picks the upstream serving a model per request, and each upstream
         # keeps its own prompt cache: a turn that lands elsewhere pays the whole prompt
         # again. Naming the upstreams keeps the cache on the one that holds it.

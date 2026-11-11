@@ -16,4 +16,7 @@ CREATE TABLE IF NOT EXISTS telegram_told (
     text TEXT NOT NULL, told_at TEXT NOT NULL, reminded INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (owner, approval_id, message_id)
 );
+CREATE TABLE IF NOT EXISTS egress_hosts (
+    day TEXT NOT NULL, host TEXT NOT NULL, calls INTEGER NOT NULL, PRIMARY KEY (day, host)
+);
 """

@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from my_agent_crew import __version__
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.config import load_settings
+from my_agent_crew.egress import COUNTER, flush_loop
 from my_agent_crew.server.agent_assembly import build_providers
 from my_agent_crew.server.browser_runtime import reap_loop
 from my_agent_crew.server.external_clock import start_clock
@@ -70,6 +71,8 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
         # Whether or not anything is scheduled: a call may start a browser all the same.
         pool = runtime.browsers.pool
         reaper = asyncio.create_task(reap_loop(pool)) if pool is not None else None
+        COUNTER.bind(*counted)
+        egress = asyncio.create_task(flush_loop())
         if schedule:
             clock = start_clock(runtime, os.environ)
             runtime.start_channel()
@@ -107,10 +110,17 @@ def create_app(runtime: Runtime | AgentDeps | None = None, schedule: bool = True
                 reaper.cancel()
             # Last of what runs, and for good: a turn still on its way out starts none.
             await runtime.browsers.stop_all()
+            # After everything that calls out, so the last calls are in what is written.
+            egress.cancel()
+            COUNTER.flush()
+            COUNTER.unbind(counted[0])
             runtime.hub.close()
 
     app = SecuredApp(title="my-agent-crew", version=__version__, lifespan=lifespan)
     app.state.runtime = runtime
+    # The hosts this process calls are counted into this runtime's store, on its days.
+    counted = (runtime.store.egress.add, lambda: runtime.settings.today().isoformat())
+    COUNTER.bind(*counted)
     runtime.store.artifacts.on_change = runtime.hub.publish_artifact
     # The security headers are not added here: `SecuredApp` wraps the whole stack in them, so a
     # refusal of the guard and the 500 page of an unhandled error carry them like any answer.

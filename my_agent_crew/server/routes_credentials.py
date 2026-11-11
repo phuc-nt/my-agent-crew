@@ -19,11 +19,11 @@ import os
 from typing import Any
 from urllib.parse import urlsplit
 
-import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from my_agent_crew import texts_credentials as t
+from my_agent_crew.egress import counted_client
 from my_agent_crew.env_file import (
     MAX_VALUE_CHARS,
     NAME_RE,
@@ -127,5 +127,5 @@ async def check_credential(name: str, rt: Rt) -> dict[str, Any]:
         raise HTTPException(409, t.NOT_SET.format(name=name))
     if rt.client is not None:
         return await run_check(known.check, value, rt.client)
-    async with httpx.AsyncClient(timeout=CHECK_TIMEOUT_SECONDS) as client:
+    async with counted_client(timeout=CHECK_TIMEOUT_SECONDS) as client:
         return await run_check(known.check, value, client)

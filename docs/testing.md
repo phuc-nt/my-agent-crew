@@ -1365,6 +1365,23 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ngoài khoảng bị từ chối; tool theo agent kèm số lần hỏng và tool do script gọi; skill theo
     tên, tên không trọn vẹn đếm dưới `?`; giao việc theo `outcome`; lịch theo cách run kết thúc;
     phần cache chỉ tính lần gọi mà provider có báo; bảng đếm trải ra theo agent và tên)
+- **Engine đếm host nó gọi ra theo ngày (`GET /api/activity/egress`): chỉ tên host, ghi theo
+  lô, giữ 90 ngày, và đếm hỏng không làm hỏng request**
+  - pytest: `tests/test_egress.py` (request qua client của engine đếm đúng host, bảng chỉ có
+    ngày, host, số lần và không chữ nào của đường dẫn, query, header hay nội dung; từng chặng
+    redirect đếm host của nó; thứ không phải tên host thành `invalid`, kho tự làm sạch lần nữa
+    và một ngày sai dạng thì không ghi gì; số đếm nằm trong bộ nhớ đến khi đủ lô hoặc đủ lâu;
+    số đếm thuộc về ngày gọi chứ không phải ngày ghi; không có kho thì số đếm bị bỏ; dòng quá 90
+    ngày bị xoá khi ghi; kho đã đóng hay đồng hồ hỏng thì request vẫn xong; client được đưa vào
+    giữ nguyên, client tự tạo có hook; hook của người gọi vẫn chạy; MCP server qua HTTP được đếm
+    theo host; proxy của trình duyệt đếm kết nối nó mở, cả CONNECT, và không đếm kết nối bị từ
+    chối; server dừng thì ghi nốt phần còn trong bộ nhớ rồi rời kho)
+  - pytest: `tests/test_egress_route.py` (cộng trong cửa sổ, xếp theo số lần rồi theo tên;
+    `days` mặc định 7, 1 và 90 được nhận, 0, 91, số âm và chữ bị từ chối 422; lần gọi vừa xảy ra
+    có trong câu trả lời; `not_seen` nêu `shell` và `hooks`; chưa gọi gì thì danh sách rỗng)
+  - pytest: `tests/test_egress_clients.py` (quét mã nguồn: không tệp nào ngoài `egress.py` tự
+    tạo `httpx.AsyncClient`/`httpx.Client`, gọi hàm cấp module của httpx hay nhập một thư viện
+    HTTP khác; bản thân phép quét nhận ra từng dạng đó)
 - **Bốn thứ run không lưu được đếm ngay lúc xảy ra và còn sau khi khởi động lại: prompt gửi đi
   với output tool cũ bị rút gọn, output được giữ trên đĩa, hook chạy và chặn, lệnh được gõ**
   - pytest: `tests/test_usage_counters.py` (cộng dồn theo ngày và đọc lại được từ tệp kho mở

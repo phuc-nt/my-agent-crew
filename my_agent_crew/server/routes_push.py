@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import binascii
 
-import httpx
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from my_agent_crew import texts_push
+from my_agent_crew.egress import counted_client
 from my_agent_crew.server.deps import Rt
 from my_agent_crew.webpush import crypto, push_store
 from my_agent_crew.webpush.notices import INBOX_URL, Notice
@@ -93,5 +93,5 @@ async def push_test(body: EndpointBody, rt: Rt) -> dict[str, int]:
     store = push_store(rt.settings.home)
     if rt.client is not None:
         return {"status": await send_one(rt.client, store, sub, notice)}
-    async with httpx.AsyncClient() as client:
+    async with counted_client() as client:
         return {"status": await send_one(client, store, sub, notice)}

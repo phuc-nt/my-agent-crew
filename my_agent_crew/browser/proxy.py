@@ -24,6 +24,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from my_agent_crew.browser.network import Allow, reachable
+from my_agent_crew.egress import COUNTER
 from my_agent_crew.tools.web import Resolver, resolve_host
 
 USER = "crew"
@@ -141,6 +142,7 @@ class FilteringProxy:
             self.refused.append(host)
             self.refused_total += 1
             return 403
+        COUNTER.count(host)  # a connection is about to be tried: one call to this host
         for address in dict.fromkeys(addresses):
             try:
                 return await asyncio.wait_for(
