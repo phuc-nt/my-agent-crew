@@ -75,3 +75,22 @@ async def test_a_crew_that_called_nothing_reports_no_host(served):
     app = served([])
     data = (await app.client.get("/api/activity/egress")).json()
     assert data["hosts"] == [] and data["not_seen"] == ["shell", "hooks"]
+
+
+async def test_by_day_adds_the_rows_unsummed_inside_the_same_window(served):
+    """A copy kept elsewhere takes each day's count as it stands, so asking twice adds
+    nothing twice."""
+    app = served([])
+    counts = {(day(app), "b.test"): 3, (day(app, 1), "b.test"): 2, (day(app, 1), "a.test"): 1}
+    app.runtime.store.egress.add({**counts, (day(app, 2), "old.test"): 9}, day(app))
+
+    plain = (await app.client.get("/api/activity/egress", params={"days": 2})).json()
+    detailed = (await app.client.get("/api/activity/egress?days=2&by_day=true")).json()
+
+    assert "rows" not in plain
+    assert detailed["hosts"] == plain["hosts"]
+    assert detailed["rows"] == [
+        {"day": day(app, 1), "host": "a.test", "calls": 1},
+        {"day": day(app, 1), "host": "b.test", "calls": 2},
+        {"day": day(app), "host": "b.test", "calls": 3},
+    ]

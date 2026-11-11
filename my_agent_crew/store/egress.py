@@ -53,3 +53,13 @@ class EgressStore:
                 (day,),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def rows_since(self, day: str) -> list[dict[str, Any]]:
+        """The same rows unsummed, one per day and host, oldest day first: for a reader that
+        keeps a copy and has to tell one day's count from the next."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT day, host, calls FROM egress_hosts WHERE day >= ? ORDER BY day, host",
+                (day,),
+            ).fetchall()
+        return [dict(row) for row in rows]

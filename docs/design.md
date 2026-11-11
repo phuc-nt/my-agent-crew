@@ -283,7 +283,10 @@ any platform ──POST /api/inbound (JSON, sync)─────┴─▶ Inboun
   ngoài khoảng là 422) trả về `{"days", "since", "hosts": [{"host", "calls", "days",
   "last_day"}], "not_seen"}`: mỗi host mà chính tiến trình engine đã gửi request tới trong N
   ngày gần nhất (tính cả hôm nay, theo múi giờ của người dùng), số lần gọi, số ngày có gọi và
-  ngày gần nhất, xếp theo số lần giảm dần rồi theo tên. Được đếm: mọi HTTP client engine tạo ra
+  ngày gần nhất, xếp theo số lần giảm dần rồi theo tên. Thêm `by_day=true` thì có cả `"rows":
+  [{"day", "host", "calls"}]`, từng dòng chưa cộng, xếp theo ngày rồi theo tên: dành cho bên
+  giữ một bản sao ở ngoài tiến trình này, nó lấy số của từng ngày đúng như đang có nên đọc hai
+  lần không cộng hai lần. Được đếm: mọi HTTP client engine tạo ra
   đều đi qua `egress.counted_client` (`my_agent_crew/egress.py`), một request hook của httpx đếm
   host của từng request, kể cả từng chặng redirect: model provider, Telegram, tìm kiếm và tải
   trang, Web Push, MCP server qua HTTP cùng phần đăng nhập OAuth của nó, các lần kiểm tra

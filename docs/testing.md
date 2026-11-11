@@ -1378,7 +1378,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     chối; server dừng thì ghi nốt phần còn trong bộ nhớ rồi rời kho)
   - pytest: `tests/test_egress_route.py` (cộng trong cửa sổ, xếp theo số lần rồi theo tên;
     `days` mặc định 7, 1 và 90 được nhận, 0, 91, số âm và chữ bị từ chối 422; lần gọi vừa xảy ra
-    có trong câu trả lời; `not_seen` nêu `shell` và `hooks`; chưa gọi gì thì danh sách rỗng)
+    có trong câu trả lời; `not_seen` nêu `shell` và `hooks`; chưa gọi gì thì danh sách rỗng;
+    `by_day=true` thêm từng dòng chưa cộng trong cùng cửa sổ, không có thì không có `rows`)
   - pytest: `tests/test_egress_clients.py` (quét mã nguồn: không tệp nào ngoài `egress.py` tự
     tạo `httpx.AsyncClient`/`httpx.Client`, gọi hàm cấp module của httpx hay nhập một thư viện
     HTTP khác; bản thân phép quét nhận ra từng dạng đó)
