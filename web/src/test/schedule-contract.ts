@@ -89,7 +89,7 @@ export function readSchedules(value: unknown): Read<Declared[]> {
   const rows: Declared[] = [];
   for (const [index, item] of value.entries()) {
     const raw = item as Record<string, unknown>;
-    const unknown = Object.keys(raw).filter((key) => !SCHEDULE_KEYS.has(key)).sort();
+    const unknown = Object.keys(raw).filter((key) => !SCHEDULE_KEYS.has(key) && key !== "check").sort();
     if (unknown.length > 0) return { error: `schedule has unknown keys ${JSON.stringify(unknown)}` };
     if (Boolean(raw.cron) === Boolean(raw.every))
       return { error: "schedule needs exactly one of cron / every" };
@@ -108,6 +108,10 @@ export function readSchedules(value: unknown): Read<Declared[]> {
     if (rows.some((row) => row.id === id)) return { error: `two schedules share the id ${id}` };
     const ttl = readTtl(raw.approval_ttl_seconds, `schedule ${id}`);
     if ("error" in ttl) return ttl;
+    // `schedule.check_of`: a key the file states and the form carries; declared only when set.
+    const check = raw.check;
+    if (check !== undefined && check !== null && !(typeof check === "string" && check.trim()))
+      return { error: `schedule ${id}: check must be a non-empty string` };
     rows.push({
       id,
       name: String(raw.name || id),
@@ -120,6 +124,7 @@ export function readSchedules(value: unknown): Read<Declared[]> {
       enabled: raw.enabled === undefined ? true : Boolean(raw.enabled),
       skills: ((raw.skills as unknown[] | undefined) ?? []).map(String),
       approval_ttl_seconds: ttl.ok,
+      ...(typeof check === "string" ? { check } : {}),
     });
   }
   return { ok: rows };

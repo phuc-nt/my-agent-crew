@@ -6548,7 +6548,7 @@ khi chạy; phần đó có mục riêng ở dưới.
     của nó thì script vẫn còn; không bị coi là dòng chưa có việc; hiện loại đang chọn trong ba loại,
     cả script và prompt nối tiếp; script gõ được tại dòng, gõ gì lưu nấy; dòng nào cũng chọn được
     script, dòng form thêm bắt đầu là lời nhắc; script không có prompt nối tiếp thì không
-    gửi prompt nào; xoá được như mọi dòng), `hooks/schedule-row-shape.test.ts` (dòng script là
+    gửi prompt nào; xoá được như mọi dòng), `hooks/schedule-row-shape.test.ts` (`check` của một dòng đi qua một lần lưu, dòng không có thì không gửi; dòng script là
     dòng tệp khai có `script`, không gì khác; thiếu prompt không làm nó thành dòng lệnh; gửi đi
     script và prompt nối tiếp đúng như đã nhận, từng ký tự, không kèm prompt hay lệnh dù dòng lỡ
     giữ một cái; bỏ prompt nối tiếp khi script không có; giữ giờ chạy, công tắc, kỹ năng và thời

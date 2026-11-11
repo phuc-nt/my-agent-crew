@@ -62,6 +62,16 @@ describe("a script row as it is sent back", () => {
     expect(sent).toEqual({ id: "sync", name: "Đồng bộ", every: "6h", script: SOURCE, then_prompt: "Tóm tắt đơn mới", enabled: false, skills: ["core"], approval_ttl_seconds: 7200 });
   });
 
+  // The form has no box for a check: a save that dropped it would switch the check off.
+  it("carries a check the file states, and sends none for a row without one", () => {
+    const sent = sendableRow({ ...script, check: "test -s out/report.md" });
+    expect(sent.check).toBe("test -s out/report.md");
+    expect(sendableRow(script)).not.toHaveProperty("check");
+    const read = readSchedules([sent]);
+    expect("ok" in read && read.ok[0].check).toBe("test -s out/report.md");
+    expect(readSchedules([{ ...sent, check: " " }])).toEqual({ error: "schedule sync: check must be a non-empty string" });
+  });
+
   it("is what the parser takes, and reads back as the row it was", () => {
     const read = readSchedules([sendableRow(script), sendableRow({ ...script, id: "quiet", then_prompt: null })]);
     expect(read).toEqual({

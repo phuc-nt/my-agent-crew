@@ -1060,9 +1060,8 @@ schedules:
   job như mọi lần hỏng: tin đầu đến ngay, sau đó nhiều nhất 6 giờ một tin, và một dòng khi job
   chạy lại được (xem [channels.md](channels.md#giao-theo-lịch)).
 - **Chỗ thấy.** `GET /api/jobs` và `declared.schedules` của agent có khoá `check` ở dòng nào đặt
-  nó; dòng không đặt thì không có khoá ấy. Trình sửa agent trên web chưa có ô cho khoá này và
-  không gửi lại nó: lưu các dòng lịch từ trình sửa sẽ làm mất `check` của chúng, nên dòng có
-  `check` hiện phải sửa trong tệp `agent.yaml`.
+  nó; dòng không đặt thì không có khoá ấy. Trình sửa agent trên web chưa có ô cho khoá này: nó
+  giữ nguyên `check` của một dòng khi lưu, còn đặt hay đổi `check` thì sửa trong tệp `agent.yaml`.
 
 ### Trần chi phí một ngày của các lịch
 

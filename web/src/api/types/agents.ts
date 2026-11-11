@@ -57,6 +57,9 @@ export interface ScheduleInfo {
    * is the crew's setting. Set in `agent.yaml` only: the form has no box for it, and a row
    * sent back without it would drop it, so the form carries it through untouched. */
   approval_ttl_seconds?: number | null;
+  /** A command run after the job's own work, whose failure fails the run. Set in
+   * `agent.yaml` only and present only when set: the form carries it through untouched. */
+  check?: string | null;
 }
 
 /** A slash command from a kit (`.agents/commands/*.md`): `/name` expands to its template. */
