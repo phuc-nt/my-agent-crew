@@ -5981,6 +5981,13 @@ khi chạy; phần đó có mục riêng ở dưới.
     trước, và lần sửa ấy đã rút câu.
 - **Job hỏng mà không có cuộc trò chuyện được báo cho chủ: lần đầu báo ngay, sau đó nhiều nhất 6
   giờ một tin, và một dòng khi job chạy lại được**:
+  - pytest: `tests/test_job_streaks_outlive_restart.py` (khởi động lại là một scheduler mới trên
+    cùng database: job còn hỏng không được báo lại trong khoảng 6 giờ; khởi động lại trước mỗi lần
+    chạy suốt mười bốn giờ vẫn chỉ ba tin, cách nhau 6 giờ; số lần hỏng đếm tiếp; job chạy lại được
+    sau khi khởi động lại có dòng chạy lại và dòng trong bảng bị xoá; chuỗi chưa báo được thì được
+    báo ở lần hỏng kế tiếp; dấu "đang gửi" không được giữ; dòng của job không còn trong tệp bị bỏ
+    lúc khởi động; job và agent rời đồng hồ xoá dòng của mình; các mốc đọc lại còn múi giờ; database
+    cũ có thêm bảng `job_failure_streaks`).
   - pytest: `tests/test_job_failure_streaks.py` (job lệnh hỏng lần đầu thì kênh nhận ngay một tin
     bốn dòng: tên lịch, mã thoát kèm dòng cuối lệnh in ra, chỗ xem run, và câu nói tin nhắc kế tiếp
     đến sau 6 giờ; job hỏng mỗi năm phút suốt một ngày, 288 lần chạy, nhắn một nhúm tin chứ không
@@ -7528,7 +7535,11 @@ dựng một đội có agent giữ trình duyệt.
     web" và mất nút, chỉ một lần; hết hạn thì tin nói vậy và giữ nội dung cũ; `/pending` nói không
     có gì, rồi gửi lại yêu cầu của job kèm nút mà bỏ qua yêu cầu của cuộc web),
     `tests/test_telegram_canvas_notice_sent.py` và `tests/test_telegram_runtime_sentences.py` (job
-    được giao khi còn chờ thì nói chính yêu cầu thay cho câu "lượt chạy dừng").
+    được giao khi còn chờ thì nói chính yêu cầu thay cho câu "lượt chạy dừng"),
+    `tests/test_telegram_told_outlives_restart.py` (sổ tin mang nút nằm ở bảng `telegram_told`: yêu
+    cầu được duyệt trên web sau khi server khởi động lại thì tin trong chat vẫn mất nút; bấm nút
+    sau khi khởi động lại không để lại tin nào phải đóng; lời nhắc tính từ lúc báo đầu và chỉ đến
+    một lần qua các lần khởi động lại; sổ tách theo agent và quên được từng tin).
 - **Model biết lệnh đã được duyệt hay bị từ chối, và ở đâu**:
   - pytest: `tests/test_decision_note.py` (kết quả của lời gọi đã được duyệt có thêm câu "người dùng
     đã DUYỆT trên Telegram" và model đọc được nó; nơi quyết được lưu ở `approvals.decided_via`;

@@ -42,7 +42,7 @@ class Scheduler:
         self._deliver, self._notify = deliver, notify
         self._store = next(iter(agents.values())).store if agents else None
         self._jobs = JobTable(agents, self._store, clock)
-        self._streaks = Streaks(notify, clock)
+        self._streaks = Streaks(notify, clock, self._store, self._jobs.rows())
         self._task: asyncio.Task[None] | None = None
         self._running: set[str] = set()
         self._background: set[asyncio.Task[Any]] = set()

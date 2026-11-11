@@ -55,7 +55,8 @@ class TelegramChannel(TelegramChat):
         self._api, self.chat_id = api, chat_id
         self._offset_path, self._clock = offset_path, clock
         self._outbound: dict[str, TelegramOutbound] = {}
-        self.told = ToldRequests()  # the request messages followed until settled
+        # The request messages followed until settled, kept in the store across restarts.
+        self.told = ToldRequests(kept=self.store.told, owner=agent_id)
         self._offset = read_offset(offset_path, api.bot)
 
     def use_agents(self, agents: Mapping[str, AgentDeps]) -> None:

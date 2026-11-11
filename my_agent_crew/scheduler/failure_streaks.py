@@ -18,13 +18,15 @@ how many there have been by then. While a message is on its way the streak says 
 send can take up to a minute, and whoever reads the job's row meanwhile is not to be told
 that nothing got through.
 
-Kept in memory, not in the store: a restart begins every job's count again, and a job
-still failing after it is told at once.
+Kept in the store as well as here (`store/job_streaks.py`): a host that sleeps when idle
+starts the process again on every wake, and a count begun again each time would tell of a
+failing job at every run. What is read back at the start is every job still on the clock;
+that a message was on its way is not kept, since the process that was sending it is gone.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any
@@ -33,6 +35,7 @@ from my_agent_crew import texts_job_failure as words
 from my_agent_crew.activity.step_previews import preview
 from my_agent_crew.scheduler.failure_notice import Notify, failure_notice, say
 from my_agent_crew.scheduler.jobs import Job
+from my_agent_crew.store.db import Store
 from my_agent_crew.store.runs import DONE, RunRecord
 
 RETELL_AFTER = timedelta(hours=6)
@@ -83,24 +86,50 @@ def closing(streak: Streak) -> str:
 
 
 class Streaks:
-    def __init__(self, notify: Notify | None, clock: Callable[[], datetime]):
+    def __init__(
+        self,
+        notify: Notify | None,
+        clock: Callable[[], datetime],
+        store: Store | None = None,
+        known: Collection[str] | None = None,
+    ):
+        """`store` is where the counts outlive the process; `known` the jobs on the clock,
+        so a count kept for a job that left while the process was down goes with it."""
         self._notify, self._clock = notify, clock
+        self._kept = store.streaks if store is not None else None
         # Written on the event loop only. `of` is asked from a thread-pool thread
         # (`Scheduler.describe`), so it reads one key and never walks the dict.
         self._held: dict[str, Streak] = {}
+        for job_id, (count, since, told_at) in (self._kept.all() if self._kept else {}).items():
+            if known is not None and job_id not in known:
+                self._kept.clear(job_id)
+                continue
+            told = datetime.fromisoformat(told_at) if told_at else None
+            self._held[job_id] = Streak(count, datetime.fromisoformat(since), told)
 
     def of(self, job_id: str) -> Streak | None:
         return self._held.get(job_id)
 
-    def forget(self, job_id: str) -> None:
+    def _hold(self, job_id: str, streak: Streak) -> None:
+        """Here and in the store, which keeps all of a streak but `telling`."""
+        self._held[job_id] = streak
+        if self._kept is not None:
+            told_at = streak.told_at.isoformat() if streak.told_at else None
+            self._kept.save(job_id, streak.count, streak.since.isoformat(), told_at)
+
+    def forget(self, job_id: str) -> Streak | None:
         """A job that left the clock leaves no count for one that later takes its id."""
-        self._held.pop(job_id, None)
+        if self._kept is not None:
+            self._kept.clear(job_id)
+        return self._held.pop(job_id, None)
 
     def forget_agent(self, agent_id: str) -> None:
         """Every job of an agent's, read off the id as the store's switches are."""
         prefix = f"{agent_id}/"
         for job_id in [held for held in self._held if held.startswith(prefix)]:
             self._held.pop(job_id, None)
+        if self._kept is not None:
+            self._kept.forget_agent(agent_id)
 
     async def settle(self, job: Job, run: RunRecord, ended_by: str) -> None:
         """Counts the run a job came to, and tells the person what the count calls for.
@@ -112,7 +141,7 @@ class Streaks:
         now = self._clock()
         before = self._held.get(job.id)
         streak = replace(before, count=before.count + 1) if before else Streak(1, now)
-        self._held[job.id] = streak
+        self._hold(job.id, streak)
         if not streak.due(now):
             return
         self._held[job.id] = replace(streak, telling=True)
@@ -126,10 +155,10 @@ class Streaks:
             held = self._held.get(job.id)
             if held is not None:
                 told_at = self._clock() if sent else held.told_at
-                self._held[job.id] = replace(held, telling=False, told_at=told_at)
+                self._hold(job.id, replace(held, telling=False, told_at=told_at))
 
     async def _close(self, job: Job, run: RunRecord) -> None:
-        streak = self._held.pop(job.id, None)
+        streak = self.forget(job.id)
         if streak is None or streak.told_at is None or run.status != DONE:
             return
         name = preview(job.schedule.name)

@@ -7,8 +7,9 @@ id, and a sweep rewrites it once the request no longer waits: the message says h
 settled, and its buttons go. A request still waiting a while after it was first told is
 reminded of once, in reply to its message, with the time it runs out.
 
-What is kept lives in memory: after a restart the old messages keep their buttons, and a
-press on one is told it is settled already."""
+What is kept is written to the store too (`store/telegram_told.py`) and read back when the
+channel starts: a host that sleeps when idle starts the process again on every wake, and a
+request told before the sleep is still closed, and reminded of once, after it."""
 
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ from my_agent_crew.channels.telegram_api import TelegramError
 from my_agent_crew.channels.telegram_buttons import local_time, pressed_request
 from my_agent_crew.store.approvals import ANSWERED, APPROVED, DENIED, EXPIRED, PENDING
 from my_agent_crew.store.models import Approval
+from my_agent_crew.store.telegram_told import ToldStore
 from my_agent_crew.texts_approval import DECIDED_VIA
 
 if TYPE_CHECKING:
@@ -51,9 +53,17 @@ class Told:
 
 
 class ToldRequests:
-    def __init__(self, clock: Any = None) -> None:
+    def __init__(self, clock: Any = None, kept: ToldStore | None = None, owner: str = ""):
+        """`kept` is where the messages outlive the process, under `owner`: the agent the
+        chat talks to. Without it they live as long as this object does."""
         self._told: dict[str, Told] = {}
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._kept, self._owner = kept, owner
+        for row in kept.all(owner) if kept is not None else ():
+            at = datetime.fromisoformat(row["told_at"])
+            told = self._told.setdefault(row["approval_id"], Told(at))
+            told.messages[row["message_id"]] = row["text"]
+            told.reminded = told.reminded or bool(row["reminded"])
 
     def record(self, buttons: dict[str, Any] | None, sent: dict[str, Any], text: str) -> None:
         """A message just sent with a request's buttons. Telegram's copy of the text is kept
@@ -63,14 +73,22 @@ class ToldRequests:
             return
         told = self._told.setdefault(rid, Told(self._clock()))
         told.messages[message_id] = str(sent.get("text") or text)
+        if self._kept is not None:
+            at, kept = told.at.isoformat(), told.messages[message_id]
+            self._kept.put(self._owner, rid, message_id, kept, at)
+            if told.reminded:  # a message told after the reminder is of a reminded request
+                self._kept.reminded(self._owner, rid)
 
     def forget(self, approval_id: str, message_id: int | None = None) -> None:
         """One message of a request closed by a press under it, or all of them."""
         told = self._told.get(approval_id)
         if told is not None and message_id is not None:
             told.messages.pop(message_id, None)
-        if told is None or message_id is None or not told.messages:
+        whole = told is None or message_id is None or not told.messages
+        if whole:
             self._told.pop(approval_id, None)
+        if self._kept is not None:
+            self._kept.forget(self._owner, approval_id, None if whole else message_id)
 
     def __contains__(self, approval_id: str) -> bool:
         return approval_id in self._told
@@ -92,6 +110,8 @@ class ToldRequests:
                         await close_message(channel, message_id, f"{text}\n\n{line}".strip())
                 elif not told.reminded and self._clock() - told.at >= REMIND_AFTER:
                     told.reminded = True
+                    if self._kept is not None:
+                        self._kept.reminded(self._owner, rid)
                     await remind(channel, approval, max(told.messages))
             except TelegramError as exc:
                 logger.warning(

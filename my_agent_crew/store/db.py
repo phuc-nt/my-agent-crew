@@ -17,6 +17,7 @@ from my_agent_crew.store.connection import connect
 from my_agent_crew.store.conversation_lookup import ConversationLookups
 from my_agent_crew.store.episodes import EpisodeStore
 from my_agent_crew.store.job_state import JobStateStore
+from my_agent_crew.store.job_streaks import JobStreakStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
 from my_agent_crew.store.message_log import MessageLog
 from my_agent_crew.store.messages import MessageStore
@@ -28,6 +29,7 @@ from my_agent_crew.store.search import SearchStore
 from my_agent_crew.store.side_calls import SideCallStore
 from my_agent_crew.store.spend import Spending
 from my_agent_crew.store.stamps import new_id, now_iso
+from my_agent_crew.store.telegram_told import ToldStore
 from my_agent_crew.store.usage import UsageStore
 from my_agent_crew.texts import CONVERSATION_TITLE_DEFAULT
 
@@ -52,6 +54,8 @@ class Store(ConversationLookups, MessageLog, Spending):
         self.queue = QueueStore(self._conn, self._lock, self.messages)
         self.proposals = MemoryProposalStore(self._conn, self._lock)
         self.jobs = JobStateStore(self._conn, self._lock)
+        self.streaks = JobStreakStore(self._conn, self._lock)
+        self.told = ToldStore(self._conn, self._lock)
         self.usage = UsageStore(self._conn, self._lock)
         self.side_calls = SideCallStore(self._conn, self._lock)
         self.search = SearchStore(self._conn, self._lock)

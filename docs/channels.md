@@ -247,7 +247,8 @@ gốc trên web thì không báo và bấm nút không giải quyết: người 
 và câu trả lời gõ tay vẫn chỉ tới cuộc của chat và cuộc con của nó.
 
 Mỗi yêu cầu kèm dòng "⏳ Tự hết hạn lúc HH:MM" theo múi giờ của người dùng. Tin mang nút được nhớ
-theo id yêu cầu (trong bộ nhớ, mất khi khởi động lại); cứ 15 s một vòng quét xem lại: yêu cầu đã
+theo id yêu cầu, ghi ở bảng `telegram_told` nên còn sau khi server khởi động lại; cứ 15 s một vòng
+quét xem lại: yêu cầu đã
 được giải quyết ở nơi khác thì tin được viết lại kèm kết quả và nơi quyết ("✅ Đã duyệt trên web.",
 "⌛ Đã hết hạn, không ai trả lời.") và mất nút; yêu cầu vẫn chờ sau 3 phút thì được nhắc một lần,
 trả lời vào chính tin ấy, kèm giờ hết hạn.
@@ -350,9 +351,10 @@ Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạ
   chưa tin nào tới nơi thì không có dòng này. Dòng ấy gửi một lần: kênh không nhận thì thôi, không
   gửi lại. Lần hỏng sau đó mở một chuỗi mới và được báo ngay. Mọi kết cục khác (run bị dừng
   `halted`, lượt mà script mở ra bị hỏng) cũng đóng chuỗi, nhưng không có dòng nào.
-- Chuỗi nằm trong bộ nhớ của server, không ghi vào database. Server khởi động lại thì đếm lại từ
-  đầu, và job còn hỏng sau đó được báo ngay ở lần hỏng đầu. Job rời đồng hồ (agent bị xoá, dòng
-  lịch bị xoá) thì chuỗi của nó cũng mất; job tạo lại dưới cùng id bắt đầu từ không.
+- Chuỗi được ghi vào database (bảng `job_failure_streaks`: số lần hỏng, lúc bắt đầu, lúc kênh nhận
+  tin gần nhất), nên server khởi động lại vẫn đếm tiếp và vẫn giữ khoảng 6 giờ: job còn hỏng sau
+  khi khởi động lại không được báo lại trước hạn. Job rời đồng hồ (agent bị xoá, dòng lịch bị xoá,
+  kể cả khi server đang tắt) thì chuỗi của nó cũng mất; job tạo lại dưới cùng id bắt đầu từ không.
 - `GET /api/jobs` cho thấy chuỗi ấy ở khoá `failing` của từng dòng: `null` khi job không ở trong
   chuỗi hỏng nào, còn không thì `{"count": 3, "since": "…", "told_at": "…", "next_notice_at": "…",
   "telling": false}`. `since` là lúc chuỗi bắt đầu, `told_at` là lúc kênh nhận tin gần nhất,

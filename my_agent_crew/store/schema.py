@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 
+from my_agent_crew.store.schema_restart import RESTART_SCHEMA
 from my_agent_crew.store.search_index import ensure_search_index
 
 SCHEMA = """
@@ -169,7 +170,7 @@ CREATE INDEX IF NOT EXISTS artifact_versions_by_size ON artifact_versions (artif
 
 
 def apply_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(SCHEMA)
+    conn.executescript(SCHEMA + RESTART_SCHEMA)
     for table, column, definition in ADDED_COLUMNS:
         present = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
         if column not in present:
