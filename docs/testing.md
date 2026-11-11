@@ -1340,6 +1340,14 @@ tên một test thì sửa dòng của nó trong cùng commit.
     approvals wait when another row is edited"); `components/agent-editor/channel-section.test.tsx`
     ("stays when the chat id changes", "comes back with the channel when it is turned off and on
     again"); `hooks/use-agent-draft.test.ts` (dòng server khai lại mang `approval_ttl_seconds`)
+- **Lời gọi đã bị từ chối hay hết hạn, gọi lại y hệt trong cùng lượt, bị từ chối tự động mà
+  không hỏi người lần hai**
+  - pytest: `tests/test_approval_repeat.py` (sau một lần từ chối và sau một lần hết hạn: không
+    có yêu cầu duyệt thứ hai, không có sự kiện `approval_required`, tool không chạy, model đọc
+    câu nói rõ lời gọi đã bị từ chối trong lượt; hai lời gọi giống nhau trong một tin chỉ hỏi
+    một lần; thứ tự khoá của tham số không làm lời gọi khác đi; tham số khác vẫn hỏi; lượt sau
+    hỏi lại; lời gọi đã được duyệt mà gọi lại vẫn hỏi chứ không tự chạy; sau một tin `/steer`
+    thì hỏi lại; lượt của agent con theo cùng luật)
 - **Tool không trả kết quả rỗng: `fetch_url` báo 202 và trang không còn chữ là lỗi, markdown rỗng
   của firecrawl vẫn rơi về tải trực tiếp; `shell_run` không in gì vẫn nói lệnh kết thúc ra sao**
   - pytest: `tests/test_tools_web.py::test_a_page_accepted_but_not_ready_is_an_error_not_an_empty_read`,

@@ -65,6 +65,13 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
   riêng, xem [agents.md](agents.md#lịch)) bị từ chối: kết quả tool nói hành động không chạy và
   chưa có gì thay đổi, dặn không làm lại hay làm một việc tương đương bằng tool khác mà nói với
   người việc gì đang chờ duyệt; lượt tiếp tục và câu trả lời được gửi như thường.
+  Lời dặn đó có một luật trong mã đi kèm: trong cùng một lượt, lời gọi giống hệt (cùng tool,
+  cùng tham số, không kể thứ tự khoá) một lời gọi đã bị từ chối hay hết hạn thì bị từ chối tự
+  động, không mở yêu cầu duyệt mới và không kênh nào được báo; kết quả tool nói rõ lời gọi này
+  đã bị từ chối trong lượt và dặn dừng hoặc hỏi người dùng muốn làm gì thay thế. Lời gọi khác
+  tham số vẫn hỏi; lượt sau, hay sau một tin `/steer` của người dùng, cũng hỏi lại vì có thể
+  họ đã đổi ý. Luật này chỉ từ chối, không bao giờ tự duyệt, và áp dụng cả cho lượt của agent
+  con.
   Duyệt bằng `always` đưa tool vào danh sách `auto_approve` của cuộc trò chuyện, nên các
   lời gọi sau trong cuộc trò chuyện đó chạy không hỏi; rào danh sách hỏi vẫn áp dụng.
 - **Nội dung là dữ liệu.** Khung prompt bảo model rằng bất cứ thứ gì tool trả về là dữ liệu,

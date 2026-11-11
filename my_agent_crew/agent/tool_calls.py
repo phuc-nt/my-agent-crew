@@ -17,7 +17,7 @@ from contextlib import aclosing
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from my_agent_crew.agent.approval_lookup import matches, open_new
+from my_agent_crew.agent.approval_lookup import matches, open_new, refused_again
 from my_agent_crew.agent.decision_note import REFUSALS, refusal_text, with_approval_note
 from my_agent_crew.agent.delegate_relay import relay_reply
 from my_agent_crew.agent.events import (
@@ -124,7 +124,9 @@ def close_interrupted(store: Store, conv_id: str) -> None:
         )
 
 
-async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Event]:
+async def settle_tool_calls(
+    deps: AgentDeps, conv_id: str, asked_from: int | None = None
+) -> AsyncIterator[Event]:
     last, pending = _unanswered(deps.store.history(conv_id))
     if last is None:
         return
@@ -153,6 +155,10 @@ async def settle_tool_calls(deps: AgentDeps, conv_id: str) -> AsyncIterator[Even
                 yield await _record(
                     deps, conv_id, call, ToolResult(ok=False, output=APPROVAL_CALL_MISMATCH)
                 )
+                continue
+            again = None if approval else refused_again(deps, conv_id, call, asked_from)
+            if again:  # refused once already in this turn: not asked a second time
+                yield await _record(deps, conv_id, call, ToolResult(ok=False, output=again))
                 continue
             if approval is None:
                 approval = open_new(deps, conv, last.id, call)

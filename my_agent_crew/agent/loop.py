@@ -92,6 +92,7 @@ async def run_turn(
     # its delegation gave it; the conversation still knows it is one level down.
     set_turn_conversation(conv_id, max(depth, 1) if conv.parent_call_id else depth)
     turn_start = turn_boundary(deps.store, conv_id)  # before this turn writes anything
+    asked_from = turn_start  # a call refused since then is not put to the person again
     if user_text is not None:
         if conv.status == AWAITING_APPROVAL:
             raise ConversationBusy(conv_id)
@@ -112,7 +113,7 @@ async def run_turn(
     nested = start_nested_budget(deps.settings.max_steps)
     for step in range(deps.settings.max_steps):
         calls_left = deps.settings.max_steps - step - 1  # after the one this step makes
-        async for event in settle_tool_calls(deps, conv_id):
+        async for event in settle_tool_calls(deps, conv_id, asked_from):
             yield event
             if isinstance(event, ApprovalRequiredEvent):
                 return
@@ -121,6 +122,7 @@ async def run_turn(
                 yield event
             return
         async for event in take_steers(deps, conv_id, guard):
+            asked_from = deps.store.messages.max_seq(conv_id)  # new words: ask afresh
             yield event
         history = deps.store.history(conv_id)
         last = history[-1].message

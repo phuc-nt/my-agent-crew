@@ -108,6 +108,19 @@ class ApprovalStore:
             ).fetchone()
         return Approval.from_row(row) if row else None
 
+    def refused_after(self, conv_id: str, tool_name: str, after_seq: int) -> list[Approval]:
+        """The requests to run this tool that were denied or expired, among those the
+        conversation's messages past `after_seq` made, oldest first. Questions are left
+        out: one nobody answered was not refused."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT a.* FROM approvals a JOIN messages m ON m.id = a.message_id"
+                " WHERE a.conversation_id = ? AND a.tool_name = ? AND a.kind = ?"
+                " AND a.status IN (?, ?) AND m.seq > ? ORDER BY a.created_at, a.rowid",
+                (conv_id, tool_name, TOOL, DENIED, EXPIRED, after_seq),
+            ).fetchall()
+        return [Approval.from_row(r) for r in rows]
+
     def pending(self, conv_id: str) -> Approval | None:
         with self._lock:
             row = self._conn.execute(
