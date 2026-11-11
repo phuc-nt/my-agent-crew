@@ -33,6 +33,7 @@ from typing import Any
 
 from my_agent_crew import texts_job_failure as words
 from my_agent_crew.activity.step_previews import preview
+from my_agent_crew.scheduler.day_cap import Skipped
 from my_agent_crew.scheduler.failure_notice import Notify, failure_notice, say
 from my_agent_crew.scheduler.jobs import Job
 from my_agent_crew.store.db import Store
@@ -133,7 +134,10 @@ class Streaks:
 
     async def settle(self, job: Job, run: RunRecord, ended_by: str) -> None:
         """Counts the run a job came to, and tells the person what the count calls for.
-        `ended_by` is why the run failed, as `failure_notice` takes it."""
+        `ended_by` is why the run failed, as `failure_notice` takes it. A job skipped under
+        the day's cap was not run, so it is not counted either way."""
+        if isinstance(ended_by, Skipped):
+            return
         text = failure_notice(job, run, ended_by)
         if text is None:
             await self._close(job, run)

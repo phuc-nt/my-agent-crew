@@ -66,7 +66,8 @@ Secrets are read **only** from environment variables; `config.yaml` holds only n
 | the name given by `telegram.token_env` (e.g. `TELEGRAM_BOT_TOKEN`) | the master's Telegram bot token; missing means the channel is off | — |
 
 `config.yaml` in `MY_AGENT_HOME` accepts exactly these keys: `routes`, `vision_routes`,
-`audio_routes`, `cost_cap_usd`, `max_steps`, `language`, `timezone`, `autonomous_default`,
+`audio_routes`, `cost_cap_usd`, `jobs_daily_cost_cap_usd`, `max_steps`, `language`, `timezone`,
+`autonomous_default`,
 `approval_ttl_seconds`, `tool_output_chars`, `shell_ask_patterns`, `shell_allow_patterns`,
 `openrouter_providers`, `openrouter_provider_fallbacks`, `anthropic_cache_ttl`, `side_routes`,
 `web_url`, `mcp_servers`.

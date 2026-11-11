@@ -162,7 +162,9 @@ class Scheduler:
         deps = self._agents[job.agent_id]
         self._running.add(job.id)
         try:
-            run, ended_by = await carry_out(job, deps, self._hub, self._clock, self.deliver_run)
+            run, ended_by = await carry_out(
+                job, deps, self._hub, self._clock, self.deliver_run, self._notify
+            )
             if job.schedule.consolidate:
                 await tell_held(job, deps, run, self._notify)
             # A job that left the clock while it ran is counted no more: what it came to

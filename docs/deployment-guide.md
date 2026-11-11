@@ -31,7 +31,7 @@ Thử không tốn tiền: `MY_AGENT_ROUTES=fake:echo uv run python -m my_agent_
 
 ```
 ~/.my-agent-crew/
-├── config.yaml        # routes, cost_cap_usd, max_steps, language, timezone, web_url, autonomous_default, approval_ttl_seconds, mcp_servers, browser_*
+├── config.yaml        # routes, cost_cap_usd, jobs_daily_cost_cap_usd, max_steps, language, timezone, web_url, autonomous_default, approval_ttl_seconds, mcp_servers, browser_*
 ├── env                # KEY=value, chmod 600, KHÔNG nằm trong repo; token đăng nhập MCP cũng ghi ở đây
 ├── agent.yaml         # master
 ├── agent.sqlite3

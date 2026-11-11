@@ -14,7 +14,7 @@ from pathlib import Path
 
 from my_agent_crew.clock import zone_for
 from my_agent_crew.config_browser import BrowserSettings, browser_settings
-from my_agent_crew.config_checks import checked
+from my_agent_crew.config_checks import checked, jobs_day_cap
 from my_agent_crew.config_llm import LlmSettings, llm_settings, provider_fallbacks
 from my_agent_crew.config_parse import (
     DEFAULT_SHELL_ASK_PATTERNS,
@@ -65,6 +65,8 @@ class Settings:
     # Sent only when set: self-hosted firecrawl needs none, and a wrong url must get no token.
     firecrawl_api_key: str | None = None
     cost_cap_usd: float = 0.50
+    # What a day's scheduled jobs may cost in all; 0 is no cap. See `scheduler/day_cap.py`.
+    jobs_daily_cost_cap_usd: float = 0.0
     language: str = "vi"
     # The person's IANA zone; empty means the machine's. See `clock.py`.
     timezone: str = ""
@@ -155,6 +157,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         cost_cap_usd=float(
             env.get("MY_AGENT_COST_CAP_USD") or file_values.get("cost_cap_usd", 0.50)
         ),
+        jobs_daily_cost_cap_usd=jobs_day_cap(env, file_values),
         language=env.get("MY_AGENT_LANGUAGE") or file_values.get("language", "vi"),
         timezone=str(env.get("MY_AGENT_TIMEZONE") or file_values.get("timezone") or ""),
         web_url=parse_web_url(env.get("MY_AGENT_WEB_URL") or file_values.get("web_url")),

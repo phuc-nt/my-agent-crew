@@ -14,4 +14,5 @@ CREATE TABLE IF NOT EXISTS telegram_told (
     text TEXT NOT NULL, told_at TEXT NOT NULL, reminded INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (owner, approval_id, message_id)
 );
+CREATE TABLE IF NOT EXISTS job_cap_days (day TEXT PRIMARY KEY, told_at TEXT NOT NULL);
 """

@@ -13,6 +13,8 @@ from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.agents.schedule import DELIVERED
 from my_agent_crew.scheduler.check import checked
+from my_agent_crew.scheduler.day_cap import skipped
+from my_agent_crew.scheduler.failure_notice import Notify
 from my_agent_crew.scheduler.jobs import Job, run_command, run_consolidate, run_prompt
 from my_agent_crew.scheduler.script_job import run_script_job
 from my_agent_crew.store.runs import RunRecord
@@ -46,11 +48,16 @@ async def carry_out(
     hub: ActivityHub,
     clock: Callable[[], datetime],
     deliver: Callable[[Job, RunRecord], Awaitable[None]],
+    notify: Notify | None,
 ) -> tuple[RunRecord, str]:
     """A due job from its start to what it came to: the run, the answer sent on where the
     job is of a kind that has one, then the check the row states. The check comes after the
     answer, so what the agent said reaches the person as it always did, and a check that
-    disagrees is told after it."""
+    disagrees is told after it. Before any of it, the day's cap: a job the day has no money
+    left for is not started, and what comes back is the run that says so."""
+    over = await skipped(job, deps, hub, clock, notify, job_title(job, clock))
+    if over is not None:
+        return over
     run, ended_by = await dispatch(job, deps, hub, clock)
     if job.schedule.kind in DELIVERED:
         await deliver(job, run)

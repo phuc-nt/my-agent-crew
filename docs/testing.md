@@ -5994,6 +5994,19 @@ khi chạy; phần đó có mục riêng ở dưới.
     lệnh kiểm thấy tệp mà lệnh của job vừa ghi trong workspace; khoá được đọc từ tệp cho mọi
     loại dòng, giá trị không phải chuỗi không rỗng bị từ chối lúc đọc tệp; `GET /api/jobs` có
     `check` ở dòng đặt nó và không có ở dòng không đặt).
+- **Chi phí các lịch trong ngày chạm `jobs_daily_cost_cap_usd` thì lịch gọi model bị bỏ qua tới
+  hết ngày và chủ được báo một lần**:
+  - pytest: `tests/test_jobs_daily_cost_cap.py` (dưới trần thì lịch chạy và chi phí thật của
+    từng run cộng dần; chạm trần thì run là `halted`, không có cuộc trò chuyện, không bước nào,
+    tóm tắt nói số đã tiêu và trần, model không được gọi, và dòng của lịch ở `describe()` mang
+    run ấy; tiêu đúng bằng trần là đã chạm; chủ được báo một lần dù bao nhiêu lịch bị bỏ qua,
+    ngày sau lịch chạy lại và ngày ấy chạm trần thì được báo riêng; ngày là ngày của home chứ
+    không phải của UTC, kể cả khi đồng hồ không mang múi giờ; chỉ run có nguồn `job:` được tính;
+    lịch chạy lệnh vẫn chạy và không làm ai được báo; lịch script cũng bị bỏ qua; không đặt trần
+    thì tiêu bao nhiêu cũng chạy; khởi động lại không báo lại; tin kênh không nhận được thử lại
+    ở lịch bị bỏ qua kế; không có kênh thì vẫn bỏ qua; bị bỏ qua không đổi chuỗi đếm job hỏng;
+    khoá đọc từ `config.yaml`, biến môi trường thắng, số âm và `.nan` chặn khởi động;
+    `GET /api/settings` trả giá trị; database cũ có thêm bảng `job_cap_days`).
 - **Job hỏng mà không có cuộc trò chuyện được báo cho chủ: lần đầu báo ngay, sau đó nhiều nhất 6
   giờ một tin, và một dòng khi job chạy lại được**:
   - pytest: `tests/test_job_streaks_outlive_restart.py` (khởi động lại là một scheduler mới trên

@@ -13,6 +13,7 @@ YAML_KEYS = (
     "vision_routes",
     "audio_routes",
     "cost_cap_usd",
+    "jobs_daily_cost_cap_usd",
     "language",
     "timezone",
     "web_url",

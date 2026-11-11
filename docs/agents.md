@@ -89,6 +89,7 @@ và `config.yaml`:
 | `MY_AGENT_HOME` | — | `~/.my-agent-crew` |
 | `MY_AGENT_ROUTES` | `routes` | `openrouter:deepseek/deepseek-v4-flash` |
 | `MY_AGENT_COST_CAP_USD` | `cost_cap_usd` | `0.5` |
+| `MY_AGENT_JOBS_DAILY_COST_CAP_USD` | `jobs_daily_cost_cap_usd` | `0` (không có trần), xem [Trần chi phí một ngày của các lịch](#trần-chi-phí-một-ngày-của-các-lịch) |
 | `MY_AGENT_MAX_STEPS` | `max_steps` | `12` |
 | `MY_AGENT_AUTONOMOUS` | `autonomous_default` | tắt (`1`, `true`, `yes`, `on` bật lên) |
 | `MY_AGENT_APPROVAL_TTL_SECONDS` | `approval_ttl_seconds` | `600`; phải ≥ 1. Yêu cầu duyệt không ai trả lời trong khoảng này bị từ chối và lượt đi tiếp. Một lịch hay khối `telegram` đặt được hạn riêng cho cuộc trò chuyện nó mở (xem [Lịch](#lịch)) |
@@ -1062,6 +1063,38 @@ schedules:
   nó; dòng không đặt thì không có khoá ấy. Trình sửa agent trên web chưa có ô cho khoá này và
   không gửi lại nó: lưu các dòng lịch từ trình sửa sẽ làm mất `check` của chúng, nên dòng có
   `check` hiện phải sửa trong tệp `agent.yaml`.
+
+### Trần chi phí một ngày của các lịch
+
+`cost_cap_usd` dừng một cuộc trò chuyện, tức một lần chạy. Nó không dừng lần chạy kế: một lịch
+tới hạn vài phút một lần, hay một đội nhiều lịch, vẫn có thể tiêu cả ngày bằng những lần chạy
+nhỏ mà không ai nhìn. Khoá `jobs_daily_cost_cap_usd` trong `config.yaml` của home (hoặc biến môi
+trường `MY_AGENT_JOBS_DAILY_COST_CAP_USD`) là trần cho tất cả các lịch cộng lại trong một ngày:
+
+```yaml
+jobs_daily_cost_cap_usd: 2.0
+```
+
+- **Cách tính.** Trước khi chạy một lịch, server cộng `spent_usd` của mọi run có nguồn `job:`
+  bắt đầu từ 0 giờ hôm nay theo `timezone` của home. Con số lấy từ chi phí đã ghi ở từng run,
+  không có bộ đếm riêng, nên khởi động lại không làm mất gì. Lượt chat, lượt biên soạn wiki và
+  các run khác không được tính.
+- **Chạm trần.** Tổng đã bằng hoặc vượt trần thì lịch nào gọi model (prompt, script, gom bộ
+  nhớ) không được chạy nữa cho tới hết ngày, kể cả khi bấm chạy tay. Lần bị bỏ qua để lại một
+  run `halted` không có cuộc trò chuyện, tóm tắt nói rõ đã tiêu bao nhiêu và trần là bao nhiêu;
+  đó là thứ dòng của lịch trên web UI hiện ra. Model không được gọi, lệnh kiểm (`check`)
+  không chạy, và chuỗi đếm job hỏng không đổi: bị bỏ qua không phải hỏng, cũng không phải chạy
+  lại được.
+- **Lịch chạy lệnh vẫn chạy.** Lịch `command` không gọi model nên không bị trần này chặn.
+- **Báo một lần mỗi ngày.** Lịch đầu tiên bị bỏ qua trong ngày gửi một tin tới kênh của agent
+  (cùng đường với tin job hỏng). Ngày đã báo được ghi vào database (bảng `job_cap_days`), nên
+  khởi động lại không báo lại; tin mà kênh không nhận thì được thử lại ở lịch bị bỏ qua kế tiếp.
+- **Hai trần cùng làm việc.** Mỗi lần chạy vẫn dừng ở `cost_cap_usd` của cuộc trò chuyện; ngày
+  dừng ở trần này. Trần được xét trước khi chạy chứ không cắt giữa chừng, nên một ngày tiêu
+  nhiều nhất là trần cộng phần mà lần chạy vượt trần còn được tiêu.
+- **Không đặt** (hoặc `0`) thì không có trần, mọi thứ như trước. Số âm bị từ chối lúc khởi động.
+
+Trang Cài đặt đọc được giá trị qua `GET /api/settings` (`jobs_daily_cost_cap_usd`).
 
 ### Lịch trong tệp lên đồng hồ ngay khi lưu
 

@@ -36,6 +36,7 @@ def get_settings(rt: Rt) -> dict[str, Any]:
         "timezone": s.timezone,
         "zone": str(s.zone),
         "cost_cap_usd": s.cost_cap_usd,
+        "jobs_daily_cost_cap_usd": s.jobs_daily_cost_cap_usd,
         "max_steps": s.max_steps,
         "autonomous_default": s.autonomous_default,
         "keys": {
