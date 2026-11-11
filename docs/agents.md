@@ -144,21 +144,20 @@ lên tiếng của agent.
 
 ## Template
 
-Ba profile đi kèm gói phần mềm để một đội chạy được là một bản sao chứ không phải các tệp
+Một profile đi kèm gói phần mềm để thêm một agent là một bản sao chứ không phải các tệp
 viết tay. Template là dữ liệu thuần — một `agent.yaml` và các tệp persona bên cạnh
 nó — nên bất cứ thứ gì nó diễn đạt được, một profile viết tay cũng làm được.
 
 ```bash
 python -m my_agent_crew agent list-templates        # id, mode and description of each
 python -m my_agent_crew agent add researcher        # one role, at the master's disposal
-python -m my_agent_crew agent add fullstack-developer  # the developer and the two peers it names
-python -m my_agent_crew agent add kongming --id advisor  # same template under a different id
-python -m my_agent_crew agent add fullstack-developer --workspace ~/src/app  # pinned to one repository
+python -m my_agent_crew agent add researcher --id scout  # same template under a different id
+python -m my_agent_crew agent add researcher --workspace ~/src/app  # pinned to one repository
 ```
 
 Thêm một template sẽ kéo theo các đồng đội nó giao việc cho, vì server từ chối khởi động
-khi một mục `delegates` trỏ tới agent không có mặt — nên `agent add fullstack-developer`
-kéo theo cả kongming và researcher, còn `agent add researcher` chỉ cho một agent. Đồng đội đã
+khi một mục `delegates` trỏ tới agent không có mặt. Template đi kèm hiện nay không giao việc
+cho ai, nên `agent add researcher` chỉ cho một agent. Đồng đội đã
 tồn tại thì giữ nguyên. Mọi manifest trỏ `workspace` tới `../../workspace`, workspace
 dùng chung của home, nên bản cài mới chạy được mà không cần sửa; `--workspace` ghi một
 đường dẫn tuyệt đối vào template và mọi đồng đội nó kéo theo.
@@ -197,13 +196,7 @@ và thư mục con rỗng nếu có.
 
 | id | mode | Dùng để làm gì |
 |---|---|---|
-| `fullstack-developer` | work | nhận một việc phần mềm từ đầu đến cuối — scout, lập kế hoạch, code, test, tự review, commit — theo các skill dùng chung; không có danh sách tool cho phép, chỉ giao việc cho hai agent còn lại, để xin tư vấn hoặc nghiên cứu, không bao giờ để đẩy code sang |
-| `kongming` | work | chỉ tư vấn: đọc code và web, trả lời bằng một khuyến nghị có cấu trúc, không bao giờ hỏi ngược lại; không có tool ghi và không có `delegate`; ghim model mạnh nhất trong `routes`, trần ở `cost_cap_usd: 3.0` |
 | `researcher` | assistant | nghiên cứu bất kỳ chủ đề nào trên web hoặc trong PDF và viết một khuyến nghị xếp hạng kèm nguồn; không bao giờ chạm vào code |
-
-Một đội phần mềm là một developer chứ không phải một dây chuyền vai trò: mỗi lần chuyển giao tốn một
-ngữ cảnh mới chỉ biết những gì brief đã nói, và với một đội cá nhân chủ yếu
-code bên lề, ngữ cảnh mất đi tốn nhiều hơn cái song song mua được.
 
 Mỗi manifest trỏ `skills_dirs` tới `../../skills`, nên sáu skill dùng chung được
 cài một lần ở đầu thư mục home và mọi vai trò đọc cùng một bản.

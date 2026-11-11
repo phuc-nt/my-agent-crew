@@ -25,7 +25,7 @@ from my_agent_crew.server import build_runtime, create_app
 
 BUNDLED = sorted(t.id for t in list_templates())
 NO_AGENT_ID = ["../../out", "a/b", "/abs", "Kong Ming", ".trash", "kong\n", "-x"]
-NO_TEMPLATE = ["../templates/kongming", "kongming/", "./kongming", SHARED_SKILLS]
+NO_TEMPLATE = ["../templates/researcher", "researcher/", "./researcher", SHARED_SKILLS]
 
 
 def everything(root: Path) -> list[str]:
@@ -43,7 +43,7 @@ def test_an_id_no_agent_can_go_by_is_refused_and_nothing_is_written(tmp_path, ag
     home.mkdir()
 
     with pytest.raises(ValueError, match=texts.AGENT_ID_INVALID):
-        add_template("kongming", home, agent_id, force)
+        add_template("researcher", home, agent_id, force)
 
     assert everything(tmp_path) == ["home"]
 
@@ -55,7 +55,7 @@ def test_the_masters_id_is_not_one_a_template_can_take(tmp_path, force):
     home.mkdir()
 
     with pytest.raises(ValueError, match=texts.AGENT_EXISTS.format(agent_id="default")):
-        add_template("kongming", home, "default", force)
+        add_template("researcher", home, "default", force)
 
     assert everything(tmp_path) == ["home"]
 
@@ -87,7 +87,9 @@ def test_landing_lists_every_file_an_add_writes_outside_the_peers_it_brings(tmp_
 
 def test_the_command_line_says_why_an_id_is_refused(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("MY_AGENT_HOME", str(tmp_path / "home"))
-    monkeypatch.setattr(sys, "argv", ["my-agent-crew", "agent", "add", "kongming", "--id", "../x"])
+    monkeypatch.setattr(
+        sys, "argv", ["my-agent-crew", "agent", "add", "researcher", "--id", "../x"]
+    )
 
     assert entry.main() == 1
 

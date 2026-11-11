@@ -117,10 +117,10 @@ def test_the_crew_starts_and_grows_beside_a_file_that_cannot_be_read(home, where
         (home / where / "a-odd.md").write_text(ODD, encoding="utf-8")
 
         assert client.post("/api/agents/reload").status_code == 200
-        installed = client.post(INSTALL, json={"template": "kongming"})
+        installed = client.post(INSTALL, json={"template": "researcher"})
 
     assert installed.status_code == 201, installed.text
-    assert "kongming" in sorted(build_runtime(settings_of(home)).agents)
+    assert "researcher" in sorted(build_runtime(settings_of(home)).agents)
 
 
 def persona(home: Path, text: str):

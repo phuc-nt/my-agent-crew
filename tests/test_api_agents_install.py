@@ -3,11 +3,13 @@ running crew, and the master can delegate to them without a restart."""
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from my_agent_crew.agents import templates_cli
 from my_agent_crew.config import load_settings
 from my_agent_crew.server import build_runtime, create_app
 from my_agent_crew.tools.delegate import DELEGATE_TOOL_NAME
@@ -32,43 +34,58 @@ def test_installing_a_template_makes_it_live_for_the_master(crew):
     client, runtime, home = crew
     assert _enum(runtime) == ["default"]
 
-    res = client.post("/api/agents/install", json={"template": "kongming"})
+    res = client.post("/api/agents/install", json={"template": "researcher"})
 
     assert res.status_code == 201, res.text
-    assert res.json() == {"installed": ["kongming"], "live": ["kongming"], "needs_restart": False}
-    assert (home / "agents" / "kongming" / "agent.yaml").is_file()
-    assert _enum(runtime) == ["default", "kongming"]
+    assert res.json() == {
+        "installed": ["researcher"],
+        "live": ["researcher"],
+        "needs_restart": False,
+    }
+    assert (home / "agents" / "researcher" / "agent.yaml").is_file()
+    assert _enum(runtime) == ["default", "researcher"]
     listed = {a["id"]: a for a in client.get("/api/agents").json()}
-    assert listed["default"]["is_master"] and listed["default"]["delegates"] == ["kongming"]
-    assert listed["kongming"]["delegates"] == [] and not listed["kongming"]["is_master"]
+    assert listed["default"]["is_master"] and listed["default"]["delegates"] == ["researcher"]
+    assert listed["researcher"]["delegates"] == [] and not listed["researcher"]["is_master"]
     # Without a workspace of its own the newcomer works where the master does.
-    assert Path(listed["kongming"]["workspace"]) == runtime.default.agent.workspace
+    assert Path(listed["researcher"]["workspace"]) == runtime.default.agent.workspace
 
 
-def test_a_workspace_is_pinned_into_the_agent_and_the_peers_it_brings(crew, tmp_path):
+@pytest.fixture
+def lead(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
+    """A template that delegates to a bundled one. None of the bundled ones names another,
+    so the one that brings a peer is written here, beside them."""
+    bundled = tmp_path / "bundled"
+    shutil.copytree(templates_cli.TEMPLATES_DIR, bundled)
+    (bundled / "lead").mkdir()
+    manifest = "name: Lead\nmode: work\ndelegates:\n  - researcher\nworkspace: ../../workspace\n"
+    (bundled / "lead" / "agent.yaml").write_text(manifest, encoding="utf-8")
+    monkeypatch.setattr(templates_cli, "TEMPLATES_DIR", bundled)
+    return "lead"
+
+
+def test_a_workspace_is_pinned_into_the_agent_and_the_peers_it_brings(crew, tmp_path, lead):
     client, runtime, home = crew
     repo = tmp_path / "repo"
     repo.mkdir()
 
-    res = client.post(
-        "/api/agents/install", json={"template": "fullstack-developer", "workspace": str(repo)}
-    )
+    res = client.post("/api/agents/install", json={"template": lead, "workspace": str(repo)})
 
     body = res.json()
-    assert res.status_code == 201 and body["installed"][0] == "fullstack-developer"
+    assert res.status_code == 201 and body["installed"] == [lead, "researcher"]
     assert set(body["live"]) == set(body["installed"]) and body["needs_restart"] is False
     for agent_id in body["installed"]:
         assert runtime.deps_for(agent_id).agent.workspace == repo.resolve(), agent_id
-    text = (home / "agents" / "kongming" / "agent.yaml").read_text(encoding="utf-8")
+    text = (home / "agents" / "researcher" / "agent.yaml").read_text(encoding="utf-8")
     assert f"workspace: {repo.resolve()}" in text and "skills_dirs" in text
 
 
 def test_unknown_templates_and_taken_ids_are_refused(crew):
     client, _, _ = crew
     assert client.post("/api/agents/install", json={"template": "architect"}).status_code == 404
-    assert client.post("/api/agents/install", json={"template": "kongming"}).status_code == 201
-    res = client.post("/api/agents/install", json={"template": "kongming"})
-    assert res.status_code == 409 and "kongming" in res.json()["detail"]
+    assert client.post("/api/agents/install", json={"template": "researcher"}).status_code == 201
+    res = client.post("/api/agents/install", json={"template": "researcher"})
+    assert res.status_code == 409 and "researcher" in res.json()["detail"]
 
 
 def test_the_master_can_delegate_to_an_agent_installed_moments_ago(crew):

@@ -322,8 +322,8 @@ hỏi, sổ cái, canvas), `eval_report.py` (báo cáo). Server và client HTTP 
 chat → `/tool workspace_list {"path":"."}` → `/tool workspace_write {...}` → duyệt → tệp tồn tại
 trong `MY_AGENT_HOME/workspace`. Với profile agent có lịch: `POST /api/jobs/<agent>/<schedule>/run`
 phải tạo ra một run trên `/api/activity/runs` và một thẻ trong rail. Với ít nhất một agent
-khác đã cài: `POST /api/inbound {"text": "Nhờ kongming …"}` (với `fake:echo`, viết thẳng
-`/tool delegate {"agent": "kongming", "task": "…"}` vì provider giả không tự chọn tool) phải trả
+khác đã cài: `POST /api/inbound {"text": "Nhờ researcher …"}` (với `fake:echo`, viết thẳng
+`/tool delegate {"agent": "researcher", "task": "…"}` vì provider giả không tự chọn tool) phải trả
 lời bằng chính lời của agent con (lượt chỉ có một lần giao việc thì không kể lại) và để lại một
 run con có `source` là `delegate:<conversation id>` trên `/api/activity/runs`. Đây là bước kiểm tra cần lặp lại trước khi gắn tag phát hành. Duyệt tool
 qua API: id nằm trong sự kiện SSE `approval_required` của luồng tin nhắn, vì `GET /api/approvals`
@@ -1654,7 +1654,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     "test_rereading_changes_only_the_wording_of_the_stubs",
     "test_a_stub_for_a_call_with_no_id_falls_back_to_the_plain_wording");
     `tests/test_agent_templates.py` ("test_every_tool_a_template_lists_is_a_real_tool",
-    "test_the_counsel_and_the_researcher_can_read_a_long_output_back");
+    "test_the_researcher_can_read_a_long_output_back");
     `tests/test_housekeeping.py` (quét ngay khi khởi động, quét lại mỗi chu kỳ, lần quét lỗi
     không giết vòng, huỷ được, lifespan chỉ quét khi `schedule=True`);
     `tests/test_api_conversation_spill.py`
@@ -5769,7 +5769,10 @@ khi chạy; phần đó có mục riêng ở dưới.
     có sẵn, `tool_search`, `tool_script`, rồi tool của máy chủ; máy chủ đi thì `tool_script` ở
     lại), `tests/test_crew_roster.py` (roster kể `tool_script` trong dòng Công cụ),
     `tests/test_agent_templates.py` (agent dựng từ mẫu có danh sách `tools:` riêng vẫn có
-    `tool_script` ở cuối, ngoài những tool danh sách ấy nêu), `tests/test_tool_replay.py` (`tool_script` nằm trong số tool được gọi lại sau
+    `tool_script` ở cuối, ngoài những tool danh sách ấy nêu; mẫu đi kèm duy nhất là
+    `researcher`, không giao việc cho ai, nên việc một mẫu kéo theo đồng đội được thử bằng hai
+    mẫu giả `lead` và `adviser` dựng trong fixture, cũng như ở
+    `tests/test_api_agents_install.py`), `tests/test_tool_replay.py` (`tool_script` nằm trong số tool được gọi lại sau
     restart, trừ ở agent bật `script_calls: gated`).
 - **Trong một lượt**:
   - pytest: `tests/test_script_turns.py` (script chạy không hỏi ai và model chỉ đọc cái nó in; run

@@ -5,12 +5,12 @@ import { BrandMark } from "./brand-mark";
 
 describe("AgentAvatar", () => {
   it("gives an agent the same hue every time, from the palette's range", () => {
-    for (const id of ["default", "coach", "ledger", "kongming", ""]) {
+    for (const id of ["default", "coach", "ledger", "researcher", ""]) {
       expect(agentHue(id)).toBe(agentHue(id));
       expect(agentHue(id)).toBeGreaterThanOrEqual(1);
       expect(agentHue(id)).toBeLessThanOrEqual(8);
     }
-    expect(new Set(["default", "coach", "ledger", "kongming"].map(agentHue)).size).toBeGreaterThan(1);
+    expect(new Set(["default", "coach", "ledger", "researcher"].map(agentHue)).size).toBeGreaterThan(1);
   });
 
   it("takes the first letter a person would say, capitalised the Vietnamese way", () => {

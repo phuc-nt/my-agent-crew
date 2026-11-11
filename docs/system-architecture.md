@@ -246,7 +246,7 @@ Trong bộ cài thật, master "Trợ lý" để trống `delegates:`, nghĩa l�
 | pong | thư ký cá nhân: bản tin sáng, mail, lịch, tasks, Goodreads | viết tay, chuyển từ openclaw |
 | ledger | sổ cái tài chính, nhắc hạn, giá vàng; không tool mạng, không ghi trí nhớ dùng chung | viết tay, tách khỏi pong |
 | health-coach | HLV sức khoẻ: ăn, tập, Garmin, sách | viết tay, chuyển từ openclaw |
-| fullstack-developer, kongming, researcher | làm phần mềm trọn gói · cố vấn chỉ đọc · tra cứu mọi chủ đề | `agent add <template>` |
+| researcher | tra cứu mọi chủ đề | `agent add <template>` |
 
 Cách quyết định giao hay tự làm nằm ở model của master, nhưng harness bảo đảm ba điều:
 
@@ -374,7 +374,7 @@ Bộ cài dùng để viết tài liệu này (đã bỏ số liệu và định
     ├── pong/              # AGENTS.md, SOUL.md, MEMORY.md, memory/, agent.yaml
     ├── health-coach/      # như trên
     ├── ledger/            # như trên, workspace = repo sổ cái
-    └── fullstack-developer, kongming, researcher
+    └── researcher
 ```
 
 Bốn agent đáng xem kỹ:
@@ -387,7 +387,7 @@ Bốn agent đáng xem kỹ:
 
 **HLV sức khoẻ** — `routes` ba model, tăng dần từ rẻ đến mạnh. Ba lịch: bảo trì đêm, sao lưu, bản tin sáng có gắn skill Garmin. Đọc ảnh bữa ăn qua `image_read` (tuyến `vision_routes`). Là ví dụ điển hình của agent "một người dùng, một lĩnh vực, nhớ dài".
 
-Ba agent còn lại đến từ `agent add <template>`: fullstack-developer làm trọn việc phần mềm, hỏi kongming (cố vấn chỉ đọc, model mạnh nhất) khi bế tắc và researcher khi cần tra ngoài. Không có lịch, chỉ được gọi qua delegate.
+Agent còn lại đến từ `agent add <template>`: researcher tra cứu bên ngoài và trả về khuyến nghị kèm nguồn. Không có lịch, chỉ được gọi qua delegate.
 
 Kit `.agents/` cấp home cho master lệnh `/tongket` — ví dụ về việc harness nạp lệnh kiểu Claude Code làm "prompt có tên" mà không cần code thêm.
 

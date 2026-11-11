@@ -274,7 +274,7 @@ gh release create v0.39.0 --title "v0.39.0 — <một câu nói bản này làm 
 ```bash
 uv run python -m my_agent_crew agent list-templates
 uv run python -m my_agent_crew agent add researcher          # → agents/researcher/
-uv run python -m my_agent_crew agent add fullstack-developer --workspace ~/workspace/x
+uv run python -m my_agent_crew agent add researcher --id scout --workspace ~/workspace/x
 ```
 
 Sau đó sửa `agents/<id>/agent.yaml` (`routes`, `tools`, `schedules`, `autonomous`) và persona (`AGENTS.md`, `SOUL.md`). Thêm id vào `delegates:` của master để master thấy trong roster. Khởi động lại server.

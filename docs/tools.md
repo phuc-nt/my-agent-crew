@@ -144,7 +144,7 @@ phần script cầm được (200.000 ký tự) thay cho trần của agent, xem
   ngắn".
 - **Agent nào có.** Tool nằm trong mọi agent không có danh sách `tools:`; agent có danh sách
   phải ghi `tool_output_read` thì mới có tool, tệp spill và dòng trỏ. Agent không ghi thì hành
-  xử y như trước. Template kongming và researcher đã ghi sẵn. Với agent đang chạy thật, thêm
+  xử y như trước. Template researcher đã ghi sẵn. Với agent đang chạy thật, thêm
   tên này vào `tools:` là việc của người giữ home của agent đó.
 - **Dọn dẹp.** Xoá cuộc trò chuyện xoá luôn thư mục spill của nó; một vòng quét mỗi ngày (chạy
   khi khởi động rồi mỗi 24 giờ, cùng lúc scheduler) xoá tệp cũ hơn 7 ngày và không theo symlink.
@@ -2047,14 +2047,14 @@ smoke và test trình duyệt điều khiển tool mà không cần khoá.
 ## Ai đang dùng tool nào
 
 ```
-GET /api/tools → [{"name": "workspace_read", …, "agents": ["fullstack-developer", "default"], "optional": false}]
+GET /api/tools → [{"name": "workspace_read", …, "agents": ["researcher", "default"], "optional": false}]
 GET /api/agents/{id}/prompt → assembled system prompt this turn (includes persona, memory, skills, roster), plus `opening`
 ```
 
 Hợp của các tool là registry của mọi agent, không phải bộ riêng của master — profile có danh sách
 cho phép `tools` giữ ít tool hơn master, và đọc registry của một agent sẽ giấu
 những tool phần còn lại của đội vẫn dùng. `agents` là ai giữ nó, tức câu trả lời cho
-"cố vấn có thực sự sửa được tệp không"; `optional` đánh dấu tool chỉ tồn tại khi
+"agent này có thực sự sửa được tệp không"; `optional` đánh dấu tool chỉ tồn tại khi
 khoá hoặc tuyến của nó được cấu hình (`image_read`). Tool của một máy chủ MCP có thêm `server` và
 `exposure`, chỉ được liệt kê khi có agent bật máy chủ đó, và tool `hidden` không bao giờ có mặt
 (xem [Máy chủ MCP](#máy-chủ-mcp)). Hai dòng không theo danh sách cho phép của agent nào. Dòng của
@@ -2135,7 +2135,7 @@ nêu `delegates` có, và agent con được giao việc không bao giờ có.
 
 Vậy danh sách cho phép theo từng agent trên tên tool cũng tồn tại ở đây. Khác biệt thật là thứ
 gánh trọng lượng an toàn. openclaw dựa vào tính hiển thị của tool; ở đây điều đó chủ yếu tách
-vai trò — cố vấn không ghi được, nghiên cứu không chạy được shell — còn rào
+vai trò — agent chỉ đọc không ghi được, nghiên cứu không chạy được shell — còn rào
 chống lời gọi nguy hiểm là duyệt, và hai danh sách pattern định hình nó từ hai phía.
 `shell_ask_patterns` kéo một lệnh về lại chỗ hỏi ngay cả trong cuộc trò chuyện autonomous;
 `shell_allow_patterns` cho một lệnh thường ngày đi qua ngay cả trong cuộc trò chuyện được giám sát. Cả hai khớp

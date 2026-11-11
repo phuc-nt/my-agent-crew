@@ -381,18 +381,15 @@ master's workspace and the master passes the path to the agent that needs to rea
 `/status`, `/tools`, `/approve`, `/deny`) are answered by the channel itself, costing no model turn. A
 `telegram` block placed on another agent is ignored with a warning.
 
-Three templates available: `fullstack-developer` takes a software task end to end (scout, plan,
-code, test, self-review, commit) and may consult the other two; `kongming` is a read-only adviser
-for hard design or debugging calls — pin your strongest model in its `routes`; `researcher`
-researches any topic on the web and returns a ranked recommendation with sources. Templates use
-the home's shared workspace; `--workspace` pins that role (and the peers it brings) to one
-repository. Install via CLI or the **Đội** tab in the manage screen — web installs join the
+One template is available: `researcher` researches any topic on the web and returns a ranked
+recommendation with sources. A template uses the home's shared workspace; `--workspace` pins
+that role (and any peer it brings) to one repository. Install via CLI or the **Đội** tab in the manage screen — web installs join the
 running crew immediately; CLI installs need a server restart.
 
 ```bash
-python -m my_agent_crew agent list-templates                                  # see the three templates
-python -m my_agent_crew agent add fullstack-developer --workspace ~/src/app   # plus kongming and researcher
-python -m my_agent_crew agent add researcher                                  # just the researcher
+python -m my_agent_crew agent list-templates                          # see the bundled templates
+python -m my_agent_crew agent add researcher                          # the researcher
+python -m my_agent_crew agent add researcher --workspace ~/src/app    # pinned to one repository
 ```
 
 Edit an agent's profile (name, description, routes, tools, budget, schedules) from the **Đội** tab.
@@ -408,9 +405,9 @@ name (Tailscale MagicDNS, say), list it in `MY_AGENT_ALLOWED_HOSTS` — the 403 
 There is no login: whoever reaches the port drives the crew, `POST /api/inbound` included.
 Keep it on the machine or a private tailnet, never behind a public tunnel.
 
-Delegate as you would to a person: *"Ask fullstack-developer to add a `--version` command that prints the version from
-pyproject, with tests."* The master delegates, fullstack-developer scouts, writes, tests and reviews on its own, asking
-kongming when stuck — every delegation is a child conversation that shows right away in the manage screen, with its cost and
+Delegate as you would to a person: *"Ask researcher which SQLite full-text tokenizer handles Vietnamese best,
+with sources."* The master delegates, researcher searches, compares sources and reports back on its own —
+every delegation is a child conversation that shows right away in the manage screen, with its cost and
 step count.
 Delegation is only one level deep: a child agent does not delegate further to anyone.
 
@@ -420,7 +417,7 @@ testing a feature only takes sending a request:
 
 ```bash
 curl -s http://127.0.0.1:8765/api/inbound -H 'content-type: application/json' \
-  -d '{"text":"Nhờ kongming liệt kê thư mục làm việc rồi tóm tắt 2 câu."}'
+  -d '{"text":"Nhờ researcher liệt kê thư mục làm việc rồi tóm tắt 2 câu."}'
 # → {"conversation_id":…,"agent_id":"default","text":"…","status":"done","steps":2}
 ```
 

@@ -28,7 +28,7 @@ UNREADABLE = {
     ),
 }
 NO_AGENT_ID = ["../../out", "a/b", "/abs", "Kong Ming", "KONG", ".trash", "kong\n", "-x"]
-NO_TEMPLATE = ["../templates/kongming", "kongming/", "./kongming", "_shared_skills", ""]
+NO_TEMPLATE = ["../templates/researcher", "researcher/", "./researcher", "_shared_skills", ""]
 REVIEWER_MD = "---\nname: Reviewer\ndescription: Reads code.\n---\nYou read code.\n"
 
 
@@ -75,7 +75,7 @@ def test_a_home_that_cannot_be_read_as_a_crew_refuses_the_install_before_it_writ
     before = standing(tmp_path)
     # A workspace is made before the template is written, and nothing takes it away again:
     # one that is not there afterwards says the home was read first.
-    body = {"template": "kongming", "workspace": str(tmp_path / "repo")}
+    body = {"template": "researcher", "workspace": str(tmp_path / "repo")}
 
     refused = client.post(INSTALL, json=body)
 
@@ -86,8 +86,8 @@ def test_a_home_that_cannot_be_read_as_a_crew_refuses_the_install_before_it_writ
 
     # Nothing of the refused install is in the way once the file is put right.
     (odd / "agent.yaml").write_text("name: Odd\n", encoding="utf-8")
-    assert client.post(INSTALL, json={"template": "kongming"}).status_code == 201
-    assert sorted(runtime.agents) == ["default", "kongming", "odd"]
+    assert client.post(INSTALL, json={"template": "researcher"}).status_code == 201
+    assert sorted(runtime.agents) == ["default", "odd", "researcher"]
 
 
 @pytest.mark.parametrize("force", [False, True])
@@ -98,7 +98,7 @@ def test_an_id_that_is_no_agent_id_is_refused_and_nothing_is_written(
     """`../../out` used to land beside the home, and `a/b` two folders deep inside it."""
     client, runtime, _ = crew
     before = standing(tmp_path)
-    body = {"template": "kongming", "agent_id": agent_id, "force": force}
+    body = {"template": "researcher", "agent_id": agent_id, "force": force}
 
     refused = client.post(INSTALL, json=body)
 
@@ -110,7 +110,7 @@ def test_an_id_that_is_no_agent_id_is_refused_and_nothing_is_written(
 
 @pytest.mark.parametrize("template", NO_TEMPLATE)
 def test_a_template_is_one_of_the_bundled_ones_by_its_plain_name(crew, tmp_path, template):
-    """`../templates/kongming` used to install into the home's `templates` folder."""
+    """`../templates/researcher` used to install into the home's `templates` folder."""
     client, runtime, _ = crew
     before = standing(tmp_path)
 
@@ -126,7 +126,7 @@ def test_the_masters_id_is_taken_whatever_force_says(crew, tmp_path, force):
     """A folder by that id stopped every start after it."""
     client, runtime, _ = crew
     before = standing(tmp_path)
-    body = {"template": "kongming", "agent_id": "default", "force": force}
+    body = {"template": "researcher", "agent_id": "default", "force": force}
 
     refused = client.post(INSTALL, json=body)
 
@@ -144,7 +144,7 @@ def test_an_id_an_agent_from_a_kit_goes_by_is_taken_whatever_force_says(tmp_path
     (home / ".agents" / "agents").mkdir(parents=True)
     (home / ".agents" / "agents" / "reviewer.md").write_text(REVIEWER_MD, encoding="utf-8")
     runtime, served = serve(home)
-    body = {"template": "kongming", "agent_id": "reviewer", "force": force}
+    body = {"template": "researcher", "agent_id": "reviewer", "force": force}
 
     with served as client:
         before = standing(tmp_path)
@@ -162,7 +162,7 @@ def test_a_workspace_that_cannot_be_a_folder_is_refused_before_anything_is_writt
     before = standing(tmp_path)
 
     for workspace in (taken, taken / "under"):
-        body = {"template": "kongming", "workspace": str(workspace)}
+        body = {"template": "researcher", "workspace": str(workspace)}
         refused = client.post(INSTALL, json=body)
         assert refused.status_code == 422, refused.text
         assert "notes.txt" in refused.json()["detail"]
@@ -175,28 +175,28 @@ def test_forcing_a_bad_workspace_over_an_agent_that_runs_leaves_its_file_alone(c
     """An agent that runs is not built again, so nothing else asks whether the workspace
     can be a folder: this was a 201 whose file stopped the next start."""
     client, runtime, _ = crew
-    assert client.post(INSTALL, json={"template": "kongming"}).status_code == 201
+    assert client.post(INSTALL, json={"template": "researcher"}).status_code == 201
     taken = tmp_path / "notes.txt"
     taken.write_text("x", encoding="utf-8")
     before = standing(tmp_path)
-    body = {"template": "kongming", "workspace": str(taken), "force": True}
+    body = {"template": "researcher", "workspace": str(taken), "force": True}
 
     refused = client.post(INSTALL, json=body)
 
     assert refused.status_code == 422, refused.text
     assert standing(tmp_path) == before
-    assert sorted(runtime.agents) == ["default", "kongming"]
+    assert sorted(runtime.agents) == ["default", "researcher"]
 
 
 def test_a_workspace_that_is_not_there_yet_is_made(crew, tmp_path):
     client, runtime, _ = crew
     repo = tmp_path / "repos" / "new"
 
-    res = client.post(INSTALL, json={"template": "kongming", "workspace": str(repo)})
+    res = client.post(INSTALL, json={"template": "researcher", "workspace": str(repo)})
 
     assert res.status_code == 201, res.text
     assert repo.is_dir()
-    assert runtime.deps_for("kongming").agent.workspace == repo.resolve()
+    assert runtime.deps_for("researcher").agent.workspace == repo.resolve()
 
 
 @pytest.fixture

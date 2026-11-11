@@ -200,7 +200,7 @@ def folder_put_in_by_hand(client: TestClient, home: Path) -> dict[str, str]:
 
 
 def template_installed(client: TestClient, home: Path) -> dict[str, str]:
-    done(client.post("/api/agents/install", json={"template": "kongming"}), 201)
+    done(client.post("/api/agents/install", json={"template": "researcher"}), 201)
     return {}
 
 

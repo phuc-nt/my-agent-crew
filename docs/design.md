@@ -304,7 +304,7 @@ vì tốn thêm một lần gọi model để kể lại; agent con, từ lần 
 không còn tool (`agent/child_wrap_up.py`) để không bị trần bước cắt giữa chừng. Chi tiết:
 [agents.md](agents.md#agent-master).
 
-**Mẫu.** Ba profile đi kèm ứng dụng — một lập trình viên, một cố vấn và một nghiên cứu viên — cài bằng
+**Mẫu.** Một profile đi kèm ứng dụng — một nghiên cứu viên — cài bằng
 `agent add <id>` hoặc `POST /api/agents/install` (thứ mà tab đội gọi), kéo theo các agent
 đồng cấp mà vai đó giao việc cho và một bộ skill dùng chung. Mọi manifest đều chạy được ngay
 như khi cài (workspace chung của home, các tuyến toàn cục); `--workspace` ghim một vai vào
