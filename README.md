@@ -495,10 +495,7 @@ they appear on screen:
   jobs whose latest run failed. A command, script or memory job that keeps failing says so under
   its last run: since when, whether you were told on Telegram and when you are told again (the
   first failure at once, then at most one message every six hours, and one line when the job
-  runs again). An agent can propose its own repeating job with
-  `schedule_create`; it always waits in **Duyệt** with the verbatim prompt, the timing in words
-  and the next runs — even in an `autonomous` conversation, and no setting turns that off. An
-  approved job is stored in the database, runs without a restart and is listed here.
+  runs again).
 - **Chi phí** (costs): today and the last seven days on the viewer's calendar, then spend, tokens
   and the share of the prompt served from cache, by agent / model / day, and by purpose
   (**Theo mục đích**): every model call is on the ledger, including the side calls for titles,

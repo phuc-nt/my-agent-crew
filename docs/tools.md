@@ -88,7 +88,6 @@ System prompt liệt kê tên các tool có sẵn; model thấy JSON schema củ
 | `wiki_search` | không | 8 kết quả | tìm trong tiêu đề và nội dung của vault, khớp nhất trước, dạng `[slug] text` |
 | `wiki_apply` | không | — | ghi hoặc cập nhật một trang; từ chối trang không có `sources`, và không bao giờ chạm vào khối link do compile sở hữu |
 | `shell_run` | **có** | mặc định 120 s, tối đa 900 s | chạy một lệnh trong workspace, trả về stdout+stderr |
-| `schedule_create` | **có, luôn luôn** | tối đa 20 lịch mỗi agent, prompt ≤ 2000 ký tự | đề xuất một lịch chạy lặp lại; luôn dừng chờ người duyệt, xem [Đề xuất lịch chạy](#đề-xuất-lịch-chạy) |
 | `skill_read` | không | — | trả về toàn văn một skill theo tên, mở đầu bằng cảnh báo khi skill cần một lệnh máy này không có, xem [agents.md](agents.md#skill) |
 | `image_read` | không | 8 MB; jpg, png, webp, gif | gửi một ảnh từ workspace hoặc home của đội (nơi `inbox/` giữ những gì Telegram chuyển tới) vào chuỗi `vision_routes` kèm một `question` và trả về câu trả lời, xem [Ảnh](#ảnh); chỉ có khi đã cấu hình vision route |
 | `pdf_read` | không | 50 trang, `pages` chọn một cửa sổ; áp dụng trần đầu ra của agent | đọc một PDF từ workspace hoặc home của đội; trang có chữ sắp sẵn trả về dạng văn bản, trang scan đi qua chuỗi vision, xem [PDF](#pdf) |
@@ -991,42 +990,6 @@ Nó khác mọi tool khác ở ba điểm:
 Ghi chú không phải trí nhớ. Nó sống trên run và chết cùng run, nên không gì viết ở đây tới được
 cuộc trò chuyện kế tiếp — đó là việc của `memory_save`.
 
-### Đề xuất lịch chạy
-
-`schedule_create` là cách agent tự đề xuất một việc lặp lại thay vì chờ người sửa
-`agent.yaml` bằng tay. Nó nhận `name`, `prompt`, đúng một trong `cron` hoặc `every`, và
-`skills` tuỳ chọn. Không có tham số `agent`: lịch luôn thuộc agent gọi tool, kể cả master —
-lập lịch cho agent khác vẫn phải qua `agent.yaml`. Tool chỉ dùng khi người muốn việc lặp lại;
-một việc chạy một lần không cần lịch nào cả.
-
-Nó khác mọi tool khác ở một điểm duy nhất nhưng tuyệt đối: **nó luôn dừng chờ người duyệt,
-kể cả trong cuộc trò chuyện `autonomous`, kể cả khi tool nằm trong `auto_approve`, kể cả khi
-nó nằm trong allow-list của agent.** Luật này nằm trong code (`Tool.ask_reason`, xem
-[design.md](design.md#scheduler)), không phải cấu hình, và không công tắc
-nào trong `agent.yaml` hay `config.yaml` tắt được nó — tạo một lượt chạy không người trông
-trong tương lai là đúng loại việc mà duyệt tồn tại để chặn. Thẻ duyệt mang nguyên văn prompt
-sẽ chạy, lịch viết ra lời (ví dụ "Mỗi ngày 07:00"), ba lần chạy kế tiếp (với `every` chỉ là giờ
-ước chừng, vì khoảng lặp tính từ lúc duyệt), skill đi kèm và một câu nói rõ: sau khi duyệt, mỗi
-lần chạy là một lượt agent tự dùng tool mà không hỏi từng bước. Nút "Luôn cho phép" bị ẩn trên
-mọi thẻ có reason, thẻ này cũng như thẻ lệnh shell khớp mẫu hỏi: bấm nó không bỏ được lần hỏi
-ấy — luật hỏi luôn đứng trên `auto_approve` — mà chỉ lặng lẽ miễn duyệt các lời gọi khác của
-cùng tool. Nếu tool không dựng nổi reason (rỗng, hoặc lỗi giữa chừng) thì cổng vẫn dừng chờ
-người, thẻ khi đó chỉ ghi tên tool, và lượt không bị đổ.
-
-Giới hạn kiểm trước khi ra thẻ và kiểm lại lúc chạy: `every` từ 15 phút tới 366 ngày, hai lần
-chạy liền nhau của `cron` cũng phải cách nhau ít nhất 15 phút, cron dài tối đa 100 ký tự và
-phải có lần chạy trong vòng 366 ngày, tên (tối đa 60 ký tự) và prompt (tối đa 2000 ký tự) không
-được rỗng, `skills` là danh sách tên skill có thật (một tên đứng riêng được hiểu là một skill,
-tên lặp chỉ tính một lần), và tối đa 20 lịch tạo từ chat cho mỗi agent. Đề xuất sai, hay agent
-đã có đủ 20 lịch, vẫn ra một thẻ duyệt trung thực: reason của thẻ khi đó là chính lời báo lỗi.
-Trần được kiểm lại một lần nữa lúc chạy, vì giữa lúc ra thẻ và lúc duyệt có thể có một lịch
-khác vừa được duyệt.
-
-Lịch được duyệt lưu trong DB, không phải `agent.yaml`, nên chạy ngay không cần khởi động lại
-và sống qua lần khởi động lại kế tiếp; xem [Lịch](agents.md#lịch) để biết nó đứng cạnh lịch
-YAML thế nào và xoá ra sao. Agent có allow-list `tools:` riêng cần được thêm `schedule_create`
-vào danh sách đó mới dùng được; master không có allow-list nên có tool này ngay.
-
 ### Canvas
 
 Canvas là tài liệu có phiên bản đi cạnh cuộc trò chuyện, người và agent cùng sửa. Mục này là
@@ -1434,7 +1397,7 @@ print(len(pages), "trang,", len(late), "quá hạn:", ", ".join(late))
     `user_memory_save`, `user_memory_forget`, `wiki_apply`, các tool ghi canvas
     (`artifact_create`, `artifact_edit`, `artifact_rewrite`, `artifact_import`,
     `artifact_export`) và tool MCP không nằm trong `read_only`, ở mọi mức mở. Vẫn ở ngoài:
-    `ask_user` và `schedule_create` (hai tool luôn chờ
+    `ask_user` (tool luôn chờ
     một người, dù cuộc trò chuyện cho phép gì; script được nói "luôn phải hỏi người dùng nên
     không gọi được từ script"), năm tool ở bullet "Script gọi được gì" (trừ `delegate` trong lượt
     của chính agent, bullet "Giao việc từ script"), bốn tên của `tools`, và

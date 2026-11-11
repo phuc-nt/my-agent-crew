@@ -109,7 +109,6 @@ Gói `tools/` giữ danh sách tool mà agent được dùng (`tools:` trong `ag
 | Workspace | `workspace_list`, `workspace_read`, `workspace_glob`, `workspace_grep` | không |
 | Workspace | `workspace_write`, `workspace_edit` | có |
 | Shell | `shell_run` (cwd = workspace, có `shell_ask_patterns` và `shell_deny_patterns`; `shell_network: false` hoặc `shell_write_paths` thì chạy trong `sandbox-exec` (Linux: `bwrap`), chỉ ghi dưới các đường dẫn đó, không mạng nếu `shell_network: false`) | có |
-| Lịch | `schedule_create` (đề xuất một job prompt lặp lại) | **luôn luôn**, không cấu hình nào tắt được |
 | Web | `fetch_url`, `web_search` | không |
 | Trình duyệt | `browser_snapshot`, `browser_text`, `browser_tabs`, `browser_screenshot`, `browser_pdf` (chỉ agent có khoá `browser`) | không |
 | Trình duyệt | `browser_navigate`, `browser_act`, `browser_download` (`browser_act` và `browser_download` chỉ khi `browser: act`) | có; host trong `browser_hosts` thì `browser_navigate` không hỏi, còn host ngoài danh sách, tên phần tử mang từ như "thanh toán", hay một lần tải tệp lên thì hỏi cả khi autonomous |
@@ -185,7 +184,7 @@ Gói `llm/` nói chuyện với OpenRouter (và Anthropic khi có `ANTHROPIC_API
 
 ### 2.6 Scheduler
 
-`scheduler/` đọc `schedules:` của mọi agent, mỗi phút kiểm tra cron, đến hạn thì tạo một job run: một cuộc trò chuyện autonomous với prompt (hoặc lệnh kit) định sẵn, hoặc một script chạy mà không mở lượt nào của agent, trừ khi nó in ra gì đó và lịch có `then_prompt` (xem [agents.md](agents.md#job-chạy-script)). Trạng thái job lưu ở bảng `job_state`, xem ở `/api/jobs`. Ngoài `agent.yaml`, một job có thể tới từ bảng `created_schedules` — agent tự đề xuất qua tool `schedule_create`, người duyệt nguyên văn prompt, rồi job chạy ngay không cần khởi động lại (`origin: "chat"` trên job, đối lập `origin: "profile"`); xem [design.md](design.md#scheduler) và [tools.md](tools.md#đề-xuất-lịch-chạy).
+`scheduler/` đọc `schedules:` của mọi agent, mỗi phút kiểm tra cron, đến hạn thì tạo một job run: một cuộc trò chuyện autonomous với prompt (hoặc lệnh kit) định sẵn, hoặc một script chạy mà không mở lượt nào của agent, trừ khi nó in ra gì đó và lịch có `then_prompt` (xem [agents.md](agents.md#job-chạy-script)). Trạng thái job lưu ở bảng `job_state`, xem ở `/api/jobs`. Lịch chỉ đến từ `agent.yaml`: muốn thêm, đổi hay bỏ một job thì sửa agent.
 
 Cùng vòng đời với scheduler, `server/housekeeping.py` chạy một vòng quét mỗi ngày (ngay khi khởi động, rồi mỗi 24 giờ, ngoài event loop) xoá tệp trong `spill/` cũ hơn 7 ngày; một lần quét lỗi chỉ được ghi log, vòng vẫn chạy tiếp. Xem [tools.md](tools.md#đọc-lại-đầu-ra-dài).
 

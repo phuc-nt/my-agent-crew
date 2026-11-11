@@ -36,10 +36,9 @@ class Allowed(Protocol):
 
 
 def _tool_ask_reason(deps: AgentDeps, name: str, arguments: dict[str, Any]) -> str | None:
-    """A tool that must always stop for a person says so itself: `schedule_create` is the
-    first of these. Returned verbatim, never wrapped — the caller reads the tool's own
-    words as-is, since no fixed pattern name applies here the way `SHELL_ASK_REASON` names
-    one for shell.
+    """A tool that must always stop for a person says so itself (`ask_reason`). Returned
+    verbatim, never wrapped — the caller reads the tool's own words as-is, since no fixed
+    pattern name applies here the way `SHELL_ASK_REASON` names one for shell.
 
     Fails closed: a reason that comes back empty, or a tool that crashes while writing it,
     still stops for a person — named by the tool alone — rather than letting the call

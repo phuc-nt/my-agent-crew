@@ -23,11 +23,11 @@ describe("DeleteAgent", () => {
     const lost = screen.getByTestId("delete-agent-lost");
     expect(lost).toBeVisible();
     expect(lost).toHaveTextContent(vi.editor.deleteLost);
-    // The two things the server drops with the agent, and the two it keeps.
-    for (const named of [/lịch nó được tạo từ chat/, /bật\/tắt của từng lịch/]) {
-      expect(vi.editor.deleteLost).toMatch(named);
-    }
-    expect(vi.editor.deleteLost).not.toMatch(/script/);
+    // The one thing the server drops with the agent, and the two it keeps: its schedules
+    // are lines of the file, which the folder in .trash still holds.
+    expect(vi.editor.deleteLost).toBe(
+      "Xoá hẳn, không lấy lại được: trạng thái bật/tắt của từng lịch. Hội thoại và lịch sử run vẫn giữ nguyên.",
+    );
     expect(vi.editor.deleteLost).toMatch(/^Xoá hẳn, không lấy lại được:/);
     expect(vi.editor.deleteLost).toMatch(/Hội thoại và lịch sử run vẫn giữ nguyên\.$/);
     // It stands between the hint and the box, so it is read before the id is typed.

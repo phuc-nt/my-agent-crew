@@ -1610,75 +1610,30 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("shows a 'Trong nội dung' section once the debounced content search answers", "never
     calls the content search API without an agentName", "keeps the row list's own 'no
     matches' message off when a title misses but content still hits")
-- **Agent đề xuất lịch chạy qua `schedule_create`, người duyệt nguyên văn prompt**
+- **Lần chạy kế tiếp của một cron; lịch chỉ đến từ tệp, tool có lý do riêng thì luôn hỏi**
   - pytest: `tests/test_cron_next_after.py` (`next_after` nhảy so với một bản quét từng phút viết
     riêng trong test, trên khoảng 30 biểu thức cron × 9 mốc bắt đầu; không có lần chạy nào trong 366
     ngày trả `None`; ngày-trong-tháng và thứ vẫn là AND qua một ca 29/2 rơi vào thứ Hai; kết quả
-    luôn sau mốc bắt đầu kể cả khi mốc đó đã tròn phút); `tests/test_schedule_words.py` (đọc lịch
-    bằng lời y hệt từng ca của `lib/cron-text.test.ts`: hằng ngày, một khoảng thứ, cuối tuần, một
-    danh sách thứ, ngày-trong-tháng, mỗi phút/giờ và bước `*/N` chia hết chu kỳ; một dạng không nằm
-    trong các ca trên, kể cả bước không chia hết giờ hay ngày, trả về nguyên văn cron hoặc `every`);
-    `tests/test_schedule_proposal.py::TestRejections` (mỗi phút, mỗi 5 phút, cron không có lần chạy
-    trong hạn, `every` dưới 15 phút hay dài hơn 366 ngày, một `every` khổng lồ bị từ chối bằng lời
-    thay vì tràn `timedelta`, `every` sai dạng báo lỗi bằng tiếng Việt, thiếu hoặc thừa cả `cron`
-    lẫn `every`, cron sai hay dài quá 100 ký tự, tên hoặc prompt rỗng hay quá dài, `skills` không
-    phải danh sách, skill không có thật đều bị từ chối); `::TestAcceptance` (`*/15`, cron hằng ngày,
-    `every 15m`, `every 30d`, cron hằng năm đều được chấp nhận; một tên skill đứng riêng là một
-    skill chứ không phải từng chữ cái; skill lặp chỉ giữ một, đúng thứ tự; đúng bằng từng giới hạn —
-    cron dài đúng 100 ký tự, `every 366d`, tên 60 và prompt 2000 ký tự — vẫn được chấp nhận);
-    `::TestUpcoming` (ba lần chạy kế tiếp của cron, dừng sau một lần khi lần đầu đã xa hơn hạn,
-    `every` là `now + k`×chu kỳ); `::TestReasonLine` (`reason_line` là đúng từng dòng: tên, lịch
-    bằng lời, ba lần chạy, nguyên văn prompt, lời cảnh báo; thẻ `every` ghi giờ là "khoảng", thẻ
-    cron thì không; cron dài nhất hợp lệ vẫn chỉ liệt kê ba lần chạy; đề xuất sai có reason đúng
-    bằng lời báo lỗi; không bao giờ rỗng và không vượt trần ký tự Telegram dù là cron hằng năm);
-    `test_min_gap_minutes_documented_cases` và
-    `test_min_gap_minutes_is_a_lower_bound_that_only_under_rejects` (khoảng cách hai lần chạy liền
-    nhau của cron là cận dưới, chỉ có thể từ chối thừa);
-    `tests/test_schedule_create.py::TestAlwaysAsks` (`ask_reason` không bao giờ rỗng cho tool này;
-    `needs_decision` vẫn đúng dù cuộc trò chuyện `autonomous`, dù tool nằm trong `auto_approve`; một
-    lượt không người trông vẫn dừng dù mọi cổng khác đã cho qua; đề xuất sai dạng có reason đúng
-    bằng lời báo lỗi, không phải tên tool trơ trọi; những tham số từng làm đổ thẻ — `skills` là số,
-    `every` khổng lồ, tên rỗng — vẫn dừng chờ người kèm reason; một tool trả reason rỗng hoặc lỗi
-    khi dựng reason (lỗi số học hay lỗi tra khoá) vẫn dừng chờ người, không đổ lượt; reason không bị
-    bọc bởi câu dành cho lệnh shell); `::TestUnattendedProposalExpires` (job prompt tự đề xuất lịch
-    mà không ai duyệt thì approval hết hạn và không để lại dòng DB); `::TestApprovalToRun` (duyệt
-    xong có dòng, `describe()` hiện `origin=chat`, đồng hồ giả tiến tới hạn thì `run_job` chạy mà
-    không cần khởi động lại `Scheduler`, `jobs()` cũng có job đó; một `Scheduler` mới trên cùng CSDL
-    vẫn thấy dòng đó; tạm dừng qua `job_state` khiến `due` không chọn job chat);
-    `::TestDenialAndLimits` (từ chối thì không có dòng, vượt trần 20 thì lỗi, hai lần `add` chạy đua
-    ở biên trần chỉ một cái qua; trần và số đếm tính riêng từng agent; bị từ chối ở trần không để
-    transaction treo, CSDL vẫn ghi tiếp được; các dòng trả về đúng thứ tự thêm dù cùng một giây;
-    agent đã đủ trần thì thẻ duyệt báo ngay điều đó mà vẫn dừng chờ người, và trần đã đủ của agent
-    khác không tính; thiếu một lịch mới tới trần vẫn ra thẻ đầy đủ; tool báo đủ trần bằng lời và
-    không lưu gì); `::TestOwnershipAndSkills` (tool không có tham số `agent`, dòng luôn mang
-    `agent_id` của người gọi; skill không có bị từ chối; skill bị xoá sau khi lịch đã tạo không chặn
-    job chạy, dòng chat thành job prompt mang đúng tên, cron, prompt; `run` lưu dòng dưới `agent_id`
-    của người gọi — tham số `agent` lạc bị bỏ qua — đúng cuộc trò chuyện của lượt, đúng skill, và
-    trả lời kèm lần chạy kế tiếp); `::TestAssembly` (agent nào cũng có tool này, gắn đúng id và danh
-    sách skill của chính agent đó); `::TestOrphanRowsAndConcurrentDescribe` (dòng của agent đã bị gỡ
-    không xuất hiện trong `describe()`; gọi `describe()` từ thread pool trong lúc luồng khác
-    `add`/`remove` không lỗi và cho kết quả nhất quán); `::TestDeleteRoute` (xoá bỏ đúng dòng
-    `created_schedules` và `job_state`, giữ nguyên lịch sử run; id không có hay id của agent khác
-    báo không xoá gì; qua HTTP trả 204 và xoá luôn trạng thái tạm dừng của job, 409 cho job
-    `origin=profile`, 404 khi không có; xoá được cả dòng mồ côi); `::TestTelegramCardLength` (thẻ
-    duyệt Telegram mang nguyên văn prompt và không vượt 4096 ký tự kể cả ở ca prompt dài nhất với
-    cron hằng năm); `test_existing_shell_ask_pattern_gate_is_unaffected` (cổng hỏi của lệnh shell
-    hiện có không đổi kết quả sau khi thêm `ask_reason`)
-  - vitest: `components/jobs-panel.test.tsx` ("labels a chat-origin row and leaves a profile row
-    unlabelled", "offers no delete button for a profile job even when onDelete is supplied",
-    "deletes a chat job once the confirm dialog is accepted", "keeps the job when the confirm dialog
-    is declined", "offers no edit button on a chat job, whose schedule is not in the profile
-    editor"); `app.test.tsx` ("withholds always-allow on a proposed schedule / a shell command
-    on the ask list, which stopped for a reason, and shows that reason": thẻ có reason hiện đủ từng
-    dòng reason, có nút Duyệt nhưng không có "Luôn cho phép"; thẻ không reason vẫn có nút đó, theo
-    "always-allows a tool from the approval bar, shows it in the header and revokes it");
-    `app-activity.test.tsx` ("deletes a chat-created job from the jobs tab and keeps the profile
-    one": trên toàn app, nút xoá chỉ có ở job chat, bấm xác nhận thì gửi đúng một DELETE, dòng biến
-    mất, job profile còn nguyên)
-  - Playwright: `e2e/manage-smoke.spec.ts`
-    "a schedule is added from the jobs list through the agent's editor" (không đổi assertion,
-    chỉ sửa `e2e/mock-api.ts` để một spec giữ tham chiếu tới cùng mảng `jobs` nó truyền vào
-    `mockApi` thấy được cả việc thêm bằng `push` lẫn việc xoá qua route DELETE mới)
+    luôn sau mốc bắt đầu kể cả khi mốc đó đã tròn phút);
+    `tests/test_server_agents_activity_jobs.py`
+    (`test_the_jobs_are_the_ones_the_files_state_and_none_is_deleted_over_http`: một database cũ
+    còn bảng `created_schedules` với một dòng thì bảng và dòng ấy nằm nguyên, dòng đó không đưa
+    job nào lên đồng hồ, job trả về không mang khoá `origin`, và `DELETE /api/jobs/{id}` là 405;
+    `test_a_new_database_has_no_table_of_schedules_made_in_a_conversation`: tệp mới không có bảng
+    ấy); `tests/test_tool_list_warnings.py`
+    (`test_an_agent_that_still_lists_the_tool_that_proposed_schedules_starts_without_it`: agent
+    còn ghi `schedule_create` trong `tools` vẫn khởi động, không có tool đó, và log cảnh báo tên
+    lạ); `tests/test_tool_gate_conditional.py`
+    (`test_a_tool_that_always_gives_a_reason_asks_for_every_call`: tool khai `ask_reason` thì hỏi
+    dù cuộc trò chuyện `autonomous` và tool nằm trong `auto_approve`, lý do hiện nguyên văn;
+    `test_a_tool_whose_own_reason_is_empty_or_crashes_still_asks`: lý do rỗng hay lỗi khi dựng
+    lý do, lỗi số học cũng như lỗi tra khoá, vẫn dừng chờ người với tên tool làm lý do)
+  - vitest: `components/jobs-panel.test.tsx` ("offers no way to take a job away from its row":
+    mỗi dòng chỉ có nút chạy ngay, sửa và xem lịch sử); `app.test.tsx` ("withholds always-allow
+    on a tool that gave a reason of its own / a shell command on the ask list, which stopped
+    for a reason, and shows that reason": thẻ có reason hiện đủ từng dòng reason, có nút Duyệt
+    nhưng không có "Luôn cho phép"; thẻ không reason vẫn có nút đó, theo "always-allows a tool
+    from the approval bar, shows it in the header and revokes it")
 - **Đọc lại đầu ra tool đã bị rút ngắn (`tool_output_read`), spill và dọn dẹp**
   - pytest: `tests/test_output_spill.py` (ghi và đọc tệp, trần 5 MB cắt đúng ranh giới ký tự
     nên tệp vẫn đọc được UTF-8, tên tệp băm từ id, id hội thoại lạ bị từ chối, quét không theo
@@ -5836,8 +5791,7 @@ khi chạy; phần đó có mục riêng ở dưới.
     lạ bị từ chối 422 trước khi ghi tệp, khi sửa cũng như khi tạo, boolean thì được dặn thêm chữ
     phải viết). `none` lấy gì của agent thì ở mục "Công tắc script theo agent" bên dưới.
   - pytest: `tests/test_script_gated_scope.py` (script như thế gọi được tool có ghi và tool phải
-    hỏi trước; đúng hai tool luôn chờ người, `ask_user` và `schedule_create`, đứng ngoài dù chúng
-    khai kiểu nào; năm tool không script nào gọi và bốn tên của `tools` vẫn đứng ngoài; tool ghi
+    hỏi trước; tool duy nhất luôn chờ người, `ask_user`, đứng ngoài dù nó khai kiểu nào; năm tool không script nào gọi và bốn tên của `tools` vẫn đứng ngoài; tool ghi
     của máy chủ MCP là của script trừ khi chủ để `hidden`, và tool không gọi được thì được chỉ
     đường tới nó; danh sách giữ thứ tự agent đang giữ; `tools.names`, `tools.search`,
     `tools.describe` và gợi ý tên gần đúng thấy cả tool ghi, chỉ ở agent đã bật; `describe` nói
@@ -5936,25 +5890,24 @@ khi chạy; phần đó có mục riêng ở dưới.
 - **Agent bị xoá mang lịch của nó đi cùng; job đến giờ mà không còn agent thì bị bỏ qua**:
   - pytest: `tests/test_scheduler_agent_removed.py` (trên một home có master, hai agent yaml mà
     id của agent ở lại bắt đầu bằng id của agent bị xoá và hai job trùng tên, cùng một agent
-    của kit: xoá agent thì job khai trong tệp của nó rời đồng hồ và `GET /api/jobs` ngay, lịch
-    tạo từ chat và mọi công tắc bật/tắt của job của nó mất khỏi database, của agent kia còn
+    của kit: xoá agent thì job khai trong tệp của nó rời đồng hồ và `GET /api/jobs` ngay, mọi
+    công tắc bật/tắt của job của nó mất khỏi database, của agent kia còn
     nguyên, chạy tay job ấy là 404; id được so như chữ, nên `a_b` không lấy gì của `axb`,
     `A_B`, `a_b-two` hay `a_`; job đến giờ mà agent không còn trong đội thì bị bỏ qua, job đứng
     sau nó trong nhịp vẫn chạy, và qua hai nhịp chỉ có một dòng log nêu tên job; agent bị xoá
-    giữa lúc một job trước đó của nhịp đang chạy cũng không chặn job nào, với agent yaml bị xoá
-    qua API cũng như với agent của kit rời đội khi đang giữ một lịch từ chat; agent của kit
+    giữa lúc một job trước đó của nhịp đang chạy cũng không chặn job nào; agent của kit
     không xoá được qua API (409) và giữ nguyên lịch và công tắc của nó; nạp lại sau khi thư mục
     của một agent bị dời đi không để lại trên đồng hồ job nào của agent không còn trong đội; kết
     quả của một run mà agent đã rời đội không được gửi cho ai và không ném lỗi; agent tạo lại
     dưới id vừa xoá không có job nào trên đồng hồ, không dòng nào trong database, và nhịp kế chỉ
-    chạy job của các agent khác). Kiểm chứng đột biến: mười lăm sửa đổi (xoá agent không báo
-    đồng hồ, không bỏ job khai trong tệp, không xoá lịch từ chat, không xoá công tắc, chọn job
-    theo chữ đầu của id thay vì theo agent, xoá lịch từ chat không kèm điều kiện, so id bằng
-    `LIKE` ở cả hai bảng, bỏ dấu `/` sau id, bỏ phép kiểm ở nhịp, giữ job trên đồng hồ sau khi
+    chạy job của các agent khác). Kiểm chứng đột biến lúc viết test: các sửa đổi (xoá agent không báo
+    đồng hồ, không bỏ job khai trong tệp, không xoá công tắc, chọn job
+    theo chữ đầu của id thay vì theo agent, so id bằng
+    `LIKE`, bỏ dấu `/` sau id, bỏ phép kiểm ở nhịp, giữ job trên đồng hồ sau khi
     đã báo, hạ dòng log xuống mức gỡ lỗi, và hai sửa đổi để lần gửi kết quả tra thẳng agent)
     đều bị test bắt.
   - Vitest: `components/agent-editor/delete-agent.test.tsx` (hộp xoá agent nói, trước ô gõ id,
-    thứ thư mục trong `.trash` không mang về: lịch nó được tạo từ chat và trạng thái bật/tắt của
+    thứ thư mục trong `.trash` không mang về: trạng thái bật/tắt của
     từng lịch, không nhắc gì tới script; hội thoại và lịch sử run được nêu là giữ nguyên).
 - **Lịch trong tệp lên đồng hồ ngay khi lưu; không lần lưu nào đòi khởi động lại**:
   - pytest: `tests/test_profile_schedules_live.py` (qua API, trên một home có một agent yaml, đồng
@@ -6097,7 +6050,7 @@ khi chạy; phần đó có mục riêng ở dưới.
     tới nơi; hết câu hỏng khi job đã chạy lại được; câu trả lời của lần đọc hỏi trước mà về sau
     không đè lên lần đọc hỏi sau; lần đọc mà luồng đòi bị hỏng thì màn nói không đọc được danh
     sách, không vẽ một danh sách rỗng; công tắc tạm dừng vừa gạt không bị một lần đọc hỏi trước
-    đó mà về sau gạt ngược lại; dòng lịch tạo từ chat vừa xoá không trở lại vì lần đọc ấy; công
+    đó mà về sau gạt ngược lại; công
     tắc hiện theo chính câu trả lời của server trước khi danh sách được đọc lại; sau lần gạt,
     danh sách được đọc lại nên điều mà lần đọc bị bỏ mang về không mất).
   - Playwright: `jobs-list-smoke.spec.ts` ("a job that keeps failing says since when and what
@@ -6994,7 +6947,7 @@ mất có mặt ngay ở lần gọi model kế tiếp ([agents.md](agents.md#ma
     trên máy mang `[thiếu: …]` đứng trước mô tả nên phép cắt 80 ký tự không làm mất nó, kể đủ mọi
     lệnh thiếu, và skill đủ lệnh thì không mang gì; chỉ job đang bật
     và không phải job gom trí nhớ được kể, bật tắt là thấy ngay; job không tên được kể bằng id; job
-    tạo từ chat có ngay khi tồn tại và job của master không bị kể dưới agent khác; job tạo từ chat
+    của master không bị kể dưới agent khác; job
     với tên có xuống dòng chỉ thêm đúng một dòng vào prompt của master, không dựng được dòng agent
     hay dòng công cụ giả; model là tuyến
     đầu, model leo thang chỉ được kể khi tuyến đó dùng được; máy chủ agent nêu tên, kể cả nêu hai

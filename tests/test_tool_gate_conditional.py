@@ -108,6 +108,28 @@ def test_a_tool_that_crashes_deciding_whether_to_ask_still_asks(deps_factory):
     assert ask_reason_text(deps, NAME, NEXT) == NAME
 
 
+def test_a_tool_that_always_gives_a_reason_asks_for_every_call(deps_factory):
+    deps, said = gate_of(deps_factory, ask_reason=lambda arguments: REASON)
+
+    assert said(NEXT, autonomous=True) == ASK
+    always = deps.store.update(deps.store.create(autonomous=True).id, auto_approve=(NAME,))
+    assert verdict(deps, always, NAME, NEXT) == ASK
+    assert ask_reason_text(deps, NAME, NEXT) == REASON
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [lambda arguments: "", lambda arguments: 1 / 0, lambda arguments: arguments["missing"]],
+    ids=["empty", "arithmetic-error", "lookup-error"],
+)
+def test_a_tool_whose_own_reason_is_empty_or_crashes_still_asks(deps_factory, reason):
+    deps, said = gate_of(deps_factory, ask_reason=reason)
+
+    always = deps.store.update(deps.store.create(autonomous=True).id, auto_approve=(NAME,))
+    assert verdict(deps, always, NAME, NEXT) == ASK
+    assert ask_reason_text(deps, NAME, NEXT) == NAME
+
+
 def test_a_routine_call_runs_in_a_conversation_that_is_supervised(deps_factory):
     _, said = gate_of(deps_factory, allow_when=routine_on_next)
 

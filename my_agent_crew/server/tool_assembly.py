@@ -32,7 +32,6 @@ from my_agent_crew.tools.output_spill import READ_TOOL, Spill
 from my_agent_crew.tools.output_summary import chain_summariser
 from my_agent_crew.tools.pdf import build_pdf_tool
 from my_agent_crew.tools.progress_note import build_progress_note_tool
-from my_agent_crew.tools.schedule_create import build_schedule_create_tool
 from my_agent_crew.tools.shell import build_shell_tool
 from my_agent_crew.tools.skills import build_skill_tools
 from my_agent_crew.tools.web import build_web_tools
@@ -142,11 +141,6 @@ def assemble(
         # Registered whether or not there is a vision chain: a typeset PDF reads fine
         # without one, and only a scanned page needs to say it could not.
         build_pdf_tool((profile.workspace, profile.settings.home), pages),
-        # Proposing a schedule is gated by `ask_reason`, which always stops for a person.
-        # An agent with a `tools:` allow list still needs the name listed to have it.
-        build_schedule_create_tool(
-            store, profile.id, tuple(skill.name for skill in skills), profile.settings.now
-        ),
         # A canvas keeps every version, so no tool that writes one asks first; only
         # `artifact_export` does, which writes over a workspace file. A page and a diff are
         # sized to the same cap the registry below cuts at.

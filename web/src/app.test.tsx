@@ -162,7 +162,7 @@ describe("App", () => {
   });
 
   it.each([
-    ["a proposed schedule", "schedule_create", "Đề xuất lịch: Uống nước\nLịch: Mỗi ngày 07:00 (0 7 * * *)\nNguyên văn sẽ chạy:\nNhắc tôi uống nước."],
+    ["a tool that gave a reason of its own", "browser_act", "Nút có chữ \"Thanh toán\"\nTrang: shop.example"],
     ["a shell command on the ask list", "shell_run", "khớp mẫu cần duyệt: `rm -rf`"],
   ])("withholds always-allow on %s, which stopped for a reason, and shows that reason", async (_what, tool, reason) => {
     // Always-allowing the tool would not waive a pause that a reason caused; it would only let

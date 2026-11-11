@@ -21,7 +21,7 @@ const coach: AgentInfo = {
 };
 const briefJob: JobInfo = {
   ...coach.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach",
-  next_run: null, last_run: null, running: false, paused: false, origin: "profile",
+  next_run: null, last_run: null, running: false, paused: false,
 };
 
 let backend: FakeBackend;

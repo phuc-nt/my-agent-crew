@@ -426,37 +426,23 @@ bỏ khi một job trước nó đang chạy thì bị bỏ qua và nhịp sau x
 thứ người dùng vừa sửa đi. Quy tắc đầy đủ ở
 [agents.md](agents.md#lịch-trong-tệp-lên-đồng-hồ-ngay-khi-lưu).
 
-**Lịch từ chat.** Bên cạnh lịch viết tay trong `agent.yaml`, tool `schedule_create`
-(`origin: "chat"` trên job, đối lập `origin: "profile"`) cho agent tự đề xuất một job prompt
-lặp lại; chi tiết tool ở [tools.md](tools.md#đề-xuất-lịch-chạy). Lịch loại này sống trong
-bảng `created_schedules`, không phải `agent.yaml`, vì yaml thuộc home mà phiên khác quản lý và
-một tệp yaml ghi ngoài đường lưu của web thì đội đang chạy không đọc lại — id có tiền tố `chat-` nên không bao giờ trùng id viết tay. `Scheduler`
-không giữ một bảng job trong bộ nhớ cho nguồn này; nó dựng lại `{job từ profile} ∪ chat_jobs(DB)`
-mỗi lần `jobs()`, `describe()`, `due()` hay `get()` cần, vì bảng trong bộ nhớ phải được cập
-nhật cả từ tool (chạy trước khi `Runtime`/`Scheduler` tồn tại) lẫn từ route job (đồng bộ, chạy
-trong thread pool) trong khi `tick` chạy trong event loop — hai luồng cùng sửa một cấu trúc tại
-chỗ là đua dữ liệu, còn dựng lại từ DB mỗi lần thì không. Hệ quả: mốc "lần cuối" của một lịch
-mới là lúc scheduler thấy nó lần đầu, nên lần chạy rơi vào khoảng 20 giây đầu (một nhịp tick)
-có thể bị lỡ; khởi động lại không làm mất lịch vì mọi thứ đã ở DB. Xoá qua
-`DELETE /api/jobs/{id:path}` bỏ dòng `created_schedules` và `job_state` liên quan, giữ nguyên
-lịch sử run, và không đi qua `Scheduler` để dòng mồ côi (agent gọi nó đã bị gỡ) vẫn xoá được;
-xoá một job có nguồn `profile` bị từ chối với 409, vì nó là một dòng của `agent.yaml`: muốn bỏ
-thì lưu agent không còn dòng đó, còn gỡ riêng khỏi đồng hồ thì lần khởi động sau nó lại hiện ra.
+**Lịch chỉ đến từ tệp.** Mọi job là một dòng `schedules` trong `agent.yaml` của agent. Agent
+không tự tạo lịch từ cuộc trò chuyện, và API không có đường xoá job: muốn bỏ một job thì lưu
+agent không còn dòng đó. Database của một home từng chạy bản cũ có thể còn bảng
+`created_schedules`; bảng được để nguyên, không ai tạo hay đọc nó nữa, nên các dòng trong đó
+không lên đồng hồ.
 
-**Duyệt luôn luôn cho lịch chạy.** Tạo một lịch nghĩa là agent tự cho mình một lượt chạy
-trong tương lai không ai trông chừng — đúng loại việc mà duyệt tồn tại để chặn — nên
-`schedule_create` phải dừng chờ người ngay cả khi mọi cơ chế miễn duyệt khác đều cho qua:
-cuộc trò chuyện `autonomous`, tool nằm trong `auto_approve`, hay tool nằm trong allow-list của
-agent. `Tool` có trường `ask_reason: Callable[[dict], str] | None`; khi khác `None`,
+**Tool tự khai lý do phải hỏi.** Một tool có thể buộc mọi lời gọi của nó dừng chờ người
+ngay cả khi mọi cơ chế miễn duyệt khác đều cho qua: cuộc trò chuyện `autonomous`, tool nằm
+trong `auto_approve`, hay tool nằm trong allow-list của agent. Hiện không tool có sẵn nào
+dùng tới nó; các tool trình duyệt dùng anh em của nó là `ask_when`, chỉ hỏi ở một số lời gọi.
+`Tool` có trường `ask_reason: Callable[[dict], str] | None`; khi khác `None`,
 `tool_gate.ask_reason_for`/`ask_reason_text` trả nguyên văn kết quả của nó trước khi xét tới
 allow-list, autonomy hay `auto_approve`, và luật 2 của `needs_decision`
 (`if reason: return True`) khi đó luôn đúng. Cổng đóng khi lỗi: reason rỗng, hay tool ném lỗi
 giữa lúc dựng reason, vẫn dừng chờ người — thẻ khi đó chỉ ghi tên tool — thay vì để lời gọi
-lọt qua cổng hay làm đổ cả lượt. Không có hằng số kiểu `ALWAYS_ASK`, không import
-`scheduler` vào `agent/tool_gate.py`, và không công tắc nào trong `agent.yaml` hay
-`config.yaml` tắt được luật này — nó chỉ đổi được bằng cách sửa code. Vì thẻ duyệt là nơi
-duy nhất người đọc nguyên văn prompt trước khi nó chạy nhiều lần sau này mà không ai hỏi lại
-từng bước, nút "Luôn cho phép" bị ẩn trên mọi thẻ có `reason` (kể cả thẻ lệnh shell khớp mẫu
+lọt qua cổng hay làm đổ cả lượt. Không công tắc nào trong `agent.yaml` hay
+`config.yaml` tắt được luật này — nó chỉ đổi được bằng cách sửa code. Nút "Luôn cho phép" bị ẩn trên mọi thẻ có `reason` (kể cả thẻ lệnh shell khớp mẫu
 hỏi): bấm nó không bỏ được chính lần hỏi ấy mà chỉ lặng lẽ thêm tool vào `auto_approve`, miễn
 duyệt các lời gọi khác của cùng tool.
 
@@ -644,8 +630,7 @@ lọc theo agent ngay ở server và theo trạng thái, nguồn trong trang, đ
 câu hỏi — kèm đồng hồ đếm tới hạn chót; bên dưới là lịch sử các yêu cầu đã quyết kèm kết
 quả — đã duyệt, bị từ chối, hết hạn, đã trả lời), đội, tool, job (lịch đọc thành chữ cạnh
 cron gốc, run kế/run trước kèm giờ đồng hồ, run trước kết thúc ra sao, nút chạy ngay, công
-tắc tạm dừng/tiếp tục, nút sửa lịch mở trình sửa agent cho lịch viết tay, nút xoá cho lịch
-tạo từ chat, và lịch sử run của job khi cần),
+tắc tạm dừng/tiếp tục, nút sửa lịch mở trình sửa agent, và lịch sử run của job khi cần),
 trí nhớ, chi phí theo agent, model và ngày — trong đó bảy ngày gần nhất và bảng theo model
 được đọc thẳng từ nhật ký message với số token của nó, nên con số là thứ thực sự được tính
 tiền chứ không phải ước lượng — kết nối, và cài đặt. Yêu cầu chờ duyệt và run hỏng nằm ở hai

@@ -58,7 +58,7 @@ GAINED = [
     "artifact_import",
     "artifact_export",
 ]
-STILL_OUT = ["ask_user", "progress_note", "schedule_create", "artifact_read", SCRIPT_TOOL]
+STILL_OUT = ["ask_user", "progress_note", "artifact_read", SCRIPT_TOOL]
 
 
 def let_run(name: str, arguments: dict[str, Any]) -> None:
@@ -110,8 +110,8 @@ def test_a_script_that_may_change_things_calls_what_writes_and_what_asks_first()
     ]
 
 
-def test_the_tools_that_always_wait_for_a_person_are_these_two():
-    assert ALWAYS_ASKS == {"ask_user", "schedule_create"}
+def test_the_one_tool_that_always_waits_for_a_person_is_the_question():
+    assert ALWAYS_ASKS == {"ask_user"}
 
 
 @pytest.mark.parametrize("name", sorted(ALWAYS_ASKS))
@@ -189,7 +189,6 @@ def test_what_a_script_may_call_is_in_the_order_held_with_the_tools_that_change_
         Reads("progress_note").tool,
         *notion(tool_exposure={"search": "hidden"}),
         Reads("pay_send", replay_safe=False, requires_approval=True).tool,
-        Reads("schedule_create", replay_safe=False, requires_approval=True).tool,
     ]
     registry = ToolRegistry(held)
 
@@ -379,11 +378,10 @@ async def test_a_script_tool_whose_scripts_may_change_things_is_never_run_again(
     [
         (("workspace_write",), True),
         (("memory_save", "shell_run"), True),
-        # Nothing a script may call: a question, a note of the agent's, a schedule to agree to.
+        # Nothing a script may call: a question, a note of the agent's.
         (("ask_user",), False),
         (("progress_note",), False),
-        (("schedule_create",), False),
-        (("ask_user", "progress_note", "schedule_create"), False),
+        (("ask_user", "progress_note"), False),
     ],
 )
 async def test_an_agent_holds_the_script_tool_while_it_holds_one_tool_its_scripts_may_call(

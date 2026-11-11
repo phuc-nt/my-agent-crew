@@ -125,9 +125,9 @@ export const viEditor = {
     skillsEmpty: "Agent này chưa nạp kỹ năng nào.",
     deleteTitle: "Xoá agent",
     deleteHint: (id: string) => `Gõ ${id} để xác nhận. Thư mục được chuyển vào .trash chứ không xoá hẳn.`,
-    // What the folder in .trash does not bring back: the server drops these with the agent.
+    // What the folder in .trash does not bring back: the server drops it with the agent.
     deleteLost:
-      "Xoá hẳn, không lấy lại được: các lịch nó được tạo từ chat và trạng thái bật/tắt của từng lịch. Hội thoại và lịch sử run vẫn giữ nguyên.",
+      "Xoá hẳn, không lấy lại được: trạng thái bật/tắt của từng lịch. Hội thoại và lịch sử run vẫn giữ nguyên.",
     deleteConfirm: "Xoá agent",
     deleted: (id: string, kept: string) => `Đã gỡ ${id}. Thư mục còn ở ${kept}.`,
     deleteFailed: (message: string) => `Không xoá được: ${message}`,

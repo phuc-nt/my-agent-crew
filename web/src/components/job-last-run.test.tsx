@@ -18,7 +18,6 @@ const brief: JobInfo = {
   last_run: fakeRun({ id: "r-err", status: "error", started_at: at(12, 7), summary: "Hết hạn cookie." }),
   running: false,
   paused: false,
-  origin: "profile",
 };
 
 function streak(failing: JobFailing | null | undefined): string | null {

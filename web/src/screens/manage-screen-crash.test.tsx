@@ -45,7 +45,6 @@ function screenAt(section: ManageSection) {
       conversations={[]}
       onRunJob={() => undefined}
       onToggleJob={() => undefined}
-      onDeleteJob={() => undefined}
     />
   );
 }

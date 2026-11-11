@@ -8,7 +8,6 @@ from datetime import datetime
 
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.scheduler import agent_jobs
-from my_agent_crew.scheduler.created import chat_jobs
 from my_agent_crew.scheduler.jobs import Job
 from my_agent_crew.store.db import Store
 
@@ -18,34 +17,29 @@ class JobTable:
         self, agents: dict[str, AgentDeps], store: Store | None, clock: Callable[[], datetime]
     ):
         self._agents, self._store, self._clock = agents, store, clock
-        # Profile schedules only, as the crew's files stated them when last read: at the
-        # start, and again whenever an agent joins the crew or is saved (`reload`).
-        # Chat-created jobs are never kept here — `rows` reads them fresh from the store
-        # on every call instead, since a person approving or deleting one runs on a FastAPI
-        # thread-pool thread while `tick()` runs on the event loop, and an in-memory dict
-        # updated from both would race.
+        # The schedules as the crew's files stated them when last read: at the start, and
+        # again whenever an agent joins the crew or is saved (`reload`).
         self._profile = agent_jobs.profile_jobs(agents)
         # Up to when each job has been judged: what came due after it is still to run.
         self.last = dict.fromkeys(self._profile, clock())
 
     def rows(self) -> dict[str, Job]:
-        """The full job table for this instant: profile schedules plus every chat-created
-        row whose agent still exists. Rebuilt on every call rather than cached, so an
-        approval or a deletion takes effect the moment it lands in the store, with no
-        restart and no separate signal to tell the scheduler to look again.
+        """The job table for this instant: every schedule the crew's files state. A copy,
+        so a reader on another thread keeps the table it was handed while a save puts a new
+        one in place.
 
         A job seen here for the first time is given a `last` of "now" via `setdefault`:
         `last` only ever grows, never shrinks, so two threads racing on the same new key
         settle on the same value either way, and an existing key is never overwritten by a
         second, later `setdefault` call that would otherwise reset its due time."""
-        table = {**self._profile, **chat_jobs(self._store, self._agents)}
+        table = dict(self._profile)
         now = self._clock()
         for job_id in table:
             self.last.setdefault(job_id, now)
         return table
 
     def reload(self) -> list[str]:
-        """Reads the profile schedules again from the crew as it stands, and returns the
+        """Reads the schedules again from the crew as it stands, and returns the
         ids of the jobs no file states any more. Called on the event loop, as `tick()` is.
 
         A job that is new, or whose timing the save changed, is judged from now on
@@ -70,7 +64,7 @@ class JobTable:
         return gone
 
     def drop(self, job_id: str) -> None:
-        """Takes one profile job off the clock; a chat-created one goes with its row."""
+        """Takes one job off the clock."""
         self._profile.pop(job_id, None)
 
     def forget_agent(self, agent_id: str) -> None:

@@ -16,9 +16,6 @@ export interface CrewController {
   installTemplate: (template: string) => Promise<InstallResult>;
   runJob: (jobId: string) => Promise<void>;
   setJobEnabled: (jobId: string, enabled: boolean) => Promise<void>;
-  /** Only a chat-origin job accepts this; the server 409s a profile one, and the caller
-   *  does not offer the button for those in the first place. */
-  deleteJob: (jobId: string) => Promise<void>;
 }
 
 /** Agents, their schedules and the cost totals — the slow-moving side of the UI. */
@@ -89,15 +86,6 @@ export function useCrew(): CrewController {
     [refreshJobs],
   );
 
-  const deleteJob = useCallback(
-    async (jobId: string) => {
-      await api.deleteJob(jobId);
-      setJobs((current) => current?.filter((job) => job.id !== jobId) ?? null);
-      await refreshJobs();
-    },
-    [refreshJobs],
-  );
-
   const agentName = useCallback(
     (id: string) => agents.find((a) => a.id === id)?.name ?? id,
     [agents],
@@ -117,6 +105,5 @@ export function useCrew(): CrewController {
     installTemplate,
     runJob,
     setJobEnabled,
-    deleteJob,
   };
 }

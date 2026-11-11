@@ -61,6 +61,18 @@ def test_a_name_no_tool_carries_is_still_called_unknown(tmp_path: Path, caplog) 
     assert warnings == ["agent coder: tools lists unknown tool typo_tool"]
 
 
+def test_an_agent_that_still_lists_the_tool_that_proposed_schedules_starts_without_it(
+    tmp_path: Path, caplog
+) -> None:
+    """Agents no longer propose schedules from a conversation. A file written when they
+    did is not refused: the name is one nobody knows, and the rest of the list holds."""
+    runtime, warnings = started(tmp_path, caplog, coder={"tools": ["shell_run", "schedule_create"]})
+
+    assert runtime.deps_for("coder").tools.names() == ["shell_run"]
+    assert "schedule_create" not in runtime.deps_for(DEFAULT_AGENT_ID).tools.names()
+    assert warnings == ["agent coder: tools lists unknown tool schedule_create"]
+
+
 def test_a_tool_that_needs_a_key_stays_unmentioned_on_a_machine_without_it(
     tmp_path: Path, caplog
 ) -> None:

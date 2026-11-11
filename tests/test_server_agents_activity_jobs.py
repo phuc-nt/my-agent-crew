@@ -224,6 +224,42 @@ def test_jobs_are_listed_and_can_run_now(two_agents):
     assert client.get("/api/activity/reports?limit=0").status_code == 422
 
 
+def test_the_jobs_are_the_ones_the_files_state_and_none_is_deleted_over_http(two_agents):
+    """Agents once proposed schedules from a conversation, kept in a table of the store. A
+    home that ran then has the table still: its rows are left as they were and put no job
+    on the clock, and a job is taken away by saving its agent's file without it."""
+    client, runtime = two_agents
+    row = ("chat-1a2b3c4d", "coach", "Nhắc uống nước", "* * * * *", None, "Nhắc", "[]", "c1", "t")
+    with runtime.store._lock:
+        runtime.store._conn.execute(
+            "CREATE TABLE created_schedules (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL,"
+            " name TEXT NOT NULL, cron TEXT, every TEXT, prompt TEXT NOT NULL,"
+            " skills TEXT NOT NULL DEFAULT '[]', created_by_conversation TEXT NOT NULL,"
+            " created_at TEXT NOT NULL)"
+        )
+        runtime.store._conn.execute("INSERT INTO created_schedules VALUES (?,?,?,?,?,?,?,?,?)", row)
+        runtime.store._conn.commit()
+
+    jobs = client.get("/api/jobs").json()
+
+    assert [job["id"] for job in jobs] == ["coach/brief", "coach/sync"]
+    assert [job.id for job in runtime.scheduler.jobs()] == ["coach/brief", "coach/sync"]
+    assert all("origin" not in job for job in jobs)
+    for job_id in ("coach/brief", "coach/chat-1a2b3c4d"):
+        assert client.delete(f"/api/jobs/{job_id}").status_code == 405
+    assert client.get("/api/jobs").json() == jobs
+    kept = runtime.store._conn.execute("SELECT * FROM created_schedules").fetchall()
+    assert [tuple(found) for found in kept] == [row]
+
+
+def test_a_new_database_has_no_table_of_schedules_made_in_a_conversation(two_agents):
+    _, runtime = two_agents
+    tables = runtime.store._conn.execute(
+        "SELECT name FROM sqlite_master WHERE name = 'created_schedules'"
+    )
+    assert tables.fetchall() == []
+
+
 def test_a_job_can_be_paused_over_http_and_lists_its_own_runs(two_agents):
     client, runtime = two_agents
     far = datetime(2030, 1, 1, tzinfo=runtime.settings.zone)  # the scheduler's clock is aware

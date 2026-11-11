@@ -72,7 +72,6 @@ export function crewPages(
           agentName={props.agentName}
           onRunNow={props.onRunJob}
           onToggle={props.onToggleJob}
-          onDelete={props.onDeleteJob}
           onOpenConversation={props.onOpenConversation}
           onOpenRun={props.onReplayRun}
           onEditSchedules={props.onEditSchedules}

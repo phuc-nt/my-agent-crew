@@ -64,19 +64,18 @@ function readTtl(value: unknown, where: string): Read<number | null> {
 
 /**
  * The jobs list once an agent's schedules were saved. The scheduler takes the rows up at
- * once, so the list follows the file: a job of origin `profile` for every row the agent now
- * declares, a row it already had kept in its place with its last run and its pause, and one
- * no longer declared gone. A job made from chat, the memory pass and the jobs of other
- * agents are not the rows' to move.
+ * once, so the list follows the file: a job for every row the agent now declares, a row it
+ * already had kept in its place with its last run and its pause, and one no longer declared
+ * gone. The memory pass and the jobs of other agents are not the rows' to move.
  */
 export function jobsAfterSave<J extends object>(jobs: J[], agent: { id: string; schedules: ScheduleInfo[] }): J[] {
   type Row = Record<string, unknown>;
-  const own = (job: Row) => job.agent_id === agent.id && job.origin !== "chat" && job.kind !== "consolidate";
+  const own = (job: Row) => job.agent_id === agent.id && job.kind !== "consolidate";
   const rows: Row[] = agent.schedules.map((row) => {
     const id = `${agent.id}/${row.id}`;
     const before = (jobs as Row[]).find((job) => job.id === id);
     const fresh = { next_run: null, last_run: null, running: false, paused: false, failing: null };
-    return { ...fresh, ...before, ...row, id, schedule_id: row.id, agent_id: agent.id, origin: "profile" };
+    return { ...fresh, ...before, ...row, id, schedule_id: row.id, agent_id: agent.id };
   });
   const kept = (jobs as Row[]).flatMap((job) => (own(job) ? rows.filter((row) => row.id === job.id) : [job]));
   const added = rows.filter((row) => !(jobs as Row[]).some((job) => job.id === row.id));

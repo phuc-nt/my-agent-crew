@@ -15,7 +15,6 @@ from my_agent_crew.store.artifacts import ArtifactStore
 from my_agent_crew.store.canvas_note import build_note
 from my_agent_crew.store.connection import connect
 from my_agent_crew.store.conversation_lookup import ConversationLookups
-from my_agent_crew.store.created_schedules import CreatedSchedulesStore
 from my_agent_crew.store.episodes import EpisodeStore
 from my_agent_crew.store.job_state import JobStateStore
 from my_agent_crew.store.memory_proposals import MemoryProposalStore
@@ -56,7 +55,6 @@ class Store(ConversationLookups, MessageLog, Spending):
         self.usage = UsageStore(self._conn, self._lock)
         self.side_calls = SideCallStore(self._conn, self._lock)
         self.search = SearchStore(self._conn, self._lock)
-        self.created_schedules = CreatedSchedulesStore(self._conn, self._lock)
         self.artifact_links = ArtifactLinks(self._conn, self._lock)
         self.artifacts = ArtifactStore(self._conn, self._lock, self.artifact_links)
         self.episodes = EpisodeStore(self._conn, self._lock)

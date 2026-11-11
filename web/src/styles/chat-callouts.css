@@ -65,9 +65,8 @@
   color: var(--warn-text);
 }
 
-/* `schedule_create`'s reason is several lines joined by `\n` — name, schedule, next
-   runs, skills, the verbatim prompt — and is the only place a person reads any of it
-   before approving, so it must wrap as written rather than collapse to one line. */
+/* A reason is the tool's own words, and may be several lines joined by `\n`: it wraps as
+   written rather than collapse to one line, and a long pattern breaks inside the card. */
 .approval-reason {
   white-space: pre-line;
   overflow-wrap: anywhere;

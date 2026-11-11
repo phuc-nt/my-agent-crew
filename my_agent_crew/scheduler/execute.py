@@ -11,6 +11,7 @@ from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.scheduler.jobs import Job, run_command, run_consolidate, run_prompt
+from my_agent_crew.scheduler.script_job import run_script_job
 from my_agent_crew.store.runs import RunRecord
 
 
@@ -30,11 +31,6 @@ async def dispatch(
     if job.schedule.consolidate:
         return await run_consolidate(job, deps, hub)
     if job.schedule.script:
-        # Imported here, not above: what a script may call names the tool that proposes a
-        # schedule, and that tool reads this package's cron. Loaded with the package, the
-        # script job would be asked for half-way through loading what it needs itself.
-        from my_agent_crew.scheduler.script_job import run_script_job
-
         return await run_script_job(job, deps, hub, job_title(job, clock))
     if job.schedule.command:
         return await run_command(job, deps, hub, job_title(job, clock))

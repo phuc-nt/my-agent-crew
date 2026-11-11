@@ -53,11 +53,6 @@ CREATE TABLE IF NOT EXISTS message_requests (
     conversation_id TEXT NOT NULL, request_id TEXT NOT NULL, created_at TEXT NOT NULL,
     PRIMARY KEY (conversation_id, request_id)
 );
-CREATE TABLE IF NOT EXISTS created_schedules (
-    id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, name TEXT NOT NULL, cron TEXT, every TEXT,
-    prompt TEXT NOT NULL, skills TEXT NOT NULL DEFAULT '[]',
-    created_by_conversation TEXT NOT NULL, created_at TEXT NOT NULL
-);
 CREATE TABLE IF NOT EXISTS artifacts (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, kind TEXT NOT NULL,
     language TEXT NOT NULL DEFAULT '', agent_id TEXT NOT NULL, head_version INTEGER NOT NULL,

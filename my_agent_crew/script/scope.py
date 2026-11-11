@@ -34,7 +34,6 @@ from my_agent_crew.tools.artifact_read import ARTIFACT_READ_TOOL
 from my_agent_crew.tools.ask_user import ASK_USER_TOOL_NAME
 from my_agent_crew.tools.progress_note import PROGRESS_NOTE_TOOL_NAME
 from my_agent_crew.tools.registry import Tool, ToolRegistry
-from my_agent_crew.tools.schedule_create import SCHEDULE_CREATE_TOOL_NAME
 
 SCRIPT_TOOL = "tool_script"
 # Tools that only read and are still not a script's to call: they speak for the agent
@@ -45,8 +44,8 @@ NOT_FROM_SCRIPT = frozenset(
     {PROGRESS_NOTE_TOOL_NAME, DELEGATE_TOOL_NAME, SEARCH_TOOL, SCRIPT_TOOL, ARTIFACT_READ_TOOL}
 )
 # Tools that wait for a person whoever calls them and whatever the conversation allows: a
-# question, and a schedule to be agreed to. No script's, though it may change things.
-ALWAYS_ASKS = frozenset({ASK_USER_TOOL_NAME, SCHEDULE_CREATE_TOOL_NAME})
+# question. No script's, though it may change things.
+ALWAYS_ASKS = frozenset({ASK_USER_TOOL_NAME})
 
 
 def writes_too(settings: Settings) -> bool:

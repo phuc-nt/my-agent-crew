@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
-from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 from typing import Any
@@ -35,7 +34,6 @@ from my_agent_crew.texts import TOOL_FAILED
 from my_agent_crew.texts_kit import TOOL_BLOCKED_BY_HOOK
 from my_agent_crew.tools.registry import Tool, ToolError, ToolRegistry
 from my_agent_crew.tools.result import ToolResult
-from my_agent_crew.tools.schedule_create import build_schedule_create_tool
 from my_agent_crew.tools.shell import SHELL_TOOL_NAME
 from tests.test_script_batch_run import Pauses, answered, batch, one
 from tests.test_script_tool import SCHEMA, Hooks, Reads, halted, play, unfinished
@@ -317,21 +315,15 @@ async def test_a_tool_the_agent_no_longer_holds_is_not_run_on_the_scripts_say_so
 # --- what is never a script's, and what never meets the gate ---
 
 
-async def test_the_tools_that_always_wait_for_a_person_stay_out_of_a_script(deps_factory):
+async def test_the_tool_that_always_waits_for_a_person_stays_out_of_a_script(deps_factory):
     deps, _ = agent(deps_factory)
-    deps.tools = deps.tools.without(SCRIPT_TOOL)
-    deps.tools.register(build_schedule_create_tool(deps.store, "default", (), datetime.now))
-    hand_script(deps)
     conv = conversation(deps)
 
     asked = await ran(deps, conv, 'tools.ask_user(question="A hay B?")')
-    planned = await ran(deps, conv, 'tools.schedule_create(name="x", prompt="y", every="1h")')
 
-    for result, name in ((asked, "ask_user"), (planned, "schedule_create")):
-        reason = t.SCRIPT_ALWAYS_ASKS.format(name=name, instead=t.SCRIPT_CALL_DIRECTLY)
-        assert (result.ok, result.output) == (False, unfinished(halted(1, reason)))
-        assert result.calls == ()
-    assert deps.store.created_schedules.count("default") == 0
+    reason = t.SCRIPT_ALWAYS_ASKS.format(name="ask_user", instead=t.SCRIPT_CALL_DIRECTLY)
+    assert (asked.ok, asked.output) == (False, unfinished(halted(1, reason)))
+    assert asked.calls == ()
     assert deps.store.approvals.pending(conv.id) is None
 
 

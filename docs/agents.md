@@ -69,7 +69,7 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 | `shell_write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà lệnh `shell_run` được ghi. Đặt danh sách này là bật sandbox kể cả khi còn mạng: lệnh chỉ ghi được ở đây và thư mục tạm, không gọi được `open`/`launchctl`/`osascript` và không kết nối được tới cổng của chính server (API của đội không hỏi đăng nhập), nên agent lấy và ghi dữ liệu được nhưng không sửa được code, script hay cấu hình quanh nó, kể cả hồ sơ của chính nó. Với `shell_network: false` mà danh sách rỗng thì workspace chỉ đọc với shell; đường dẫn ra ngoài workspace là lỗi khởi động |
 | `shell_deny_patterns` | danh sách | `[]` | mảnh lệnh (chuỗi con, không phân biệt hoa thường) mà `shell_run` từ chối thẳng, không hỏi duyệt, kèm lời dặn dừng lại và báo cần gì để người dùng quyết. Dùng để giữ agent làm việc trong repo người khác khỏi DDL, SQL ghi tay, `python3 -c`. Rào mềm như `shell_ask_patterns` |
 | `write_paths` | danh sách | `[]` | đường dẫn bên trong workspace mà `workspace_write`, `workspace_edit` và `artifact_export` (xuất một canvas ra tệp) được ghi; ghi chỗ khác bị từ chối với lỗi nêu danh sách này, và không thư mục nào được tạo. Rỗng thì ghi được mọi nơi trong workspace. Dùng cho agent autonomous có workspace là một repo, nơi tệp lạc chỗ có thể bị commit lên; đường dẫn ra ngoài workspace là lỗi khởi động. Không ảnh hưởng `shell_run`, xem `shell_write_paths` |
-| `script_calls` | `none`, `read_only` hoặc `gated` | `read_only` | agent có được trao `tool_script` không, và script của nó gọi được những tool nào. `none`: agent không được trao `tool_script`, dù nó giữ tool đọc nào và dù một máy chủ MCP có tool cho script gọi; nó không viết script nào trong lượt của mình. Lịch có khoá `script` của nó vẫn chạy, chỉ đọc, vì script đó do chủ viết trong tệp chứ không do agent viết ([Job chạy script](#job-chạy-script)). `read_only`: chỉ tool chỉ đọc. `gated`: thêm cả tool có ghi mà agent đang giữ (`workspace_write`, `shell_run`, tool MCP không nằm trong `read_only`, …); mỗi lời gọi như vậy được cổng duyệt xét **trước khi chạy**, theo đúng luật của một lời gọi trực tiếp, và lời gọi nào cổng phải hỏi người thì script dừng ở đó chứ không chờ ai. Hai tool luôn phải hỏi (`ask_user`, `schedule_create`) vẫn ở ngoài. Agent `gated` còn giữ `delegate` thì script của nó giao việc được cho agent khác (`tools.delegate`), chỉ trong lượt của chính nó: không khi đang làm việc được giao, không trong job. Xem [tools.md](tools.md#gọi-tool-từ-script). Chỉ đọc từ `agent.yaml` của chính agent: không có khoá toàn cục, không có biến môi trường, không agent nào thừa hưởng của agent khác, kể cả của master. Giá trị nào khác ba chữ đó (`Gated`, `"true"`, để trống) là lỗi khởi động, còn lưu qua API thì bị từ chối (422). Một giá trị đúng/sai của YAML cũng vậy, và lỗi nói luôn chữ phải viết: `off`, `no`, `false`, `on`, `yes`, `true` viết trần được YAML đọc thành đúng/sai chứ không thành chữ, nên muốn tắt thì ghi `none` ("script_calls must be none, read_only or gated, not a boolean …: write none to hand the agent no tool_script, or the one of the three meant"). Về mức mặc định bằng cách bỏ khoá hoặc ghi `read_only`. Sửa qua API có hiệu lực không cần khởi động lại, kể cả việc lấy lại và trao lại `tool_script`: từ lượt kế tiếp của agent và từ lần chạy kế tiếp của một lịch, còn lượt hay job đang chạy lúc lưu thì kết thúc như lúc nó bắt đầu ([Sửa agent từ web/API](#sửa-agent-từ-webapi)); sửa tay cần khởi động lại |
+| `script_calls` | `none`, `read_only` hoặc `gated` | `read_only` | agent có được trao `tool_script` không, và script của nó gọi được những tool nào. `none`: agent không được trao `tool_script`, dù nó giữ tool đọc nào và dù một máy chủ MCP có tool cho script gọi; nó không viết script nào trong lượt của mình. Lịch có khoá `script` của nó vẫn chạy, chỉ đọc, vì script đó do chủ viết trong tệp chứ không do agent viết ([Job chạy script](#job-chạy-script)). `read_only`: chỉ tool chỉ đọc. `gated`: thêm cả tool có ghi mà agent đang giữ (`workspace_write`, `shell_run`, tool MCP không nằm trong `read_only`, …); mỗi lời gọi như vậy được cổng duyệt xét **trước khi chạy**, theo đúng luật của một lời gọi trực tiếp, và lời gọi nào cổng phải hỏi người thì script dừng ở đó chứ không chờ ai. Tool luôn phải hỏi (`ask_user`) vẫn ở ngoài. Agent `gated` còn giữ `delegate` thì script của nó giao việc được cho agent khác (`tools.delegate`), chỉ trong lượt của chính nó: không khi đang làm việc được giao, không trong job. Xem [tools.md](tools.md#gọi-tool-từ-script). Chỉ đọc từ `agent.yaml` của chính agent: không có khoá toàn cục, không có biến môi trường, không agent nào thừa hưởng của agent khác, kể cả của master. Giá trị nào khác ba chữ đó (`Gated`, `"true"`, để trống) là lỗi khởi động, còn lưu qua API thì bị từ chối (422). Một giá trị đúng/sai của YAML cũng vậy, và lỗi nói luôn chữ phải viết: `off`, `no`, `false`, `on`, `yes`, `true` viết trần được YAML đọc thành đúng/sai chứ không thành chữ, nên muốn tắt thì ghi `none` ("script_calls must be none, read_only or gated, not a boolean …: write none to hand the agent no tool_script, or the one of the three meant"). Về mức mặc định bằng cách bỏ khoá hoặc ghi `read_only`. Sửa qua API có hiệu lực không cần khởi động lại, kể cả việc lấy lại và trao lại `tool_script`: từ lượt kế tiếp của agent và từ lần chạy kế tiếp của một lịch, còn lượt hay job đang chạy lúc lưu thì kết thúc như lúc nó bắt đầu ([Sửa agent từ web/API](#sửa-agent-từ-webapi)); sửa tay cần khởi động lại |
 | `script_llm` | bool | `true` | script của agent có được tự hỏi model bằng `llm.classify` / `llm.summarise` không ([tools.md](tools.md#gọi-tool-từ-script), bullet "Script tự hỏi model"). `false`: script không hỏi được model nào, trong lượt của agent lẫn trong job `script` của nó; mô tả của `tool_script` không nhắc tới `llm` nữa, và script vẫn gọi `llm.` thì nhận một lỗi bắt được ("không hỏi model được ở đây."), không model nào được gọi và không đồng nào bị tính. Dùng cho agent mà chủ muốn script chỉ là code: lọc, đếm, gọi tool, không có khoản tiền nào nằm ngoài lượt của model. Chỉ đọc từ `agent.yaml` của chính agent, như `script_calls`: không có khoá toàn cục, không có biến môi trường, không thừa hưởng của master. Phải là đúng/sai thật của YAML; `"false"` trong dấu nháy, `0` hay để trống là lỗi khởi động ("script_llm must be true or false"), còn lưu qua API thì bị từ chối (422). Viết tay `off`, `no`, `on`, `yes` trần thì bộ đọc lúc khởi động hiểu là đúng/sai: agent lên được, và lần lưu khoá khác từ web giữ nguyên chữ đó ([Sửa agent từ web/API](#sửa-agent-từ-webapi)); lần lưu tự gửi một chữ (`"off"`) thì vẫn là 422. Sửa qua API có hiệu lực không cần khởi động lại, từ lượt kế tiếp của agent và từ lần chạy kế tiếp của một lịch; lượt hay job đang chạy lúc lưu thì kết thúc như lúc nó bắt đầu. Sửa tay cần khởi động lại |
 | `browser` | `off`, `read` hoặc `act` | `off` | agent có được trao tool trình duyệt không ([tools.md](tools.md#trình-duyệt)). `read`: sáu tool mở, đọc và in trang (`browser_navigate`, `browser_snapshot`, `browser_text`, `browser_tabs`, `browser_screenshot`, `browser_pdf`). `act`: thêm `browser_act`, tool bấm và gõ vào trang, và `browser_download`, tool bấm để giữ tệp trang gửi về. Khoá này chỉ có tác dụng trên máy đã bật `browser_enabled` và đã cài trình duyệt (bảng cài đặt toàn cục bên dưới); trên máy chưa bật, agent vẫn khởi động, vẫn trả `browser` như tệp viết, và không được trao tool nào trong số đó. Danh sách `tools` không đem tool nào trong số này tới và cũng không lấy đi tool nào. Chỉ đọc từ `agent.yaml` của chính agent: không có khoá toàn cục cho mức này, không có biến môi trường, không agent nào thừa hưởng của master, nên trình duyệt chỉ bật ở agent mà có người đã ghi như vậy. `off`, `no`, `false` viết trần và khoá để trống đều đọc là `off`. `on`, `yes`, `true` viết trần là lỗi khởi động, vì YAML đọc chúng thành đúng/sai và không nói được là `read` hay `act` ("browser must be off, read or act, not a bare on, yes or true: write read to let it open and read pages, or act to let it click and type as well"); chữ nào khác ba chữ đó cũng là lỗi khởi động, còn lưu qua API thì bị từ chối (422). Sửa qua API có hiệu lực từ lượt kế tiếp của agent, không cần khởi động lại; lần lưu để agent ở `off` còn dừng luôn trình duyệt nó đang chạy và đóng cửa sổ đăng nhập đang mở trên hồ sơ của nó, và lượt đang chạy của agent không mở lại được nó (tool `browser_*` của lượt ấy trả một lỗi nói agent đã bị tắt trình duyệt). Sửa tay cần khởi động lại |
 | `browser_hosts` | danh sách tên host | `[]` | những host agent tới mà không ai bị hỏi. Mỗi dòng là `shop.example` (đúng host đó) hoặc `*.shop.example` (host đó và mọi host bên dưới nó): chữ thường, không có `https://`, cổng hay đường dẫn; tên có dấu viết ở dạng punycode. Khi danh sách có dòng: `browser_navigate` tới một host trong danh sách chạy không hỏi, kể cả trong cuộc trò chuyện có giám sát, còn tới host ngoài danh sách thì hỏi người, kể cả ở agent tự chủ; `browser_act` và `browser_download` trên một trang ngoài danh sách cũng hỏi. Danh sách rỗng thì ba tool hỏi như mọi tool đổi trạng thái: hỏi trong cuộc trò chuyện có giám sát, chạy ở agent tự chủ. Danh sách chặn lời gọi trực tiếp, không chặn nơi trang tự chuyển tới sau một lần bấm ([tools.md](tools.md#trình-duyệt), "Giới hạn đã biết"). Chỉ đọc từ `agent.yaml` của chính agent, như `browser`. Một dòng sai dạng là lỗi khởi động ("browser_hosts must be a list of host names such as shop.example or *.shop.example, in lowercase, with no scheme, port or path"), còn lưu qua API thì bị từ chối (422); `null` hay `[]` xoá danh sách. Sửa qua API có hiệu lực từ lượt kế tiếp; sửa tay cần khởi động lại |
@@ -389,15 +389,14 @@ parse). Một patch chỉ nêu vài khoá; ghi nó đè lên tệp đã hỏng s
 khác mà người đó vẫn còn trong đó.
 
 **Xoá vẫn giữ tệp.** `DELETE` chuyển `agents/<id>` sang `agents/.trash/<id>-<stamp>`
-và báo nó đã đi đâu; không tệp nào của agent bị xoá. Thứ nằm trong database thì khác: lịch nó
-được tạo từ chat và công tắc bật/tắt của từng job bị xoá hẳn
-(hai đoạn dưới và [tools.md](tools.md)), và hộp xoá trên web nói điều đó trước khi người dùng
+và báo nó đã đi đâu; không tệp nào của agent bị xoá. Thứ nằm trong database thì khác: công tắc
+bật/tắt của từng job bị xoá hẳn (đoạn dưới), và hộp xoá trên web nói điều đó trước khi người dùng
 gõ id. Các cuộc trò chuyện agent đó từng giữ vẫn ở nguyên và rơi về master. Nó từ chối (409) với master, và với agent mà một agent khác
 vẫn nêu tên trong `delegates` — xoá nó sẽ để profile kia không hợp lệ và server
 không khởi động được lần sau.
 
 **Lịch của agent bị xoá đi cùng nó, ngay lúc xoá.** Job khai trong `agent.yaml` của nó rời đồng
-hồ, lịch nó được tạo từ chat (bảng `created_schedules`) và công tắc bật/tắt của từng job của nó
+hồ, và công tắc bật/tắt của từng job của nó
 (bảng `job_state`) bị xoá khỏi database; lịch sử run giữ nguyên. Agent tạo sau này dưới cùng id
 không nhận lại job nào trong đó. Job đến giờ mà agent của nó không còn trong đội thì bị bỏ qua
 kèm một dòng log, các job khác của nhịp ấy vẫn chạy.
@@ -647,7 +646,7 @@ lần lắp system prompt (tức là trước mỗi lần gọi model, không l�
 |---|---|---|
 | Dịch vụ ngoài (MCP) | khoá `mcp` của agent, đối chiếu với tool MCP nó đang cầm và trạng thái kết nối | xem bảng dưới |
 | Kỹ năng | các skill agent nạp được | skill master không có thì kèm mô tả, cắt còn 80 ký tự; skill cần một lệnh máy này không có thì mang `[thiếu: …]` đứng trước mô tả, như trong mục lục skill của chính agent đó |
-| Việc tự chạy theo lịch | job của agent trong bộ lập lịch, cả job khai trong `agent.yaml` lẫn job tạo từ chat | chỉ job đang bật; bỏ job gom trí nhớ, vì agent nào cũng có |
+| Việc tự chạy theo lịch | job của agent trong bộ lập lịch, tức các job khai trong `agent.yaml` | chỉ job đang bật; bỏ job gom trí nhớ, vì agent nào cũng có |
 | Công cụ | tool trong hộp đồ của agent | bỏ `delegate` (lượt được giao việc không bao giờ cầm nó) và tool MCP (đã có dòng dịch vụ); `tool_search`, `tool_script`, các tool `browser_*` được kể như mọi tool khác, nên master biết agent nào mở được trang web; agent có `script_calls: gated` thì dòng có thêm một câu ở cuối, xem dưới |
 | Mô hình | tuyến đầu trong `routes` | kèm model của `escalation_route` khi tuyến đó dùng được |
 
@@ -699,7 +698,7 @@ kẻo nó đọc "như của bạn" ở dòng Công cụ thành "cũng cầm má
 
 Hệ quả: roster kể đúng thứ agent dùng được lúc đó và đổi cùng lúc với nó, không ai phải sửa mô
 tả. Tới tay master ngay ở lần gọi model kế tiếp: một máy chủ MCP vừa nối hay vừa rớt, đăng nhập
-OAuth vừa xong hay vừa hết hạn, job tạo từ chat, job bật hay tắt, và mọi sửa đổi một agent qua web
+OAuth vừa xong hay vừa hết hạn, job bật hay tắt, và mọi sửa đổi một agent qua web
 hay API (`mcp`, `tools`, `routes`, thêm hoặc xoá agent). Thứ chỉ có hiệu lực khi agent được dựng
 lại thì roster cũng kể từ lúc đó, tức là cùng lúc chính agent ấy dùng được nó: một tệp skill mới
 thả vào thư mục skill (cần sửa agent qua web hay API, hoặc khởi động lại), và `agent.yaml` sửa
@@ -1024,18 +1023,10 @@ for row in rows:
 Mỗi mục trong `schedules` thành một job `<agent id>/<schedule id>` trong scheduler
 (tick 20 s, trường cron đọc theo `timezone` của `config.yaml`, mặc định là múi giờ của máy).
 
-Có hai nguồn lịch. Lịch viết tay dưới đây sống trong `agent.yaml` của agent, lên đồng hồ ngay
-khi agent được lưu qua web hay API (xem [Lịch trong tệp lên đồng hồ ngay khi
-lưu](#lịch-trong-tệp-lên-đồng-hồ-ngay-khi-lưu)), và job của nó mang `origin: "profile"`. Lịch agent tự đề xuất qua tool
-`schedule_create` (xem [tools.md](tools.md#đề-xuất-lịch-chạy)) sống trong bảng
-`created_schedules` của database thay vì file, chạy ngay không cần khởi động lại, sống qua
-lần khởi động lại kế tiếp, và job của nó mang `origin: "chat"`. Tab Lịch chạy gắn nhãn "tạo từ
-chat" cho loại thứ hai và cho xoá tại chỗ (`DELETE /api/jobs/{id:path}`, xoá dòng
-`created_schedules` và `job_state`, giữ nguyên lịch sử run); lịch viết tay không có nút xoá vì
-xoá nó nghĩa là sửa yaml, còn lịch từ chat không có nút sửa lịch vì trình sửa agent chỉ chứa
-lịch trong yaml: muốn đổi thì xoá rồi để agent đề xuất lại. Lịch từ chat chỉ tạo được loại job
-prompt — không có job command, script hay consolidate qua chat — và luôn cần người duyệt nguyên
-văn prompt trước khi chạy lần đầu, dù cuộc trò chuyện có autonomous hay không.
+Lịch sống trong `agent.yaml` của agent và lên đồng hồ ngay khi agent được lưu qua web hay API
+(xem [Lịch trong tệp lên đồng hồ ngay khi lưu](#lịch-trong-tệp-lên-đồng-hồ-ngay-khi-lưu)). Không
+có nguồn lịch nào khác: agent không tự tạo lịch từ cuộc trò chuyện, và tab Lịch chạy không có
+nút xoá, vì bỏ một job nghĩa là lưu agent không còn dòng đó.
 
 | Khoá | Ý nghĩa |
 |---|---|
@@ -1083,7 +1074,6 @@ với dòng nó đang giữ:
 Tệp `agent.yaml` của một agent đang chạy mà sửa bằng tay thì không ai đọc lại cho đến lần khởi
 động sau, hoặc đến một lần lưu khoá hay tuyến mô hình chung ở Quản lý → Kết nối: lần lưu đó dựng
 lại mọi agent đang chạy từ tệp của nó, và lịch trong tệp lên đồng hồ theo đúng các quy tắc trên.
-Lịch tạo từ chat không đi qua đường này: nó vẫn được đọc từ database mỗi lần đồng hồ cần.
 
 ### Job chạy script
 
@@ -1123,7 +1113,7 @@ job prompt gọi một script shell trong workspace.)
   trả lời quay về, nên lời gọi mà cổng phải hỏi dù ai đang trông (lệnh khớp `shell_ask_patterns`,
   hay một tool tự khai lý do phải hỏi) làm script **dừng tại đó**, tool chưa chạy; lệnh khớp
   `shell_deny_patterns` cũng vậy. Không gì chờ, không yêu cầu duyệt nào được tạo, và run của job
-  là `error` kèm câu từ chối. `ask_user` và `schedule_create` vẫn ở ngoài mọi script.
+  là `error` kèm câu từ chối. `ask_user` vẫn ở ngoài mọi script.
 - **Không có cuộc trò chuyện.** Script của job chạy ngoài mọi cuộc trò chuyện, nên tool làm việc
   qua một cuộc trò chuyện hỏng ở đó như một lỗi script bắt được: các tool canvas ("Canvas chỉ
   dùng được trong một cuộc trò chuyện.") và `tool_output_read`; câu trả lời dài hơn 200.000 ký

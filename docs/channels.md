@@ -370,8 +370,8 @@ Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạ
   được cài hay được `POST /api/agents/reload` đem vào, một khoá hay tuyến mô hình chung được lưu
   ở Quản lý → Kết nối) và khi một agent rời đội, dù lần ấy có đổi dòng nào hay không. Nhờ vậy
   trang đang mở ở một tab khác thấy dòng lịch vừa lưu mà không tải lại. Lần lưu bị từ chối không
-  phát gì. Hai thay đổi không được phát: công tắc tạm dừng của một job, và việc xoá một lịch tạo
-  từ chat; tab khác thấy chúng ở lần đọc lại kế tiếp (một run kết thúc, luồng được nối lại).
+  phát gì. Một thay đổi không được phát: công tắc tạm dừng của một job; tab khác thấy nó ở lần
+  đọc lại kế tiếp (một run kết thúc, luồng được nối lại).
 - Trên web, Quản lý → Lịch chạy nói chuỗi ấy thành một câu dưới lần chạy gần nhất của job, chừng
   nào job còn trong chuỗi: `Hỏng 3 lần liên tiếp từ Hôm qua 07:00. Đã báo Telegram lúc 07:01; còn
   hỏng thì nhắc lại sau 13:01.` Khi chưa tin nào tới nơi, nửa sau là `Chưa báo được qua Telegram;
@@ -381,7 +381,7 @@ Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạ
   trên đường thì dòng vẫn nói lần báo gần nhất. Trang đọc lại danh sách job khi một run kết thúc,
   khi luồng phát `jobs`, khi nối lại luồng và sau mỗi lần lưu hồ sơ agent, nên câu ấy đổi theo mà
   không cần tải lại trang. Hai lần đọc đang chờ cùng lúc thì trang giữ câu trả lời của lần hỏi sau.
-  Công tắc tạm dừng vừa gạt và dòng lịch tạo từ chat vừa xoá hiện ngay theo câu trả lời của server,
+  Công tắc tạm dừng vừa gạt hiện ngay theo câu trả lời của server,
   rồi trang đọc lại danh sách: một lần đọc đang chờ từ trước đó không đưa được dòng về như cũ.
 - Không có tin trong các trường hợp sau: job chạy tốt, dù có in gì hay không; lượt của một prompt
   job và lượt mà `then_prompt` mở ra (lượt là một cuộc trò chuyện và được giao như prompt job ở

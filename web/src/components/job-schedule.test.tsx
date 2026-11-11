@@ -16,7 +16,6 @@ const brief: JobInfo = {
   last_run: null,
   running: false,
   paused: false,
-  origin: "profile",
 };
 
 const SOURCE = 'orders = tools.workspace_read(path="orders.json")\nif orders:\n    print(len(orders), "đơn mới")';

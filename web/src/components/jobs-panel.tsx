@@ -18,9 +18,6 @@ interface Props {
   onRunNow: (jobId: string) => void;
   /** Pause or resume a schedule at runtime without editing its profile. */
   onToggle: (jobId: string, enabled: boolean) => void;
-  /** Only offered for a chat-origin job; a profile one is changed or taken away in its
-   *  agent's editor instead, so there is nothing to delete here. */
-  onDelete?: (jobId: string) => void;
   onOpenConversation?: (conversationId: string) => void;
   /** Opens one run on its own page, from the row's last run or its history. The job goes
    *  along so that page's back link returns to this row. */
@@ -39,7 +36,6 @@ export function JobsPanel(props: Props) {
     agentName,
     onRunNow,
     onToggle,
-    onDelete,
     onOpenConversation,
     onOpenRun,
     onEditSchedules,
@@ -87,7 +83,6 @@ export function JobsPanel(props: Props) {
                 {offInProfile && <span className="badge warn"> {vi.jobDisabled}</span>}
                 {job.paused && <span className="badge warn"> {vi.jobPaused}</span>}
                 {job.running && <span className="badge live"> {vi.jobRunning}</span>}
-                {job.origin === "chat" && <span className="badge"> {vi.jobFromChat}</span>}
               </span>
               <span className="job-actions">
                 <label className="toggle">
@@ -112,9 +107,7 @@ export function JobsPanel(props: Props) {
                   <Icon name="play" />
                   {vi.runNow}
                 </button>
-                {/* A chat job is a database row, not an agent.yaml entry: the editor would
-                    open without it, so the change a chat row offers is deleting it. */}
-                {onEditSchedules && job.origin !== "chat" && (
+                {onEditSchedules && (
                   <button
                     type="button"
                     className="ghost"
@@ -122,19 +115,6 @@ export function JobsPanel(props: Props) {
                     aria-label={vi.jobRow.editOf(job.name)}
                   >
                     {vi.jobRow.edit}
-                  </button>
-                )}
-                {onDelete && job.origin === "chat" && (
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => {
-                      if (window.confirm(vi.jobDeleteConfirm(job.name))) onDelete(job.id);
-                    }}
-                    aria-label={`${vi.jobDelete}: ${job.name}`}
-                  >
-                    <Icon name="trash" />
-                    {vi.jobDelete}
                   </button>
                 )}
               </span>

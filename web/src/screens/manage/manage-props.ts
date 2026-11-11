@@ -41,7 +41,6 @@ export interface ManageProps {
   onOpenConversation: (conversationId: string) => void;
   onRunJob: (jobId: string) => void;
   onToggleJob: (jobId: string, enabled: boolean) => void;
-  onDeleteJob: (jobId: string) => void;
   /** The part of the open editor to bring into view, when the URL names one. */
   editFocus?: string;
   /** Opens an agent's editor on its schedules, from a row in the jobs list. */

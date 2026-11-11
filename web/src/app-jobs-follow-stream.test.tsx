@@ -6,7 +6,7 @@
 // a run was over, on which the page reads it again.
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi as vitest } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
 import type { JobFailing, JobInfo } from "./api/types";
 import { App } from "./app";
 import { vi } from "./i18n/vi";
@@ -17,7 +17,7 @@ const TOLD = "Đã báo Telegram lúc";
 const failed = fakeRun({ id: "r-err", agent_id: "coach", conversation_id: null, source: "job:coach/brief", status: "error" });
 const briefJob: JobInfo = {
   ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach",
-  next_run: null, last_run: null, running: false, paused: false, origin: "profile",
+  next_run: null, last_run: null, running: false, paused: false,
 };
 const streak = { count: 1, since: failed.started_at, told_at: null, next_notice_at: null, telling: false };
 const telling: JobFailing = { ...streak, telling: true };
@@ -144,11 +144,10 @@ describe("the jobs list, while the owner is being told that a job failed", () =>
   });
 });
 
-// The switch and the delete button put the server's answer on the row themselves. A read of
-// the list that was asked for before the change, and answers after it, used to put the row
-// back as it had been.
+// The switch puts the server's answer on the row itself. A read of the list that was asked
+// for before the change, and answers after it, used to put the row back as it had been.
 describe("the jobs list, when the person changes a row while a read of the list is out", () => {
-  const fromChat: JobInfo = { ...briefJob, id: "coach/chat-1a2b3c4d", schedule_id: "chat-1a2b3c4d", name: "Nhắc uống nước", origin: "chat" };
+  const saved: JobInfo = { ...briefJob, id: "coach/water", schedule_id: "water", name: "Nhắc uống nước" };
   const enabled = () => screen.getByRole("checkbox", { name: `${vi.jobEnabled}: ${briefJob.name}` });
   const rows = () => screen.getAllByTestId("job");
 
@@ -178,19 +177,6 @@ describe("the jobs list, when the person changes a row while a read of the list 
     expect(within(rows()[0]).getByText(vi.jobPaused)).toBeInTheDocument();
   });
 
-  it("does not bring a deleted row back when the read asked for before it answers after", async () => {
-    const confirm = vitest.spyOn(window, "confirm").mockReturnValue(true);
-    onTestFinished(() => confirm.mockRestore());
-    const lands = await readIsOut([{ ...briefJob }, fromChat]);
-
-    await userEvent.click(screen.getByRole("button", { name: `${vi.jobDelete}: ${fromChat.name}` }));
-    await waitFor(() => expect(rows()).toHaveLength(1));
-    await lands();
-
-    expect(rows()).toHaveLength(1);
-    expect(screen.queryByText(fromChat.name)).not.toBeInTheDocument();
-  });
-
   it("shows a switch moved from the server's own answer, before the list is read again", async () => {
     network({ hold: [2] });
     await opensJobs([{ ...briefJob }]);
@@ -205,7 +191,7 @@ describe("the jobs list, when the person changes a row while a read of the list 
   // list is asked for again after the change: here a schedule saved in another tab.
   it("reads the list again after a switch, so what the dropped read brought is not lost", async () => {
     await readIsOut([{ ...briefJob }]);
-    backend.jobs = [...backend.jobs, fromChat];
+    backend.jobs = [...backend.jobs, saved];
 
     await userEvent.click(enabled());
 

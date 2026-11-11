@@ -80,7 +80,7 @@ chỉ để hiển thị (chữ đang chảy, `user_context`, `tool_call_delta`)
 | Trí nhớ agent | `GET/PUT /api/agents/{id}/memory`, `GET/PUT …/memory/notes/{day}`, `POST …/memory/consolidate` |
 | Wiki | `GET /api/agents/{id}/memory/wiki`, `GET/PUT/DELETE …/wiki/pages/{slug}`, `GET …/wiki/report`, `POST …/wiki/compile` |
 | Trí nhớ người dùng | `GET/PUT /api/memory/user`, `…/user/facts/{name}`, `GET /api/memory/proposals[/{id}]`, `GET /api/memory/search` |
-| Job | `GET /api/jobs` (mỗi dòng mang `kind`: `prompt`, `command`, `script` hay `consolidate`, và luôn có đủ bốn khoá `prompt`, `command`, `script`, `then_prompt`, cái nào không dùng thì `null`; khoá `failing` là `null`, hoặc số lần hỏng liên tiếp của job cùng lúc bắt đầu, lúc chủ được báo và lúc tin nhắc kế tiếp), `GET …/{id}/runs`, `PATCH …/{id}/state` (tạm dừng/chạy lại), `POST …/{id}/run`, `DELETE …/{id}` (chỉ job `origin: "chat"`, tạo qua `schedule_create`) |
+| Job | `GET /api/jobs` (mỗi dòng mang `kind`: `prompt`, `command`, `script` hay `consolidate`, và luôn có đủ bốn khoá `prompt`, `command`, `script`, `then_prompt`, cái nào không dùng thì `null`; khoá `failing` là `null`, hoặc số lần hỏng liên tiếp của job cùng lúc bắt đầu, lúc chủ được báo và lúc tin nhắc kế tiếp), `GET …/{id}/runs`, `PATCH …/{id}/state` (tạm dừng/chạy lại), `POST …/{id}/run` |
 | Cài đặt | `GET /api/settings` |
 
 Mọi đường không phải `/api/*` trả SPA. Web định tuyến bằng hash, nên một lượt chạy có đường

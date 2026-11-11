@@ -32,9 +32,8 @@ class JobStateStore:
             self._conn.commit()
 
     def clear(self, job_id: str) -> None:
-        """Drops the override so a deleted job leaves no trace behind: a chat-created
-        schedule's id is never reused, but nothing stops another one from landing at the
-        exact same string, and it must not inherit a pause nobody asked it for."""
+        """Drops the override so a job taken out of its file leaves no trace behind: one
+        later stated under the same id must not inherit a pause nobody asked it for."""
         with self._lock:
             self._conn.execute("DELETE FROM job_state WHERE job_id = ?", (job_id,))
             self._conn.commit()

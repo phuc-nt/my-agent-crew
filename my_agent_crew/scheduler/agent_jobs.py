@@ -34,14 +34,13 @@ def starts_afresh(held: Job | None, stated: Job) -> bool:
 
 def forget_agent(held: dict[str, Job], store: Store | None, agent_id: str) -> None:
     """Takes an agent's jobs away with it: out of `held` those its file gave it, and out of
-    the store those it was given in a conversation and every switch flipped on a job of its.
+    the store every switch flipped on a job of its.
 
-    Left where they were, the first kind came due with nobody to run them, and all three
-    waited for an agent to be made under the id: the jobs would have run again as that
-    agent, switched as the one before it left them."""
+    Left where they were, the jobs came due with nobody to run them, and both waited for an
+    agent to be made under the id: the jobs would have run again as that agent, switched as
+    the one before it left them."""
     for job_id, job in list(held.items()):
         if job.agent_id == agent_id:
             held.pop(job_id, None)
     if store is not None:
-        store.created_schedules.forget_agent(agent_id)
         store.jobs.forget_agent(agent_id)

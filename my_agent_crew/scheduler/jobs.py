@@ -44,9 +44,6 @@ class Job:
     id: str  # "<agent_id>/<schedule_id>"
     agent_id: str
     schedule: Schedule
-    # "profile" for a job from `agent.yaml`, "chat" for one an agent proposed and a person
-    # approved. The UI uses this to label a job and to decide whether it may be deleted.
-    origin: str = "profile"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -54,7 +51,6 @@ class Job:
             "id": self.id,
             "schedule_id": self.schedule.id,
             "agent_id": self.agent_id,
-            "origin": self.origin,
         }
 
 

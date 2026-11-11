@@ -15,7 +15,4 @@ export const activityApi = {
     request<JobInfo>(`/jobs/${jobId}/state`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
   listJobRuns: (jobId: string, limit?: number) =>
     request<RunInfo[]>(`/jobs/${jobId}/runs${query({ limit })}`),
-  // A profile job (`origin: "profile"`) 409s here; the caller only offers this for a chat
-  // job in the first place, but the server is what actually refuses it.
-  deleteJob: (jobId: string) => request<void>(`/jobs/${jobId}`, { method: "DELETE" }),
 };
