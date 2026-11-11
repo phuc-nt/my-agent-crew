@@ -9,6 +9,57 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
+## [0.40.0] — 2026-11-11
+
+### Removed
+
+- **The script store.** The functions `store()` and `load()` of a `tool_script`, the routes
+  `GET` and `DELETE /api/agents/{id}/script-store` and `GET .../script-store/value`, and the
+  store section of the agent editor. No script ever stored a value. **Breaking:** a script
+  that calls `store()` or `load()` fails with an unknown name.
+- **The `schedule_create` tool**, with the schedule proposal card in the chat, the route
+  `DELETE /api/jobs/{id}` (now 405) and the `origin` field of a job. No conversation ever
+  created a schedule; schedules are the rows of `agent.yaml`. **Breaking:** a schedule a chat
+  created no longer runs (its table is left in place, unread). A home whose `tools:` list
+  still names `schedule_create` starts with a warning, not a refusal.
+- **The `kongming` and `fullstack-developer` templates.** An agent already installed from one
+  keeps starting; only `researcher` is offered.
+
+### Added
+
+- **A schedule may state a `check`:** a shell command run after the job's work ended `done`,
+  under the same shell, workspace, environment list and 900-second limit as a `command` job.
+  A non-zero exit or a timeout records the run as `error` and tells the owner in a sentence of
+  its own. `GET /api/jobs` and the agent's declared schedules carry the key; the web editor
+  keeps it on save and it is set in `agent.yaml`.
+- **A daily cost cap for scheduled agent jobs:** `jobs_daily_cost_cap_usd` in `config.yaml`
+  (`MY_AGENT_JOBS_DAILY_COST_CAP_USD`; default 0, no cap). It is one sum over every scheduled
+  job that calls a model, counted from the start of the local day; once reached, such jobs
+  are skipped until the next day and the owner is told once. `command` jobs are not counted
+  and not skipped. A day can exceed the cap by what the run that crossed it had left of its
+  own conversation cap. A manual run of an agent job is skipped too.
+- **A usage report:** `GET /api/activity/usage?days=N` (1 to 366, default 30) counts runs,
+  tools, tools called from scripts, skills, delegations, schedules, hooks, commands, prompt
+  trims, spilled outputs, cache use by agent and providers. Counting starts with this
+  version; names with no use are absent.
+
+### Changed
+
+- **A call repeated after it was denied or left to expire in the same turn is refused at
+  once**, without a second request to the owner. A steer from the owner resets it.
+- **A job's failure streak and the Telegram messages of open approval requests are kept in
+  SQLite**, so a restart neither sends the "failed again" notice twice nor leaves buttons on
+  a settled request.
+
+### Fixed
+
+- The agent editor dropped a schedule's `check` when the agent was saved from the web.
+
+### Upgrade notes
+
+- Remove `schedule_create` from any `tools:` list to silence the warning.
+- New tables are created on start; nothing to migrate.
+
 ## [0.39.0] — 2026-11-10
 
 ### Removed
