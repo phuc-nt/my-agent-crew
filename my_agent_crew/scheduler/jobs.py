@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from my_agent_crew import texts
@@ -25,6 +25,7 @@ from my_agent_crew.agent.events import ToolCallEvent, ToolResultEvent
 from my_agent_crew.agent.loop import AgentDeps, run_turn
 from my_agent_crew.agent.turn_context import JOB
 from my_agent_crew.agents.profile import Schedule
+from my_agent_crew.llm.provider import ProviderChain
 from my_agent_crew.memory.consolidate import consolidate_memory
 from my_agent_crew.memory.wiki_compile import compile_wiki
 from my_agent_crew.scheduler.command_said import what_failed
@@ -92,12 +93,22 @@ async def open_turn(
         skills=prompt_skills(job, deps.skills),
         approval_ttl_seconds=job.schedule.approval_ttl_seconds,
     )
-    events = run_turn(deps, conv.id, message, source=JOB)
+    events = run_turn(on_job_routes(job, deps), conv.id, message, source=JOB)
     async for _ in tracked(hub, events, job.agent_id, JOB_SOURCE + job.id, conv.title, conv.id):
         pass
     run = next((r for r in hub.recent(50) if r.conversation_id == conv.id), None)
     assert run is not None
     return run
+
+
+def on_job_routes(job: Job, deps: AgentDeps) -> AgentDeps:
+    """The agent as the job's turn runs it: on the routes the row states, thinking as hard
+    as the agent's own, or on the agent's routes. A route whose provider this machine has
+    no key for is passed over, as an agent's is; with none left the agent's routes run."""
+    providers = deps.chain.providers
+    effort = deps.chain.routes[0].reasoning if deps.chain.routes else ""
+    routes = [replace(r, reasoning=effort) for r in job.schedule.routes if r.provider in providers]
+    return replace(deps, chain=ProviderChain(providers, routes)) if routes else deps
 
 
 def command_failure(code: int | None, output: str) -> str:

@@ -60,6 +60,9 @@ export interface ScheduleInfo {
   /** A command run after the job's own work, whose failure fails the run. Set in
    * `agent.yaml` only and present only when set: the form carries it through untouched. */
   check?: string | null;
+  /** The models (`provider:model`) the job's turn runs on instead of the agent's. Set in
+   * `agent.yaml` only and present only when set: the form carries it through untouched. */
+  routes?: string[];
 }
 
 /** A slash command from a kit (`.agents/commands/*.md`): `/name` expands to its template. */

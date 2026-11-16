@@ -28,7 +28,7 @@ from my_agent_crew.agents.profile import (
 )
 from my_agent_crew.agents.profile_places import followed, persona_names
 from my_agent_crew.agents.profile_settings import listed, memory_budget, names, settings_from
-from my_agent_crew.agents.schedule import ACTIONS, ROW_KEYS, Schedule, check_of, each_on_its_own_id
+from my_agent_crew.agents.schedule import ACTIONS, ROW_KEYS, Schedule, by_file, each_on_its_own_id
 from my_agent_crew.config import Settings
 from my_agent_crew.script.check import parse
 from my_agent_crew.script.limits import MAX_SOURCE_CHARS, ScriptError
@@ -86,7 +86,7 @@ def _schedule(raw: dict[str, Any], agent_id: str, index: int) -> Schedule:
         approval_ttl_seconds=parse_approval_ttl(raw.get("approval_ttl_seconds"), where),
         script=script,
         then_prompt=then_prompt,
-        check=check_of(raw, where),
+        **by_file(raw, where),
     )
 
 

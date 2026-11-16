@@ -72,5 +72,6 @@ export function sendableRow(row: ScheduleRow): Record<string, unknown> {
   // Written in the file, not the form: a row sent without it would lose it.
   if (typeof row.approval_ttl_seconds === "number") out.approval_ttl_seconds = row.approval_ttl_seconds;
   if (typeof row.check === "string" && row.check.trim() !== "") out.check = row.check;
+  if (Array.isArray(row.routes) && row.routes.length > 0) out.routes = row.routes;
   return out;
 }

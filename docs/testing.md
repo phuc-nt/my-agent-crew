@@ -6055,6 +6055,14 @@ khi chạy; phần đó có mục riêng ở dưới.
     job vừa ghi trong workspace; khoá được đọc từ tệp cho mọi loại dòng, giá trị không phải chuỗi
     không rỗng bị từ chối lúc đọc tệp; `GET /api/jobs` có `check` ở dòng đặt nó và không có ở
     dòng không đặt).
+- **Job đặt `routes` thì lượt của nó chạy trên các route đó, agent vẫn giữ route của mình**:
+  - pytest: `tests/test_job_routes.py` (lượt của job chạy trên route của dòng dù route của agent
+    hỏng, agent không đổi; dòng không đặt thì chạy route của agent; route không có key bị bỏ
+    qua, không còn route nào thì chạy route của agent; route của job nghĩ mạnh bằng route của
+    agent; khoá được đọc từ tệp và hiện lại đúng như viết, dòng không đặt thì không có khoá;
+    danh sách rỗng, chuỗi, route không có `provider:` bị từ chối lúc đọc tệp).
+  - vitest: `hooks/schedule-row-shape.test.ts` (`routes` của một dòng đi qua một lần lưu, dòng
+    không có hoặc rỗng thì không gửi, route không có `provider:` bị từ chối như bên server).
 - **Chi phí các lịch trong ngày chạm `jobs_daily_cost_cap_usd` thì lịch gọi model bị bỏ qua tới
   hết ngày, run tự nói lý do và không kênh nào được báo**:
   - pytest: `tests/test_jobs_daily_cost_cap.py` (dưới trần thì lịch chạy và chi phí thật của

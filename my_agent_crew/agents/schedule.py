@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from my_agent_crew import texts
+from my_agent_crew.config_parse import Route, parse_routes
 
 SCHEDULE_KEYS = {
     "id",
@@ -23,9 +24,10 @@ SCHEDULE_KEYS = {
     "skills",
     "approval_ttl_seconds",
 }
-# Every key a row may state in its file. `check` stands apart from `SCHEDULE_KEYS`, the table
-# the web editor's form is held to, because that form does not carry it yet.
-ROW_KEYS = SCHEDULE_KEYS | {"check"}
+# Every key a row may state in its file. `check` and `routes` stand apart from
+# `SCHEDULE_KEYS`, the table the web editor's form is held to, because that form does not
+# carry them yet; it keeps them as the file has them.
+ROW_KEYS = SCHEDULE_KEYS | {"check", "routes"}
 # What a row does, one of these and never two.
 ACTIONS = ("prompt", "command", "script")
 PROMPT, COMMAND, SCRIPT, CONSOLIDATE = "prompt", "command", "script", "consolidate"
@@ -53,6 +55,9 @@ class Schedule:
     # A command run once the job's own work ended well; leaving with anything but 0, it
     # makes the run a failed one (`scheduler/check.py`).
     check: str | None = None
+    # The models a prompt job's turn runs on instead of the agent's, so a daily brief can
+    # run on a cheaper model while a chat with the agent keeps its own (`scheduler/jobs.py`).
+    routes: tuple[Route, ...] = ()
 
     @property
     def kind(self) -> str:
@@ -66,6 +71,8 @@ class Schedule:
     def to_dict(self) -> dict[str, Any]:
         # A row that states no check shows none, as it did before a row could state one.
         check = {"check": self.check} if self.check else {}
+        if self.routes:
+            check["routes"] = [f"{r.provider}:{r.model}" for r in self.routes]
         return {
             "id": self.id,
             "name": self.name,
@@ -92,6 +99,26 @@ def check_of(raw: dict[str, Any], where: str) -> str | None:
     if not isinstance(check, str) or not check.strip():
         raise ValueError(f"{where}: check must be a non-empty string")
     return check
+
+
+def routes_of(raw: dict[str, Any], where: str) -> tuple[Route, ...]:
+    """A row's `routes` as its file states them: a list of `provider:model`, or none. One
+    stated empty is refused: it would read as a job that runs on no model at all."""
+    routes = raw.get("routes")
+    if routes is None:
+        return ()
+    try:
+        parsed = parse_routes(routes) if isinstance(routes, list) else ()
+    except ValueError as exc:
+        raise ValueError(f"{where}: {exc}") from exc
+    if not parsed:
+        raise ValueError(f"{where}: routes must be a non-empty list of provider:model")
+    return parsed
+
+
+def by_file(raw: dict[str, Any], where: str) -> dict[str, Any]:
+    """The keys of a row only its file sets, the web form keeping them as they are."""
+    return {"check": check_of(raw, where), "routes": routes_of(raw, where)}
 
 
 def each_on_its_own_id(agent_id: str, schedules: Sequence[Schedule]) -> tuple[Schedule, ...]:

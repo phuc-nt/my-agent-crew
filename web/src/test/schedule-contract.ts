@@ -89,7 +89,7 @@ export function readSchedules(value: unknown): Read<Declared[]> {
   const rows: Declared[] = [];
   for (const [index, item] of value.entries()) {
     const raw = item as Record<string, unknown>;
-    const unknown = Object.keys(raw).filter((key) => !SCHEDULE_KEYS.has(key) && key !== "check").sort();
+    const unknown = Object.keys(raw).filter((key) => !SCHEDULE_KEYS.has(key) && key !== "check" && key !== "routes").sort();
     if (unknown.length > 0) return { error: `schedule has unknown keys ${JSON.stringify(unknown)}` };
     if (Boolean(raw.cron) === Boolean(raw.every))
       return { error: "schedule needs exactly one of cron / every" };
@@ -112,6 +112,11 @@ export function readSchedules(value: unknown): Read<Declared[]> {
     const check = raw.check;
     if (check !== undefined && check !== null && !(typeof check === "string" && check.trim()))
       return { error: `schedule ${id}: check must be a non-empty string` };
+    // `schedule.routes_of`: the same, a non-empty list of provider:model.
+    const routes = raw.routes;
+    const route = (r: unknown) => typeof r === "string" && /^[^:\s]+:\S+$/.test(r.trim());
+    if (routes !== undefined && routes !== null && !(Array.isArray(routes) && routes.length > 0 && routes.every(route)))
+      return { error: `schedule ${id}: routes must be a non-empty list of provider:model` };
     rows.push({
       id,
       name: String(raw.name || id),
@@ -125,6 +130,7 @@ export function readSchedules(value: unknown): Read<Declared[]> {
       skills: ((raw.skills as unknown[] | undefined) ?? []).map(String),
       approval_ttl_seconds: ttl.ok,
       ...(typeof check === "string" ? { check } : {}),
+      ...(Array.isArray(routes) ? { routes: routes.map(String) } : {}),
     });
   }
   return { ok: rows };

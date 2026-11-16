@@ -72,6 +72,20 @@ describe("a script row as it is sent back", () => {
     expect(readSchedules([{ ...sent, check: " " }])).toEqual({ error: "schedule sync: check must be a non-empty string" });
   });
 
+  // Nor for the models a job runs on: a save that dropped them would move the job back.
+  it("carries the routes the file states, and sends none for a row without them", () => {
+    const routes = ["anthropic:claude-haiku-5-5", "openrouter:deepseek/deepseek-v4-flash"];
+    const sent = sendableRow({ ...script, routes });
+    expect(sent.routes).toEqual(routes);
+    expect(sendableRow(script)).not.toHaveProperty("routes");
+    expect(sendableRow({ ...script, routes: [] })).not.toHaveProperty("routes");
+    const read = readSchedules([sent]);
+    expect("ok" in read && read.ok[0].routes).toEqual(routes);
+    expect(readSchedules([{ ...sent, routes: ["haiku"] }])).toEqual({
+      error: "schedule sync: routes must be a non-empty list of provider:model",
+    });
+  });
+
   it("is what the parser takes, and reads back as the row it was", () => {
     const read = readSchedules([sendableRow(script), sendableRow({ ...script, id: "quiet", then_prompt: null })]);
     expect(read).toEqual({
