@@ -424,3 +424,16 @@ def test_a_reply_handed_on_from_a_child_is_not_a_model_step():
     apply_event(run, DoneEvent(0.001, 1), 15.0)
     assert [s["kind"] for s in run.steps] == ["model", "tool"]
     assert run.status == DONE
+
+
+def test_a_run_with_no_conversation_continues_no_paused_run(tmp_path):
+    """Only a conversation's turn picks its paused run up again: a command run waiting on a
+    decision is not taken over by the next run that has no conversation either."""
+    hub = ActivityHub(Store(tmp_path / "db.sqlite3"))
+    paused = hub.start("default", "job:sync", "Đồng bộ", None)
+    paused.status = AWAITING
+
+    other = hub.start("default", "job:other", "Khác", None)
+
+    assert other.id != paused.id and other.title == "Khác"
+    assert paused.status == AWAITING and {r.id for r in hub.live()} == {paused.id, other.id}

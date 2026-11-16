@@ -61,13 +61,14 @@ class ActivityHub(CutRuns):
     ) -> RunRecord:
         """A turn that resumes after an approval continues the run that paused, and one
         taken up after a restart the run that was cut. Either way the run takes over the
-        claim the door made on its conversation."""
+        claim the door made on its conversation. A run with no conversation (a command, a
+        host's notice) continues none: only a conversation's turn picks its run up again."""
         if conversation_id:
             self.turn_starting(conversation_id)
             self.busy.release(conversation_id)
         for live in self._live.values():
             paused = live.status == AWAITING or live.id in self._held
-            if live.conversation_id == conversation_id and paused:
+            if conversation_id and live.conversation_id == conversation_id and paused:
                 self._held.discard(live.id)
                 live.status = RUNNING
                 self._store.runs.save(live)
