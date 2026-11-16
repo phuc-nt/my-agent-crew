@@ -1,18 +1,16 @@
-"""The decisions a Telegram chat may take: what its own conversations wait on, what the
-conversations they delegated to wait on, and what nobody else is watching for.
+"""The decisions a Telegram chat may take: what its own conversations wait on, and what the
+conversations they delegated to wait on (`in_chat`). Nothing else is told in the chat: a
+job's requests, and those of a child delegated from the web or from a job, are decided on
+the web, whose push announces them (`webpush/notices.py`).
 
-The chat is the crew's default place to decide. Besides its own requests it hears of every
-request a delegated child makes, wherever its chain began (a child pauses in a conversation
-of its own, out of sight of the page or the chat that started it), and of every request a
-scheduled job makes, since nobody reads a job's conversation as it runs. A child's is told
-the moment it is made (`watch_children`), a job's when the job is delivered while it waits
-(`telegram_pending`), each with the buttons that settle it. `/approve`, `/deny` and a typed
-answer still reach only the chat's own and their children.
+A child pauses in a conversation of its own, out of sight of the chat that started its
+chain, so its request is told the moment it is made (`watch_children`), with the buttons
+that settle it. `/pending` says them all again, `/approve`, `/deny` and a typed answer reach
+them too.
 
 A decision on the chat's own conversation resumes a turn whose answer the chat is owed, so
-it is read like a message's (`reply_to`). A job's resumed turn is read to its end and its
-answer delivered, as the job's would have been. A child's answers its parent's tool call
-instead: it is read in silence, and the parent's turn says what came of it."""
+it is read like a message's (`reply_to`). A child's answers its parent's tool call instead:
+it is read in silence, and the parent's turn says what came of it."""
 
 from __future__ import annotations
 
@@ -25,7 +23,6 @@ from typing import TYPE_CHECKING, Any
 
 from my_agent_crew import texts
 from my_agent_crew.agent.events import ApprovalRequiredEvent, Event, kind_of
-from my_agent_crew.agent.turn_context import JOB, conversation_source
 from my_agent_crew.channels.telegram_api import TelegramError
 from my_agent_crew.channels.telegram_buttons import buttons_for, call_line, deadline_line
 from my_agent_crew.store.models import QUESTION, Approval, Conversation
@@ -52,21 +49,10 @@ def in_chat(channel: TelegramChannel, conv: Conversation) -> bool:
         return False
 
 
-def told_of(channel: TelegramChannel, conv: Conversation) -> bool:
-    """Whether the chat hears of this conversation's requests and may settle them by a press:
-    its own, any delegated child's, and a job's."""
-    if conv.root_id or in_chat(channel, conv):
-        return True
-    return conversation_source(channel.store, conv.id) == JOB
-
-
 def reports_to(channel: TelegramChannel, conv: Conversation) -> bool:
     """Whether the conversation's answer goes to the chat when a turn of it ends wherever it
-    was decided: one of the chat's own, or a job's. One of the web's is read where it was
-    asked, and a child's answer is its parent's to give."""
-    if conv.root_id:
-        return False
-    return in_chat(channel, conv) or conversation_source(channel.store, conv.id) == JOB
+    was decided: only one of the chat's own. A child's answer is its parent's to give."""
+    return not conv.root_id and in_chat(channel, conv)
 
 
 def open_question(
@@ -90,23 +76,16 @@ def open_question(
 
 def resume(channel: TelegramChannel, conv: Conversation, events: AsyncIterator[Event]) -> None:
     """Reads the rest of a turn a decision resumed, in the background: the chat's own with
-    its answer sent to the chat, a job's with its answer delivered at the end, a child's
-    and one of the web's in silence."""
-    if not conv.root_id and in_chat(channel, conv):
+    its answer sent to the chat, a child's in silence."""
+    if reports_to(channel, conv):
         channel.spawn(channel.reply_to(events, conv.id))
-    elif not conv.root_id and conversation_source(channel.store, conv.id) == JOB:
-        channel.spawn(_read_through(events, channel, conv.id))
     else:
         channel.spawn(_read_through(events))
 
 
-async def _read_through(
-    events: AsyncIterator[Event], channel: TelegramChannel | None = None, conv_id: str = ""
-) -> None:
+async def _read_through(events: AsyncIterator[Event]) -> None:
     async for _ in events:
         pass
-    if channel is not None:
-        await channel.deliver(conv_id)
 
 
 def request_text(event: ApprovalRequiredEvent, zone: tzinfo | None = None) -> str:
@@ -124,9 +103,9 @@ def request_text(event: ApprovalRequiredEvent, zone: tzinfo | None = None) -> st
 def told_request(
     channel: TelegramChannel, payload: dict[str, Any]
 ) -> tuple[Conversation, ApprovalRequiredEvent] | None:
-    """The request an activity payload announces, when a delegated child made it. The chat's
-    own conversation says its requests in its reply, and a job's says them when it is
-    delivered, so those are not told twice."""
+    """The request an activity payload announces, when a child delegated from one of the
+    chat's own conversations made it. The chat's own conversation says its requests in its
+    reply, so those are not told twice."""
     event = payload.get("event") or {}
     if payload.get("type") != "event" or event.get("type") != APPROVAL_REQUIRED:
         return None
@@ -134,7 +113,7 @@ def told_request(
         conv = channel.store.get(str(payload.get("conversation_id") or ""))
     except KeyError:
         return None
-    if not conv.root_id:
+    if not conv.root_id or not in_chat(channel, conv):
         return None
     return conv, ApprovalRequiredEvent(**{k: v for k, v in event.items() if k in _EVENT_FIELDS})
 

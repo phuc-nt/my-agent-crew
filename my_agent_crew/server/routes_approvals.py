@@ -6,9 +6,9 @@ A question the agent asked is a row in the same table and resumes down the same 
 but it is closed on its own route: its outcome is the person's words, and a yes with no
 words in it would tell the agent nothing.
 
-A request the chat was told of may be settled here instead: a job's, or one of the chat's
-own conversations. The chat then hears the turn's answer as it would have after a press,
-since that is where it waits for it."""
+A request of one of the Telegram chat's own conversations may be settled here instead. The
+chat then hears the turn's answer as it would have after a press, since that is where it
+waits for it."""
 
 from __future__ import annotations
 
@@ -105,7 +105,8 @@ async def answer(
 
 async def _then_told(rt: Rt, conv_id: str, events: AsyncIterator[Event]) -> AsyncIterator[Event]:
     """The resumed turn, its answer delivered to the chat when it ends; the runtime sends
-    nothing for a conversation of the web's. A failed send costs the chat that one answer."""
+    nothing for a conversation that is not the chat's own. A failed send costs the chat that
+    one answer."""
     async for event in events:
         yield event
     try:

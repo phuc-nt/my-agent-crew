@@ -1,5 +1,5 @@
-"""Requests said again with their buttons: what a job delivered while it waits stopped on,
-and `/pending`, every request the chat may settle.
+"""Requests said again with their buttons: what one of the chat's own conversations,
+delivered while it waits, stopped on, and `/pending`, every request the chat may settle.
 
 A request told an hour ago sits far up the chat, under whatever came since, and one told
 before a restart lost its message to a new process. The command lists what still waits,
@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from my_agent_crew import texts
 from my_agent_crew.agent.events import ApprovalRequiredEvent
 from my_agent_crew.agent.loop import AgentDeps
-from my_agent_crew.channels.telegram_approvals import request_text, tell_request, told_of
+from my_agent_crew.channels.telegram_approvals import in_chat, request_text, tell_request
 from my_agent_crew.channels.telegram_buttons import buttons_for
 from my_agent_crew.store.models import Approval
 
@@ -44,7 +44,7 @@ async def list_pending(channel: TelegramChannel) -> str:
             conv = channel.store.get(approval.conversation_id)
         except KeyError:
             continue
-        if told_of(channel, conv):
+        if in_chat(channel, conv):
             found.append((conv, approval))
     if not found:
         return texts.TELEGRAM_PENDING_NONE
@@ -55,7 +55,8 @@ async def list_pending(channel: TelegramChannel) -> str:
 
 
 async def ask_waiting(out: TelegramOutbound, deps: AgentDeps, conv_id: str) -> bool:
-    """A job delivered while it waits: the request it waits on, with its buttons. False when
+    """A conversation delivered while it waits (its turn resumed away from the chat and
+    stopped on another request): the request it waits on, with its buttons. False when
     nothing waits, and the run is said to have stopped instead."""
     approval = deps.store.approvals.pending(conv_id)
     if approval is None:

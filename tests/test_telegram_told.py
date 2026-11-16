@@ -1,11 +1,14 @@
-"""The chat as the crew's default place to decide: the requests it hears of besides its own,
-the deadline and the reminder, the messages closed when a request is settled elsewhere, and
+"""The requests the chat may decide: its own and those of the children it delegated, never
+a job's, nor one of a conversation begun on the web or by a job and its children; the
+deadline and the reminder, the messages closed when a request is settled elsewhere, and
 `/pending`."""
 
 from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+
+import pytest
 
 from my_agent_crew import texts
 from my_agent_crew.agent.turn_context import CHAT, JOB
@@ -34,32 +37,36 @@ async def until_sent(fake, count: int = 1) -> None:
         await asyncio.sleep(0.01)
 
 
-async def test_a_child_of_a_web_conversation_is_told_and_a_press_settles_it(
-    make_channel, deps_factory, fake
+@pytest.mark.parametrize("root_source", [None, f"{JOB}:default/brief"], ids=["web", "job"])
+async def test_a_child_of_a_conversation_not_the_chats_is_not_told_and_a_press_is_refused(
+    make_channel, deps_factory, fake, root_source
 ):
-    channel = make_channel(deps_factory(script=ASKS_THEN_DONE))
+    """A child delegated from the web or from a job is decided on the web, as its root is."""
+    root_turn = [completion("Đã chạy.")] if root_source else []
+    channel = make_channel(deps_factory(script=[*root_turn, *ASKS_THEN_DONE]))
     watching = asyncio.create_task(watch_children(channel))
     await asyncio.sleep(0)
-    root = channel.store.create(agent_id=channel.agent_id)  # opened on the web
+    root = channel.store.create(agent_id=channel.agent_id)
+    if root_source:
+        async for _ in channel.inbound.stream(root.id, "chạy", source=root_source):
+            pass
     _, asked = await paused(channel, root_id=root.id, parent_call_id="d1")
     await until_sent(fake)
     watching.cancel()
-    assert fake.sent == [asks_for(WRITE)]
+    assert fake.sent == [] and asked.id not in channel.told
     await poll_each(channel, fake, press(1, f"y:{asked.id}"))
-    await settle(channel)
-    assert fake.answered == [texts.TELEGRAM_PRESS_APPROVED]
-    assert channel.store.approvals.get(asked.id).decided_via == "telegram"
+    assert fake.answered == [texts.TELEGRAM_PRESS_SETTLED]
+    assert channel.store.approvals.get(asked.id).status == PENDING
 
 
-async def test_a_jobs_request_is_settled_by_a_press_and_its_answer_delivered(
-    make_channel, deps_factory, fake
-):
+async def test_a_jobs_request_is_not_settled_by_a_press(make_channel, deps_factory, fake):
     channel = make_channel(deps_factory(script=ASKS_THEN_DONE))
     _, asked = await paused(channel, source=f"{JOB}:default/brief")
     await poll_each(channel, fake, press(1, f"y:{asked.id}"))
     await settle(channel)
-    assert fake.answered == [texts.TELEGRAM_PRESS_APPROVED]
-    assert fake.sent == ["Đã ghi."], "the job's answer reaches the chat as its delivery would"
+    assert fake.answered == [texts.TELEGRAM_PRESS_SETTLED]
+    assert channel.store.approvals.get(asked.id).status == PENDING
+    assert fake.sent == [], "nothing of the job reaches the chat"
 
 
 async def test_a_press_on_a_web_conversations_own_request_settles_nothing(
@@ -121,18 +128,19 @@ async def test_a_request_that_ran_out_says_so_and_a_pressed_one_is_not_closed_tw
     assert "⏳" in fake.edits[-1]["text"], "the message keeps what it said"
 
 
-async def test_pending_says_again_what_waits_with_its_buttons(make_channel, deps_factory, fake):
+async def test_pending_lists_neither_a_jobs_request_nor_a_web_childs(
+    make_channel, deps_factory, fake
+):
     asks = completion(tool_calls=(WRITE,))
-    channel = make_channel(deps_factory(script=[asks, asks]))
-    await poll_each(channel, fake, message(1, "/pending"))
-    assert fake.sent == [texts.TELEGRAM_PENDING_NONE]
+    channel = make_channel(deps_factory(script=[asks, asks, asks]))
     _, job = await paused(channel, source=f"{JOB}:default/brief")
     _, web = await paused(channel)  # the web's own: it is decided there
-    assert web is not None
-    await poll_each(channel, fake, message(2, "/pending"))
-    assert fake.sent[1:] == [texts.TELEGRAM_PENDING.format(count=1), asks_for(WRITE)]
-    assert fake.buttons[-1]["inline_keyboard"][0][0]["callback_data"] == f"y:{job.id}"
-    assert job.id in channel.told
+    root = channel.store.create(agent_id=channel.agent_id)
+    _, child = await paused(channel, root_id=root.id, parent_call_id="d1")
+    assert None not in (job, web, child)
+    await poll_each(channel, fake, message(1, "/pending"))
+    assert fake.sent == [texts.TELEGRAM_PENDING_NONE]
+    assert all(asked.id not in channel.told for asked in (job, web, child))
 
 
 async def test_pending_says_again_the_chats_own_request(make_channel, deps_factory, fake):

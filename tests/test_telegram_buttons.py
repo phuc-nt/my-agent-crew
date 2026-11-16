@@ -191,11 +191,11 @@ async def test_a_press_too_old_to_answer_still_loses_its_buttons(make_channel, d
     assert fake.edits[0]["text"].endswith(texts.TELEGRAM_PRESS_DENIED)
 
 
-async def test_a_job_that_spoke_before_it_stopped_still_shows_the_buttons(
+async def test_a_job_that_spoke_before_it_stopped_sends_the_chat_neither_words_nor_buttons(
     make_channel, deps_factory, fake
 ):
-    """A job whose model wrote a line beside the call it stopped on is delivered with that
-    line, then with the request and its buttons: the line alone leaves nothing to press."""
+    """A job's request waits on the web, with the line its model wrote beside the call: the
+    chat is no place a job reports to, even with the channel's delivery handed to the clock."""
     check = Schedule("cleanup", "Dọn", cron="30 7 * * *", prompt="Dọn thư mục")
     script = [completion("Đã tạo xong. Giờ hỏi:", tool_calls=(ASK,))]
     deps = with_schedules(deps_factory(script=script), check)
@@ -207,6 +207,5 @@ async def test_a_job_that_spoke_before_it_stopped_still_shows_the_buttons(
     scheduler = Scheduler({"default": deps}, channel.hub, deliver=deliver)
     run = await scheduler.run_job("default/cleanup")
     assert run.status == AWAITING
-    assert fake.sent[0] == "Đã tạo xong. Giờ hỏi:" and len(fake.sent) == 2
-    assert ASK.arguments["question"] in fake.sent[1]
-    assert fake.buttons[0] is None and fake.buttons[1] is not None
+    assert channel.store.approvals.pending(run.conversation_id) is not None
+    assert fake.calls == []

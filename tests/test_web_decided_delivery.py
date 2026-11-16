@@ -1,9 +1,9 @@
 """Which answers reach the chat when a request is settled away from it.
 
 A request decided on the web, or one nobody answered, finishes its turn there. The chat hears
-the answer only when it is the one waiting for it: a job's, or one of the chat's own
-conversations. A conversation of the web's is read on the web, so its answer, and the line
-saying its request ran out, stay out of the chat.
+the answer only when it is the one waiting for it: one of the chat's own conversations. A
+job's, and a conversation of the web's, are read on the web, so their answers, and the line
+saying a request ran out, stay out of the chat.
 """
 
 from __future__ import annotations
@@ -88,27 +88,45 @@ async def test_a_web_conversation_that_ran_out_tells_the_chat_nothing(
     assert fake.sent == []
 
 
-async def test_a_job_that_ran_out_still_reports_to_the_chat(make_channel, deps_factory, fake):
-    runtime = runtime_of(make_channel(scripted(deps_factory, "Chạy nhé.", ASK)))
-    await paused_job(runtime)
-    fake.sent.clear()
-    later = datetime.now(UTC) + timedelta(seconds=runtime.settings.approval_ttl_seconds + 1)
-
-    await expire_overdue(runtime.agents, runtime.hub, runtime.deliver, now=later)
-
-    assert fake.sent == ["Chạy nhé."]
-
-
-async def test_a_job_approved_on_the_web_reports_its_answer_to_the_chat(
+async def test_a_job_that_ran_out_carries_on_and_tells_the_chat_nothing(
     make_channel, deps_factory, fake
 ):
     runtime = runtime_of(make_channel(scripted(deps_factory, "Chạy nhé.", ASK)))
     conv_id = await paused_job(runtime)
-    fake.sent.clear()
+    later = datetime.now(UTC) + timedelta(seconds=runtime.settings.approval_ttl_seconds + 1)
+
+    closed = await expire_overdue(runtime.agents, runtime.hub, runtime.deliver, now=later)
+
+    assert len(closed) == 1
+    assert runtime.store.history(conv_id)[-1].message.content == "Chạy nhé."
+    assert fake.calls == []
+
+
+async def test_a_job_approved_on_the_web_keeps_its_answer_out_of_the_chat(
+    make_channel, deps_factory, fake
+):
+    runtime = runtime_of(make_channel(scripted(deps_factory, "Chạy nhé.", ASK)))
+    conv_id = await paused_job(runtime)
 
     approve(runtime, conv_id)
 
-    assert fake.sent == ["Chạy nhé."]
+    assert runtime.store.history(conv_id)[-1].message.content == "Chạy nhé."
+    assert fake.calls == []
+
+
+async def test_the_chats_own_conversation_that_ran_out_answers_in_the_chat(
+    make_channel, deps_factory, fake
+):
+    channel = make_channel(scripted(deps_factory, "Thôi, không ghi."))
+    runtime = runtime_of(channel)
+    conv = channel.open_conversation()
+    events = await collect(run_turn(runtime.default, conv.id, "ghi file", source=TELEGRAM))
+    assert isinstance(events[-1], ApprovalRequiredEvent)
+    later = datetime.now(UTC) + timedelta(seconds=runtime.settings.approval_ttl_seconds + 1)
+
+    await expire_overdue(runtime.agents, runtime.hub, runtime.deliver, now=later)
+
+    assert fake.sent[-1] == "Thôi, không ghi."
 
 
 async def test_the_chats_own_conversation_approved_on_the_web_answers_in_the_chat(

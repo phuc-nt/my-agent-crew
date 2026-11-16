@@ -1,9 +1,10 @@
 """Closing approval requests nobody answered.
 
-A paused turn holds its conversation, and for a job its channel, until someone decides.
-When the deadline passes the request is closed as expired, the loop resumes with the
-tool refused (the model reads it as a denial) and the answer is delivered as usual, so
-a night job that hit a guard still reports in the morning instead of waiting silently.
+A paused turn holds its conversation until someone decides. When the deadline passes the
+request is closed as expired and the loop resumes with the tool refused (the model reads
+it as a denial), so a night job that hit a guard still reports in the morning, on the web,
+instead of waiting silently. The answer is handed to `deliver`, which sends on only that of
+one of the Telegram chat's own conversations (`Runtime.deliver`).
 
 A question expires the same way but does not resume the same way. Nobody authorising a
 tool means the tool must not run; nobody answering a question means only that the agent

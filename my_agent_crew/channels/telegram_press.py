@@ -1,8 +1,8 @@
 """A press on a decision button (`telegram_buttons`): the request it names is settled, and
 the message it was pressed under says how, its buttons gone so it cannot be pressed twice.
 
-Only a press in the configured chat counts, on a request the chat is told of
-(`telegram_approvals.told_of`): its own, a delegated child's, a job's. A request settled
+Only a press in the configured chat counts, on a request the chat may settle
+(`telegram_approvals.in_chat`): its own, or a child's delegated from its own. A request settled
 already, by an earlier press, by `/approve`, on the web or by its expiry, is left as it is
 and the press told so: the buttons of an old message stay on the screen long after they
 mean anything."""
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from my_agent_crew import texts
 from my_agent_crew.agent.turn_context import TELEGRAM
 from my_agent_crew.channels.telegram_api import TelegramError
-from my_agent_crew.channels.telegram_approvals import resume, told_of
+from my_agent_crew.channels.telegram_approvals import in_chat, resume
 from my_agent_crew.channels.telegram_buttons import Press, read_press
 from my_agent_crew.channels.telegram_told import close_message
 from my_agent_crew.inbound import InboundBusy
@@ -49,7 +49,7 @@ def settle(channel: TelegramChannel, press: Press) -> str:
         conv = store.get(approval.conversation_id)
     except KeyError:
         return texts.TELEGRAM_PRESS_SETTLED
-    if approval.status != PENDING or not told_of(channel, conv):
+    if approval.status != PENDING or not in_chat(channel, conv):
         return texts.TELEGRAM_PRESS_SETTLED
     is_question = approval.kind == QUESTION
     if is_question != bool(press.choice) or press.choice > len(approval.options):
