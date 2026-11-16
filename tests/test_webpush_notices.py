@@ -113,3 +113,14 @@ def test_a_telegram_chat_or_a_delegated_child_is_not_pushed_its_answer(store):
         assert notice_for(run(source="web", conversation_id=conv.id), store) is None
     assert notice_for(run(source="web", conversation_id="gone"), store) is None
     assert notice_for(run(source="web", conversation_id=parent.id, status="error"), store) is None
+
+
+def test_a_hosts_notice_is_told_with_a_fixed_sentence_and_none_of_its_words(store):
+    notice = notice_for(
+        run(source="notice:host", conversation_id=None, title="Máy Mac im lặng"), store
+    )
+    assert (notice.title, notice.body) == (texts_push.NOTICE_TITLE, texts_push.NOTICE_BODY)
+    assert (notice.url, notice.tag) == (INBOX_URL, "notice")
+    shown = " ".join(notice.payload().values())
+    assert "Máy Mac" not in shown and "cuộc họp" not in shown
+    assert notice_for(run(source="notice:host", status="error"), store) is None

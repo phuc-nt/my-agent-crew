@@ -772,10 +772,14 @@ quản lý thành một hàng pill, tự cuộn tới mục đang mở.
     trò chuyện nên không có ở đây; run lỗi nằm ở phần cần chú ý. Hộp thư là nơi duy nhất đọc
     được báo cáo của job: Telegram không nhận gì của job.
     Câu trả lời sau đó trong cùng cuộc trò chuyện không đổi báo cáo.
+  - thông báo của host (`POST /api/notices`, xem [channels.md](channels.md)) xếp chung với báo
+    cáo theo lúc đến: tiêu đề ở chỗ tên job, nguyên văn chữ đọc từ summary của run. Nó không có
+    cuộc trò chuyện nên không có nút "Trả lời".
 - **Thông báo đẩy:** Hộp thư cũng là nơi bật Web Push cho thiết bị (`webpush/`,
   `server/routes_push.py`, `public/sw.js`).
   - **Có thông báo khi:** có yêu cầu duyệt hoặc câu hỏi, khi một job có báo cáo (như trên) hoặc lỗi, và khi
-    một lượt chat trên web kéo dài từ một phút trở lên vừa xong.
+    một lượt chat trên web kéo dài từ một phút trở lên vừa xong, và khi host để lại một thông báo
+    ("Cảnh báo hệ thống", tag `notice`).
   - **Nội dung là câu chung:** chỉ có tiêu đề cố định và một đường dẫn trong app, không chứa nội
     dung cuộc trò chuyện. Payload được mã hoá theo RFC 8291 nên dịch vụ push của trình duyệt chỉ
     thấy ciphertext.

@@ -27,6 +27,7 @@ from my_agent_crew.server import (
     routes_memory_user,
     routes_memory_wiki,
     routes_model_routes,
+    routes_notices,
     routes_push,
     routes_registry,
     routes_search,
@@ -70,4 +71,5 @@ ROUTERS = (
     routes_telegram_updates.router,
     routes_push.router,
     routes_spend.router,
+    routes_notices.router,
 )

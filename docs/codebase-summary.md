@@ -62,6 +62,7 @@ chỉ để hiển thị (chữ đang chảy, `user_context`, `tool_call_delta`)
 |---|---|
 | Sức khoẻ | `GET /api/health` |
 | Cổng vào | `POST /api/inbound` |
+| Thông báo của host | `POST /api/notices` (`{"text", "title"?}` → 201 `{"run_id"}`; một run `notice:host` đã xong của master, không có cuộc trò chuyện, Hộp thư liệt kê và Web Push báo bằng câu cố định) |
 | Cuộc trò chuyện | `GET/POST/DELETE /api/conversations[/{id}]`, `POST …/{id}/messages` (SSE; `request_id` do tab đặt để một lần gửi lặp lại không tạo tin thứ hai), `GET …/{id}/summary` |
 | Lượt đang chạy | `GET /api/conversations/{id}/turn` (SSE: xem lượt server đang đọc, kể cả lượt của Telegram hay job; `204` khi không có lượt nào), `POST …/{id}/stop` (trả các tin còn chờ và dừng lượt server đang đọc cho cuộc đó; `cancelled` cho biết có lượt nào bị dừng không) |
 | Tìm trong hội thoại | `GET /api/messages/search?q=&agent_id=&limit=` (FTS5 trên nội dung tin, `conversation_search` là bản cho model) |

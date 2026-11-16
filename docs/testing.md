@@ -1118,6 +1118,16 @@ tên một test thì sửa dòng của nó trong cùng commit.
     the same way"); `hooks/use-route.test.ts`
   - Playwright: `phone-inbox.spec.ts` "the inbox settles a request and opens a job's report from a phone";
     `desktop-inbox.spec.ts` "a wide screen opens the inbox from the sidebar and reads a job's report there"
+- **Thông báo của host (`POST /api/notices`): một run đã xong của master, Hộp thư đọc nguyên văn,
+  thông báo đẩy chỉ mang câu cố định**
+  - pytest: `tests/test_api_notices.py` (201 kèm `run_id`; run `notice:` không có cuộc trò chuyện,
+    tiêu đề và summary nguyên văn; tiêu đề trống thành mặc định; chữ rỗng, chỉ có khoảng trắng hay
+    quá giới hạn là 422 và không ghi gì); `tests/test_webpush_notices.py`
+    "test_a_hosts_notice_is_told_with_a_fixed_sentence_and_none_of_its_words";
+    `tests/test_api_inbound.py` (relay không mượn được `notice:host`); `tests/test_activity.py`
+    "test_a_run_with_no_conversation_continues_no_paused_run"
+  - vitest: `state/inbox.test.ts` "lists the host's notices among the results, by when they came in";
+    `app-inbox.test.tsx` "reads a host's notice whole under its title, counted, with nothing to answer"
 - **Thông báo đẩy (Web Push)**
   - pytest:
     - `test_webpush_crypto.py`: vector của RFC 8291 §5, giải mã độc lập, claim VAPID;

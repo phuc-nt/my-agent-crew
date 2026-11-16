@@ -78,9 +78,10 @@ def test_channels_and_explicit_conversations_are_kept_apart(crew):
     assert into_web["conversation_id"] == web["id"] and into_web["text"] == "(echo) c"
 
 
-@pytest.mark.parametrize(
-    "source", ["chat", "telegram", "job", "job:pong/brief", "delegate:c1", "web", "memory:wiki"]
-)
+INTERNAL = ["chat", "telegram", "job", "job:pong/brief", "delegate:c1", "web", "memory:wiki"]
+
+
+@pytest.mark.parametrize("source", [*INTERNAL, "notice:host"])
 def test_a_relay_cannot_borrow_the_name_of_one_of_the_servers_own_channels(crew, source):
     """A turn labelled `chat` may write a canvas, and a `job:<id>` run is listed as that
     job's last run: a relay must not be able to claim either."""

@@ -22,7 +22,7 @@ POST /api/inbound {"text": "…", "agent_id"?: "default", "channel"?: "api", "co
 `channel` chọn cuộc trò chuyện theo ngày (`api:<something>` tách một relay khỏi
 relay khác), `conversation_id` thì tiếp tục một cuộc cụ thể thay vào đó, và `source` là thứ run
 hiển thị trong view hoạt động. `source` không được mượn tên kênh của chính server (`chat`,
-`telegram`, `web`, `job` hay `job:<id>`, `delegate:<…>`, `memory:<…>`): lượt `chat` được ghi
+`telegram`, `web`, `job` hay `job:<id>`, `delegate:<…>`, `memory:<…>`, `notice:<…>`): lượt `chat` được ghi
 canvas, còn run `job:<id>` hiện thành lần chạy gần nhất và nằm trong lịch sử của job đó. 404 khi
 agent hoặc cuộc trò chuyện không tồn tại, 409 khi cuộc trò chuyện đang chờ duyệt, 422 khi tin chỉ
 là `/steer` không kèm chữ hoặc `source` là tên kênh nội bộ, 429 khi hàng của cuộc trò chuyện đã
@@ -37,6 +37,22 @@ lời bằng một lượt riêng sau khi lượt đang chạy xong, cùng mọi
 tool kế tiếp (xem [design.md](design.md#hình-dạng-runtime)). Câu trả lời cho tin đã xếp hàng
 không quay về request này: relay cần nó thì đọc lại cuộc trò chuyện
 (`GET /api/conversations/{id}`).
+
+Máy chạy crew (host, như nền tảng cloud) báo cho chủ một chuyện vận hành của chính nó (máy edge
+im lặng, tệp thả vào đã cũ, lịch lỡ giờ chạy, snapshot trước khi ngủ hỏng) bằng:
+
+```
+POST /api/notices {"text": "…", "title"?: "…"}
+→ 201 {"run_id": "…"}
+```
+
+`text` bắt buộc, đã bỏ khoảng trắng hai đầu thì không được rỗng và dài tối đa 2000 ký tự; `title`
+tối đa 80 ký tự, bỏ trống thì là "Cảnh báo hệ thống". Sai một trong hai là 422, không ghi gì. Mỗi
+thông báo là một run đã xong của master, source `notice:host`, không có cuộc trò chuyện, tiêu đề
+là `title` và summary là nguyên văn `text` (`activity/notices.py`). Không agent nào đọc nó và
+không kênh chat nào được gửi: nó nằm trong Hộp thư trên web cùng báo cáo của job, được đếm vào số
+chưa đọc, và thông báo đẩy chỉ mang câu cố định, không mang chữ của thông báo
+([design.md](design.md#web-ui)).
 
 ## Cấu hình
 

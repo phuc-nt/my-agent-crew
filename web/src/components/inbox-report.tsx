@@ -3,7 +3,7 @@ import type { RunInfo } from "../api/types";
 import { vi } from "../i18n/vi";
 import { dayClock } from "../lib/relative-time";
 import { splitMedia } from "../lib/reply-blocks";
-import { jobName } from "../state/inbox";
+import { isNotice, jobName } from "../state/inbox";
 import { MarkdownBody } from "./markdown-body";
 import { AgentAvatar } from "./ui/agent-avatar";
 
@@ -23,7 +23,8 @@ interface Props {
 /**
  * One job's report as the chat is sent it: under the agent's name, the job and when, then
  * its words, formatted, read where they are listed. A picture or a file the report sends is
- * named, not drawn, and is in its conversation, which is also where it is answered.
+ * named, not drawn, and is in its conversation, which is also where it is answered. A host's
+ * notice reads the same, its title in the job's place, and has no conversation to answer in.
  */
 export function InboxReport({ run, text, agent, fresh, onOpen }: Props) {
   const [open, setOpen] = useState(false);
@@ -57,14 +58,16 @@ export function InboxReport({ run, text, agent, fresh, onOpen }: Props) {
             {open ? vi.inbox.fold : vi.inbox.unfold}
           </button>
         )}
-        <button
-          type="button"
-          className="inbox-report-open"
-          aria-label={vi.inbox.openReport(job)}
-          onClick={() => onOpen(run)}
-        >
-          {vi.inbox.reply}
-        </button>
+        {!isNotice(run) && (
+          <button
+            type="button"
+            className="inbox-report-open"
+            aria-label={vi.inbox.openReport(job)}
+            onClick={() => onOpen(run)}
+          >
+            {vi.inbox.reply}
+          </button>
+        )}
       </footer>
     </article>
   );

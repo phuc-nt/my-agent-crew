@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { api } from "../api/client";
 import type { RunInfo } from "../api/types";
 import { inboxReadAt, markInboxRead, subscribeInboxRead } from "../lib/inbox-read";
-import { jobResults, mergeRuns, unreadResults } from "../state/inbox";
+import { isNotice, jobResults, mergeRuns, unreadResults } from "../state/inbox";
 
 /** Enough runs to reach back past a few days of chat turns to the jobs among them. */
 const INBOX_LIMIT = 200;
@@ -66,13 +66,13 @@ export function useInbox(runs: RunInfo[]): Inbox {
  * The words of each result, read again whenever a result is listed that they lack: as the
  * inbox opens, when the longer list arrives, and when a job reports while it is open. A
  * result the server has no words for (older than its page) is asked about once, not on
- * every render.
+ * every render. A host's notice is not asked about: its run holds its words whole.
  */
 function useReports(results: RunInfo[]): Map<string, string> {
   const [reports, setReports] = useState<Map<string, string>>(() => new Map());
   const asked = useRef("");
   const missing = results
-    .filter((r) => !reports.has(r.id))
+    .filter((r) => !isNotice(r) && !reports.has(r.id))
     .map((r) => r.id)
     .join(",");
 

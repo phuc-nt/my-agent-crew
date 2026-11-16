@@ -1,10 +1,11 @@
 """Which of the activity stream's messages are worth waking a phone for, and what it shows.
 
-Four things are: a request waiting on the person (a tool to allow, a question to answer), a
-job whose turn answered something, a job that failed, and the answer to a long piece of work the
-person started on the web and may have walked away from. What a job says when all is well
-("OK") is not, as the chat is not told it either; nor is anything a delegated child or a
-Telegram chat ran, since the chat that asked is where its answer goes.
+Five things are: a request waiting on the person (a tool to allow, a question to answer), a
+job whose turn answered something, a job that failed, the answer to a long piece of work the
+person started on the web and may have walked away from, and a notice the host that runs the
+crew left in the inbox (`activity/notices.py`), whose own words stay there. What a job says
+when all is well ("OK") is not, as the chat is not told it either; nor is anything a delegated
+child or a Telegram chat ran, since the chat that asked is where its answer goes.
 
 A notice carries only its kind, a fixed sentence and where to open (`texts_push.py`); a
 `tag` lets a later notice of the same kind replace an unread one rather than pile up."""
@@ -16,6 +17,7 @@ from datetime import datetime
 from typing import Any
 
 from my_agent_crew import texts_push
+from my_agent_crew.activity.notices import NOTICE_SOURCE
 from my_agent_crew.agent.events import ApprovalRequiredEvent, kind_of
 from my_agent_crew.scheduler.jobs import JOB_SOURCE
 from my_agent_crew.store.db import Store
@@ -72,6 +74,12 @@ def _job(run: dict[str, Any]) -> Notice | None:
     return None
 
 
+def _notice(run: dict[str, Any]) -> Notice | None:
+    if run.get("status") != DONE:
+        return None
+    return Notice(texts_push.NOTICE_TITLE, texts_push.NOTICE_BODY, INBOX_URL, "notice")
+
+
 def _reply(run: dict[str, Any], store: Store) -> Notice | None:
     conv_id = run.get("conversation_id")
     if run.get("status") != DONE or not conv_id or _seconds(run) < LONG_TURN_SECONDS:
@@ -95,6 +103,9 @@ def notice_for(payload: dict[str, Any], store: Store) -> Notice | None:
     run = payload.get("run") or {}
     if run.get("status") in ACTIVE_STATUSES or not run.get("finished_at"):
         return None
-    if str(run.get("source", "")).startswith(JOB_SOURCE):
+    source = str(run.get("source", ""))
+    if source.startswith(NOTICE_SOURCE):
+        return _notice(run)
+    if source.startswith(JOB_SOURCE):
         return _job(run)
     return _reply(run, store)

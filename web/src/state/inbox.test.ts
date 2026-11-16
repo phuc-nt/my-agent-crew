@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fakeRun } from "../test/fake-backend";
-import { jobName, jobResults, mergeRuns, unreadResults } from "./inbox";
+import { isNotice, jobName, jobResults, mergeRuns, unreadResults } from "./inbox";
 
 const job = (id: string, finished: string, overrides = {}) =>
   fakeRun({ id, source: `job:${id}`, finished_at: finished, summary: `Báo cáo ${id}`, ...overrides });
@@ -28,6 +28,24 @@ describe("the jobs' results", () => {
     expect(jobResults(runs).map((r) => r.summary)).toEqual(["OK, nhưng ổ đĩa sắp đầy"]);
   });
 
+  // The host's word to the person: no conversation, and listed among the reports as it came in.
+  it("lists the host's notices among the results, by when they came in", () => {
+    const notice = (id: string, finished: string, overrides = {}) =>
+      fakeRun({ id, source: "notice:host", conversation_id: null, finished_at: finished, summary: `Cảnh báo ${id}`, ...overrides });
+    const runs = [
+      job("a", "2026-11-01T01:00:00Z"),
+      notice("n1", "2026-11-01T02:00:00Z"),
+      job("b", "2026-11-01T03:00:00Z"),
+      notice("n2", "2026-11-01T04:00:00Z", { summary: "OK" }),
+      notice("blank", "2026-11-01T05:00:00Z", { summary: "  " }),
+      notice("open", "2026-11-01T06:00:00Z", { status: "running", finished_at: null }),
+    ];
+    const results = jobResults(runs);
+    expect(results.map((r) => r.id)).toEqual(["n2", "b", "n1", "a"]);
+    expect(results.map(isNotice)).toEqual([true, false, true, false]);
+    expect(unreadResults(results, "2026-11-01T01:30:00Z").map((r) => r.id)).toEqual(["n2", "b", "n1"]);
+  });
+
   it("counts as unread what finished after the inbox was read, and everything before it ever was", () => {
     const results = jobResults([job("a", "2026-11-01T01:00:00Z"), job("b", "2026-11-01T03:00:00+00:00")]);
     expect(unreadResults(results, null)).toHaveLength(2);
@@ -47,5 +65,6 @@ describe("the jobs' results", () => {
     expect(jobName("[lịch] Bản tin sáng · 2026-11-01 07:00")).toBe("Bản tin sáng");
     expect(jobName("[lịch] A · B · 2026-11-01 07:00")).toBe("A · B");
     expect(jobName("Bản tin")).toBe("Bản tin");
+    expect(jobName("Máy Mac im lặng")).toBe("Máy Mac im lặng");
   });
 });

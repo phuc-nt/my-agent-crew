@@ -111,6 +111,23 @@ describe("the inbox on a phone", () => {
     expect(within(card).getByRole("button", { name: vi.inbox.fold })).toHaveAttribute("aria-expanded", "true");
   });
 
+  // A host's notice has no conversation: read where it is listed, with nothing to answer.
+  it("reads a host's notice whole under its title, counted, with nothing to answer", async () => {
+    const text = "Máy Mac im lặng từ 07:00.\n\nKiểm tra nguồn và mạng.";
+    backend.runs = [
+      fakeRun({ id: "n", source: "notice:host", title: "Máy Mac im lặng", conversation_id: null, summary: text }),
+    ];
+    render(<App />);
+    await waitFor(() => expect(inboxButton()).toHaveAccessibleName(vi.inbox.openWith(1)));
+
+    await userEvent.click(inboxButton());
+
+    const card = await screen.findByRole("article", { name: /Máy Mac im lặng/ });
+    expect(within(card).getByText("Kiểm tra nguồn và mạng.")).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: vi.inbox.openReport("Máy Mac im lặng") })).toBeNull();
+    expect(within(card).queryByText(vi.inbox.reply)).toBeNull();
+  });
+
   it("says when no job has reported anything yet", async () => {
     window.location.hash = "#/inbox";
     render(<App />);

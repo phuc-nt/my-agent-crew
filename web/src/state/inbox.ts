@@ -2,6 +2,11 @@ import type { RunInfo } from "../api/types";
 
 /** The source a scheduled job's run carries, followed by the job's id (`JOB_SOURCE`). */
 const JOB_SOURCE = "job:";
+/** The source of a notice the host that runs the crew left for the person (`NOTICE_SOURCE`). */
+const NOTICE_SOURCE = "notice:";
+
+/** A host's notice: its words are its summary, whole, and there is no conversation to answer it in. */
+export const isNotice = (run: RunInfo) => run.source.startsWith(NOTICE_SOURCE);
 
 /**
  * The reply a check job gives when all is well. The server does not push it
@@ -16,23 +21,19 @@ function saysNothing(summary: string): boolean {
 
 const finishedAt = (run: RunInfo) => Date.parse(run.finished_at ?? run.started_at);
 
+const reported = (r: RunInfo) =>
+  r.source.startsWith(JOB_SOURCE) && r.conversation_id !== null && !saysNothing(r.summary);
+
 /**
  * What the jobs reported: each job run whose turn answered something, the latest first —
  * what the chat is sent. A run with no conversation (a command, a rewrite of memory) has no
  * answer, only output, and the chat hears of it only when it fails. A job that failed or
  * halted is not here — it waits on the person with the rest of what went wrong, above this
- * list.
+ * list. The host's notices are listed among them, as they came in.
  */
 export function jobResults(runs: RunInfo[]): RunInfo[] {
   return runs
-    .filter(
-      (r) =>
-        r.source.startsWith(JOB_SOURCE) &&
-        r.conversation_id !== null &&
-        r.status === "done" &&
-        r.summary &&
-        !saysNothing(r.summary),
-    )
+    .filter((r) => r.status === "done" && r.summary.trim() && (isNotice(r) || reported(r)))
     .sort((a, b) => finishedAt(b) - finishedAt(a));
 }
 

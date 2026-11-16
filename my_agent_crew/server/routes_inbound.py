@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
+from my_agent_crew.activity.notices import NOTICE_SOURCE
 from my_agent_crew.agent.turn_context import (
     API,
     CHAT,
@@ -28,9 +29,10 @@ router = APIRouter(tags=["inbound"])
 
 # The names the server gives its own turns. A relay that borrowed one would be taken for
 # that channel: the person watching in chat, the Telegram bot, a delegated child, a memory
-# job, or a scheduled job, whose last run and run history are looked up by source.
+# job, a scheduled job, whose last run and run history are looked up by source, or a host's
+# notice, which the inbox lists as the host's word.
 INTERNAL_SOURCES = frozenset({CHAT, TELEGRAM, JOB, DELEGATE, WEB})
-INTERNAL_PREFIXES = ("memory:",)
+INTERNAL_PREFIXES = ("memory:", NOTICE_SOURCE)
 
 
 class InboundBody(BaseModel):
