@@ -117,21 +117,19 @@ test("a job off in its profile dims its text but not its buttons", async ({ page
 });
 
 // A failed badge reads the same after one bad run as after a week of them. The row says how
-// long the job has been failing, whether the owner was told and when it is told again: one
-// sentence, which takes a line of the row and wraps on a phone rather than widening it.
+// long the job has been failing in one sentence, which takes a line of the row under the
+// badge and fits a phone rather than widening it.
 for (const width of [1440, 390]) {
-  test(`a job that keeps failing says since when and what the owner was told, at ${width}px`, async ({ page }) => {
+  test(`a job that keeps failing says how many runs in a row since when, at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     const failed = run({ id: "r-err", agent_id: "coach", source: "job:coach/brief", status: "error" });
     // Days long past, so each time reads as a date and a clock in the page's zone (UTC+7).
-    const failing = { count: 3, since: "2025-03-03T00:00:00Z", told_at: "2025-03-03T00:01:00Z", next_notice_at: "2025-03-04T00:01:00Z", telling: false };
+    const failing = { count: 3, since: "2025-03-03T00:00:00Z" };
     await openJobs(page, [{ ...briefJob, last_run: failed, failing }, { ...briefJob, id: "coach/fine", name: "Ổn" }]);
 
     const row = page.getByTestId("job").filter({ hasText: "Bản tin sáng" });
     const streak = row.getByTestId("job-failing");
-    await expect(streak).toHaveText(
-      "Hỏng 3 lần liên tiếp từ 03/03 07:00. Đã báo Telegram lúc 03/03 07:01; còn hỏng thì nhắc lại sau 04/03 07:01.",
-    );
+    await expect(streak).toHaveText("Hỏng 3 lần liên tiếp từ 03/03 07:00.");
     // A row whose job is in no streak says nothing.
     await expect(page.getByTestId("job").filter({ hasText: "Ổn" })).toBeVisible();
     await expect(page.getByTestId("job").filter({ hasText: "Ổn" }).getByTestId("job-failing")).toHaveCount(0);
@@ -139,20 +137,18 @@ for (const width of [1440, 390]) {
     const box = await page.evaluate(() => {
       const line = document.querySelector("[data-testid=job-failing]")!;
       const last = line.closest("[data-testid=job-last]")!.getBoundingClientRect();
-      const { left, right, top, height } = line.getBoundingClientRect();
+      const { left, right, top } = line.getBoundingClientRect();
       const badge = line.parentElement!.querySelector(".badge")!.getBoundingClientRect();
       return {
         fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
         within: left >= last.left - 1 && right <= last.right + 1,
         below: top >= badge.bottom,
-        wrapped: height > 2 * parseFloat(getComputedStyle(line).fontSize),
       };
     });
     expect(box.fits).toBe(true);
     expect(box.within).toBe(true);
     // Under the badge and the time, not squeezed in beside them.
     expect(box.below).toBe(true);
-    if (width === 390) expect(box.wrapped).toBe(true);
   });
 }
 
@@ -184,14 +180,14 @@ test("the back link of a job's editor or run returns to that job's row", async (
 });
 
 // The page reads a row when its run ends; the server counts the run into the job's streak
-// and tells the owner after that, then says on the stream that the list changed. The stream
-// is kept shut here until the server's answer is another one, so nothing but that signal
-// can be what brings the row up to date.
-test("a notice on its way becomes one the owner was told of when the stream says the list changed", async ({ page }) => {
+// after that, then says on the stream that the list changed. The stream is kept shut here
+// until the server's answer is another one, so nothing but that signal can be what brings
+// the row up to date.
+test("a failure counted after its run ended reaches the row when the stream says the list changed", async ({ page }) => {
   const failed = run({ id: "r-err", agent_id: "coach", source: "job:coach/brief", status: "error" });
   const since = "2025-03-03T00:00:00Z";
-  const row = (failing: object) => ({ ...briefJob, last_run: failed, failing: { count: 1, since, ...failing } });
-  const jobs: object[] = [row({ told_at: null, next_notice_at: null, telling: true })];
+  const row = (count: number) => ({ ...briefJob, last_run: failed, failing: { count, since } });
+  const jobs: object[] = [row(1)];
   await mockApi(page, { agents: [master, coach], jobs });
   let opens!: () => void;
   const shut = new Promise<void>((resolve) => (opens = resolve));
@@ -202,12 +198,10 @@ test("a notice on its way becomes one the owner was told of when the stream says
   });
   await page.goto("/#/manage/jobs");
   const streak = page.getByTestId("job-failing");
-  await expect(streak).toHaveText("Hỏng từ 03/03 07:00. Đang báo qua Telegram.");
+  await expect(streak).toHaveText("Hỏng từ 03/03 07:00.");
 
-  jobs[0] = row({ told_at: "2025-03-03T00:00:02Z", next_notice_at: "2025-03-03T06:00:02Z", telling: false });
+  jobs[0] = row(2);
   opens();
 
-  await expect(streak).toHaveText(
-    "Hỏng từ 03/03 07:00. Đã báo Telegram lúc 03/03 07:00; còn hỏng thì nhắc lại sau 03/03 13:00.",
-  );
+  await expect(streak).toHaveText("Hỏng 2 lần liên tiếp từ 03/03 07:00.");
 });

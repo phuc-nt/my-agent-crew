@@ -73,15 +73,10 @@ là một lượt của cuộc trò chuyện với master; khi câu trả lời 
 master giao việc và chuyển tiếp, đúng như trong web UI, và run của agent được giao xuất hiện
 trong phần hoạt động của màn hình quản lý dưới tên riêng của nó.
 
-Đội vẫn tới được chat theo hai cách:
-
-- **Bản tin theo lịch.** Sau một prompt job của bất kỳ agent nào, scheduler đưa câu trả lời cho
-  kênh, kênh gửi nó với dòng đầu
-  `[Agent name]`, các đường dẫn `MEDIA:` được giải trong workspace của *chính*
-  agent đó, nên biểu đồ buổi sáng của HLV vẫn tới dưới dạng ảnh. Câu trả lời của chính master
-  không có tiền tố.
-- **Tệp đính kèm.** Ảnh hoặc tài liệu rơi vào inbox của **master**; master chuyển
-  đường dẫn đã lưu vào task giao việc khi một thành viên đội cần đọc nó.
+Đội không tới chat theo đường nào khác: bản tin và lỗi của job theo lịch, của bất kỳ agent nào,
+được đọc trên web ([Job theo lịch](#job-theo-lịch)). Ảnh hoặc tài liệu chủ gửi vào chat rơi vào
+inbox của **master**; master chuyển đường dẫn đã lưu vào task giao việc khi một thành viên đội cần
+đọc nó.
 
 Message của mỗi lượt chỉ nằm trong cuộc trò chuyện của master: không có lịch sử
 riêng theo agent trên chat cần tách bạch và không có gì cần chia sẻ giữa các agent ngoài những gì
@@ -95,7 +90,7 @@ Mỗi tin nhắn văn bản trở thành một lượt của cuộc trò chuyệ
 trả lời là mọi text của assistant trong lượt ghép theo thứ tự, gồm cả text viết cạnh
 một tool call, cộng các thông báo dừng, lỗi và duyệt. Lượt kết thúc mà không có một chữ nào
 sẽ nói vậy kèm số bước thay vì không gửi gì: im lặng không phân biệt được với
-bot chết, và bản tin được giao mà run kết thúc rỗng cũng vậy. Câu trả lời gửi
+bot chết. Câu trả lời gửi
 đi dưới dạng plain text theo
 khúc 4 096 ký tự, sau khi bỏ dấu markdown mà Telegram sẽ hiện nguyên: `**đậm**`, `*nghiêng*`,
 `#` tiêu đề, đường kẻ `---` (thành một dòng trống), và bảng (mỗi hàng một dòng, các ô nối
@@ -137,7 +132,7 @@ cuộc trước dừng lại mà không phát lại các message của nó.
 
 Lượt từ Telegram, lượt job, và agent được giao việc trong các lượt đó, tạo, sửa và viết lại
 được canvas như lượt web. Người nhận các lượt này không ngồi ở web chat lúc agent viết (họ đọc
-qua Telegram hoặc xem lại sau) nên không thấy canvas mở ra bên cạnh; vì vậy system prompt của
+qua Telegram, Hộp thư hoặc xem lại sau) nên không thấy canvas mở ra bên cạnh; vì vậy system prompt của
 lượt kết thúc bằng mục **Canvas** dặn chỉ tạo canvas khi được dặn hoặc khi tài liệu dài và sẽ
 còn sửa, còn lại trả lời thẳng trong tin nhắn. Mục đó không nói người đọc đang ở kênh nào: job
 trên máy không có bot cũng nghe đúng lời ấy. Lượt qua `/api/inbound` không tạo, sửa, viết lại
@@ -174,8 +169,8 @@ Link về web chỉ có khi `web_url` được đặt (xem
 thêm một dòng link tới trang riêng của nó, và caption của tệp cũng mang link ấy khi còn chỗ. Để
 trống thì tin kết thúc bằng lời bảo mở web UI.
 
-Job trả lời `OK` thì không gửi gì, kể cả khi nó vừa tạo hay vừa sửa canvas: tin liệt kê cũng
-không tới chat. Canvas nó ghi vẫn nằm trong kho và mở được trên web.
+Canvas của một job không tới chat theo đường nào, vì job không gửi gì vào chat: canvas nó ghi nằm
+trong kho và mở được trên web, từ cuộc trò chuyện của job.
 
 Chữ rời máy qua đường này được che như log: tiêu đề và nội dung canvas chữ bị che giá trị của
 biến môi trường có tên mang `KEY`, `TOKEN`, `SECRET`, `PASSWORD` hay `CREDENTIAL`, cùng chuỗi
@@ -197,7 +192,7 @@ tiến trình để client hiển thị chúng.
 | `/tools` | tên các tool của master |
 | `/steer <nội dung>` | chèn ý vào lượt đang chạy; lúc rảnh thì là tin thường |
 | `/approve`, `/deny` | giải quyết duyệt đang chờ (của chat hoặc của cuộc con nó giao việc) và stream phần còn lại của lượt về |
-| `/pending` | gửi lại mọi yêu cầu chat được quyết (của chat, của cuộc con mọi nơi, của job), cũ trước, tối đa 10, mỗi cái kèm nút |
+| `/pending` | gửi lại mọi yêu cầu chat được quyết (của chat và của cuộc con nó giao việc), cũ trước, tối đa 10, mỗi cái kèm nút |
 
 `/status@botname` dùng được; `/usr/bin` hoặc câu bắt đầu bằng `/` không phải lệnh và
 đi tới model. Tin nhắn trong lúc một tool đang chờ duyệt nhận được lời nhắc thay vì một
@@ -238,13 +233,11 @@ Cuộc con mà master giao việc (một agent khác của đội làm thay) d�
 nó. Yêu cầu duyệt của cuộc con thuộc chat được báo ngay vào chat, dưới tên agent đang hỏi, kèm nút;
 `/approve`, `/deny` và câu trả lời gõ tay cũng tới được cuộc con. Phần còn lại của lượt cuộc con
 được đọc thầm: kết quả trả về tool call của cuộc cha, và lượt của cuộc cha nói tiếp trong chat.
-Chat là nơi duyệt mặc định của cả đội. Ngoài yêu cầu của chính nó, chat được báo yêu cầu của mọi
-cuộc con, kể cả cuộc con do một cuộc trên web giao (cuộc con dừng ngoài tầm nhìn của trang đã mở
-nó), và yêu cầu của job: lúc job được giao khi còn đang chờ, chat nhận chính yêu cầu ấy kèm nút thay
-cho dòng "lượt chạy dừng mà chưa có câu trả lời". Bấm nút giải quyết được tất cả những yêu cầu đó;
-lượt của job chạy tiếp và câu trả lời được giao vào chat như lần giao của job. Yêu cầu của một cuộc
-gốc trên web thì không báo và bấm nút không giải quyết: người dùng đang ở web. `/approve`, `/deny`
-và câu trả lời gõ tay vẫn chỉ tới cuộc của chat và cuộc con của nó.
+Chat chỉ được báo và chỉ giải quyết yêu cầu của chính nó và của cuộc con nó giao việc, ở mọi đường:
+nút, `/pending`, `/approve`, `/deny` và câu trả lời gõ tay. Yêu cầu của một job, của một cuộc gốc
+trên web và của cuộc con mà job hay web giao thì không được báo, `/pending` không liệt kê, và bấm
+một nút cũ của chúng chỉ nhận câu "đã được xử lý rồi" trong khi yêu cầu vẫn chờ: chúng được quyết
+trên web, nơi Hộp thư và thông báo đẩy báo chúng ([design.md](design.md#web-ui)).
 
 Mỗi yêu cầu kèm dòng "⏳ Tự hết hạn lúc HH:MM" theo múi giờ của người dùng. Tin mang nút được nhớ
 theo id yêu cầu, ghi ở bảng `telegram_told` nên còn sau khi server khởi động lại; cứ 15 s một vòng
@@ -256,123 +249,58 @@ trả lời vào chính tin ấy, kèm giờ hết hạn.
 Webhook và long polling phải xin `allowed_updates` gồm `callback_query`; polling của engine luôn xin
 `["message", "callback_query"]`, còn webhook do bên đặt webhook xin.
 
-## Giao theo lịch
+## Job theo lịch
 
-Sau mỗi prompt job, scheduler yêu cầu runtime giao cuộc trò chuyện đó, tức là
-chuyển tiếp text của assistant ở lượt cuối tới chat khi master
-có kênh. Bản tin của thành viên đội mang tiền tố `[Name]`; cuộc trò chuyện của
-agent mà runtime không biết được ghi log và không gửi. Khi lượt cuối kết thúc mà không có text nào của assistant (run dừng ở
-`max_steps` hay vì gọi lại y hệt một lệnh, lỗi provider, một duyệt còn treo) kênh gửi
-thông báo "run chưa xong" kèm tóm tắt của run thay vì im lặng, nên
-job theo lịch không bao giờ biến mất không dấu vết. Khi một duyệt trong lượt đó hết hạn
-(`approval_ttl_seconds` của lịch, không có thì của `config.yaml`), phần giao nói trước tool nào bị từ chối vì quá hạn,
-để câu trả lời theo sau được đọc là do hàng rào tạo hình, không phải do người.
+**Job theo lịch không gửi gì vào chat.** Telegram chỉ là kênh chat cho những cuộc trò chuyện
+chủ mở ở đó. Mọi thứ một job làm ra được đọc trên web: cuộc trò chuyện của job, Hộp thư và
+thông báo đẩy ([design.md](design.md#web-ui)). Không thứ nào sau đây tới chat:
 
-Run dừng sớm nhưng *có* để lại text là trường hợp khó hơn: câu trả lời
-nửa chừng đọc như một câu trả lời hoàn chỉnh. Nên sau khi gửi text, run có status `halted`
-hoặc `error` nhận thêm tin nhắn thứ hai "bị cắt ngắn" nêu lý do và run đã tiêu bao nhiêu. Lý do
-của run `halted` là mã vòng lặp ghi (`budget`, `max_steps`, `loop`), nên kênh đọc nó thành lời
-("chạm trần chi phí", "hết số bước tối đa", "gọi lại y hệt một lệnh nhiều lần liên tiếp"); lý do
-của run `error` đã là câu báo lỗi. Dù thế nào scheduler cũng ghi một dòng log cho mỗi prompt job —
-`job <id>: delivered=<bool> conv=<id> status=<status>` — để log phân biệt job đã
-trả lời với job im lặng. Giao thất bại được ghi log, không thử lại.
+- bản tin của prompt job và của lượt mà `then_prompt` của một script job mở ra, kể cả khi lượt
+  dừng sớm, hỏng hay không có chữ nào;
+- run hỏng của một job script, job lệnh hay lần cô đọng bộ nhớ, run đã chạy lại được, run mà lệnh
+  kiểm (`check`) không xác nhận;
+- run bị bỏ qua vì trần chi phí ngày ([agents.md](agents.md#trần-chi-phí-một-ngày-của-các-lịch));
+- lần cô đọng bộ nhớ bị giữ lại chờ chủ duyệt ([memory.md](memory.md#ngày-trên-mỗi-dòng-và-cổng-tự-áp-dụng));
+- yêu cầu duyệt hay câu hỏi của lượt job, và của cuộc con mà một job giao việc; lượt job chạy
+  tiếp sau khi yêu cầu ấy hết hạn, được quyết trên web hay được nối lại sau khi server khởi động
+  lại cũng không giao câu trả lời vào chat.
 
-**Lời gọi nào tới Telegram cũng có hạn.** Lời gọi không tự nêu hạn (`sendMessage`, `sendChatAction`,
-`setMyCommands`, `getFile`, ảnh hay tệp gửi từ đĩa) theo hạn của client HTTP mà cả server dùng
-chung, 120 giây. Long poll tự nêu hạn 35 giây (25 giây chờ tin cộng 10), tệp gửi từ bộ nhớ 60 giây.
-Lời gọi hết hạn kết thúc như mọi lời gọi hỏng khác; với tin của một job, đó là một lần giao thất bại
-như trên. Hạn ấy là thứ giữ cho lịch chạy tiếp: đồng hồ của scheduler chạy các job lần lượt và chờ
-tin của job này gửi xong rồi mới sang job sau, nên một lần gửi không có hạn, trên đường truyền đã
-im, sẽ giữ mọi job tới hạn sau nó, của mọi agent, cho tới khi server khởi động lại.
+Scheduler ghi một dòng log cho mỗi job chạy xong, mọi loại: `job <id>: status=<status> conv=<id>`
+(`conv=None` khi run không mở cuộc trò chuyện).
 
-**Job không có gì để báo thì không gửi.** Một job kiểm tra (nhắc hạn, soát lỗi) có thể dặn
-model trả lời đúng `OK` khi mọi thứ ổn; câu trả lời chỉ gồm `OK` (không phân biệt hoa thường,
-bỏ qua dấu chấm/than cuối) thì không được đẩy lên chat, log ghi
-`job <id>: nothing to report, not delivered`. Run vẫn nằm trong trang Jobs và rail hoạt động,
-nên vẫn thấy job đã chạy. Câu trả lời dài hơn, kể cả bắt đầu bằng "OK, nhưng…", vẫn được gửi.
+Câu trả lời chỉ gồm `OK` (không phân biệt hoa thường, bỏ qua dấu chấm/than cuối) của một job
+kiểm tra không được Hộp thư liệt kê là báo cáo và không có thông báo đẩy; run vẫn nằm trong trang
+Jobs và rail hoạt động. Câu trả lời dài hơn, kể cả bắt đầu bằng "OK, nhưng…", là một báo cáo.
 
-**Job hỏng mà không có cuộc trò chuyện thì có một tin báo, và tin ấy không lặp lại ở mỗi lần
-hỏng.** Ba loại job có thể hỏng mà không mở lượt nào: lịch chạy thẳng một script (khoá `script`,
+### Chuỗi hỏng của job
+
+Ba loại job có thể hỏng mà không mở lượt nào: lịch chạy thẳng một script (khoá `script`,
 [agents.md](agents.md#job-chạy-script)), lịch chạy một lệnh (khoá `command`) và lần cô đọng bộ
-nhớ theo lịch (`memory_consolidate`). Không có cuộc trò chuyện nào để giao, nên nhìn từ chat, job
-hỏng và job chạy tốt mà không in gì trông như nhau. Vì vậy khi run của một job kết thúc `error` mà
-không có cuộc trò chuyện, kênh nhận một tin của runtime gồm bốn dòng:
+nhớ theo lịch (`memory_consolidate`). Một run như vậy kết thúc `error` thì Hộp thư xếp nó vào phần
+cần chú ý và thiết bị nhận thông báo đẩy; tóm tắt của run nói vì sao nó hỏng. Một job hỏng mỗi năm
+phút thì trông như job vừa hỏng lần đầu, nên scheduler đếm cho từng job số lần hỏng liên tiếp:
 
-```
-Lịch "<tên lịch>" gặp lỗi khi chạy:
-<lý do>
-Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.
-Nếu lịch còn hỏng, tin nhắc kế tiếp sẽ đến sau 6 giờ.
-```
-
-Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạy script:`; ba dòng còn lại như trên.
-
-- Lý do của job script là thứ đã làm script dừng: dòng lỗi (`Lỗi ở dòng N: …`, `Dừng ở dòng N: …`).
-  Lý do nào cũng được gộp
-  thành một dòng, nguyên vẹn khi không quá 600 ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký
-  tự cuối, để câu dặn ở cuối một lời từ chối không bị cắt mất.
-- Lý do của job script **không** mang chữ nào script đã in trước khi hỏng. Thứ script in là thứ các
-  tool đưa cho nó (một lá thư, một trang web, ghi chú của người khác); nó vẫn nằm nguyên ở step
-  `tool_script` của run, cho người mở run xem. Tin cũng **không bao giờ** mang mã của script. Lời
-  của một tool hỏng thì được giữ nguyên, câu của một lỗi mà script tự `raise` cũng vậy. Vì thế tham
-  số của một lời gọi chỉ có trong tin khi chính tool hỏng nhắc lại nó (`Công cụ lỗi: không có ghi
-  chú tên X`), và dữ liệu chỉ có khi script tự viết nó vào câu lỗi. Còn một đường thứ ba: lỗi mà
-  trình thông dịch ném ra khi script đang xử lý một giá trị thì trích chính giá trị ấy (`int(...)`
-  của một chuỗi không phải số, một khoá mà mapping không có), nên lý do có thể mang một phần thứ
-  tool vừa trả về, trong giới hạn 600 ký tự nói trên.
-- Lý do của job lệnh là mã thoát của lệnh và dòng cuối cùng có chữ trong những gì lệnh in ra, stdout
-  và stderr gộp chung: `Lệnh thoát với mã 3. Dòng cuối lệnh in ra: <dòng ấy>`. Dòng cuối là nơi một
-  lệnh thường nói nó hỏng vì đâu. Lệnh không in gì thì lý do chỉ có câu về mã thoát. Những dòng lệnh
-  in trước đó không có trong tin; run giữ chúng ở step `shell_run`. Lệnh chạy quá 900 giây, hạn của
-  một job lệnh, thì bị dừng, và lý do là `Lệnh vượt quá 900 giây và đã bị dừng.`.
-- Lý do của lần cô đọng bộ nhớ là tóm tắt của run: câu báo lỗi của lần gọi model, hoặc dòng nói
-  model không trả về gì. Lần cô đọng không có ghi chú mới nào để gộp kết thúc `done`; đó không phải
-  một lần hỏng và không có tin.
-- Tin của thành viên đội mang dòng `[Name]` ở đầu như bản tin theo lịch; tin của master thì không.
-  Tin đi qua bước bỏ dấu markdown như mọi tin của bot (mục [Cuộc trò chuyện](#cuộc-trò-chuyện) ở
-  trên): `**đậm**` và `*nghiêng*` trong tên lịch hay trong lý do mất dấu sao, nên lịch tên
-  `**Nhắc hạn**` được kể là `Nhắc hạn`; dấu `*` đứng giữa hai chữ hay hai số (`2*3`) giữ nguyên.
-  Tiêu đề `#`, đường kẻ và bảng chỉ được xét ở đầu dòng, mà mỗi dòng của tin đều mở bằng chữ của
-  runtime, nên không đổi. Một dòng trong lý do có hình dạng dòng đính kèm (`FILE:`, `MEDIA:`)
-  không gửi tệp nào.
-- **Lịch hỏng mãi thì không nhắn mãi.** Scheduler đếm cho từng job số lần hỏng liên tiếp. Lần hỏng
-  đầu được báo ngay bằng tin ở trên. Sau đó, chừng nào job còn hỏng, kênh nhận nhiều nhất một tin
-  mỗi 6 giờ, tính từ tin gần nhất gửi được; lần hỏng rơi vào trong 6 giờ ấy chỉ được đếm. Tin nhắc
-  mang lý do của lần chạy gần nhất, và dòng cuối của nó nói job đã hỏng bao lâu:
-  `Đây là lần hỏng thứ 73 liên tiếp, tính từ 07:05 ngày 19/09. Nếu lịch còn hỏng, tin nhắc kế tiếp
-  sẽ đến sau 6 giờ.` Một job hỏng mỗi năm phút suốt một ngày vì thế nhắn bốn tin chứ không phải 288
-  tin, và cũng không im sau tin đầu. Chạy tay (`POST /api/jobs/{agent}/{id}/run`) được đếm và báo
-  như lần chạy của đồng hồ.
-- **Chỉ tin kênh nhận mới được tính là đã báo.** Gửi hỏng, gửi quá 60 giây, hay không có kênh nào
-  thì chuỗi vẫn là chuỗi chưa báo: lần hỏng kế tiếp thử gửi lại, không chờ 6 giờ, và tin lúc đó
-  mang số lần đã đếm được. Khoảng 6 giờ chỉ bắt đầu từ lúc một tin tới nơi.
-- **Job chạy lại được thì có một dòng.** Lần chạy kết thúc `done` đóng chuỗi. Nếu chủ đã từng được
-  báo về chuỗi ấy, kênh nhận `Lịch "<tên lịch>" đã chạy lại được sau N lần hỏng liên tiếp.`; nếu
-  chưa tin nào tới nơi thì không có dòng này. Dòng ấy gửi một lần: kênh không nhận thì thôi, không
-  gửi lại. Lần hỏng sau đó mở một chuỗi mới và được báo ngay. Mọi kết cục khác (run bị dừng
-  `halted`, lượt mà script mở ra bị hỏng) cũng đóng chuỗi, nhưng không có dòng nào.
-- **Job chạy xong mà lệnh kiểm không xác nhận cũng được báo.** Dòng lịch có khoá `check`
-  ([agents.md](agents.md#lệnh-kiểm-sau-khi-chạy)) mà lệnh kiểm thoát mã khác 0 thì run thành
-  `error` và kênh nhận `Lịch "<tên lịch>" báo đã chạy xong, nhưng lệnh kiểm tra sau khi chạy không
-  xác nhận:` kèm lý do của lệnh kiểm, kể cả khi run là của một lượt đã được giao. Nó được đếm và
-  giãn nhịp như mọi lần hỏng ở trên.
-- Chuỗi được ghi vào database (bảng `job_failure_streaks`: số lần hỏng, lúc bắt đầu, lúc kênh nhận
-  tin gần nhất), nên server khởi động lại vẫn đếm tiếp và vẫn giữ khoảng 6 giờ: job còn hỏng sau
-  khi khởi động lại không được báo lại trước hạn. Job rời đồng hồ (agent bị xoá, dòng lịch bị xoá,
-  kể cả khi server đang tắt) thì chuỗi của nó cũng mất; job tạo lại dưới cùng id bắt đầu từ không.
+- Lần hỏng của ba loại job trên được đếm. Job chạy xong mà lệnh kiểm
+  ([agents.md](agents.md#lệnh-kiểm-sau-khi-chạy)) thoát mã khác 0 cũng được đếm, kể cả khi run là
+  của một lượt: run thành `error`, tóm tắt nói job báo đã chạy xong nhưng lệnh kiểm không xác nhận,
+  kèm lý do của lệnh kiểm. Chạy tay (`POST /api/jobs/{agent}/{id}/run`) được đếm như lần chạy của
+  đồng hồ.
+- Mọi kết cục khác đóng chuỗi: run `done`, run bị dừng `halted`, lượt mà script mở ra bị hỏng (lượt
+  là một cuộc trò chuyện và được đọc ở đó). Job bị bỏ qua vì trần chi phí ngày không chạy, nên chuỗi
+  giữ nguyên. Run bị cắt vì server dừng (`interrupted`) và job rời đồng hồ trong lúc đang chạy không
+  được đếm.
+- Chuỗi được ghi vào database (bảng `job_failure_streaks`: số lần hỏng và lúc bắt đầu), nên server
+  khởi động lại vẫn đếm tiếp. Job rời đồng hồ (agent bị xoá, dòng lịch bị xoá, kể cả khi server
+  đang tắt) thì chuỗi của nó cũng mất; job tạo lại dưới cùng id bắt đầu từ không. Database của một
+  home cũ còn cột `told_at` ở bảng này; cột được để nguyên và không ai đọc.
 - `GET /api/jobs` cho thấy chuỗi ấy ở khoá `failing` của từng dòng: `null` khi job không ở trong
-  chuỗi hỏng nào, còn không thì `{"count": 3, "since": "…", "told_at": "…", "next_notice_at": "…",
-  "telling": false}`. `since` là lúc chuỗi bắt đầu, `told_at` là lúc kênh nhận tin gần nhất,
-  `next_notice_at` là `told_at` cộng 6 giờ; hai khoá ấy là `null` khi chưa tin nào tới nơi. Ba mốc
-  viết theo giờ của chủ, tới phút, cùng dạng với `next_run`. `telling` là `true` trong lúc một tin
-  của chuỗi đang trên đường tới kênh và kênh chưa trả lời, tức nhiều nhất 60 giây; tin tới nơi hay
-  không thì nó cũng về `false`.
-- Chuỗi được đếm và được báo sau khi run đã kết thúc, nên dòng job mà một trang đọc đúng lúc run
-  kết thúc có thể chưa mang lần hỏng ấy, hoặc còn `telling`. Vì vậy, khi việc đếm một run xong mà
-  `failing` của job đã khác trước (thêm một lần hỏng, tin đã tới nơi hoặc không tới, chuỗi đã
-  đóng), luồng `GET /api/activity/stream` phát một sự kiện tên `jobs`, payload chỉ là
-  `{"type": "jobs"}`. Nó không mang dòng nào: ai nghe thì đọc lại `GET /api/jobs`. Run kết thúc
-  `done` của một job không ở trong chuỗi nào thì không có sự kiện này.
+  chuỗi hỏng nào, còn không thì `{"count": 3, "since": "…"}`. `since` là lúc chuỗi bắt đầu, viết
+  theo giờ của chủ, tới phút, cùng dạng với `next_run`.
+- Chuỗi được đếm sau khi run đã kết thúc, nên dòng job mà một trang đọc đúng lúc run kết thúc có thể
+  chưa mang lần hỏng ấy. Vì vậy, khi việc đếm một run xong mà `failing` của job đã khác trước (thêm
+  một lần hỏng, chuỗi đã đóng), luồng `GET /api/activity/stream` phát một sự kiện tên `jobs`,
+  payload chỉ là `{"type": "jobs"}`. Nó không mang dòng nào: ai nghe thì đọc lại `GET /api/jobs`.
+  Run kết thúc `done` của một job không ở trong chuỗi nào thì không có sự kiện này.
 - Cùng sự kiện ấy được phát mỗi khi đồng hồ đọc lại lịch của đội (một agent được lưu, được tạo,
   được cài hay được `POST /api/agents/reload` đem vào, một khoá hay tuyến mô hình chung được lưu
   ở Quản lý → Kết nối) và khi một agent rời đội, dù lần ấy có đổi dòng nào hay không. Nhờ vậy
@@ -380,25 +308,51 @@ Với job script, dòng đầu là `Lịch "<tên lịch>" gặp lỗi khi chạ
   phát gì. Một thay đổi không được phát: công tắc tạm dừng của một job; tab khác thấy nó ở lần
   đọc lại kế tiếp (một run kết thúc, luồng được nối lại).
 - Trên web, Quản lý → Lịch chạy nói chuỗi ấy thành một câu dưới lần chạy gần nhất của job, chừng
-  nào job còn trong chuỗi: `Hỏng 3 lần liên tiếp từ Hôm qua 07:00. Đã báo Telegram lúc 07:01; còn
-  hỏng thì nhắc lại sau 13:01.` Khi chưa tin nào tới nơi, nửa sau là `Chưa báo được qua Telegram;
-  lần hỏng kế tiếp sẽ thử lại.` Một lần hỏng thì câu mở bằng `Hỏng từ 07:00.` Mỗi mốc là giờ nếu
-  trong hôm nay, `Hôm qua 07:00` nếu là hôm qua, còn không thì ngày kèm giờ (`09/10 22:05`). Trong
-  lúc tin đầu tiên của chuỗi còn trên đường, nửa sau là `Đang báo qua Telegram.`; tin nhắc lại đang
-  trên đường thì dòng vẫn nói lần báo gần nhất. Trang đọc lại danh sách job khi một run kết thúc,
-  khi luồng phát `jobs`, khi nối lại luồng và sau mỗi lần lưu hồ sơ agent, nên câu ấy đổi theo mà
-  không cần tải lại trang. Hai lần đọc đang chờ cùng lúc thì trang giữ câu trả lời của lần hỏi sau.
-  Công tắc tạm dừng vừa gạt hiện ngay theo câu trả lời của server,
-  rồi trang đọc lại danh sách: một lần đọc đang chờ từ trước đó không đưa được dòng về như cũ.
-- Không có tin trong các trường hợp sau: job chạy tốt, dù có in gì hay không; lượt của một prompt
-  job và lượt mà `then_prompt` mở ra (lượt là một cuộc trò chuyện và được giao như prompt job ở
-  trên, kể cả khi hỏng, nên không được đếm ở đây); run bị cắt vì server dừng (`interrupted`); job
-  rời đồng hồ trong lúc đang chạy.
-- Log ghi `job <id>: failure notice sent=<bool>`. Gửi hỏng thì log ghi
-  `job <id>: failure notice not sent` kèm lỗi; run vẫn giữ nguyên kết cục của nó và các job tới hạn
-  sau vẫn chạy. Tin chưa gửi xong sau 60 giây cũng bị bỏ như vậy: lời gửi bị huỷ, log ghi cùng dòng
-  ấy kèm `TimeoutError`, và đồng hồ sang job kế tiếp. Dòng báo job chạy lại được đi cùng đường và
-  ghi log như vậy.
+  nào job còn trong chuỗi: `Hỏng 3 lần liên tiếp từ Hôm qua 07:00.` Một lần hỏng thì câu là
+  `Hỏng từ 07:00.` Mốc là giờ nếu trong hôm nay, `Hôm qua 07:00` nếu là hôm qua, còn không thì ngày
+  kèm giờ (`09/10 22:05`). Trang đọc lại danh sách job khi một run kết thúc, khi luồng phát `jobs`,
+  khi nối lại luồng và sau mỗi lần lưu hồ sơ agent, nên câu ấy đổi theo mà không cần tải lại trang.
+  Hai lần đọc đang chờ cùng lúc thì trang giữ câu trả lời của lần hỏi sau. Công tắc tạm dừng vừa gạt
+  hiện ngay theo câu trả lời của server, rồi trang đọc lại danh sách: một lần đọc đang chờ từ trước
+  đó không đưa được dòng về như cũ.
+
+Lý do trong tóm tắt của run hỏng:
+
+- Job script: thứ đã làm script dừng, tức dòng lỗi (`Lỗi ở dòng N: …`, `Dừng ở dòng N: …`); thứ
+  script in trước đó nằm ở step `tool_script` của run.
+- Job lệnh: dòng cuối báo lỗi trong những gì lệnh in ra, không có thì dòng cuối có chữ; lệnh chạy
+  quá 900 giây, hạn của một job lệnh, thì bị dừng. Toàn bộ output nằm ở step `shell_run`.
+- Lần cô đọng bộ nhớ: câu báo lỗi của lần gọi model, hoặc dòng nói model không trả về gì. Lần cô
+  đọng không có ghi chú mới nào để gộp kết thúc `done`; đó không phải một lần hỏng.
+
+## Giao lại câu trả lời của chat
+
+Một lượt của chính chat đôi khi chạy tiếp ở nơi khác: yêu cầu duyệt của nó hết hạn, được quyết trên
+web, hay lượt bị cắt vì server khởi động lại và được nối lại. Khi lượt ấy xong, runtime giao câu trả
+lời vào chat: mọi text của assistant ở lượt cuối, theo thứ tự, cùng canvas mà run đã ghi. Chỉ cuộc
+gốc của chính chat được giao như vậy: cuộc của web, cuộc con (câu trả lời của nó là của cuộc cha)
+và cuộc của job thì không (`Runtime.deliver`).
+
+Khi lượt cuối kết thúc mà không có text nào của assistant (run dừng ở `max_steps` hay vì gọi lại y
+hệt một lệnh, lỗi provider, một duyệt còn treo) kênh gửi thông báo "run chưa xong" kèm tóm tắt của
+run thay vì im lặng. Khi một duyệt trong lượt đó hết hạn (`approval_ttl_seconds` của
+`config.yaml`), phần giao nói trước tool nào bị từ chối vì quá hạn, để câu trả lời theo sau được
+đọc là do hàng rào tạo hình, không phải do người.
+
+Run dừng sớm nhưng *có* để lại text là trường hợp khó hơn: câu trả lời nửa chừng đọc như một câu trả
+lời hoàn chỉnh. Nên sau khi gửi text, run có status `halted` hoặc `error` nhận thêm tin nhắn thứ hai
+"bị cắt ngắn" nêu lý do và run đã tiêu bao nhiêu. Lý do của run `halted` là mã vòng lặp ghi
+(`budget`, `max_steps`, `loop`), nên kênh đọc nó thành lời ("chạm trần chi phí", "hết số bước tối
+đa", "gọi lại y hệt một lệnh nhiều lần liên tiếp"); lý do của run `error` đã là câu báo lỗi. Giao
+thất bại được ghi log, không thử lại.
+
+**Lời gọi nào tới Telegram cũng có hạn.** Lời gọi không tự nêu hạn (`sendMessage`, `sendChatAction`,
+`setMyCommands`, `getFile`, ảnh hay tệp gửi từ đĩa) theo hạn của client HTTP mà cả server dùng
+chung, 120 giây. Long poll tự nêu hạn 35 giây (25 giây chờ tin cộng 10), tệp gửi từ bộ nhớ 60 giây.
+Lời gọi hết hạn kết thúc như mọi lời gọi hỏng khác, tức một lần giao thất bại như trên. Hạn ấy giữ
+cho đồng hồ của scheduler chạy tiếp: nó đóng các yêu cầu quá hạn rồi chờ câu trả lời của lượt chat
+được nối lại gửi xong, nên một lần gửi không có hạn, trên đường truyền đã im, sẽ giữ mọi job tới hạn
+sau nó cho tới khi server khởi động lại.
 
 ## Offset và restart
 

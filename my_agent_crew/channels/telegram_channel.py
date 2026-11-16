@@ -1,8 +1,8 @@
 """One Telegram bot's channel: messages from the configured chat become turns of the
 master's per-day conversation, run through the same `Inbound` gate as the web UI, so the
 chat and the web are the same mechanism — talk to the master, which delegates. Every agent
-is known to the channel so `deliver` can push a crew member's scheduled brief to the chat
-under that member's name. `telegram_inbound` reads each update (slash commands,
+is known to the channel so a request of a child the master delegated to is told under that
+member's name. `telegram_inbound` reads each update (slash commands,
 attachments), `telegram_chat` runs each message's turn in the background. Only one
 process may poll a bot: a 409 means another is."""
 
@@ -45,8 +45,8 @@ class TelegramChannel(TelegramChat):
         offset_path: Path,
         clock: Any = datetime.now,
     ):
-        """`agent_id` is the agent the chat talks to; `agents` is everyone whose
-        conversations may be delivered here."""
+        """`agent_id` is the agent the chat talks to; `agents` is everyone whose requests
+        may be told here."""
         if agent_id not in agents:
             raise ValueError(f"telegram channel: agent {agent_id!r} is not among the agents")
         self.agents: dict[str, AgentDeps] = dict(agents)
@@ -92,8 +92,8 @@ class TelegramChannel(TelegramChat):
 
     def outbound(self, agent_id: str | None = None) -> TelegramOutbound:
         """The sender for an agent's text, built on first use. The master speaks as the bot;
-        anyone else's brief opens with `[Name]`, so a delivered morning brief reads as the
-        member's, not as an answer from the master."""
+        anyone else's text opens with `[Name]`, so a child's request reads as the member's,
+        not as one of the master's."""
         agent_id = agent_id or self.agent_id
         if agent_id not in self._outbound:
             deps = self.agents[agent_id]
@@ -108,15 +108,6 @@ class TelegramChannel(TelegramChat):
     async def say(self, text: str) -> None:
         """A message from the bot itself, not from an agent."""
         await self._api.send_message(self.chat_id, text)
-
-    async def notify(self, agent_id: str, text: str) -> bool:
-        """A sentence of the runtime's about an agent's work, under that agent's name when
-        it is not the master; False when this runtime lacks the agent."""
-        if agent_id not in self.agents:
-            logger.warning("telegram: nothing said about unknown agent %s", agent_id)
-            return False
-        await self.outbound(agent_id).notify(text)
-        return True
 
     def conversation(self) -> Conversation:
         """The conversation a message joins: the one a turn runs or messages wait in, else

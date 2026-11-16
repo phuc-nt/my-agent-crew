@@ -39,7 +39,7 @@ DEFAULT_ROUTES = "openrouter:deepseek/deepseek-v4-flash"
 # Characters of one tool result the model gets to see; the rest is cut with a notice.
 DEFAULT_TOOL_OUTPUT_CHARS = 8000
 # How long a tool call waits for a decision before it is treated as denied. A pause
-# nobody answers must not hold a conversation (and a job's channel) forever.
+# nobody answers must not hold a conversation forever.
 DEFAULT_APPROVAL_TTL_SECONDS = 600
 # What `Settings.script_calls` may say (`script/scope.py`).
 SCRIPT_NONE, SCRIPT_READ_ONLY, SCRIPT_GATED = "none", "read_only", "gated"

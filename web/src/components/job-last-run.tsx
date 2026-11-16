@@ -69,18 +69,12 @@ export function JobLastRun({ job, now, onOpenRun }: Props) {
 }
 
 /** A job that keeps failing, in a sentence under its last run: one failed run reads the
- *  same on the badge above as a job that has been down for a week, and whether the owner
- *  was told about it is on no other page. */
+ *  same on the badge above as a job that has been down for a week. No channel is told of
+ *  it; the inbox and its push say that a run failed, and this line says for how long. */
 function FailingStreak({ failing, now }: { failing: JobFailing; now: Date }) {
-  const t = vi.jobRow;
-  // A notice on its way is said only while none of this streak has got through: one that
-  // is being sent again leaves the row saying when the owner was last told.
-  const told = failing.told_at
-    ? t.streakTold(dayClock(failing.told_at, now), failing.next_notice_at && dayClock(failing.next_notice_at, now))
-    : failing.telling ? t.streakTelling : t.streakUntold;
   return (
     <p className="job-failing" data-testid="job-failing">
-      {t.streak(failing.count, dayClock(failing.since, now))} {told}
+      {vi.jobRow.streak(failing.count, dayClock(failing.since, now))}
     </p>
   );
 }

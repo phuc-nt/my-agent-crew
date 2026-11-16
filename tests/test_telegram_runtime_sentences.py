@@ -4,7 +4,7 @@ A reply is read line by line for `MEDIA:` and `FILE:` lines, because the reply i
 and what to attach is the agent's to choose. The sentences the runtime says around it are not
 the agent's: why a run stopped, that a guard timed out, that a run was empty, that the
 provider failed, what a slash command is answered with. Several quote free text, a provider's
-error, the question a job stopped at or the title of a conversation, and a line of that text
+error, the question a turn stopped at or the title of a conversation, and a line of that text
 shaped like an attachment line would send a file nobody chose to send. So none of them is
 read: such a line stays in the sentence, and nothing is uploaded.
 """
@@ -16,20 +16,17 @@ import pytest
 from my_agent_crew import texts
 from my_agent_crew.agent.events import DoneEvent, ErrorEvent
 from my_agent_crew.agent.turn_context import TELEGRAM
-from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.channels.telegram_api import split_message
 from my_agent_crew.channels.telegram_commands import status_text
 from my_agent_crew.inbound import collect_reply
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.provider import ProviderError
 from my_agent_crew.llm.types import ToolCall
-from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.store.queue import FOLLOW_UP
 from my_agent_crew.store.runs import AWAITING, DONE, FAILED, HALTED
 from tests.canvas_helpers import PNG
 from tests.lapse_helpers import WRITE, nobody_answered, waits_on
 from tests.telegram_fake import asks_for, message, poll_each
-from tests.test_scheduler import with_schedules
 from tests.test_telegram_canvas_notice_sent import (
     asked,
     began,
@@ -74,26 +71,21 @@ async def test_why_a_failed_run_stopped_is_said_whole_and_attaches_nothing(
     assert reason in fake.sent[-1]
 
 
-async def test_the_question_a_job_waits_on_is_said_whole_and_attaches_nothing(
-    make_channel, deps_factory, fake
-):
-    """A job delivered while it waits says what it asked, and the question is the model's
-    text, said as it stands. The files it names go out when the reply names them, not when
-    the wait is told."""
-    check = Schedule("deadline-check", "Nhắc hạn", cron="30 7 * * *", prompt="Có hạn nào không?")
-    question = "Gửi bản nào?\nFILE: brief.pdf\nMEDIA: chart.png"
-    ask = ToolCall("q1", "ask_user", {"question": question})
-    deps = with_schedules(deps_factory(script=[completion(tool_calls=(ask,))]), check)
-    channel = make_channel(deps)
+async def test_the_question_a_turn_waits_on_is_said_whole_and_attaches_nothing(make_channel, fake):
+    """A turn of the chat's resumed away from it and stopped to ask is delivered while it
+    waits: it says what it asked, and the question is the model's text, said as it stands.
+    The files it names go out when the reply names them, not when the wait is told."""
+    channel = make_channel()
     attachable(channel)
+    store = channel.store
+    conv = asked(store)
+    began(store, conv.id, AWAITING)
+    question = "Gửi bản nào?\nFILE: brief.pdf\nMEDIA: chart.png"
+    waits_on(store, conv.id, ToolCall("q1", "ask_user", {"question": question}))
 
-    async def deliver(agent_id: str, conv_id: str) -> bool:
-        return await channel.deliver(conv_id)
+    assert await channel.deliver(conv.id) is True
 
-    run = await Scheduler({"default": deps}, channel.hub, deliver=deliver).run_job(
-        "default/deadline-check"
-    )
-    assert run.status == AWAITING and fake.uploads == []
+    assert fake.uploads == []
     assert fake.sent == [question]
 
 

@@ -304,8 +304,10 @@ thắng; xem [deployment-guide.md](deployment-guide.md#4-biến-môi-trường-v
 canvas có dòng `<web_url>/#/manage/canvas/<id>`. Giá trị phải là địa chỉ http hoặc https thuần:
 host, cổng và đường dẫn. Không đặt thì danh sách kết bằng "Mở web UI để xem.".
 
-**Job.** Một [job theo lịch](channels.md#giao-theo-lịch) ghi được canvas, và bản tin của nó
-kèm danh sách như trên. Job trả lời `OK` thì không gửi gì vào chat, kể cả danh sách.
+**Job.** Một [job theo lịch](channels.md#job-theo-lịch) ghi được canvas, nhưng không gửi gì vào
+chat: không tệp, không danh sách. Canvas của nó mở được trên web, từ cuộc trò chuyện của job mà
+báo cáo trong Hộp thư dẫn tới. Lượt job vẫn nghe cùng lời nhắc về dòng `FILE: artifact:<id>` như
+lượt Telegram, vì lời ấy không nêu kênh nào.
 
 ## 13. API
 
@@ -368,8 +370,6 @@ nhưng chỉ thành canvas `code` để đọc và sửa chữ; canvas không d�
 
 ## Câu hỏi mở
 
-- Job đã ghi canvas nhưng trả lời `OK` hiện không báo gì vào chat. Có nên vẫn gửi danh sách
-  "Canvas vừa ghi:" cho trường hợp này không?
 - Agent có danh sách `tools:` thu hẹp có nên giữ thêm tool canvas, ngoài những tool danh sách
   đó đang nêu, không?
 - Mở một canvas từ chip rồi gửi tin nhắn có nên chia sẻ canvas đó với hội thoại, như khi mở nó

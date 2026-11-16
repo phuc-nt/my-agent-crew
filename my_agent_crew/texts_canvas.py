@@ -76,7 +76,7 @@ CANVAS_CLOSED_TITLE = "Canvas"
 CANVAS_CLOSED_BODY = "Kênh này chưa mở được canvas: trả lời thẳng trong tin nhắn, đừng gọi {tools}."
 # Under the same title, for a turn that may write a canvas while its reader is away from the
 # web chat: who reads it, when a canvas is worth making, and the line that sends one along. A
-# job hears it too, with or without a bot to push its brief, so it names no channel as the
+# job hears it too, and its report is read later on the web, so it names no channel as the
 # reader's and says what the line does only for a turn delivered over Telegram.
 CANVAS_AWAY_BODY = (
     "Người nhận lượt này không ngồi ở web chat lúc bạn viết (họ đọc qua Telegram hoặc xem lại"

@@ -1,49 +1,34 @@
-"""How often the person is told of a job that keeps failing.
+"""The failures in a row each job is in, which the jobs page shows under its last run.
 
-A job that fails every five minutes would otherwise say so every five minutes, and a chat
-that repeats itself all day is one nobody reads. So the clock keeps, for each job, the
-failures in a row it is in: how many, since when, and when the person was last told. The
-first is told at once. While the job goes on failing, at most one message every
-`RETELL_AFTER` says how long it has gone on and why the latest run failed; a failure in
-between is only counted. When the job runs well again the streak ends, with one line if
-the person had been told of it and none if they had not.
-
-A failure is one `failure_notice.py` has a message for: a run that failed and opened no
-conversation, or one that ended well and whose check disagreed. Any other ending closes
-the streak, and only a run that ended well is worth the line.
-
-Told means the channel took the message. One that was not sent, was not said in time, or
-had no channel to go to leaves the streak untold, so the next failure tries again and says
-how many there have been by then. While a message is on its way the streak says so: a
-send can take up to a minute, and whoever reads the job's row meanwhile is not to be told
-that nothing got through.
+One failed run reads the same on the page as a job that has been down for a week, so the
+clock keeps, for each job, how many of its runs in a row failed and since when. A run that
+counts is one that failed and opened no conversation (a script, a command, a rewrite of
+memory), or one that ended well and whose check then disagreed (`check.py`). A turn that
+failed is its conversation's to show, as any turn's ending is. Any other ending closes the
+streak. A job skipped under the day's cap was not run, and leaves the count as it was
+(`day_cap.py`). Nobody is told of a streak on any channel: the web's inbox and its push say
+that a job failed (`webpush/notices.py`), and the page says for how long.
 
 Kept in the store as well as here (`store/job_streaks.py`): a host that sleeps when idle
-starts the process again on every wake, and a count begun again each time would tell of a
-failing job at every run. What is read back at the start is every job still on the clock;
-that a message was on its way is not kept, since the process that was sending it is gone.
+starts the process again on every wake, and a count begun again each time would read as a
+job that just started failing. What is read back at the start is every job still on the
+clock.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection
-from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from collections.abc import Collection
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
-from my_agent_crew import texts_job_failure as words
-from my_agent_crew.activity.step_previews import preview
-from my_agent_crew.scheduler.day_cap import Skipped
-from my_agent_crew.scheduler.failure_notice import Notify, failure_notice, say
-from my_agent_crew.scheduler.jobs import Job
 from my_agent_crew.store.db import Store
-from my_agent_crew.store.runs import DONE, RunRecord
-
-RETELL_AFTER = timedelta(hours=6)
+from my_agent_crew.store.runs import FAILED, RunRecord
 
 
-def _stamp(moment: datetime | None) -> str | None:
-    return moment.isoformat(timespec="minutes") if moment else None
+def counts_as_failure(run: RunRecord, check_failed: bool) -> bool:
+    """Whether the run a job came to adds to its streak."""
+    return check_failed or (run.status == FAILED and run.conversation_id is None)
 
 
 @dataclass(frozen=True)
@@ -53,70 +38,29 @@ class Streak:
 
     count: int
     since: datetime
-    # When the channel last took a message of this streak; None while none got through.
-    told_at: datetime | None = None
-    # A message of this streak is on its way to the channel, and may or may not be taken.
-    telling: bool = False
-
-    def due(self, now: datetime) -> bool:
-        """Whether a failure at `now` is told: nothing of this streak was yet, or what was
-        is `RETELL_AFTER` old."""
-        return self.told_at is None or now - self.told_at >= RETELL_AFTER
 
     def to_dict(self) -> dict[str, Any]:
         """As a job's row shows it (`describe.py`): on the clock's own time and to the
         minute, as the row's next run is."""
-        again = self.told_at + RETELL_AFTER if self.told_at else None
-        return {
-            "count": self.count,
-            "since": _stamp(self.since),
-            "told_at": _stamp(self.told_at),
-            "next_notice_at": _stamp(again),
-            "telling": self.telling,
-        }
-
-
-def closing(streak: Streak) -> str:
-    """The line a message of a failure ends on: when the next one comes, and from the second
-    failure in a row how long the job has been failing."""
-    hours = RETELL_AFTER // timedelta(hours=1)
-    if streak.count == 1:
-        return words.JOB_FAILED_NEXT.format(hours=hours)
-    since = streak.since.strftime(words.JOB_FAILING_SINCE)
-    return words.JOB_FAILED_AGAIN.format(count=streak.count, since=since, hours=hours)
+        return {"count": self.count, "since": self.since.isoformat(timespec="minutes")}
 
 
 class Streaks:
-    def __init__(
-        self,
-        notify: Notify | None,
-        clock: Callable[[], datetime],
-        store: Store | None = None,
-        known: Collection[str] | None = None,
-    ):
+    def __init__(self, store: Store | None = None, known: Collection[str] | None = None):
         """`store` is where the counts outlive the process; `known` the jobs on the clock,
         so a count kept for a job that left while the process was down goes with it."""
-        self._notify, self._clock = notify, clock
         self._kept = store.streaks if store is not None else None
         # Written on the event loop only. `of` is asked from a thread-pool thread
         # (`Scheduler.describe`), so it reads one key and never walks the dict.
         self._held: dict[str, Streak] = {}
-        for job_id, (count, since, told_at) in (self._kept.all() if self._kept else {}).items():
+        for job_id, (count, since) in (self._kept.all() if self._kept else {}).items():
             if known is not None and job_id not in known:
                 self._kept.clear(job_id)
                 continue
-            told = datetime.fromisoformat(told_at) if told_at else None
-            self._held[job_id] = Streak(count, datetime.fromisoformat(since), told)
+            self._held[job_id] = Streak(count, datetime.fromisoformat(since))
 
     def of(self, job_id: str) -> Streak | None:
         return self._held.get(job_id)
-
-    def _hold(self, job_id: str, streak: Streak) -> None:
-        """Here and in the store, which keeps all of a streak but `telling`."""
-        self._held[job_id] = streak
-        if self._kept is not None:
-            told_at = streak.told_at.isoformat() if streak.told_at else None
-            self._kept.save(job_id, streak.count, streak.since.isoformat(), told_at)
 
     def forget(self, job_id: str) -> Streak | None:
         """A job that left the clock leaves no count for one that later takes its id."""
@@ -132,38 +76,13 @@ class Streaks:
         if self._kept is not None:
             self._kept.forget_agent(agent_id)
 
-    async def settle(self, job: Job, run: RunRecord, ended_by: str) -> None:
-        """Counts the run a job came to, and tells the person what the count calls for.
-        `ended_by` is why the run failed, as `failure_notice` takes it. A job skipped under
-        the day's cap was not run, so it is not counted either way."""
-        if isinstance(ended_by, Skipped):
+    def settle(self, job_id: str, failed: bool, now: datetime) -> None:
+        """Counts one more failure in a row at `now`, or closes the streak."""
+        if not failed:
+            self.forget(job_id)
             return
-        text = failure_notice(job, run, ended_by)
-        if text is None:
-            await self._close(job, run)
-            return
-        now = self._clock()
-        before = self._held.get(job.id)
-        streak = replace(before, count=before.count + 1) if before else Streak(1, now)
-        self._hold(job.id, streak)
-        if not streak.due(now):
-            return
-        self._held[job.id] = replace(streak, telling=True)
-        sent = False
-        try:
-            sent = await say(job, f"{text}\n{closing(streak)}", self._notify)
-        finally:
-            # Read again, not written from `streak`: the send waited, and by now the job may
-            # have left the clock, or another run of it may have been counted. In a
-            # `finally`, so a send cut short does not leave the row saying one is under way.
-            held = self._held.get(job.id)
-            if held is not None:
-                told_at = self._clock() if sent else held.told_at
-                self._hold(job.id, replace(held, telling=False, told_at=told_at))
-
-    async def _close(self, job: Job, run: RunRecord) -> None:
-        streak = self.forget(job.id)
-        if streak is None or streak.told_at is None or run.status != DONE:
-            return
-        name = preview(job.schedule.name)
-        await say(job, words.JOB_RECOVERED.format(name=name, count=streak.count), self._notify)
+        before = self._held.get(job_id)
+        streak = Streak(before.count + 1, before.since) if before else Streak(1, now)
+        self._held[job_id] = streak
+        if self._kept is not None:
+            self._kept.save(job_id, streak.count, streak.since.isoformat())

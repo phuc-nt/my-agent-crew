@@ -1,25 +1,24 @@
 """The clock over each agent's schedules: which job is due, what ran last, what runs next.
-Carrying a job out is `scheduler/jobs.py`; this decides when, and has the person told."""
+Carrying a job out is `scheduler/jobs.py`; this decides when, and counts what each run came
+to. A job tells no channel: its report and its failures are read on the web."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
 from my_agent_crew import texts
 from my_agent_crew.activity import ActivityHub
-from my_agent_crew.agent.approval_expiry import expire_overdue
+from my_agent_crew.agent.approval_expiry import Deliver, expire_overdue
 from my_agent_crew.agent.loop import AgentDeps
 from my_agent_crew.scheduler.cron import due_between
 from my_agent_crew.scheduler.describe import describe_job
 from my_agent_crew.scheduler.execute import carry_out
-from my_agent_crew.scheduler.failure_notice import Notify
 from my_agent_crew.scheduler.failure_streaks import Streaks
-from my_agent_crew.scheduler.jobs import JOB_SOURCE, Job, nothing_to_report
-from my_agent_crew.scheduler.proposal_notice import tell_held
+from my_agent_crew.scheduler.jobs import JOB_SOURCE, Job
 from my_agent_crew.scheduler.table import JobTable
 from my_agent_crew.store.db import now_iso
 from my_agent_crew.store.runs import RunRecord
@@ -34,14 +33,15 @@ class Scheduler:
         agents: dict[str, AgentDeps],
         hub: ActivityHub,
         clock: Callable[[], datetime] = datetime.now,
-        deliver: Callable[[str, str], Awaitable[bool]] | None = None,
-        notify: Notify | None = None,
+        deliver: Deliver | None = None,
     ):
+        """`deliver` sends on the answer of a turn resumed because its request ran out, where
+        its conversation wants it (`approval_expiry.py`); a job's own answer is never sent."""
         self._agents, self._hub, self._clock = agents, hub, clock
-        self._deliver, self._notify = deliver, notify
+        self._deliver = deliver
         self._store = next(iter(agents.values())).store if agents else None
         self._jobs = JobTable(agents, self._store, clock)
-        self._streaks = Streaks(notify, clock, self._store, self._jobs.rows())
+        self._streaks = Streaks(self._store, self._jobs.rows())
         self._task: asyncio.Task[None] | None = None
         self._running: set[str] = set()
         self._background: set[asyncio.Task[Any]] = set()
@@ -162,38 +162,17 @@ class Scheduler:
         deps = self._agents[job.agent_id]
         self._running.add(job.id)
         try:
-            run, ended_by = await carry_out(
-                job, deps, self._hub, self._clock, self.deliver_run, self._notify
-            )
-            if job.schedule.consolidate:
-                await tell_held(job, deps, run, self._notify)
+            run, failed = await carry_out(job, deps, self._hub, self._clock)
+            # What the job came to, for the log: its report is read on the web, not sent.
+            logger.info("job %s: status=%s conv=%s", job.id, run.status, run.conversation_id)
             # A job that left the clock while it ran is counted no more: what it came to
             # would be held against whichever job is later made under its id.
-            if job.id in self._jobs.rows():
+            if failed is not None and job.id in self._jobs.rows():
                 before = self._streaks.of(job.id)
-                await self._streaks.settle(job, run, ended_by)
+                self._streaks.settle(job.id, failed, self._clock())
                 # The page read the job's row when the run ended, which is before this.
                 if self._streaks.of(job.id) != before:
                     self._hub.publish_jobs()
             return run
         finally:
             self._running.discard(job.id)
-
-    async def deliver_run(self, job: Job, run: RunRecord) -> None:
-        """Pushes the job's answer to the agent's channel; a failed send is logged, not
-        raised, because the run itself already succeeded."""
-        deps = self._agents.get(job.agent_id)
-        if self._deliver is None or run.conversation_id is None or deps is None:
-            return
-        if nothing_to_report(job, run, deps):
-            logger.info("job %s: nothing to report, not delivered", job.id)
-            return
-        try:
-            delivered = await self._deliver(job.agent_id, run.conversation_id)
-        except Exception:
-            logger.exception("job %s: delivery failed", job.id)
-        else:
-            # Without this line a job that answered and a job that stayed silent look
-            # identical in the log.
-            conv, status = run.conversation_id, run.status
-            logger.info("job %s: delivered=%s conv=%s status=%s", job.id, delivered, conv, status)

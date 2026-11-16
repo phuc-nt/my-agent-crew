@@ -22,12 +22,10 @@ import pytest
 from my_agent_crew import texts
 from my_agent_crew.agent.approval_expiry import expire_overdue
 from my_agent_crew.agent.events import AssistantMessageEvent, DoneEvent, ToolResultEvent
-from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.artifacts.tag import Tag, artifact_tag
 from my_agent_crew.config import Route
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.llm.types import Message, ToolCall
-from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.store.runs import AWAITING, DONE, HALTED, RunRecord
 from my_agent_crew.tools.delegate_outcome import result_text
 from my_agent_crew.tools.registry import Tool, ToolResult
@@ -35,7 +33,6 @@ from tests.canvas_helpers import PLAN, persons_canvas
 from tests.lapse_helpers import ASK, WRITE, nobody_answered, sent_again, waits_on
 from tests.queue_helpers import until
 from tests.telegram_fake import asks_for, message, poll_each
-from tests.test_scheduler import with_schedules
 
 STAMP = "2026-10-01T03:00:00+00:00"
 OUT_OF_STEPS = texts.HALT_REASONS["max_steps"]
@@ -64,7 +61,7 @@ def began(store, conv_id: str, status: str = DONE, run_id: str = "r1", **more) -
     """A run that begins where the conversation stands now."""
     agent_id, after = store.get(conv_id).agent_id, store.messages.max_seq(conv_id)
     run = RunRecord(
-        run_id, agent_id, conv_id, "job:default/x", "t", status, STAMP, after_seq=after, **more
+        run_id, agent_id, conv_id, "telegram", "t", status, STAMP, after_seq=after, **more
     )
     store.runs.save(run)
     return run
@@ -265,9 +262,9 @@ async def test_a_wordless_brief_names_what_its_own_conversation_holds(crew, fake
 
 
 async def test_a_run_delivered_twice_names_each_canvas_once(make_channel, fake):
-    """A job that stops for an approval is delivered while it waits, and once more when
-    nobody answered and it went on. The second time repeats the words, as it always has, and
-    names only what was written since."""
+    """A turn of the chat's, resumed away from it, that stops for an approval again is
+    delivered while it waits, and once more when nobody answered and it went on. The second
+    time repeats the words, as it always has, and names only what was written since."""
     channel = make_channel()
     store = channel.store
     canvas_a, canvas_b = canvas(store, "Dàn ý"), canvas(store, "Số liệu")
@@ -295,7 +292,7 @@ async def test_a_run_delivered_twice_names_each_canvas_once(make_channel, fake):
 async def test_a_run_whose_question_lapsed_between_two_deliveries_names_each_canvas_once(
     make_channel, fake
 ):
-    """A job that stops to ask is delivered while it waits too, and goes on by itself when
+    """One that stops to ask is delivered while it waits too, and goes on by itself when
     nobody answers. Nothing was refused, so no line says a guard timed out; the first
     canvas was named by the first delivery and is not named again."""
     channel = make_channel()
@@ -316,61 +313,57 @@ async def test_a_run_whose_question_lapsed_between_two_deliveries_names_each_can
     assert fake.sent == ["Xong.", listed(("Số liệu", 1))]
 
 
-async def test_a_job_that_asked_and_went_on_unanswered_names_each_canvas_once(
-    make_channel, deps_factory, fake
-):
-    """The same through a real job and the sweep that closes what nobody answered: the run
-    is one run across both stretches, and its two deliveries name one canvas each."""
-    child = Delegated()
-    check = Schedule("deadline-check", "Nhắc hạn", cron="30 7 * * *", prompt="Có hạn nào không?")
-    script = [hands_on("d1"), completion(tool_calls=(ASK,)), hands_on("d2"), completion("Xong.")]
-    deps = with_schedules(deps_factory(script=script, extra_tools=[child.tool]), check)
-    channel = make_channel(deps)
-    child.written = [(canvas(deps.store, "Dàn ý"), 1), (canvas(deps.store, "Số liệu"), 1)]
+def deliver_of(channel):
+    """The delivery the sweep is handed, as the runtime hands it on to the chat."""
 
     async def deliver(agent_id: str, conv_id: str) -> bool:
         return await channel.deliver(conv_id)
 
-    run = await Scheduler({"default": deps}, channel.hub, deliver=deliver).run_job(
-        "default/deadline-check"
-    )
-    assert run.status == AWAITING
-    assert fake.sent == [
-        listed(("Dàn ý", 1)),
-        ASK.arguments["question"],
-    ]
+    return deliver
+
+
+async def test_a_chat_turn_that_asked_and_went_on_unanswered_names_each_canvas_once(
+    make_channel, deps_factory, fake
+):
+    """The same through a real turn of the chat's and the sweep that closes what nobody
+    answered: the run is one run across both stretches, and each stretch names its canvas."""
+    child = Delegated()
+    script = [hands_on("d1"), completion(tool_calls=(ASK,)), hands_on("d2"), completion("Xong.")]
+    deps = deps_factory(script=script, extra_tools=[child.tool])
+    channel = make_channel(deps)
+    child.written = [(canvas(deps.store, "Dàn ý"), 1), (canvas(deps.store, "Số liệu"), 1)]
+    deliver = deliver_of(channel)
+
+    await poll_each(channel, fake, message(1, "Có hạn nào không?"))
+    assert fake.sent == [ASK.arguments["question"], listed(("Dàn ý", 1))]
     fake.sent.clear()
     later = datetime.now(UTC) + timedelta(seconds=deps.settings.approval_ttl_seconds + 1)
     assert len(await expire_overdue({"default": deps}, channel.hub, deliver, now=later)) == 1
     assert fake.sent == ["Xong.", listed(("Số liệu", 1))]
 
 
-async def test_a_job_whose_model_asks_again_under_the_same_id_names_what_it_wrote_between(
+async def test_a_turn_whose_model_asks_again_under_the_same_id_names_what_it_wrote_between(
     make_channel, deps_factory, fake
 ):
     """A model may send a call id it has used before. The loop answers the question again
     from the request that ran out, and that is no second lapse: what the run wrote between
     the two answers is named with what it wrote after them."""
     child = Delegated()
-    check = Schedule("deadline-check", "Nhắc hạn", cron="30 7 * * *", prompt="Có hạn nào không?")
     asks = completion(tool_calls=(ASK,))
     script = [hands_on("d1"), asks, hands_on("d2"), asks, hands_on("d3"), completion("Xong.")]
-    deps = with_schedules(deps_factory(script=script, extra_tools=[child.tool]), check)
+    deps = deps_factory(script=script, extra_tools=[child.tool])
     channel = make_channel(deps)
     titles = ("Dàn ý", "Số liệu", "Lịch")
     child.written = [(canvas(deps.store, title), 1) for title in titles]
+    deliver = deliver_of(channel)
 
-    async def deliver(agent_id: str, conv_id: str) -> bool:
-        return await channel.deliver(conv_id)
-
-    run = await Scheduler({"default": deps}, channel.hub, deliver=deliver).run_job(
-        "default/deadline-check"
-    )
-    assert run.status == AWAITING and fake.sent[0] == listed(("Dàn ý", 1))
+    await poll_each(channel, fake, message(1, "Có hạn nào không?"))
+    conv = channel.conversation()
+    assert fake.sent == [ASK.arguments["question"], listed(("Dàn ý", 1))]
     later = datetime.now(UTC) + timedelta(seconds=deps.settings.approval_ttl_seconds + 1)
     assert len(await expire_overdue({"default": deps}, channel.hub, deliver, now=later)) == 1
     assert fake.sent[2:] == ["Xong.", listed(("Số liệu", 1), ("Lịch", 1))]
-    answers = deps.store.messages.tool_results(run.conversation_id, ASK.id)
+    answers = deps.store.messages.tool_results(conv.id, ASK.id)
     assert len(answers) == 2  # the loop did answer the id twice
     assert all("\n".join(fake.sent).count(f'"{title}"') == 1 for title in titles)
 
@@ -544,31 +537,6 @@ async def test_each_leg_of_a_turn_that_waited_for_approval_names_its_own(
         "Xong.",
         listed(("Số liệu", 3)),
     ]
-
-
-@pytest.mark.parametrize(
-    ("answer", "heard"),
-    [("Đã cập nhật.", ["Đã cập nhật.", listed(("Dàn ý", 2))]), ("OK", [])],
-)
-async def test_a_job_names_what_it_wrote_unless_it_has_nothing_to_report(
-    make_channel, deps_factory, fake, answer, heard
-):
-    """A check that answers `OK` is not pushed to the chat, and a canvas it wrote on the way
-    does not change that: the list comes with a brief, it is not one."""
-    child = Delegated()
-    check = Schedule("deadline-check", "Nhắc hạn", cron="30 7 * * *", prompt="Có hạn nào không?")
-    script = [hands_on("d1"), completion(answer)]
-    deps = with_schedules(deps_factory(script=script, extra_tools=[child.tool]), check)
-    channel = make_channel(deps)
-    child.written = [(canvas(deps.store, "Dàn ý"), 2)]
-
-    async def deliver(agent_id: str, conv_id: str) -> bool:
-        return await channel.deliver(conv_id)
-
-    run = await Scheduler({"default": deps}, channel.hub, deliver=deliver).run_job(
-        "default/deadline-check"
-    )
-    assert run.status == DONE and fake.sent == heard
 
 
 async def test_a_list_that_cannot_be_sent_costs_the_turn_one_line(

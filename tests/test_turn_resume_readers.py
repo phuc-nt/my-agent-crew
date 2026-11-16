@@ -1,8 +1,9 @@
 """Who reads a turn that is carried on after a restart (`turn_resume.py`).
 
 Nobody is waiting on the HTTP request that began it any more. A chat's turn is answered by
-the bot, a job's by the scheduler's delivery, and a delegated task by the turn that handed
-it out, which is carried on first and finds its child again."""
+the bot, a job's is read to its end by the server and its answer kept for the web, and a
+delegated task is read by the turn that handed it out, which is carried on first and finds
+its child again."""
 
 from __future__ import annotations
 
@@ -249,30 +250,28 @@ async def job_cut_mid_tool(make_channel, deps_factory) -> tuple[Runtime, RunReco
 
 async def ended(runtime: Runtime, conv_id: str) -> RunRecord:
     await until(lambda: not runtime.hub.busy.busy(conv_id))
-    await settle_loop()  # the push to the chat comes after the turn, in the same task
+    await settle_loop()  # a chat's answer is sent after the turn, in the same task
     run = runtime.store.runs.latest_for_conversation(conv_id)
     assert run is not None
     return run
 
 
-async def test_a_job_cut_by_a_restart_is_carried_on_and_its_answer_reaches_the_chat(
+async def test_a_job_cut_by_a_restart_is_carried_on_and_its_answer_reaches_no_chat(
     make_channel, deps_factory, fake
 ):
     _, cut = await job_cut_mid_tool(make_channel, deps_factory)
-    assert fake.sent == []
 
     second, _, again = crew_with_bot(
         make_channel, deps_factory, [completion("Bản tin: trời đẹp.")], BRIEF
     )
     assert [run.id for run in resume_cut_turns(second)] == [cut.id]
     run = await ended(second, cut.conversation_id)
-    await until(lambda: fake.sent)
 
     assert (run.id, run.status, run.source) == (cut.id, DONE, f"job:{JOB_ID}")
     assert again.runs == 0
-    # Pushed once, as the scheduler pushes the answer of a job that ran in one piece.
-    [pushed] = fake.sent
-    assert "Bản tin: trời đẹp." in pushed
+    # Read on the web, as the answer of a job that ran in one piece is.
+    assert second.store.history(cut.conversation_id)[-1].message.content == "Bản tin: trời đẹp."
+    assert fake.sent == []
     # And it is the job's last run on the Jobs page, not a stray turn.
     assert second.scheduler.describe()[0]["last_run"]["id"] == cut.id
 

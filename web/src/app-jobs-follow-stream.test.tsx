@@ -1,9 +1,7 @@
 // A job's row is read when its run ends. The server counts that run into the job's streak
-// of failures after that, and tells the owner after that again, a wait of up to a minute.
-// So the row a page read at the run's end said no notice had got through, of one that
-// arrived a moment later, and went on saying so until some other run ended. The streak
-// now says while a notice is on its way, and the stream says when the list changed after
-// a run was over, on which the page reads it again.
+// of failures after that, so the row a page read at the run's end said nothing of the
+// streak, or of one run fewer, and went on saying so until some other run ended. The
+// stream says when the list changed after a run was over, on which the page reads it again.
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi as vitest } from "vitest";
@@ -13,17 +11,18 @@ import { vi } from "./i18n/vi";
 import { FakeBackend, FakeEventSource, coachAgent, fakeAgent, fakeRun } from "./test/fake-backend";
 
 const t = vi.jobRow;
-const TOLD = "Đã báo Telegram lúc";
 const failed = fakeRun({ id: "r-err", agent_id: "coach", conversation_id: null, source: "job:coach/brief", status: "error" });
 const briefJob: JobInfo = {
   ...coachAgent.schedules[0], id: "coach/brief", schedule_id: "brief", agent_id: "coach",
   next_run: null, last_run: null, running: false, paused: false,
 };
-const streak = { count: 1, since: failed.started_at, told_at: null, next_notice_at: null, telling: false };
-const telling: JobFailing = { ...streak, telling: true };
-const told: JobFailing = { ...streak, told_at: "2026-09-19T08:00:06Z", next_notice_at: "2026-09-19T14:00:06Z" };
-/** The row as the server gives it once the run has ended in an error. */
+const once: JobFailing = { count: 1, since: failed.started_at };
+const twice: JobFailing = { ...once, count: 2 };
+/** The row as the server gives it once the run has ended in an error and been counted. */
 const failing = (state: JobFailing): JobInfo[] => [{ ...briefJob, last_run: failed, failing: state }];
+/** The row as read between the run's end and its count. */
+const uncounted: JobInfo[] = [{ ...briefJob, last_run: failed }];
+const counted = (n: number) => t.streak(n, "").split(" từ ")[0];
 
 let backend: FakeBackend;
 
@@ -54,8 +53,8 @@ async function opensJobs(jobs: JobInfo[]) {
 }
 
 /** Each read of the job list is answered with what the server held when it was asked. The
- *  reads named in `hold` reach the page only once released, so an answer read while a notice
- *  was on its way can land after one read once it had arrived; those in `lose` never do. */
+ *  reads named in `hold` reach the page only once released, so an answer read before the run
+ *  was counted can land after one read once it had been; those in `lose` never do. */
 function network({ hold = [], lose = [] }: { hold?: number[]; lose?: number[] }) {
   const releases = new Map<number, () => void>();
   let reads = 0;
@@ -72,31 +71,29 @@ function network({ hold = [], lose = [] }: { hold?: number[]; lose?: number[] })
   return { release: (n: number) => releases.get(n)?.(), handed: () => handed };
 }
 
-describe("the jobs list, while the owner is being told that a job failed", () => {
+describe("the jobs list, while a job's failure is being counted", () => {
   it("reads the row again when the stream says the list changed, with no run ending", async () => {
-    await opensJobs(failing(telling));
-    expect(sentence()).toContain(t.streakTelling);
+    await opensJobs(uncounted);
+    expect(screen.queryByTestId("job-failing")).not.toBeInTheDocument();
 
-    backend.jobs = failing(told);
+    backend.jobs = failing(once);
     act(() => stream().emit({ type: "jobs" }));
 
-    await waitFor(() => expect(sentence()).toContain(TOLD));
-    expect(sentence()).not.toContain(t.streakTelling);
+    await waitFor(() => expect(sentence()).toContain(counted(1)));
     expect(jobReads()).toBe(2);
   });
 
-  it("says a notice did not get through once the stream says so", async () => {
-    await opensJobs(failing(telling));
+  it("says one more failure in a row once the stream says it was counted", async () => {
+    await opensJobs(failing(once));
 
-    backend.jobs = failing(streak);
+    backend.jobs = failing(twice);
     act(() => stream().emit({ type: "jobs" }));
 
-    await waitFor(() => expect(sentence()).toContain(t.streakUntold));
-    expect(sentence()).not.toContain(t.streakTelling);
+    await waitFor(() => expect(sentence()).toContain(counted(2)));
   });
 
   it("no longer says a job is failing once the stream says it mended", async () => {
-    await opensJobs(failing(told));
+    await opensJobs(failing(twice));
 
     backend.jobs = [{ ...briefJob, last_run: fakeRun({ id: "r-ok", agent_id: "coach", source: "job:coach/brief" }) }];
     act(() => stream().emit({ type: "jobs" }));
@@ -106,20 +103,20 @@ describe("the jobs list, while the owner is being told that a job failed", () =>
   });
 
   // The two reads are out at once: one asked for at the run's end, one when the stream said
-  // the owner had been told. Whichever lands last used to be the one shown.
+  // the run had been counted. Whichever lands last used to be the one shown.
   it("keeps what it read last when the read from the run's end answers after it", async () => {
     const net = network({ hold: [2] });
     await opensJobs([briefJob]);
 
-    // The run ends and the page asks for the list. The server answers with the notice
-    // still on its way, and that answer is kept from the page for now.
-    backend.jobs = failing(telling);
+    // The run ends and the page asks for the list. The server answers before the run is
+    // counted, and that answer is kept from the page for now.
+    backend.jobs = uncounted;
     act(() => stream().emit({ type: "run", run: failed }));
     await waitFor(() => expect(jobReads()).toBe(2));
 
-    backend.jobs = failing(told);
+    backend.jobs = failing(once);
     act(() => stream().emit({ type: "jobs" }));
-    await waitFor(() => expect(sentence()).toContain(TOLD));
+    await waitFor(() => expect(sentence()).toContain(counted(1)));
     expect(net.handed()).toBe(2);
 
     await act(async () => {
@@ -127,15 +124,14 @@ describe("the jobs list, while the owner is being told that a job failed", () =>
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(net.handed()).toBe(3);
-    expect(sentence()).toContain(TOLD);
-    expect(sentence()).not.toContain(t.streakTelling);
+    expect(sentence()).toContain(counted(1));
   });
 
   // As before the stream said anything: a list that could not be read is not shown as the
   // one read earlier, which may be out of date by now.
   it("says the list could not be read when the read the stream asked for fails", async () => {
     network({ lose: [2] });
-    await opensJobs(failing(telling));
+    await opensJobs(failing(once));
 
     act(() => stream().emit({ type: "jobs" }));
 

@@ -1,9 +1,10 @@
 """A canvas written away from the web, through the real loop and the real tools.
 
-A Telegram turn and a scheduled job write canvases as a web turn does. The chat gets the
+A Telegram turn and a scheduled job write canvases as a web turn does. The chat gets its own
 turn's words, then the canvas the reply names as a file, then the list of what the turn wrote.
-These tests read what the chat received and what the store holds, and nothing of how the turn
-got there. A job that wrote a canvas and has nothing to say is in `test_scheduler_reporting.py`.
+A job's turn is sent to no chat: its canvas is found on the web, in the conversation of its
+run. These tests read what the chat received and what the store holds, and nothing of how the
+turn got there.
 """
 
 from __future__ import annotations
@@ -66,7 +67,8 @@ def sent_in_order(fake) -> list[str]:
 
 
 async def run_weekly(make_channel, deps) -> RunRecord:
-    """Runs the weekly job with the channel as the place its brief is pushed to."""
+    """Runs the weekly job beside a chat, with the channel's own delivery handed to the clock
+    as a server start hands it: a job's turn is still not sent there."""
     channel = make_channel(deps)
 
     async def deliver(agent_id: str, conv_id: str) -> bool:
@@ -89,7 +91,7 @@ async def test_a_telegram_turn_writes_a_canvas_and_sends_it_as_the_file_its_repl
     assert fake.uploads == [Upload("sendDocument", f"{TITLE}.md", f'"{TITLE}" v1', PLAN.encode())]
 
 
-async def test_a_job_writes_a_canvas_and_its_brief_names_it(
+async def test_a_job_writes_a_canvas_and_the_chat_is_sent_nothing_of_it(
     make_channel, deps_factory, fake, store
 ):
     script = [completion(tool_calls=(CREATE,)), completion("Kế hoạch tuần đã có.")]
@@ -97,5 +99,4 @@ async def test_a_job_writes_a_canvas_and_its_brief_names_it(
     run = await run_weekly(make_channel, deps)
     assert run.status == DONE
     the_one_canvas(store, JOB)
-    assert fake.uploads == []
-    assert fake.sent == ["Kế hoạch tuần đã có.", listed((TITLE, 1))]
+    assert fake.calls == []

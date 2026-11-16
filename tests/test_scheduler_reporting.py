@@ -1,71 +1,17 @@
-"""What a scheduled job tells the person, and what the Jobs page tells about a job.
+"""What the Jobs page tells about a job.
 
-A deadline check that found nothing answered "OK", and that "OK" landed in the chat every
-morning. The Jobs page showed "never ran" for a weekly job whose last run had simply
-fallen behind the two hundred newest runs of a busy crew."""
+The Jobs page showed "never ran" for a weekly job whose last run had simply fallen behind
+the two hundred newest runs of a busy crew. What a job tells the person is read on the web's
+inbox (`test_webpush_notices.py`), and never in the chat (`test_jobs_tell_no_chat.py`)."""
 
 from __future__ import annotations
 
-import logging
-
-import pytest
-
 from my_agent_crew.activity import ActivityHub
-from my_agent_crew.agent.turn_context import JOB
 from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.scheduler import Scheduler
 from my_agent_crew.store.runs import DONE
-from tests.test_canvas_payload_trim import canvas_tools
 from tests.test_scheduler import with_schedules
-from tests.test_telegram_canvas_turn import CREATE, WEEKLY, run_weekly, the_one_canvas
-
-
-def _check_job(deps_factory, *replies: str):
-    deps = with_schedules(
-        deps_factory(script=[completion(r) for r in replies]),
-        Schedule("deadline-check", "Nhắc hạn", cron="30 7 * * *", prompt="Có hạn nào không?"),
-    )
-    delivered: list[str] = []
-
-    async def deliver(agent_id: str, conv_id: str) -> bool:
-        delivered.append(conv_id)
-        return True
-
-    return Scheduler({"default": deps}, ActivityHub(deps.store), deliver=deliver), delivered
-
-
-@pytest.mark.parametrize("reply", ["OK", " ok. ", "OK!"])
-async def test_a_job_with_nothing_to_report_is_not_pushed(deps_factory, caplog, reply: str):
-    sched, delivered = _check_job(deps_factory, reply)
-    with caplog.at_level(logging.INFO, logger="my_agent_crew.scheduler.runner"):
-        run = await sched.run_job("default/deadline-check")
-
-    assert run.status == DONE and delivered == []
-    assert "job default/deadline-check: nothing to report, not delivered" in caplog.text
-    # The run itself still shows, so the person can see the check did happen.
-    assert sched.describe()[0]["last_run"]["id"] == run.id
-
-
-async def test_a_reply_that_says_more_than_ok_is_pushed(deps_factory):
-    sched, delivered = _check_job(deps_factory, "OK, nhưng HP3-12 còn 14 ngày tới hạn.")
-    run = await sched.run_job("default/deadline-check")
-
-    assert delivered == [run.conversation_id]
-
-
-async def test_a_job_that_wrote_a_canvas_and_answered_ok_is_not_pushed_and_keeps_the_canvas(
-    make_channel, deps_factory, fake, store
-):
-    """`OK` says the job has nothing for the person, whatever it wrote on the way. The push is
-    skipped whole, list of canvases included, and the canvas is found on the web, in the
-    conversation of the run."""
-    script = [completion(tool_calls=(CREATE,)), completion("OK")]
-    deps = with_schedules(deps_factory(script=script, extra_tools=canvas_tools(store)), WEEKLY)
-    run = await run_weekly(make_channel, deps)
-
-    assert run.status == DONE and fake.calls == []
-    the_one_canvas(store, JOB)
 
 
 async def test_a_weekly_jobs_last_run_is_found_behind_a_busy_week(deps_factory):

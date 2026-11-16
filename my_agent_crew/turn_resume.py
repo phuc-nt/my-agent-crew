@@ -5,8 +5,9 @@ the turn had done is in the message log, so the server that starts next can carr
 The hub closed every run the previous process was still working on and kept the ones never
 taken up before (`store/run_restart.py`); each of those that may still go on is reopened as
 the same run and read to its end by whoever reads that kind of turn — the bot for a chat's,
-the scheduler's delivery for a job's, the server itself for the rest. The bot answers a turn
-once, so it is handed what the turn wrote before the cut as well (`turn_unsent.py`).
+the server itself for the rest, a job's included, whose answer is read on the web. The bot
+answers a turn once, so it is handed what the turn wrote before the cut as well
+(`turn_unsent.py`).
 
 A run is taken up once. Reopening it writes that down before the turn takes a step, so a
 turn that brings the server down again is closed at the next start instead of being tried
@@ -17,13 +18,11 @@ conversation finds the log as any interrupted turn leaves it.
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
 from my_agent_crew.activity.tracked import tracked
-from my_agent_crew.agent.events import Event
 from my_agent_crew.agent.replay import continue_cut_turn
-from my_agent_crew.agent.turn_context import DELEGATE, JOB, TELEGRAM, normalize_source
+from my_agent_crew.agent.turn_context import DELEGATE, TELEGRAM, normalize_source
 from my_agent_crew.store.models import AWAITING_APPROVAL
 from my_agent_crew.store.runs import RunRecord
 from my_agent_crew.turn_unsent import after, unsent
@@ -89,8 +88,6 @@ def _take_up(runtime: Runtime, run: RunRecord) -> None:
         whole = after(unsent(runtime.store, run), events)
         task = runtime.channel.spawn(runtime.channel.reply_to(whole, conv_id))
     else:
-        if kind == JOB:
-            events = _then_delivered(runtime, run, events)
         task = runtime.inbound.host.read(conv_id, events)
 
     def let_go(_: object) -> None:
@@ -99,17 +96,3 @@ def _take_up(runtime: Runtime, run: RunRecord) -> None:
             hub.interrupt(run)
 
     task.add_done_callback(let_go)
-
-
-async def _then_delivered(
-    runtime: Runtime, run: RunRecord, events: AsyncIterator[Event]
-) -> AsyncIterator[Event]:
-    """A job's turn, its answer pushed to the chat when it ends as the scheduler would have
-    pushed it. A job removed meanwhile has nobody to tell."""
-    async for event in events:
-        yield event
-    try:
-        job = runtime.scheduler.get(run.source.partition(":")[2])
-    except KeyError:
-        return
-    await runtime.scheduler.deliver_run(job, run)

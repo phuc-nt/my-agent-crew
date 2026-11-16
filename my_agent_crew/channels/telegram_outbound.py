@@ -63,11 +63,11 @@ class TelegramOutbound:
     async def deliver(self, conv_id: str) -> bool:
         """Sends every assistant text of the conversation's last turn (the messages after
         the last user message, in order); False when there is none yet. Text written next
-        to a tool call counts: a brief often ends with a bare `MEDIA:` message, and a job's
-        words are followed by the request it stopped on, with its buttons. The canvases the
-        run wrote are listed after its words, and stand for them when it left none. What the
-        runtime adds is said as it stands: why a run stopped quotes an error or a question,
-        and a line of that shaped like an attachment line names no file."""
+        to a tool call counts: an answer often ends with a bare `MEDIA:` message, and words
+        said before a stop are followed by the request it stopped on, with its buttons. The
+        canvases the run wrote are listed after its words, and stand for them when it left
+        none. What the runtime adds is said as it stands: why a run stopped quotes an error
+        or a question, and a line of that shaped like an attachment line names no file."""
         parts: list[str] = []
         expired: list[str] = []
         for stored in reversed(self._deps.store.history(conv_id)):
@@ -101,8 +101,8 @@ class TelegramOutbound:
         if run.status == DONE:
             if await self.send_written(tags, conv_id):
                 return True  # it wrote canvases and said nothing: their list is its answer
-            # The job ran to the end and produced no text. Saying so beats a brief that
-            # simply never arrives, which looks the same as a broken schedule.
+            # The turn ran to the end and produced no text. Saying so beats an answer that
+            # simply never arrives, which looks the same as a broken bot.
             logger.info("telegram %s: run for %s finished empty", self.agent_id, conv_id)
             await self._say(texts.REPLY_EMPTY.format(steps=len(run.steps)))
             return True
@@ -152,12 +152,6 @@ class TelegramOutbound:
             logger.warning("telegram %s: canvas notice not sent: %s", self.agent_id, exc)
             await tell(self._api, self._chat_id, texts.TELEGRAM_CANVAS_NOTICE_FAILED)
         return True
-
-    async def notify(self, text: str) -> None:
-        """A sentence of the runtime's about the agent's work, said under its name as it
-        stands: it may quote what a script said, and a line of that shaped like an
-        attachment line names no file."""
-        await self._say(text)
 
     async def ask(self, text: str, buttons: dict[str, Any] | None) -> None:
         """A decision the agent waits on, said under its name with its buttons."""

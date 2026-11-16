@@ -1,17 +1,18 @@
 """The failures in a row each job is in, kept so a restart does not begin the count again
 (`scheduler/failure_streaks.py` says what a streak is and decides everything about it).
 
-A row is a job that is failing now: how many times in a row, since when, and when the
-person was last told. A job that ran well again has no row. The moments are the clock's
-own, written as it gave them and read back the same."""
+A row is a job that is failing now: how many times in a row, and since when. A job that
+ran well again has no row. The moment is the clock's own, written as it gave it and read
+back the same. A home made before streaks were told to no channel keeps a `told_at`
+column here, which nothing reads or writes any more."""
 
 from __future__ import annotations
 
 import sqlite3
 import threading
 
-# count, since, told_at: the last two as ISO texts, `told_at` None while nobody was told.
-StreakRow = tuple[int, str, str | None]
+# count, and since as an ISO text.
+StreakRow = tuple[int, str]
 
 
 class JobStreakStore:
@@ -22,17 +23,17 @@ class JobStreakStore:
     def all(self) -> dict[str, StreakRow]:
         with self._lock:
             rows = self._conn.execute(
-                "SELECT job_id, count, since, told_at FROM job_failure_streaks"
+                "SELECT job_id, count, since FROM job_failure_streaks"
             ).fetchall()
-        return {r["job_id"]: (int(r["count"]), r["since"], r["told_at"]) for r in rows}
+        return {r["job_id"]: (int(r["count"]), r["since"]) for r in rows}
 
-    def save(self, job_id: str, count: int, since: str, told_at: str | None) -> None:
+    def save(self, job_id: str, count: int, since: str) -> None:
         with self._lock:
             self._conn.execute(
-                "INSERT INTO job_failure_streaks (job_id, count, since, told_at)"
-                " VALUES (?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET count = excluded.count,"
-                " since = excluded.since, told_at = excluded.told_at",
-                (job_id, count, since, told_at),
+                "INSERT INTO job_failure_streaks (job_id, count, since) VALUES (?,?,?)"
+                " ON CONFLICT(job_id) DO UPDATE SET count = excluded.count,"
+                " since = excluded.since",
+                (job_id, count, since),
             )
             self._conn.commit()
 

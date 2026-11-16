@@ -31,7 +31,7 @@ def describe_job(
         "next_run": nxt.isoformat(timespec="minutes") if nxt else None,
         "last_run": last_run.to_dict() if last_run else None,
         "running": running,
-        # The failures in a row the job is in and when the person was told of them
-        # (`failure_streaks.py`); None for a job whose last run did not count as one.
+        # The failures in a row the job is in and since when (`failure_streaks.py`); None
+        # for a job whose last run did not count as one.
         "failing": streak.to_dict() if streak else None,
     }

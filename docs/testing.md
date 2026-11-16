@@ -1565,11 +1565,9 @@ tên một test thì sửa dòng của nó trong cùng commit.
     cũng theo hạn ấy; long poll giữ hạn nó tự nêu, dài hơn thời gian chờ tin; tệp gửi từ bộ nhớ giữ
     hạn 60 giây của nó);
     `tests/test_app_wiring.py::test_default_http_client_waits_as_long_as_the_provider_would` (hạn
-    của client mà server dựng lúc khởi động);
-    `tests/test_script_job_failure_notice.py::test_a_notice_that_never_returns_is_given_up_on_and_the_next_job_runs`
-    (tin báo job script hỏng không gửi xong trong hạn thì bị bỏ và job kế tiếp vẫn chạy). Kiểm chứng
-    đột biến: hai sửa đổi (đưa thẳng `None` cho client như trước; bỏ hạn chờ của tin báo) đều bị
-    test bắt.
+    của client mà server dựng lúc khởi động). Kiểm chứng đột biến: đưa thẳng `None` cho client như
+    trước bị test bắt. Job theo lịch không gửi gì tới Telegram nên không lần gửi nào giữ chân job
+    (`tests/test_jobs_tell_no_chat.py`).
 - **Lời gọi tool bị bỏ dở được đóng trước tin mới, không bao giờ chạy lại mà không ai hỏi**
   - pytest: `tests/test_interrupted_calls.py` (call không có kết quả nhận kết quả thay thế nằm
     trước tin mới và không chạy; call đã duyệt mà chưa báo lại không chạy lần nữa; call bị từ chối
@@ -2521,10 +2519,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     ("test_a_telegram_turn_writes_a_canvas_and_sends_it_as_the_file_its_reply_names": chat nhận
     lời của lượt, rồi tệp canvas, rồi danh sách canvas; canvas nằm trong kho dưới tên agent và
     gắn với cuộc trò chuyện của lượt,
-    "test_a_job_writes_a_canvas_and_its_brief_names_it": brief mang danh sách canvas job đã ghi)
-  - pytest: `tests/test_scheduler_reporting.py`
-    ("test_a_job_that_wrote_a_canvas_and_answered_ok_is_not_pushed_and_keeps_the_canvas": job trả
-    lời đúng `OK` sau khi ghi canvas thì Telegram không nhận gì và canvas vẫn ở trong kho)
+    "test_a_job_writes_a_canvas_and_the_chat_is_sent_nothing_of_it": canvas job ghi nằm trong kho
+    còn chat không nhận tệp, danh sách hay chữ nào)
 - **Canvas: ghi chú canvas báo agent những gì đã đổi từ lần nó nghe gần nhất, cùng canvas đang
   mở và đoạn người chọn trên web**
   - pytest: `tests/test_canvas_note.py` (hội thoại không có canvas không lưu ghi chú, canvas agent
@@ -4581,9 +4577,7 @@ tên một test thì sửa dòng của nó trong cùng commit.
     `::test_a_turn_that_breaks_still_names_what_it_wrote`;
     `::test_a_turn_sends_and_names_what_its_own_conversation_holds`;
     `::test_each_leg_of_a_turn_that_waited_for_approval_names_its_own` (vòng lặp thật, `/approve`)
-  - pytest (job và lúc Telegram từ chối):
-    `::test_a_job_names_what_it_wrote_unless_it_has_nothing_to_report` (job trả lời `OK` vẫn im
-    lặng dù có ghi canvas);
+  - pytest (lúc Telegram từ chối):
     `::test_a_list_that_cannot_be_sent_costs_the_turn_one_line` (một dòng báo, lượt không bị coi
     là hỏng);
     `::test_a_wordless_run_whose_list_cannot_be_sent_is_not_called_empty`;
@@ -4603,8 +4597,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - pytest (`tests/test_telegram_canvas_notice_sent.py`):
     `::test_a_run_whose_question_lapsed_between_two_deliveries_names_each_canvas_once` (lần gửi
     thứ hai là lời của run rồi danh sách chỉ có canvas thứ hai; không có dòng báo hết hạn duyệt);
-    `::test_a_job_that_asked_and_went_on_unanswered_names_each_canvas_once` (job thật và lượt quét
-    hết hạn thật)
+    `::test_a_chat_turn_that_asked_and_went_on_unanswered_names_each_canvas_once` (lượt thật của
+    chat và lượt quét hết hạn thật)
   - Các bước dựng dùng chung ở `tests/lapse_helpers.py`: lời gọi của model, yêu cầu nó mở, và tin
     tool đóng yêu cầu bằng chính lời của vòng lặp (`close_interrupted`).
 - **Một yêu cầu hết hạn chỉ là mốc một lần: kết quả đầu tiên của chính tin assistant đã mở nó. Model
@@ -4620,8 +4614,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
     model gọi ba tool, lời gọi phải chờ đứng đầu, giữa hay cuối: kết quả của chính nó là mốc,
     canvas ghi trước nó đã được nêu lúc dừng, canvas ghi sau nó còn phải nêu)
   - pytest (`tests/test_telegram_canvas_notice_sent.py`):
-    `::test_a_job_whose_model_asks_again_under_the_same_id_names_what_it_wrote_between` (job thật,
-    lượt quét hết hạn thật, vòng lặp thật đáp cùng một mã hai lần);
+    `::test_a_turn_whose_model_asks_again_under_the_same_id_names_what_it_wrote_between` (lượt thật
+    của chat, lượt quét hết hạn thật, vòng lặp thật đáp cùng một mã hai lần);
     `::test_a_later_run_that_sends_a_lapsed_calls_id_again_names_all_it_wrote` (hết hạn ở run
     trước, run sau dùng lại mã: qua ba lần gửi mỗi canvas được nêu đúng một lần)
 - **Dòng khép một lượt trên Telegram (danh sách canvas, hay câu "không có nội dung" được giữ lại
@@ -4638,8 +4632,8 @@ tên một test thì sửa dòng của nó trong cùng commit.
   - pytest (`tests/test_telegram_runtime_sentences.py`):
     `::test_why_a_failed_run_stopped_is_said_whole_and_attaches_nothing` (run hỏng, lý do là lỗi
     của provider có ba dòng đính kèm trỏ tới thứ có thật; có lời và không lời);
-    `::test_the_question_a_job_waits_on_is_said_whole_and_attaches_nothing` (job thật được giao
-    lúc đang chờ câu hỏi của chính nó);
+    `::test_the_question_a_turn_waits_on_is_said_whole_and_attaches_nothing` (lượt được giao lúc
+    đang chờ câu hỏi của chính nó);
     `::test_no_sentence_of_a_delivery_is_read_for_attachment_lines_whatever_it_says` (từng câu
     trong bốn câu của `deliver`, đổi hẳn lời thành một dòng `FILE:`);
     `::test_a_reason_longer_than_one_message_arrives_whole` (lý do dài hơn một tin vẫn tới đủ,
@@ -5001,9 +4995,9 @@ cũ.
     lúc đó chờ sau nó).
   - pytest: `tests/test_turn_resume_readers.py` (lượt Telegram bị server cắt được bot khởi động kế tiếp trả
     lời, và lời báo lúc tắt hứa sẽ làm tiếp; bot khởi động lại khi server vẫn chạy thì không hứa gì và run
-    đóng; không có bot thì lượt Telegram để đóng; job bị cắt được nối và câu trả lời tới chat đúng một lần,
-    `last_run` vẫn là run đó; job đã bị gỡ thì nối mà không báo ai; lượt giao việc và lượt con cùng được
-    nối, cha trước con sau, gặp lại nhau qua cùng một cuộc con, tiền cộng một lần, con không được trao
+    đóng; không có bot thì lượt Telegram để đóng; job bị cắt được nối, câu trả lời ở lại trong cuộc
+    của nó và không tới chat nào, `last_run` vẫn là run đó; job đã bị gỡ thì nối mà không báo ai;
+    lượt giao việc và lượt con cùng được nối, cha trước con sau, gặp lại nhau qua cùng một cuộc con, tiền cộng một lần, con không được trao
     `delegate`; con đã xong trước khi cắt thì cha đọc kết quả từ store; con không được nối nếu cha không đi
     tiếp).
   - pytest: chat của lượt được nối nhận trọn câu trả lời. `tests/test_turn_resume_readers.py` (lượt
@@ -6001,138 +5995,84 @@ khi chạy; phần đó có mục riêng ở dưới.
     không đọc lại job" còn bị `manage-smoke.spec.ts` bắt trong trình duyệt thật. Câu ấy rút đi ở
     lần sửa kế tiếp nên lần lưu bị từ chối không còn nhánh riêng: muốn lưu lại thì phải sửa một ô
     trước, và lần sửa ấy đã rút câu.
-- **Job chạy xong mà lệnh kiểm (`check`) không xác nhận thì run là `error` và chủ được báo bằng
-  câu riêng**:
-  - pytest: `tests/test_job_check.py` (lệnh kiểm thoát 0 thì run vẫn `done`, không ai được báo,
-    và nó chạy trong workspace của agent với đúng hạn 900 giây của job lệnh, sau lệnh của job;
-    thoát mã khác thì run thành `error`, được lưu như vậy, tóm tắt nói job chạy xong mà lệnh kiểm
-    không xác nhận, và tin tới kênh là câu riêng chứ không phải câu của job hỏng; lệnh kiểm quá
-    hạn được kể là chạy quá hạn; job tự hỏng thì không được kiểm và được báo như cũ; lệnh kiểm
-    không đạt mãi thì đi theo nhịp 6 giờ của job hỏng và có dòng chạy lại khi đạt; job hỏng rồi
-    tới lượt lệnh kiểm không đạt là một chuỗi, mỗi tin nói bằng câu của nó; job không đặt `check`
-    chỉ chạy một lệnh; với job prompt, câu trả lời được giao trước khi kiểm, rồi run thành `error`
-    và chủ được báo dù run có cuộc trò chuyện; lệnh kiểm đạt thì chỉ có câu trả lời; không đạt
-    rồi đạt thì có dòng chạy lại; lượt hỏng bình thường vẫn không được báo ở đây; với shell thật,
-    lệnh kiểm thấy tệp mà lệnh của job vừa ghi trong workspace; khoá được đọc từ tệp cho mọi
-    loại dòng, giá trị không phải chuỗi không rỗng bị từ chối lúc đọc tệp; `GET /api/jobs` có
-    `check` ở dòng đặt nó và không có ở dòng không đặt).
+- **Job chạy xong mà lệnh kiểm (`check`) không xác nhận thì run là `error` và được đếm vào chuỗi
+  hỏng**:
+  - pytest: `tests/test_job_check.py` (lệnh kiểm thoát 0 thì run vẫn `done` và nó chạy trong
+    workspace của agent với đúng hạn 900 giây của job lệnh, sau lệnh của job; thoát mã khác thì
+    run thành `error`, được lưu như vậy, tóm tắt nói job chạy xong mà lệnh kiểm không xác nhận;
+    lệnh kiểm quá hạn được kể là chạy quá hạn; job tự hỏng thì không được kiểm; lệnh kiểm không
+    đạt mãi thì được đếm cho tới khi đạt; job hỏng rồi tới lượt lệnh kiểm không đạt là một chuỗi;
+    job không đặt `check` chỉ chạy một lệnh; với job prompt, câu trả lời được giữ trong cuộc trò
+    chuyện rồi run thành `error` và được đếm dù run có cuộc trò chuyện; lệnh kiểm đạt thì không
+    có gì thêm; không đạt rồi đạt thì chuỗi đóng; với shell thật, lệnh kiểm thấy tệp mà lệnh của
+    job vừa ghi trong workspace; khoá được đọc từ tệp cho mọi loại dòng, giá trị không phải chuỗi
+    không rỗng bị từ chối lúc đọc tệp; `GET /api/jobs` có `check` ở dòng đặt nó và không có ở
+    dòng không đặt).
 - **Chi phí các lịch trong ngày chạm `jobs_daily_cost_cap_usd` thì lịch gọi model bị bỏ qua tới
-  hết ngày và chủ được báo một lần**:
+  hết ngày, run tự nói lý do và không kênh nào được báo**:
   - pytest: `tests/test_jobs_daily_cost_cap.py` (dưới trần thì lịch chạy và chi phí thật của
     từng run cộng dần; chạm trần thì run là `halted`, không có cuộc trò chuyện, không bước nào,
     tóm tắt nói số đã tiêu và trần, model không được gọi, và dòng của lịch ở `describe()` mang
-    run ấy; tiêu đúng bằng trần là đã chạm; chủ được báo một lần dù bao nhiêu lịch bị bỏ qua,
-    ngày sau lịch chạy lại và ngày ấy chạm trần thì được báo riêng; ngày là ngày của home chứ
-    không phải của UTC, kể cả khi đồng hồ không mang múi giờ; chỉ run có nguồn `job:` được tính;
-    lịch chạy lệnh vẫn chạy và không làm ai được báo; lịch script cũng bị bỏ qua; không đặt trần
-    thì tiêu bao nhiêu cũng chạy; khởi động lại không báo lại; tin kênh không nhận được thử lại
-    ở lịch bị bỏ qua kế; không có kênh thì vẫn bỏ qua; bị bỏ qua không đổi chuỗi đếm job hỏng;
-    khoá đọc từ `config.yaml`, biến môi trường thắng, số âm và `.nan` chặn khởi động;
-    `GET /api/settings` trả giá trị; database cũ có thêm bảng `job_cap_days`).
-- **Job hỏng mà không có cuộc trò chuyện được báo cho chủ: lần đầu báo ngay, sau đó nhiều nhất 6
-  giờ một tin, và một dòng khi job chạy lại được**:
+    run ấy; tiêu đúng bằng trần là đã chạm; mọi lần chạy trong ngày bị bỏ qua, ngày sau lịch chạy
+    lại; ngày là ngày của home chứ không phải của UTC, kể cả khi đồng hồ không mang múi giờ; chỉ
+    run có nguồn `job:` được tính; lịch chạy lệnh vẫn chạy; lịch script cũng bị bỏ qua; không đặt
+    trần thì tiêu bao nhiêu cũng chạy; khởi động lại vẫn bỏ qua; bị bỏ qua không đổi chuỗi đếm job
+    hỏng; khoá đọc từ `config.yaml`, biến môi trường thắng, số âm và `.nan` chặn khởi động;
+    `GET /api/settings` trả giá trị; database cũ còn bảng `job_cap_days` vẫn mở được).
+- **Job theo lịch không gửi gì vào chat**:
+  - pytest: `tests/test_jobs_tell_no_chat.py` (trên runtime của server có bot thật giả lập: câu
+    trả lời của job prompt được giữ trong cuộc trò chuyện của nó, job script hỏng được đếm, job bị
+    trần chi phí ngày bỏ qua nói lý do trên run, và lần cô đọng bộ nhớ bị giữ chờ duyệt có đề xuất
+    `pending` cùng tóm tắt nói vì sao; ở cả bốn trường hợp bot không bị gọi một method nào).
+  - pytest: `tests/test_web_decided_delivery.py` (job có yêu cầu hết hạn thì chạy tiếp và chat
+    không nhận gì; job được duyệt trên web giữ câu trả lời ngoài chat; cuộc của chính chat có yêu
+    cầu hết hạn thì nhận câu trả lời trong chat), `tests/test_turn_resume_readers.py` (lượt job bị
+    cắt vì server khởi động lại được nối lại, câu trả lời nằm trong cuộc trò chuyện và không tới
+    chat).
+- **Job hỏng mà không có cuộc trò chuyện được đếm thành chuỗi, và trang Lịch chạy nói nó đã hỏng
+  bao nhiêu lần liên tiếp, từ lúc nào**:
+  - pytest: `tests/test_job_failure_streaks.py` (job hỏng mỗi năm phút suốt một ngày được đếm từ
+    lần hỏng đầu; mỗi job được đếm riêng; job chạy lại được thì chuỗi đóng, và lần hỏng sau đó mở
+    chuỗi mới; job lệnh chạy tốt không bao giờ ở trong chuỗi; job rời đồng hồ trong lúc đang chạy
+    không để lại chuỗi; thứ được đếm là lần hỏng không có lượt nào hoặc lệnh kiểm không xác nhận,
+    mọi kết cục khác đóng chuỗi; chuỗi mất theo job và theo agent; hạn của lệnh bị dừng là hạn 900
+    giây của job lệnh; job script hỏng liên tiếp được đếm, job prompt hỏng liên tiếp không bao giờ
+    được đếm; lần cô đọng bộ nhớ ném lỗi được đếm và job tới hạn sau nó trong cùng nhịp vẫn chạy;
+    lần cô đọng mà model không trả về gì được đếm, lần không có gì mới thì không; lần cô đọng ném
+    lỗi trước khi có run của riêng nó, hoặc khi run của nó còn mở, thì lỗi được ném ra như cũ;
+    `GET /api/jobs` cho thấy `failing` là `{count, since}` qua từng chặng rồi `null` sau khi job
+    chạy được, mốc mang múi giờ của chủ, và chat không nghe gì).
   - pytest: `tests/test_job_streaks_outlive_restart.py` (khởi động lại là một scheduler mới trên
-    cùng database: job còn hỏng không được báo lại trong khoảng 6 giờ; khởi động lại trước mỗi lần
-    chạy suốt mười bốn giờ vẫn chỉ ba tin, cách nhau 6 giờ; số lần hỏng đếm tiếp; job chạy lại được
-    sau khi khởi động lại có dòng chạy lại và dòng trong bảng bị xoá; chuỗi chưa báo được thì được
-    báo ở lần hỏng kế tiếp; dấu "đang gửi" không được giữ; dòng của job không còn trong tệp bị bỏ
-    lúc khởi động; job và agent rời đồng hồ xoá dòng của mình; các mốc đọc lại còn múi giờ; database
-    cũ có thêm bảng `job_failure_streaks`).
-  - pytest: `tests/test_job_failure_streaks.py` (job lệnh hỏng lần đầu thì kênh nhận ngay một tin
-    bốn dòng: tên lịch, mã thoát kèm dòng cuối lệnh in ra, chỗ xem run, và câu nói tin nhắc kế tiếp
-    đến sau 6 giờ; job hỏng mỗi năm phút suốt một ngày, 288 lần chạy, nhắn một nhúm tin chứ không
-    phải mỗi lần một tin và cũng không im sau tin đầu, hai tin liền nhau không gần hơn 6 giờ và
-    không xa hơn 6 giờ cộng một lần chạy, tin cuối nói đó là lần hỏng thứ 217 liên tiếp; lần hỏng
-    trước khi hết 6 giờ chỉ được đếm; đúng 6 giờ thì tin kế nói số lần hỏng liên tiếp và từ lúc
-    nào, và khoảng chờ sau đó tính từ tin ấy; tin nhắc mang lý do của lần chạy gần nhất; mỗi job
-    được đếm riêng; tin mà kênh không nhận, vì không có chỗ nhận, vì bị từ chối hay vì không trả
-    lời trong hạn, được thử lại ở lần hỏng kế tiếp với số lần đã đếm, và khoảng 6 giờ chỉ bắt đầu
-    khi một tin tới nơi; đồng hồ không có ai để báo vẫn đếm; job chạy lại được thì có đúng một dòng
-    nêu số lần hỏng, và chỉ khi chủ đã từng được báo; lần hỏng sau khi job chạy lại là một chuỗi
-    mới, được báo ngay; dòng báo chạy lại mà kênh không nhận thì không gửi lại; job lệnh chạy tốt
-    không nhắn gì và không đưa ra lý do hỏng nào; run bị dừng, lượt hỏng trong một cuộc trò chuyện
-    và lượt đang chờ duyệt đóng chuỗi mà không có dòng nào, còn lượt chạy xong thì đóng chuỗi bằng
-    dòng chạy lại; khoảng chờ tính từ lúc kênh nhận tin chứ không từ lúc run kết thúc; lần hỏng
-    được đếm trong lúc một tin đang trên đường vẫn được giữ; job rời đồng hồ trong lúc tin đang
-    trên đường không để lại chuỗi nào; chuỗi mất theo job và theo agent, id được so trọn vẹn nên
-    agent có id chỉ giống phần đầu giữ chuỗi của nó; job rời đồng hồ trong lúc đang chạy không được
-    báo; với lệnh thật: mã thoát và dòng cuối, dòng in ra stderr, dòng trống ở cuối được bỏ qua,
-    lệnh không in gì thì chỉ có mã thoát; lệnh bị dừng vì quá hạn được kể là chạy quá hạn, với đúng
-    hạn 900 giây của job lệnh; dòng cuối dài bị cắt còn 200 ký tự đầu và 400 ký tự cuối, và dòng in
-    trước nó không có trong tin; job script hỏng liên tiếp giữ dòng đầu của riêng nó và dòng cuối
-    chung; job prompt hỏng liên tiếp không bao giờ được đếm; lần cô đọng bộ nhớ ném lỗi được báo
-    bằng tóm tắt của run, và job tới hạn sau nó trong cùng nhịp vẫn chạy; lần cô đọng mà model
-    không trả về gì được báo bằng đúng dòng nói vậy; lần cô đọng không có gì mới là `done` và không
-    được báo; lần cô đọng ném lỗi trước khi có run của riêng nó, hoặc khi run của nó còn mở, thì
-    lỗi được ném ra như cũ và không ai được báo bằng run của một đêm trước; `GET /api/jobs` cho
-    thấy `failing` qua từng chặng: `null`, đã đếm mà chưa báo được, đã báo kèm giờ báo và giờ nhắc
-    kế, đếm thêm trong khoảng chờ, rồi `null` lại sau khi job chạy được, các mốc mang múi giờ của
-    chủ). Kiểm chứng đột biến: hai mươi bảy sửa đổi (coi tin gửi hỏng là đã báo, bỏ phép kiểm khoảng
-    chờ, báo chạy lại cho chuỗi chưa từng báo, báo chạy lại ở mọi kết cục, đòi khoảng chờ dài hơn
-    hẳn 6 giờ, tính khoảng chờ từ lúc chuỗi bắt đầu, lấy giờ báo là lúc run kết thúc, ghi đè chuỗi
-    bằng bản đọc trước khi gửi, giữ chuỗi qua một run bị dừng, bỏ dấu `/` sau id agent, không quên
-    chuỗi của job, tính giờ nhắc kế từ lúc chuỗi bắt đầu, tin thứ hai kết như tin đầu, lần thử lại
-    của chuỗi chưa báo kết như tin đầu, vẫn đếm job đã rời đồng hồ khi đang chạy, dòng job không
-    mang chuỗi, lấy dòng đầu thay dòng cuối, lấy dòng cuối kể cả khi trống, kể lệnh quá hạn bằng mã
-    thoát, đưa lý do hỏng cho lệnh chạy tốt, không bắt lỗi của lần cô đọng, nuốt lỗi của lần cô
-    đọng khi run còn mở, báo bằng run của một lần cô đọng trước, không báo lần cô đọng mà model
-    không trả về gì, chỉ báo job script, bỏ hạn chờ của tin, coi mọi câu trả lời khác `None` của
-    kênh là đã nhận) đều bị test bắt.
-  - pytest: `tests/test_script_job_failure_notice.py` (lý do của job script và đường gửi tin, ở mục
-    "Lịch chạy script" bên dưới).
-  - pytest: `tests/test_job_streak_reaches_the_page.py` (dòng job nói `telling` từ lúc tin lên
-    đường tới lúc kênh trả lời, rồi mang giờ báo; tin mà kênh không nhận, trả lời `False` hay ném
-    lỗi, không còn được nói là đang trên đường; lần gửi bị cắt giữa chừng cũng vậy; tin nhắc lại
-    đang trên đường giữ nguyên giờ báo của tin trước; lần hỏng được đếm trong lúc một tin đang chờ
-    vẫn còn sau khi tin ấy không tới nơi; lần hỏng trong khoảng chờ không gửi gì và không nói
-    `telling`; dòng mà một trang đọc đúng lúc run kết thúc được đọc lại khi chủ đã được báo: luồng
-    activity phát đúng một lần payload `{"type": "jobs"}`, không mang gì khác; lần hỏng không báo
-    được cho ai, lần hỏng chỉ được đếm trong khoảng chờ và job vừa chạy lại được cũng phát tín hiệu
-    ấy; job chưa từng hỏng thì không). Kiểm chứng đột biến: mười bốn sửa đổi (không bao giờ đặt
-    `telling`, không bao giờ xoá nó, ghi giờ báo dù tin không tới, không bao giờ ghi giờ báo, dòng
-    job không mang `telling`, dòng luôn nói `telling`, chỉ xoá `telling` khi lần gửi trả về, ghi
-    đè bằng chuỗi đọc trước lúc chờ, không bao giờ báo trang, báo trang sau mọi run, chỉ báo khi
-    không có gì đổi, báo trước khi đếm, phát một tên sự kiện khác, payload mang thêm khoá) đều bị
-    test bắt.
-  - vitest: `components/job-last-run.test.tsx` (dòng nói số lần hỏng liên tiếp, giờ chủ được báo
-    và giờ nhắc kế; tin chưa tới nơi thì nói lần hỏng kế tiếp sẽ thử lại; tin đang trên đường mà
-    Telegram chưa trả lời thì nói "Đang báo qua Telegram."; tin nhắc lại đang trên đường vẫn nói
-    lần báo trước; một lần hỏng không được gọi là chuỗi; server không nêu giờ nhắc kế thì câu dừng
-    ở giờ báo; job có lần chạy gần nhất hỏng mà không ở trong chuỗi nào thì không có câu; server
-    cũ không gửi khoá ấy cũng vậy; job chưa xong lần chạy nào vẫn có câu),
-    `lib/relative-time.test.ts` (`dayClock`: giờ trong hôm nay, `Hôm qua HH:MM`, còn lại là ngày
-    kèm giờ, tính theo lịch của người xem; chuỗi không phải thời điểm được để nguyên),
-    `hooks/use-activity.test.ts` (payload `jobs` gọi đúng một lần hàm đọc lại job, để nguyên
-    trạng thái các run và không đọc danh sách run; hàm được gọi là hàm của lần vẽ gần nhất, trên
-    luồng mở từ đầu; không có hàm nào thì trạng thái không đổi).
+    cùng database: số lần hỏng và lúc bắt đầu đọc lại được và đếm tiếp; khởi động lại trước mỗi lần
+    chạy đếm như một lần chạy dài; job chạy lại được sau khi khởi động lại không để lại dòng nào;
+    dòng của job không còn trong tệp bị bỏ lúc khởi động; job và agent rời đồng hồ xoá dòng của
+    mình; mốc đọc lại còn múi giờ; database cũ có thêm bảng `job_failure_streaks`; database có cột
+    `told_at` của bản cũ vẫn đọc và ghi được).
+  - pytest: `tests/test_job_streak_reaches_the_page.py` (lần hỏng được đếm sau khi run kết thúc thì
+    luồng activity phát đúng một lần payload `{"type": "jobs"}`, không mang gì khác; mỗi lần hỏng
+    thêm và job vừa chạy lại được cũng phát tín hiệu ấy; job chưa từng hỏng thì không). Kiểm chứng
+    đột biến: bỏ lời phát trong scheduler làm cả bốn test hỏng.
+  - vitest: `components/job-last-run.test.tsx` (dòng nói số lần hỏng liên tiếp và từ lúc nào, không
+    nói gì về việc báo ai; chuỗi bắt đầu trước hôm qua mang ngày; một lần hỏng không được gọi là
+    chuỗi; các khoá báo tin mà server cũ gửi bị bỏ qua; job có lần chạy gần nhất hỏng mà không ở
+    trong chuỗi nào thì không có câu; server cũ không gửi khoá ấy cũng vậy; job chưa xong lần chạy
+    nào vẫn có câu), `lib/relative-time.test.ts` (`dayClock`: giờ trong hôm nay, `Hôm qua HH:MM`,
+    còn lại là ngày kèm giờ, tính theo lịch của người xem; chuỗi không phải thời điểm được để
+    nguyên), `hooks/use-activity.test.ts` (payload `jobs` gọi đúng một lần hàm đọc lại job, để
+    nguyên trạng thái các run và không đọc danh sách run; hàm được gọi là hàm của lần vẽ gần nhất,
+    trên luồng mở từ đầu; không có hàm nào thì trạng thái không đổi).
   - vitest cấp App: `app-jobs-follow-stream.test.tsx` (dòng job được đọc lại khi luồng phát `jobs`
-    mà không run nào kết thúc, từ "Đang báo qua Telegram." sang giờ đã báo; sang câu tin không
-    tới nơi; hết câu hỏng khi job đã chạy lại được; câu trả lời của lần đọc hỏi trước mà về sau
-    không đè lên lần đọc hỏi sau; lần đọc mà luồng đòi bị hỏng thì màn nói không đọc được danh
-    sách, không vẽ một danh sách rỗng; công tắc tạm dừng vừa gạt không bị một lần đọc hỏi trước
-    đó mà về sau gạt ngược lại; công
-    tắc hiện theo chính câu trả lời của server trước khi danh sách được đọc lại; sau lần gạt,
-    danh sách được đọc lại nên điều mà lần đọc bị bỏ mang về không mất).
-  - Playwright: `jobs-list-smoke.spec.ts` ("a job that keeps failing says since when and what
-    the owner was told", ở ba bề rộng; "a notice on its way becomes one the owner was told of
-    when the stream says the list changed": luồng thật của trình duyệt được giữ lại, rồi phát
-    `jobs`, và dòng đổi câu mà không tải lại trang), `legibility-smoke.spec.ts` (câu ấy đạt 4.5:1
-    ở nền sáng và nền tối).
-  - Kiểm chứng đột biến ở phía web: hai mươi hai sửa đổi. Năm ở câu trên dòng (nói đã báo khi
-    `told_at` là `null`, gọi một lần hỏng là chuỗi, không bao giờ nêu giờ nhắc kế, `dayClock` lệch
-    một ngày ở "Hôm qua", chỉ hiện câu khi đã báo), bốn ở công tắc và nút xoá (lần gạt không đọc
-    lại danh sách, lần gạt chỉ bỏ lần đọc đang chờ mà không đọc lại, lần xoá không đọc lại danh
-    sách, công tắc chỉ hiện điều lần đọc lại mang về) và mười ba ở đường đọc lại (không nghe sự kiện
-    `jobs`, nghe mà không gọi hàm, để tín hiệu đi tiếp vào trạng thái run, tín hiệu đọc thêm danh
-    sách run, giữ hàm của lần vẽ đầu, App không trao hàm nào, vẽ câu trả lời nào về sau cùng, chỉ
-    vẽ lần đọc đầu tiên, coi lần đọc hỏng là danh sách rỗng, không bao giờ nói tin đang trên
-    đường, nói vậy khi không có tin nào, để "đang báo" thắng "đã báo", đổi câu) đều bị test bắt;
-    sửa đổi "không nghe sự kiện `jobs`" còn làm spec Playwright nói trên hỏng trong trình duyệt
-    thật.
-  - Chưa kiểm được trên một server thật: hai trạng thái "đang báo" và "đã báo" cần một kênh
-    Telegram nhận tin, mà địa chỉ Telegram nằm cứng trong mã; trên home tạm không có kênh, dòng
-    chỉ tới được câu "Chưa báo được qua Telegram". Hai trạng thái ấy được kiểm ở pytest (kênh
-    giả) và ở Playwright (API giả).
+    mà không run nào kết thúc; nói thêm một lần hỏng khi luồng báo nó đã được đếm; hết câu hỏng khi
+    job đã chạy lại được; câu trả lời của lần đọc hỏi trước mà về sau không đè lên lần đọc hỏi sau;
+    lần đọc mà luồng đòi bị hỏng thì màn nói không đọc được danh sách, không vẽ một danh sách rỗng;
+    công tắc tạm dừng vừa gạt không bị một lần đọc hỏi trước đó mà về sau gạt ngược lại; công tắc
+    hiện theo chính câu trả lời của server trước khi danh sách được đọc lại; sau lần gạt, danh sách
+    được đọc lại nên điều mà lần đọc bị bỏ mang về không mất).
+  - Playwright: `jobs-list-smoke.spec.ts` ("a job that keeps failing says how many runs in a row
+    since when", ở hai bề rộng; "a failure counted after its run ended reaches the row when the
+    stream says the list changed": luồng thật của trình duyệt được giữ lại, rồi phát `jobs`, và dòng
+    đổi câu mà không tải lại trang), `legibility-smoke.spec.ts` (câu ấy đạt 4.5:1 ở nền sáng và nền
+    tối).
 - **Tóm tắt của run do lịch chạy: chỗ cắt có dấu, script hỏng tóm bằng thứ đã làm nó dừng**:
   - pytest: `tests/test_job_run_summary.py` (chữ không quá 160 ký tự thì tóm tắt là cả chữ ấy,
     không dấu gì; dài hơn thì là 160 ký tự cuối đứng sau dấu `…`, 161 ký tự; job `command` nói
@@ -6239,38 +6179,10 @@ khi chạy; phần đó có mục riêng ở dưới.
     cuộc trò chuyện, id lời gọi của riêng nó, không tính vào lượt nào; lượt của job chạy sau
     một job script là của riêng nó, trần lời gọi lồng còn nguyên; job script kết thúc thế nào
     thì cũng trả lại nguyên những gì tác vụ đang chạy theo).
-  - pytest: `tests/test_script_job_failure_notice.py` (job script hỏng thì agent của lịch ấy được
-    báo đúng một tin: tên lịch trong ngoặc kép, lý do là đúng dòng lỗi đã làm script dừng, chỗ
-    xem run, và dưới đó là câu nói tin nhắc kế tiếp đến sau 6 giờ nếu lịch còn hỏng; chữ script in
-    trước khi hỏng, kể cả thứ một tool vừa đưa cho nó, không có trong tin,
-    trong khi step của run vẫn giữ đủ như trước và tóm tắt của run là đúng dòng lỗi ấy; tool hỏng
-    được kể bằng lời của chính nó,
-    tham số mà nó nhắc lại vì thế có trong tin; câu của lỗi do script tự `raise` có trong tin;
-    lỗi trình thông dịch ném ra trên thứ một tool trả về, `int(...)` của một chuỗi hay một khoá
-    mà mapping không có, được kể đúng lời của nó, trích cả giá trị ấy, còn chữ đã in thì không;
-    giá trị dài thì bị cắt như mọi lý do, 200 ký tự đầu và 400 ký tự cuối;
-    script không
-    chạy nổi thì lý do là loại lỗi, như run ghi; câu từ chối của cổng duyệt tới nơi nguyên vẹn, dài
-    hơn 160 ký tự và kết bằng phần dặn gọi trực tiếp, không kèm chữ đã in; lỗi dài thì tin mang 200
-    ký tự đầu và 400 ký tự cuối của dòng lỗi, 601 ký tự, trong khi tóm tắt của run là 160 ký tự đầu
-    của dòng ấy kèm dấu `…` và step
-    cắt theo cách của nó; tin không mang chữ nào của script, tên tool hay tham số của một lời gọi
-    chạy tốt, dù cả hai có trên run; tên lịch nhiều dòng hay rất dài được kể thành một dòng, cắt
-    bằng `…`, và tin vẫn đúng bốn dòng; không ai nói script dừng vì đâu thì lý do là trạng thái của
-    run, không bao giờ là thứ run đã giữ; lý do nhiều dòng được gộp thành một dòng; script chạy tốt,
-    in hay không in, không có tin; lượt mà script mở thì do việc gửi câu trả lời lo, dù lượt xong
-    hay hỏng; job prompt hỏng không có tin này và dòng của nó không bao giờ mang `failing`; gửi hỏng, vì Telegram từ chối hay
-    vì một lỗi khác, thì ghi một dòng log mức lỗi kèm ngoại lệ, run vẫn là run hỏng vì lý do của
-    script; tin không gửi xong trong hạn thì bị bỏ, lời gửi bị huỷ chứ không treo lại, log ghi như
-    một tin gửi hỏng kèm `TimeoutError`, và job tới hạn sau nó vẫn chạy trong cùng nhịp đồng hồ;
-    đồng hồ không có ai để báo thì không nói và không ghi log gì; gửi được hay không được ghi ở log
-    mức thông tin, không kèm chữ nào của script; không có kênh thì job kết thúc như cũ; master được
-    báo bằng lời của bot, agent khác thì dưới dòng `[Tên]`; tin đi như mọi tin của bot, `**đậm**` và
-    `*nghiêng*` trong tên lịch hay trong lý do mất dấu sao còn `2*3` giữ nguyên; dòng trông như
-    `FILE:` hay `MEDIA:` không đính kèm tệp nào; agent mà bot không biết thì không được báo gì; chat
-    từ chối tin thì run và đồng hồ giữ nguyên, job không còn bị coi là đang chạy; job chạy từ `POST
-    /api/jobs/{agent}/{id}/run` được báo như job đồng hồ chạy, và không có thêm tin "lượt chưa xong"
-    nào).
+  - pytest: `tests/test_jobs_tell_no_chat.py::test_a_script_job_that_failed_is_counted_and_sent_to_no_chat`
+    (job script hỏng thì run `error`, không có cuộc trò chuyện, được đếm vào chuỗi hỏng, và bot không
+    bị gọi method nào); tóm tắt của run hỏng là dòng đã làm script dừng
+    (`tests/test_job_run_summary.py`, mục "Tóm tắt của run do lịch chạy" ở trên).
   - pytest: `tests/test_approval_ttl.py::test_the_web_editor_and_the_server_agree_on_what_a_schedule_row_holds`
     (danh sách khoá của một dòng lịch mà trình sửa trên web giữ trùng với danh sách của server,
     nay gồm cả `script` và `then_prompt`, dù trình sửa viết danh sách ấy trên mấy dòng),
@@ -7578,14 +7490,15 @@ dựng một đội có agent giữ trình duyệt.
     (mỗi ký tự điều khiển được viết bằng mã, tab và dấu xuống dòng giữ nguyên; trên thanh duyệt cả
     lý do, câu và tham số đều viết mã).
 - **Telegram là nơi duyệt mặc định**:
-  - pytest: `tests/test_telegram_told.py` (cuộc con của một cuộc web được báo vào chat và bấm nút
-    duyệt được; yêu cầu của job bấm nút xong thì câu trả lời được giao vào chat; yêu cầu của chính
-    cuộc web thì bấm nút không giải quyết; yêu cầu có dòng hết hạn và được nhắc đúng một lần sau 3
-    phút, trả lời vào tin của nó; duyệt trên web thì tin trong chat được viết lại "đã duyệt trên
-    web" và mất nút, chỉ một lần; hết hạn thì tin nói vậy và giữ nội dung cũ; `/pending` nói không
-    có gì, rồi gửi lại yêu cầu của job kèm nút mà bỏ qua yêu cầu của cuộc web),
-    `tests/test_telegram_canvas_notice_sent.py` và `tests/test_telegram_runtime_sentences.py` (job
-    được giao khi còn chờ thì nói chính yêu cầu thay cho câu "lượt chạy dừng"),
+  - pytest: `tests/test_telegram_told.py` (chat chỉ nghe và chỉ giải quyết yêu cầu của cuộc của
+    chính nó và của cuộc con nó giao: cuộc con của một cuộc web không được báo và bấm nút bị từ
+    chối; yêu cầu của job không được báo và bấm nút không giải quyết; yêu cầu của chính cuộc web
+    thì bấm nút không giải quyết; yêu cầu có dòng hết hạn và được nhắc đúng một lần sau 3 phút, trả
+    lời vào tin của nó; duyệt trên web thì tin trong chat được viết lại "đã duyệt trên web" và mất
+    nút, chỉ một lần; hết hạn thì tin nói vậy và giữ nội dung cũ; `/pending` không liệt kê yêu cầu
+    của job hay của cuộc con của cuộc web, và gửi lại yêu cầu của chính chat kèm nút),
+    `tests/test_telegram_canvas_notice_sent.py` và `tests/test_telegram_runtime_sentences.py` (lượt
+    của chat được giao khi còn chờ thì nói chính yêu cầu thay cho câu "lượt chạy dừng"),
     `tests/test_telegram_told_outlives_restart.py` (sổ tin mang nút nằm ở bảng `telegram_told`: yêu
     cầu được duyệt trên web sau khi server khởi động lại thì tin trong chat vẫn mất nút; bấm nút
     sau khi khởi động lại không để lại tin nào phải đóng; lời nhắc tính từ lúc báo đầu và chỉ đến

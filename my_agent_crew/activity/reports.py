@@ -1,13 +1,13 @@
-"""What the scheduled jobs reported, in the words the chat was sent them.
+"""What the scheduled jobs reported, as the web reads it: no channel is sent a job's report.
 
 A job's report is the answer of the turn it opened: every text the agent wrote in that
-turn, in order, as `channels/telegram_outbound.py` sends it. A job whose run opened no
-conversation (a command, a memory rewrite, a script that printed nothing) has no answer,
-and the chat hears of it only when it failed; neither does a check that said only "OK".
-The phone's inbox reads these, so it holds what the chat holds rather than every run.
+turn, in order. A job whose run opened no conversation (a command, a memory rewrite, a
+script that printed nothing) has no answer, and the inbox shows it only when it failed;
+neither does a check that said only "OK". The phone's inbox reads these, so it holds what
+the person needs to read rather than every run.
 
 The turn is the run's, not the conversation's last: the person may answer a report in its
-conversation, and the report still reads as it was sent."""
+conversation, and the report still reads as it was written."""
 
 from __future__ import annotations
 

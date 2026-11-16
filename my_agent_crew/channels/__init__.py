@@ -1,8 +1,8 @@
 """Channels carry the master's conversations beyond the web UI. The master's profile names
 the env var holding the bot's secret; the server builds the channel only when that var is
 set, so a machine without the token still runs every agent, only without the channel. The
-chat is one more way to talk to the master, which delegates as it does from the web; a crew
-member's scheduled brief still reaches the chat, delivered under the member's name."""
+chat is one more way to talk to the master, which delegates as it does from the web. It is
+only that: scheduled jobs report on the web, never in the chat."""
 
 from __future__ import annotations
 

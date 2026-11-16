@@ -167,9 +167,11 @@ def test_disabled_jobs_are_listed_but_never_due(settings, store):
     assert default_profile(settings).schedules == ()
 
 
-async def test_prompt_job_result_is_delivered_and_a_failing_delivery_keeps_the_run(
+async def test_a_prompt_jobs_answer_stays_in_its_conversation_and_is_handed_to_no_delivery(
     deps_factory, caplog
 ):
+    """A job's report is read on the web. The delivery a server start hands the clock is for
+    a turn resumed after its request ran out, and is never asked for a job's answer."""
     deps = with_schedules(
         deps_factory(routes=(Route("fake", "echo"),)),
         Schedule("brief", "Bản tin", every="10m", prompt="chào"),
@@ -178,21 +180,15 @@ async def test_prompt_job_result_is_delivered_and_a_failing_delivery_keeps_the_r
 
     async def deliver(agent_id: str, conv_id: str) -> bool:
         delivered.append((agent_id, conv_id))
-        if len(delivered) > 1:
-            raise RuntimeError("telegram down")
         return True
 
     sched = Scheduler({"default": deps}, ActivityHub(deps.store), deliver=deliver)
     with caplog.at_level(logging.INFO, logger="my_agent_crew.scheduler.runner"):
-        first = await sched.run_job("default/brief")
-        second = await sched.run_job("default/brief")
-    assert first.status == DONE and second.status == DONE
-    assert delivered == [("default", first.conversation_id), ("default", second.conversation_id)]
-    # A silent job and an answering job have to be told apart in the log.
-    assert f"job default/brief: delivered=True conv={first.conversation_id} status=done" in (
-        caplog.text
-    )
-    assert "delivery failed" in caplog.text
+        run = await sched.run_job("default/brief")
+    assert run.status == DONE and delivered == []
+    assert deps.store.history(run.conversation_id)[-1].message.role == "assistant"
+    # A silent job and an answering job are still told apart in the log.
+    assert f"job default/brief: status=done conv={run.conversation_id}" in caplog.text
 
 
 async def test_a_job_turn_only_proposes_what_it_wants_to_remember(deps_factory, settings, store):
@@ -245,7 +241,7 @@ async def test_a_consolidate_job_rewrites_memory_without_opening_a_conversation(
     # Recorded under the job, so the Jobs page shows when memory was last consolidated.
     assert run.source == "job:default/memory-consolidate"
     assert sched.describe()[0]["last_run"]["id"] == run.id
-    assert delivered == []  # nothing to deliver: a rewrite is not an answer
+    assert delivered == []
     (proposal,) = deps.store.proposals.list()
     assert proposal.kind == AGENT_MEMORY_REWRITE
 

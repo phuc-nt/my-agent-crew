@@ -35,18 +35,12 @@ export type ActivityPayload =
   // at all. It carries nothing; the page reads the list again.
   | { type: "jobs" };
 
-/** A job whose runs keep ending in an error, and what the owner was told about it. */
+/** A job whose runs keep ending in an error: how many in a row and since when. */
 export interface JobFailing {
   /** Runs in a row that failed, the latest included: one at least. */
   count: number;
   /** When the first failure of the streak was counted, which is after that run ended. */
   since: string;
-  /** When the owner was last told over Telegram; null while no notice has got through. */
-  told_at: string | null;
-  /** The earliest a failure is told again; null along with `told_at`. */
-  next_notice_at: string | null;
-  /** A notice of this streak is on its way to Telegram, which has not answered yet. */
-  telling: boolean;
 }
 
 export interface JobInfo extends ScheduleInfo {

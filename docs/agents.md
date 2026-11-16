@@ -49,7 +49,7 @@ không bao giờ âm thầm vô hiệu một cài đặt.
 
 | Khoá | Kiểu | Mặc định | Ý nghĩa |
 |---|---|---|---|
-| `name` | chuỗi | id | tên hiển thị; cũng là tiền tố `[Name]` trên bản tin gửi tới Telegram |
+| `name` | chuỗi | id | tên hiển thị; cũng là tiền tố `[Name]` trên yêu cầu duyệt của agent ấy mà chat Telegram được báo |
 | `description` | chuỗi | `""` | hiện trên card của agent trong tab **Đội** và trong roster của master; nói vai trò và lĩnh vực, còn dịch vụ, kỹ năng, lịch, công cụ và model thì roster [tự kể](#master-được-kể-mỗi-agent-đang-có-gì) |
 | `mode` | `assistant` hoặc `work` | `assistant` | `work` thêm các tool lập trình và đổi ba mặc định, xem [Chế độ work](#chế-độ-work) |
 | `routes` | danh sách hoặc chuỗi phân cách bằng dấu phẩy dạng `provider:model` | `routes` toàn cục | thử theo thứ tự; tuyến nào hỏng trước khi sinh ra output thì rơi xuống tuyến kế tiếp |
@@ -721,8 +721,8 @@ kênh ở [canvas.md](canvas.md#7-phạm-vi-và-kênh).
 
 Các agent assistant của home ví dụ (`pong`, `health-coach`) được với tới cùng một cách
 từ điện thoại như từ trình duyệt: bot của master nhận tin và master
-giao việc. Lịch của chúng chạy như trước và bản tin của chúng vẫn về chat, dưới
-tên của chúng ([channels.md](channels.md#giao-theo-lịch)).
+giao việc. Lịch của chúng chạy như trước, nhưng bản tin của chúng không về chat: chúng được đọc
+trên web, ở Hộp thư và cuộc trò chuyện của job ([channels.md](channels.md#job-theo-lịch)).
 
 ## Tệp persona
 
@@ -1032,7 +1032,7 @@ nút xoá, vì bỏ một job nghĩa là lưu agent không còn dòng đó.
 | `enabled` | mặc định `true`. Lịch đang bật có thể tạm dừng và tiếp tục từ thẻ job (`PATCH /api/jobs/{agent}/{id}/state`); công tắc đó lưu trong bảng `job_state` và sống qua khởi động lại. Lịch tắt ở đây chỉ bật lại được bằng cách sửa yaml |
 | `skills` | danh sách tên skill gắn toàn văn vào cuộc trò chuyện mà job prompt mở ra; mặc định rỗng, và tên không skill nào cung cấp được ghi log cảnh báo lúc khởi động. Tên skill có gạch nối viết trong `prompt` cũng được gắn. Với job script, đó là cuộc trò chuyện mở cho `then_prompt`, và tên skill viết trong `then_prompt` cũng được gắn |
 | `approval_ttl_seconds` | số giây một yêu cầu duyệt trong cuộc trò chuyện job prompt mở ra chờ người trả lời: số nguyên từ 60 đến 43200 (12 giờ), không đặt trong ngoặc kép; không đặt thì theo `approval_ttl_seconds` của `config.yaml`. Job chạy lúc không ai thức nên đặt dài hơn, ví dụ `7200`. Cuộc trò chuyện giữ hạn này cho mọi yêu cầu về sau, kể cả sau khi server khởi động lại, và cuộc của agent con được giao việc chép lại nó. Trình sửa trên web giữ khoá này qua các lần sửa nhưng không có ô nhập; `PATCH /api/agents/{id}` gửi `schedules` mà dòng nào thiếu khoá thì dòng đó mất khoá |
-| `check` | một lệnh shell chạy **sau khi** việc của job kết thúc `done`, để xác nhận job đã làm được điều nó sinh ra để làm (tệp đã có, số dòng đủ, trang trả 200). Dùng được với cả ba loại dòng. Lệnh chạy đúng như lệnh của job `command`: cùng shell, trong workspace của agent, cùng danh sách biến môi trường được phép và cùng hạn 900 giây. Thoát mã 0 thì không có gì đổi. Thoát mã khác, hoặc chạy quá hạn, thì run bị ghi là `error` và chủ được báo qua kênh báo job hỏng, bằng một câu riêng: `Lịch "<tên>" báo đã chạy xong, nhưng lệnh kiểm tra sau khi chạy không xác nhận:` kèm mã thoát và dòng cuối lệnh kiểm in ra. Phải là chuỗi không rỗng; không đặt thì job chạy như trước. Xem [Lệnh kiểm sau khi chạy](#lệnh-kiểm-sau-khi-chạy) |
+| `check` | một lệnh shell chạy **sau khi** việc của job kết thúc `done`, để xác nhận job đã làm được điều nó sinh ra để làm (tệp đã có, số dòng đủ, trang trả 200). Dùng được với cả ba loại dòng. Lệnh chạy đúng như lệnh của job `command`: cùng shell, trong workspace của agent, cùng danh sách biến môi trường được phép và cùng hạn 900 giây. Thoát mã 0 thì không có gì đổi. Thoát mã khác, hoặc chạy quá hạn, thì run bị ghi là `error`, tóm tắt bằng một câu riêng: `Chạy xong nhưng lệnh kiểm tra không xác nhận.` kèm mã thoát và dòng cuối lệnh kiểm in ra, và được đếm vào chuỗi hỏng của job. Phải là chuỗi không rỗng; không đặt thì job chạy như trước. Xem [Lệnh kiểm sau khi chạy](#lệnh-kiểm-sau-khi-chạy) |
 
 ### Lệnh kiểm sau khi chạy
 
@@ -1048,17 +1048,16 @@ schedules:
     check: test -s reports/chi-tieu.csv && find reports/chi-tieu.csv -mmin -30 | grep -q .
 ```
 
-- **Chạy khi nào.** Sau khi việc của job kết thúc `done`, và với job mở một lượt thì sau khi câu
-  trả lời của lượt đã được giao vào kênh như mọi ngày. Run đã `error` thì không kiểm nữa (nó đã
-  được báo theo cách của nó), run `halted` cũng không. Lượt dừng lại chờ duyệt thì **không được
+- **Chạy khi nào.** Sau khi việc của job kết thúc `done`, và với job mở một lượt thì sau khi lượt
+  ấy xong. Run đã `error` thì không kiểm nữa (nó đã là một lần hỏng), run `halted` cũng không. Lượt dừng lại chờ duyệt thì **không được
   kiểm**: lượt chạy tiếp sau khi duyệt không còn do scheduler cầm.
 - **Chạy thế nào.** Đúng con đường của job `command`: cùng shell, trong workspace của agent, cùng
   danh sách biến môi trường, hạn 900 giây. Lệnh kiểm hiện là một bước `shell_run` nữa trong run.
 - **Không đạt thì sao.** Run đổi thành `error`, tóm tắt của nó là "Chạy xong nhưng lệnh kiểm tra
-  không xác nhận." kèm lý do, và chủ nhận tin riêng của trường hợp này (khác tin "gặp lỗi khi
-  chạy" của job hỏng), kể cả khi run là của một lượt. Lần không đạt được đếm vào chuỗi hỏng của
-  job như mọi lần hỏng: tin đầu đến ngay, sau đó nhiều nhất 6 giờ một tin, và một dòng khi job
-  chạy lại được (xem [channels.md](channels.md#giao-theo-lịch)).
+  không xác nhận." kèm lý do, kể cả khi run là của một lượt; Hộp thư xếp nó vào phần cần chú ý
+  như mọi run hỏng. Lần không đạt được đếm vào chuỗi hỏng của job như mọi lần hỏng, và trang Lịch
+  chạy nói job đã hỏng bao nhiêu lần liên tiếp, từ lúc nào (xem
+  [channels.md](channels.md#chuỗi-hỏng-của-job)). Không gì được gửi vào chat.
 - **Chỗ thấy.** `GET /api/jobs` và `declared.schedules` của agent có khoá `check` ở dòng nào đặt
   nó; dòng không đặt thì không có khoá ấy. Trình sửa agent trên web chưa có ô cho khoá này: nó
   giữ nguyên `check` của một dòng khi lưu, còn đặt hay đổi `check` thì sửa trong tệp `agent.yaml`.
@@ -1085,9 +1084,9 @@ jobs_daily_cost_cap_usd: 2.0
   không chạy, và chuỗi đếm job hỏng không đổi: bị bỏ qua không phải hỏng, cũng không phải chạy
   lại được.
 - **Lịch chạy lệnh vẫn chạy.** Lịch `command` không gọi model nên không bị trần này chặn.
-- **Báo một lần mỗi ngày.** Lịch đầu tiên bị bỏ qua trong ngày gửi một tin tới kênh của agent
-  (cùng đường với tin job hỏng). Ngày đã báo được ghi vào database (bảng `job_cap_days`), nên
-  khởi động lại không báo lại; tin mà kênh không nhận thì được thử lại ở lịch bị bỏ qua kế tiếp.
+- **Không kênh nào được báo.** Run bị bỏ qua tự nói lý do trên trang Lịch chạy và trong phần hoạt
+  động; chat không nhận tin nào. Database của một home cũ còn bảng `job_cap_days`; bảng được để
+  nguyên và không ai đọc.
 - **Hai trần cùng làm việc.** Mỗi lần chạy vẫn dừng ở `cost_cap_usd` của cuộc trò chuyện; ngày
   dừng ở trần này. Trần được xét trước khi chạy chứ không cắt giữa chừng, nên một ngày tiêu
   nhiều nhất là trần cộng phần mà lần chạy vượt trần còn được tiêu.
@@ -1185,33 +1184,18 @@ job prompt gọi một script shell trong workspace.)
   cắt. Lời gọi có trả tiền cho model (`image_read`, `pdf_read` trên trang scan, một lần script
   hỏi model bằng `llm.`) được tính vào run; sổ cái sử dụng ghi lần hỏi model đó dưới mục đích
   `script`, không kèm cuộc trò chuyện nào.
-- **Hỏng thì có tin báo.** Script chạy xong mà không in gì thì không ai nghe gì, đó là chủ ý.
-  Script hỏng cũng không mở lượt nào, nên nếu im lặng thì từ chat hai chuyện ấy trông như nhau.
-  Vì vậy run của script kết thúc `error` thì crew gửi một tin tới kênh của đội
-  ([channels.md](channels.md#giao-theo-lịch)), bốn dòng: `Lịch "<tên lịch>" gặp lỗi khi chạy
-  script:`, rồi lý do, rồi `Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.`, rồi `Nếu lịch còn
-  hỏng, tin nhắc kế tiếp sẽ đến sau 6 giờ.` Lý do là thứ đã làm
-  script dừng: dòng lỗi của nó (`Lỗi ở dòng N: …` hay `Dừng ở dòng N: …`). Nó được gộp về một dòng: nguyên văn khi không quá 600
-  ký tự, dài hơn thì 200 ký tự đầu, dấu `…` và 400 ký tự cuối, nên câu chỉ cách sửa ở cuối một lời
-  từ chối vẫn tới nơi. Lý do không mang chữ nào script đã in trước khi hỏng (những chữ ấy vẫn nằm ở
-  bước `tool_script` của run), và tin không bao giờ chứa nguyên văn script. Lời của một tool hỏng
-  được giữ nguyên, câu của một lỗi mà script tự `raise` cũng vậy: tham số của một lời gọi chỉ có
-  trong tin khi chính tool hỏng nhắc lại nó, và dữ liệu chỉ có khi script tự viết nó vào câu lỗi.
-  Còn một đường thứ ba: lỗi mà trình thông dịch ném ra khi script đang xử lý một giá trị thì
-  trích chính giá trị ấy (`int(...)` của một chuỗi không phải số, một khoá mà mapping không có),
-  nên lý do có thể mang một phần thứ tool vừa trả về, trong giới hạn 600 ký tự nói trên.
-  Lịch hỏng mãi thì không nhắn mãi: lần hỏng đầu được báo ngay, sau đó chừng nào lịch còn hỏng
-  thì nhiều nhất 6 giờ một tin, và tin nhắc nói đó là lần hỏng thứ mấy liên tiếp, tính từ lúc nào.
-  Lịch chạy mỗi 5 phút mà hỏng suốt một ngày vì thế nhắn bốn tin chứ không phải 288 tin. Lịch chạy
-  lại được thì kênh nhận một dòng nói vậy, kèm số lần đã hỏng. Chạy tay bằng nút hay
-  `POST /api/jobs/{agent}/{id}/run` được đếm và báo như lần chạy của đồng hồ. Job `command` và lần
-  cô đọng bộ nhớ theo lịch hỏng cũng được báo và giãn theo cùng cách, bằng lý do của riêng chúng;
-  cách đếm, lúc nào thử gửi lại và khoá `failing` của `GET /api/jobs` nằm ở
-  [channels.md](channels.md#giao-theo-lịch). Lượt mà `then_prompt` mở ra hỏng thì được giao như
-  lượt của job prompt và không được đếm ở đây, và run đóng lại là `interrupted` vì server tắt giữa
-  chừng cũng không có tin. Không có kênh thì không gì được gửi; gửi không được, hoặc chưa gửi xong
-  sau 60 giây, thì ghi log, run vẫn như nó đã kết thúc, các job tới hạn sau vẫn chạy, và lần hỏng
-  kế tiếp thử gửi lại.
+- **Hỏng thì Hộp thư thấy.** Script chạy xong mà không in gì thì không ai nghe gì, đó là chủ ý.
+  Script hỏng cũng không mở lượt nào, nên run `error` của nó là thứ duy nhất nói nó hỏng: Hộp thư
+  xếp run ấy vào phần cần chú ý, thiết bị nhận thông báo đẩy, và tóm tắt của run nói lý do. Lý do
+  là thứ đã làm script dừng (`Lỗi ở dòng N: …` hay `Dừng ở dòng N: …`), không kèm chữ nào script
+  đã in trước đó (những chữ ấy vẫn nằm ở bước `tool_script` của run). Lịch hỏng nhiều lần liền
+  thì trang Lịch chạy nói nó đã hỏng bao nhiêu lần liên tiếp, từ lúc nào; chạy tay bằng nút hay
+  `POST /api/jobs/{agent}/{id}/run` được đếm như lần chạy của đồng hồ. Job `command` và lần cô
+  đọng bộ nhớ theo lịch hỏng được đếm theo cùng cách; cách đếm và khoá `failing` của
+  `GET /api/jobs` nằm ở [channels.md](channels.md#chuỗi-hỏng-của-job). Lượt mà `then_prompt` mở ra
+  hỏng thì được đọc trong cuộc trò chuyện của nó như lượt của job prompt và không được đếm ở đây,
+  và run đóng lại là `interrupted` vì server tắt giữa chừng cũng không được đếm. Không gì được gửi
+  vào chat ([channels.md](channels.md#job-theo-lịch)).
 - **`then_prompt`.** Script chạy xong **và** in ra thứ gì đó không trống thì crew mở một lượt như
   job prompt mở: cuộc trò chuyện autonomous mới, `skills` và `approval_ttl_seconds` của lịch áp
   cho nó. Tin mở lượt là `then_prompt`, rồi một câu nói rằng phần bên dưới là những gì script
@@ -1287,9 +1271,9 @@ có run riêng trong Activity, và biên dịch hỏng không làm job hỏng �
 đã xong rồi, và báo cả job thất bại sẽ khiến ai đó đi tìm
 hư hại không có ở đó. Xem [memory.md](memory.md#compile).
 
-Sau một job prompt, hay sau lượt mà một job script mở cho `then_prompt`, scheduler đẩy câu trả
-lời cuối tới chat Telegram của master khi có, dưới tên của agent (bản tin sáng về
-Telegram; xem [channels.md](channels.md)). Gửi thất bại được ghi log, không bao giờ thử lại.
+Câu trả lời của một job prompt, hay của lượt mà một job script mở cho `then_prompt`, là báo cáo
+của job: nó nằm trong cuộc trò chuyện của job, được Hộp thư trên web liệt kê và có thông báo đẩy.
+Không gì được gửi tới chat Telegram ([channels.md](channels.md#job-theo-lịch)).
 
 ## Ví dụ
 

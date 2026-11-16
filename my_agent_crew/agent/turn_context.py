@@ -23,8 +23,9 @@ API = "api"
 # A turn another agent asked for; the rest of the source names the parent conversation.
 DELEGATE = "delegate"
 PRESENT_SOURCES = (CHAT, TELEGRAM, API)
-# Where a canvas a turn writes gets back to a person: it opens beside the web chat, and a
-# Telegram chat is sent it as a file and told what the turn wrote, a job's brief included.
+# Where a canvas a turn writes gets back to a person: it opens beside the web chat, a
+# Telegram chat is sent it as a file and told what the turn wrote, and a job's is found from
+# its report on the web.
 # Nothing carries one back through the inbound API, so a turn from there writes none.
 CANVAS_WRITE_SOURCES = (CHAT, TELEGRAM, JOB)
 # Of those, the ones whose reader is away from the web chat, not in front of the canvas.

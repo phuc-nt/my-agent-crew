@@ -65,7 +65,7 @@ class Runtime:
     def __post_init__(self) -> None:
         self.browsers = self.browsers or build_browsers(self.settings, os.environ)
         self.scheduler = Scheduler(
-            self.agents, self.hub, clock=self.settings.now, deliver=self.deliver, notify=self.notify
+            self.agents, self.hub, clock=self.settings.now, deliver=self.deliver
         )
         self.inbound = Inbound(
             self.agents, self.hub, self.summarize_replaced, keep=self.scheduler.keep
@@ -81,19 +81,14 @@ class Runtime:
         schedule_summary(self.scheduler.keep, deps, conv_id)
 
     async def deliver(self, agent_id: str, conv_id: str) -> bool:
-        """Pushes a conversation's last reply to the chat: any agent's scheduled brief goes
-        out through the master's bot, under that agent's name. False when there is no
-        channel or it found nothing to send. A conversation of the web's, or a delegated
-        child's, is never pushed: a request of one that ran out, or was decided on the web,
-        would otherwise land its answer in a chat that never asked."""
+        """Pushes the last reply of one of the chat's own conversations to the chat, once a
+        turn of it resumed away from the chat ended: its request ran out, or was decided on
+        the web. False when there is no channel, the conversation is not the chat's, or
+        nothing was found to send. A job's, a delegated child's and the web's conversations
+        are never pushed: they are read on the web."""
         if self.channel is None or not reports_to(self.channel, self.store.get(conv_id)):
             return False
         return await self.channel.deliver(conv_id)
-
-    async def notify(self, agent_id: str, text: str) -> bool:
-        """Says a sentence of the runtime's about an agent's work to the chat, under that
-        agent's name. False when there is no channel to say it to."""
-        return self.channel is not None and await self.channel.notify(agent_id, text)
 
     def start_channel(self) -> None:
         self.channel_live = True

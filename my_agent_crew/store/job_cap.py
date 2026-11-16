@@ -1,8 +1,6 @@
-"""What the day's cap on scheduled jobs reads and keeps (`scheduler/day_cap.py`).
-
-Read: what the runs of scheduled jobs cost since a moment, summed from the cost each run
-already carries, so the cap has no meter of its own. Kept: the days the person was told the
-cap was reached, one row a day, so they are told once and a restart does not tell again."""
+"""What the day's cap on scheduled jobs reads (`scheduler/day_cap.py`): what the runs of
+scheduled jobs cost since a moment, summed from the cost each run already carries, so the
+cap has no meter of its own."""
 
 from __future__ import annotations
 
@@ -25,15 +23,3 @@ class JobCapStore:
                 (len(source_prefix), source_prefix, since),
             ).fetchone()
         return float(row[0])
-
-    def told(self, day: str) -> bool:
-        with self._lock:
-            row = self._conn.execute("SELECT 1 FROM job_cap_days WHERE day = ?", (day,)).fetchone()
-        return row is not None
-
-    def tell(self, day: str, at: str) -> None:
-        with self._lock:
-            self._conn.execute(
-                "INSERT OR IGNORE INTO job_cap_days (day, told_at) VALUES (?, ?)", (day, at)
-            )
-            self._conn.commit()

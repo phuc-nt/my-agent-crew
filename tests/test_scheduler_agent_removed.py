@@ -193,19 +193,6 @@ def test_a_reload_leaves_no_job_on_the_clock_whose_agent_is_not_in_the_crew(hous
     assert {job["agent_id"] for job in client.get("/api/jobs").json()} <= set(runtime.agents)
 
 
-async def test_a_run_whose_agent_is_gone_is_told_to_nobody_and_raises_nothing(house) -> None:
-    """A job's turn that waited on the person is pushed to the chat when it ends, which
-    may be after its agent left."""
-    _, runtime = house
-    job = runtime.scheduler.get("coder/nhac")
-    run = await runtime.scheduler.run_job(job.id)
-    runtime.agents.pop("coder")
-
-    await runtime.scheduler.deliver_run(job, run)
-
-    assert run.conversation_id
-
-
 async def test_an_agent_made_under_a_removed_agents_id_is_given_none_of_its_jobs(house) -> None:
     client, runtime = house
     runtime.store.jobs.set_enabled("coder/nhac", False, STAMP)

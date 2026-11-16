@@ -4,8 +4,8 @@ import type { RunInfo } from "../api/types";
 const JOB_SOURCE = "job:";
 
 /**
- * The reply a check job gives when all is well. The server does not deliver it
- * (`nothing_to_report`), and the inbox does not list it either: a row saying "OK" every
+ * The reply a check job gives when all is well. The server does not push it
+ * (`activity/reports.py`), and the inbox does not list it either: a row saying "OK" every
  * morning teaches the eye to skip the one that says something.
  */
 const NOTHING_TO_REPORT = "OK";

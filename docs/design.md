@@ -471,8 +471,9 @@ khi khối trong profile hoặc token của nó đổi từ web UI. Chat đó l�
 cuộc trò chuyện của master, nên điện thoại và web UI là cùng một cơ chế: một agent đứng ở
 cửa, giao việc phía sau. Lượt đi qua cổng inbound như mọi nền tảng khác, với
 nguồn `telegram`, câu trả lời gửi về dạng text và `sendPhoto`, slash command được trả lời
-không cần gọi model, và scheduler đẩy câu trả lời của job prompt của bất kỳ agent nào
-tới chat dưới tiền tố `[Name]`, với `MEDIA:` của nó đọc từ workspace của agent đó.
+không cần gọi model. Chat chỉ là một kênh trò chuyện: job theo lịch không gửi gì vào đó, bản tin
+và lỗi của job được đọc ở Hộp thư trên web, và chat chỉ được báo, chỉ giải quyết yêu cầu duyệt của
+chính nó và của cuộc con nó giao việc.
 Hành vi đầy đủ, lệnh, offset và secret: [channels.md](channels.md).
 
 ## Tool shell và tệp của agent
@@ -558,8 +559,8 @@ agent chép lại cả bài mỗi lần đổi một dòng. Đó là canvas; hư
   canvas thì lùi được bằng lịch sử, nên bốn tool ghi canvas không hỏi; xuất thì ghi đè một tệp
   trong workspace, nên luôn hỏi. Bảy tool: [canvas.md](canvas.md#6-bảy-tool-của-agent).
 - **Kênh nào mang được canvas về cho người thì lượt từ kênh đó mới được ghi.** Web chat mở canvas
-  cạnh khung chat; Telegram nhận nó như một tệp cùng danh sách những gì lượt đã ghi, bản tin của
-  job cũng vậy. `POST /api/inbound` chưa có đường nào mang canvas về cho người gọi, nên lượt từ
+  cạnh khung chat; Telegram nhận nó như một tệp cùng danh sách những gì lượt đã ghi; canvas của
+  job mở trên web, từ cuộc trò chuyện của job. `POST /api/inbound` chưa có đường nào mang canvas về cho người gọi, nên lượt từ
   đó không tạo, sửa, viết lại hay nhập; nó vẫn liệt kê, đọc và xuất ra tệp, lần xuất vẫn chờ
   duyệt. Agent được giao việc theo kênh của cuộc trò chuyện gốc của chuỗi.
   [canvas.md](canvas.md#7-phạm-vi-và-kênh).
@@ -762,13 +763,14 @@ quản lý thành một hàng pill, tự cuộn tới mục đang mở.
   đang chờ, cộng kết quả job chưa đọc.
 - **Trong Hộp thư:**
   - các yêu cầu được duyệt ngay tại chỗ;
-  - báo cáo của job được xếp mới nhất trước, giống những gì Telegram nhận: nguyên văn mọi đoạn
+  - báo cáo của job được xếp mới nhất trước: nguyên văn mọi đoạn
     agent viết trong lượt của run, render markdown, dưới tên agent và tên job; báo cáo dài mở ở
     dạng thu gọn, có "Xem hết". Ảnh hay tệp kèm theo chỉ được nhắc tên, nút "Trả lời" mở cuộc trò
     chuyện của job. Những gì mới kể từ lần đọc trước trên thiết bị này được đánh dấu;
   - nội dung đọc từ `GET /api/activity/reports` (`activity/reports.py`): chỉ run job có mở cuộc
     trò chuyện, xong tốt và không chỉ nói "OK". Run lệnh (`command`) hay dọn memory không mở cuộc
-    trò chuyện nên không có ở đây, cũng như Telegram không nhận; run lỗi nằm ở phần cần chú ý.
+    trò chuyện nên không có ở đây; run lỗi nằm ở phần cần chú ý. Hộp thư là nơi duy nhất đọc
+    được báo cáo của job: Telegram không nhận gì của job.
     Câu trả lời sau đó trong cùng cuộc trò chuyện không đổi báo cáo.
 - **Thông báo đẩy:** Hộp thư cũng là nơi bật Web Push cho thiết bị (`webpush/`,
   `server/routes_push.py`, `public/sw.js`).

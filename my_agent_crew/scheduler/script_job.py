@@ -9,8 +9,8 @@ handed no script tool too (`script_calls: none`). A model is asked there only wh
 script asks one itself (`script/model_calls.py`), which is charged to the run, and never
 for an agent whose scripts ask none (`script_llm: false`). Only when the script ended well
 and printed something is a turn opened, as a prompt job opens one, with the schedule's
-`then_prompt` and what the script printed: that turn's run is then the job's, and is what
-is sent on to the person.
+`then_prompt` and what the script printed: that turn's run is then the job's, and its
+answer is the job's report.
 
 What a script printed is whatever tools gave it: a mail, a page, a note somebody else
 wrote. The prompt is the person's, and that turn has nobody watching it. So the output
@@ -104,21 +104,17 @@ async def _carry_out(job: Job, deps: AgentDeps, hub: ActivityHub, run: RunRecord
     return Ran(result, printed, ended_by)
 
 
-async def run_script_job(
-    job: Job, deps: AgentDeps, hub: ActivityHub, title: str
-) -> tuple[RunRecord, str]:
+async def run_script_job(job: Job, deps: AgentDeps, hub: ActivityHub, title: str) -> RunRecord:
     """The run the job comes to: the script's own, or that of the turn opened for what it
-    printed. A script that failed, or printed nothing, opens no turn. Beside the script's
-    own run stands what ended it when it failed, which the person is told
-    (`failure_notice.py`); beside a turn's, nothing."""
+    printed. A script that failed, or printed nothing, opens no turn."""
     run = hub.start(job.agent_id, JOB_SOURCE + job.id, title, None)
     try:
-        result, printed, ended_by = await _carry_out(job, deps, hub, run)
+        result, printed, _ = await _carry_out(job, deps, hub, run)
     finally:
         if run.status == RUNNING:  # stopped short: closed as a turn's run is (`tracked.py`)
             hub.interrupt(run)
     then_prompt = job.schedule.then_prompt
     if not (result.ok and printed.strip() and then_prompt):
-        return run, ended_by
+        return run
     handed = truncate(printed, deps.settings.tool_output_chars)
-    return await open_turn(job, deps, hub, title, handed_on(then_prompt, handed)), ""
+    return await open_turn(job, deps, hub, title, handed_on(then_prompt, handed))

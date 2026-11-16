@@ -3,9 +3,9 @@
 
 A job that ended well and states a check has the check run after it, as a command job's
 command is run. A check that leaves with 0 changes nothing. One that leaves with anything
-else, or runs past its limit, makes the run a failed one, and the person is told in words
-that say the job ended well and the check disagreed, at the pace any failing job is told
-at. A job that states none runs as it always did.
+else, or runs past its limit, makes the run a failed one, summed up in words that say the
+job ended well and the check disagreed, and counted into the job's failures in a row as any
+failed job is. A job that states none runs as it always did.
 
 `Shell` stands in for the commands of most jobs here, as in `test_job_failure_streaks.py`;
 that a check runs through the real shell, in the agent's workspace, is tested on real ones.
@@ -25,34 +25,15 @@ from my_agent_crew.agents.profile import Schedule
 from my_agent_crew.agents.profile_yaml import parse_profile
 from my_agent_crew.llm.fake import completion
 from my_agent_crew.scheduler import Scheduler, jobs
-from my_agent_crew.scheduler.check import CheckFailed
-from my_agent_crew.scheduler.failure_notice import failure_notice
 from my_agent_crew.store.runs import DONE, FAILED
-from tests.test_job_failure_streaks import (
-    NAME,
-    SINCE,
-    SYNC,
-    WHY,
-    Chat,
-    Clock,
-    Rig,
-    Shell,
-    again,
-    clocked,
-    first,
-    mended,
-)
+from tests.test_job_failure_streaks import NAME, SYNC, Clock, Rig, Shell, clocked, stamps
 from tests.test_scheduler import with_schedules
 
 CHECK = "test -s ledger.csv"
 CHECKED = Schedule("sync", NAME, every="5m", command="sync-ledger", check=CHECK)
 ASKED = Schedule("sync", NAME, every="5m", prompt="chép sổ", check=CHECK)
-
-
-def disagreed(reason: str = WHY, closing: str | None = None) -> str:
-    """The message of a job that ended well and whose check did not: its own first line."""
-    head = words.JOB_CHECK_FAILED.format(name=NAME, reason=reason)
-    return f"{head}\n{closing or words.JOB_FAILED_NEXT.format(hours=6)}"
+# Why `Shell`'s failing command failed, as a failed check's run is summed up by.
+WHY = "Lệnh thoát với mã 3. Dòng cuối lệnh in ra: không vào được sổ"
 
 
 class Shells(Shell):
@@ -81,22 +62,17 @@ def rig(deps_factory, shell) -> Rig:
     return clocked(deps_factory(), shell, CHECKED)
 
 
-def asking(deps_factory, shell: Shells, *replies: str) -> tuple[Rig, list[tuple[str, str]]]:
-    """A prompt job the model answers, with its check; and what was sent on of its turns."""
+def asking(deps_factory, shell: Shells, *replies: str) -> Rig:
+    """A prompt job the model answers, with its check."""
     deps = deps_factory(script=[completion(reply) for reply in replies])
     with_schedules(deps, ASKED)
     clock = Clock()
-    chat = Chat(clock)
-    sent: list[tuple[str, str]] = []
+    sched = Scheduler({"default": deps}, ActivityHub(deps.store), clock=clock)
+    return Rig(sched, clock, shell, deps)
 
-    async def deliver(agent_id: str, conversation_id: str) -> bool:
-        history = deps.store.history(conversation_id)
-        sent.append((history[-1].message.content, sched_runs(deps)[0].status))
-        return True
 
-    hub = ActivityHub(deps.store)
-    sched = Scheduler({"default": deps}, hub, clock=clock, deliver=deliver, notify=chat)
-    return Rig(sched, clock, chat, shell, deps), sent
+def answer_of(rig: Rig, conversation_id: str) -> str:
+    return rig.deps.store.history(conversation_id)[-1].message.content
 
 
 def sched_runs(deps):
@@ -106,7 +82,7 @@ def sched_runs(deps):
 # --- a command job ---
 
 
-async def test_a_check_that_agrees_leaves_the_run_done_and_tells_nobody(rig):
+async def test_a_check_that_agrees_leaves_the_run_done(rig):
     rig.shell.fine.add(CHECK)
 
     [run] = await rig.tick()
@@ -121,7 +97,7 @@ async def test_a_check_that_agrees_leaves_the_run_done_and_tells_nobody(rig):
         ("shell_run", True),
         ("shell_run", True),
     ]
-    assert rig.chat.asked == [] and rig.failing() is None
+    assert rig.failing() is None
 
 
 async def test_a_check_that_disagrees_fails_the_run_and_says_the_job_itself_ended_well(rig):
@@ -132,68 +108,48 @@ async def test_a_check_that_disagrees_fails_the_run_and_says_the_job_itself_ende
     assert [step["ok"] for step in run.steps] == [True, False]
     [kept] = sched_runs(rig.deps)
     assert (kept.id, kept.status, kept.summary) == (run.id, FAILED, run.summary)
-    assert rig.chat.texts == [disagreed()]
-    assert rig.chat.texts[0] == (
-        'Lịch "Đồng bộ" báo đã chạy xong, nhưng lệnh kiểm tra sau khi chạy không xác nhận:\n'
-        "Lệnh thoát với mã 3. Dòng cuối lệnh in ra: không vào được sổ\n"
-        "Xem lượt chạy ở web UI, mục Quản lý → Hoạt động.\n"
-        "Nếu lịch còn hỏng, tin nhắc kế tiếp sẽ đến sau 6 giờ."
-    )
-    # Not the words of a job that broke.
-    assert rig.chat.texts[0] != first()
-    assert rig.failing()["count"] == 1
+    assert rig.failing() == stamps("07:05")
 
 
-async def test_a_check_stopped_at_its_limit_is_told_as_one_that_ran_too_long(rig):
+async def test_a_check_stopped_at_its_limit_is_summed_up_as_one_that_ran_too_long(rig):
     rig.shell.result = (None, "")
 
     [run] = await rig.tick()
 
     assert run.status == FAILED
     limit = texts.SHELL_TIMEOUT.format(seconds=jobs.COMMAND_TIMEOUT_SECONDS)
-    assert rig.chat.texts == [disagreed(limit)]
+    assert run.summary == words.JOB_CHECK_SUMMARY.format(reason=limit)
 
 
-async def test_a_job_that_failed_is_not_checked_and_is_told_as_any_failed_job(rig):
+async def test_a_job_that_failed_is_not_checked(rig):
     rig.shell.fine.clear()
 
     [run] = await rig.tick()
 
-    assert run.status == FAILED
+    assert run.status == FAILED and run.summary != words.JOB_CHECK_SUMMARY.format(reason=WHY)
     assert [command for command, _, _ in rig.shell.calls] == ["sync-ledger"]
-    assert rig.chat.texts == [first()]
+    assert rig.failing() == stamps("07:05")
 
 
-async def test_a_check_that_keeps_disagreeing_is_told_at_the_pace_of_a_failing_job(rig):
-    for _ in range(72):
+async def test_a_check_that_keeps_disagreeing_is_counted_until_it_agrees(rig):
+    for _ in range(73):
         await rig.tick()
-    assert rig.chat.texts == [disagreed()]
-
-    await rig.tick()
-
-    closing = words.JOB_FAILED_AGAIN.format(count=73, since=SINCE, hours=6)
-    assert rig.chat.texts == [disagreed(), disagreed(closing=closing)]
+    assert rig.failing() == stamps("07:05", count=73)
 
     rig.shell.fine.add(CHECK)
     [run] = await rig.tick()
 
     assert run.status == DONE and rig.failing() is None
-    assert rig.chat.texts[2:] == [mended(73)]
 
 
-async def test_a_job_that_broke_and_then_fails_its_check_is_one_streak_told_in_each_ones_words(
-    rig,
-):
+async def test_a_job_that_broke_and_then_fails_its_check_is_one_streak(rig):
     rig.shell.fine.clear()
     await rig.tick()
     rig.shell.fine.add("sync-ledger")
 
     await rig.tick(hours=6)
 
-    since = "07:05 ngày 19/09"
-    closing = words.JOB_FAILED_AGAIN.format(count=2, since=since, hours=6)
-    assert rig.chat.texts == [first(), disagreed(closing=closing)]
-    assert rig.chat.texts[1] != again(2)
+    assert rig.failing() == stamps("07:05", count=2)
 
 
 async def test_a_job_with_no_check_runs_one_command_and_ends_as_it_did(deps_factory, shell):
@@ -204,66 +160,48 @@ async def test_a_job_with_no_check_runs_one_command_and_ends_as_it_did(deps_fact
 
     assert (run.status, run.summary, len(run.steps)) == (DONE, "xong", 1)
     assert [command for command, _, _ in shell.calls] == ["sync-ledger"]
-    assert rig.chat.asked == []
+    assert rig.failing() is None
 
 
 # --- a job that asks the agent ---
 
 
-async def test_a_turn_that_said_done_is_sent_on_and_then_told_its_check_disagrees(
+async def test_a_turn_that_said_done_keeps_its_answer_and_its_check_fails_the_run(
     deps_factory, shell
 ):
-    rig, sent = asking(deps_factory, shell, "Đã chép xong sổ.")
+    rig = asking(deps_factory, shell, "Đã chép xong sổ.")
 
     [run] = await rig.tick()
 
-    # The answer went on as the turn left it, before the check ran.
-    assert sent == [("Đã chép xong sổ.", DONE)]
+    # The answer stays in the conversation as the turn left it; the run says the check
+    # disagreed, and is counted, turn or no turn.
     assert run.status == FAILED and run.conversation_id is not None
+    assert answer_of(rig, run.conversation_id) == "Đã chép xong sổ."
     assert run.summary == words.JOB_CHECK_SUMMARY.format(reason=WHY)
     assert [kept.status for kept in sched_runs(rig.deps)] == [FAILED]
-    assert rig.chat.texts == [disagreed()]
     assert [command for command, _, _ in shell.calls] == [CHECK]
-    assert rig.failing()["count"] == 1
+    assert rig.failing() == stamps("07:05")
 
 
-async def test_a_turn_whose_check_agrees_is_sent_on_and_nothing_more(deps_factory, shell):
-    rig, sent = asking(deps_factory, shell, "Đã chép xong sổ.")
+async def test_a_turn_whose_check_agrees_is_done_and_nothing_more(deps_factory, shell):
+    rig = asking(deps_factory, shell, "Đã chép xong sổ.")
     shell.fine.add(CHECK)
 
     [run] = await rig.tick()
 
-    assert run.status == DONE and sent == [("Đã chép xong sổ.", DONE)]
-    assert rig.chat.asked == [] and rig.failing() is None
+    assert run.status == DONE and answer_of(rig, run.conversation_id) == "Đã chép xong sổ."
+    assert rig.failing() is None
 
 
-async def test_a_turn_whose_check_disagrees_and_then_agrees_gets_the_line_of_a_job_mended(
-    deps_factory, shell
-):
-    rig, sent = asking(deps_factory, shell, "Đã chép xong sổ.", "Đã chép lại.")
+async def test_a_turn_whose_check_disagrees_and_then_agrees_closes_the_count(deps_factory, shell):
+    rig = asking(deps_factory, shell, "Đã chép xong sổ.", "Đã chép lại.")
     await rig.tick()
+    assert rig.failing() == stamps("07:05")
     shell.fine.add(CHECK)
 
     [run] = await rig.tick()
 
-    assert run.status == DONE and len(sent) == 2
-    assert rig.chat.texts == [disagreed(), mended(1)]
-
-
-def test_a_failed_turn_with_no_check_behind_it_is_still_not_told_here(deps_factory, shell):
-    """Only a failure of the check's own kind is told of a turn: an ordinary text that says
-    why a run failed, beside a run that has a conversation, is no message."""
-    deps = with_schedules(deps_factory(), ASKED)
-    hub = ActivityHub(deps.store)
-    conversation = deps.store.create(title="lượt", agent_id="default")
-    run = hub.start("default", "job:" + SYNC, "lượt", conversation.id)
-    hub.finish(run, status=FAILED, summary="hỏng")
-    [job] = Scheduler({"default": deps}, hub).jobs()
-
-    assert failure_notice(job, run, WHY) is None
-    assert failure_notice(job, run, CheckFailed(WHY)) == words.JOB_CHECK_FAILED.format(
-        name=NAME, reason=WHY
-    )
+    assert run.status == DONE and rig.failing() is None
 
 
 # --- through the real shell ---
@@ -275,8 +213,7 @@ async def test_a_check_runs_in_the_agents_workspace_after_the_command_it_checks(
     )
     lost = Schedule("lose", "Xuất hụt", every="1h", command="true", check="echo thiếu tệp; exit 4")
     deps = with_schedules(deps_factory(), made, lost)
-    chat = Chat(Clock())
-    sched = Scheduler({"default": deps}, ActivityHub(deps.store), notify=chat)
+    sched = Scheduler({"default": deps}, ActivityHub(deps.store))
 
     well = await sched.run_job("default/make")
     badly = await sched.run_job("default/lose")
@@ -284,8 +221,7 @@ async def test_a_check_runs_in_the_agents_workspace_after_the_command_it_checks(
     assert well.status == DONE and (Path(deps.agent.workspace) / "out.csv").is_file()
     assert badly.status == FAILED
     why = "Lệnh thoát với mã 4. Dòng cuối lệnh in ra: thiếu tệp"
-    [told] = chat.texts
-    assert told.startswith(words.JOB_CHECK_FAILED.format(name="Xuất hụt", reason=why))
+    assert badly.summary == words.JOB_CHECK_SUMMARY.format(reason=why)
 
 
 # --- the key in the file and on the jobs list ---

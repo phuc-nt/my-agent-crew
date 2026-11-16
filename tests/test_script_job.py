@@ -3,10 +3,10 @@
 No model is asked for the script itself. It runs as a script of `tool_script` runs, and ends
 as a run of that one step with no conversation. Only when it ended well and printed
 something is a turn opened, with the schedule's `then_prompt` and what was printed, and that
-turn is what the person is told of, by the rules of a prompt job. What was printed is what
-tools gave the script, so it stands in that message fenced, as a text to work on. What such
-a script may call unasked, and what it reads of the turns
-around it, is in `test_script_job_gate.py`. Every script here runs in a real child process.
+turn's answer is the job's report, read on the web as a prompt job's is and sent to no chat.
+What was printed is what tools gave the script, so it stands in that message fenced, as a
+text to work on. What such a script may call unasked, and what it reads of the turns around
+it, is in `test_script_job_gate.py`. Every script here runs in a real child process.
 """
 
 from __future__ import annotations
@@ -64,7 +64,8 @@ def handed(message: str, prompt: str = THEN) -> str:
 
 @dataclass
 class Crew:
-    """One agent with the schedule `due`, the model it would ask and whom it would tell."""
+    """One agent with the schedule `due`, the model it would ask, and what was handed to the
+    delivery a server start gives the clock: nothing, for a job."""
 
     sched: Scheduler
     deps: AgentDeps
@@ -269,7 +270,7 @@ async def test_a_script_with_no_prompt_to_hand_its_output_to_opens_no_turn(deps_
 # --- something to hand on ---
 
 
-async def test_what_a_script_printed_goes_to_the_model_in_one_turn_and_its_answer_is_sent_on(
+async def test_what_a_script_printed_goes_to_the_model_in_one_turn_and_its_answer_is_kept(
     deps_factory,
 ):
     rig = crew(
@@ -292,9 +293,9 @@ async def test_what_a_script_printed_goes_to_the_model_in_one_turn_and_its_answe
     # Opened as a prompt job opens one: nobody watching, under the job's name and its hour.
     assert conv.autonomous and conv.approval_ttl_seconds == 900
     assert conv.title == "[lịch] Nhắc hạn · 2026-09-19 07:00"
-    # The turn's run is the job's: what is sent on, and what the Jobs page shows last.
+    # The turn's run is the job's: its report, and what the Jobs page shows last.
     assert (run.conversation_id, run.source, run.status) == (conv.id, f"job:{DUE}", DONE)
-    assert rig.delivered == [conv.id]
+    assert rig.delivered == []
     script_run, turn_run = rig.runs()
     assert (script_run.conversation_id, script_run.status) == (None, DONE)
     assert [step["name"] for step in script_run.steps] == [SCRIPT_TOOL]
@@ -329,17 +330,6 @@ async def test_the_turn_gets_the_skills_of_the_schedule_and_those_its_prompt_nam
 
     [conv] = rig.deps.store.list()
     assert list(conv.skills) == ["viet-bao-cao", "gws-shared"]
-
-
-@pytest.mark.parametrize("answer", ["OK", " ok. "])
-async def test_a_turn_that_answered_only_ok_is_not_sent_on(deps_factory, caplog, answer):
-    rig = crew(deps_factory, 'print("HP3-12 còn 40 ngày")', THEN, says=[answer])
-
-    with caplog.at_level(logging.INFO, logger="my_agent_crew.scheduler.runner"):
-        run = await rig.due()
-
-    assert run.conversation_id is not None and rig.delivered == []
-    assert f"job {DUE}: nothing to report, not delivered" in caplog.text
 
 
 async def test_output_longer_than_a_tools_answer_may_be_is_cut_before_the_model_reads_it(
@@ -450,7 +440,7 @@ async def test_a_job_whose_script_could_not_be_run_at_all_fails_and_the_next_one
 
     again = await rig.due()
 
-    assert again.status == DONE and rig.delivered == [again.conversation_id]
+    assert again.status == DONE and again.conversation_id is not None
 
 
 async def test_a_job_stopped_while_its_script_runs_is_not_left_running(deps_factory):

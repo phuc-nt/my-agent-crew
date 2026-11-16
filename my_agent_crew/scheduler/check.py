@@ -5,10 +5,11 @@ file unwritten, and a command can leave with 0 having synced nothing. So a row m
 command to run once its own work has ended well. It runs as a command job's command does:
 the same shell (`jobs.run_shell`), in the agent's workspace, under the same limit. Leaving
 with 0 it changes nothing. Leaving with anything else, or stopped at the limit, it turns the
-run into a failed one, and the person is told as of any failed job, in words that say the
-job ended well and the check disagreed (`failure_notice.py`).
+run into a failed one, summed up in words that say the job ended well and the check
+disagreed, and counted into the job's failures in a row (`failure_streaks.py`), turn or no
+turn.
 
-Only a run that ended well is checked. One that failed is told of already, one that was
+Only a run that ended well is checked. One that failed is a failure already, one that was
 halted has nothing to check, and one that waits for an approval is taken up later by the
 turn that answers it, which no job is behind: such a run is not checked at all.
 """
@@ -29,19 +30,12 @@ from my_agent_crew.store.runs import DONE, FAILED, RunRecord
 STEP = "check"
 
 
-class CheckFailed(str):
-    """Why a run failed, when what failed was its check and not the job: the same text a
-    failed command is told by, of a kind the notice can tell apart."""
-
-
-async def checked(
-    job: jobs.Job, deps: AgentDeps, hub: ActivityHub, run: RunRecord, ended_by: str
-) -> str:
-    """Runs the job's check when it states one and its run ended well: why the run failed,
-    which is `ended_by` unless the check is what failed it."""
+async def check_failed(job: jobs.Job, deps: AgentDeps, hub: ActivityHub, run: RunRecord) -> bool:
+    """Runs the job's check when it states one and its run ended well: whether the check
+    is what failed the run."""
     command = job.schedule.check
     if not command or run.status != DONE:
-        return ended_by
+        return False
     hub.record(run, ToolCallEvent(STEP, "shell_run", {"command": command}), time.monotonic())
     code, output = await jobs.run_shell(
         command, deps.agent.workspace, timeout_s=jobs.COMMAND_TIMEOUT_SECONDS
@@ -50,7 +44,7 @@ async def checked(
     result = ToolResultEvent(STEP, "shell_run", ok, output or f"exit {code}")
     hub.record(run, result, time.monotonic())
     if ok:
-        return ended_by
+        return False
     why = jobs.command_failure(code, output)
     hub.finish(run, status=FAILED, summary=preview(words.JOB_CHECK_SUMMARY.format(reason=why)))
-    return CheckFailed(why)
+    return True

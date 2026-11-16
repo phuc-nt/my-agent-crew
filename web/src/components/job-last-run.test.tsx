@@ -27,43 +27,24 @@ function streak(failing: JobFailing | null | undefined): string | null {
 }
 
 describe("a job that keeps failing, said on its row", () => {
-  it("says how many runs in a row failed, when the owner was told and when it is told again", () => {
-    const told = { count: 3, since: at(11, 7), told_at: at(12, 7, 1), next_notice_at: at(13, 7, 1), telling: false };
-    expect(streak(told)).toBe(
-      "Hỏng 3 lần liên tiếp từ Hôm qua 07:00. Đã báo Telegram lúc 07:01; còn hỏng thì nhắc lại sau 13/10 07:01.",
-    );
+  it("says how many runs in a row failed and since when, and nothing of anyone told", () => {
+    const streaked = { count: 3, since: at(11, 7) };
+    expect(streak(streaked)).toBe("Hỏng 3 lần liên tiếp từ Hôm qua 07:00.");
   });
 
-  it("says a notice has not got through yet, and that the next failure tries again", () => {
-    const untold = { count: 2, since: at(9, 22, 5), told_at: null, next_notice_at: null, telling: false };
-    expect(streak(untold)).toBe(
-      "Hỏng 2 lần liên tiếp từ 09/10 22:05. Chưa báo được qua Telegram; lần hỏng kế tiếp sẽ thử lại.",
-    );
-  });
-
-  // The page reads the row when the run ends, and Telegram answers a moment after that.
-  it("says a notice is on its way while Telegram has not answered", () => {
-    const telling = { count: 1, since: at(12, 7), told_at: null, next_notice_at: null, telling: true };
-    expect(streak(telling)).toBe("Hỏng từ 07:00. Đang báo qua Telegram.");
-  });
-
-  it("goes on saying when the owner was told while a later notice is on its way", () => {
-    const again = { count: 9, since: at(11, 7), told_at: at(12, 1, 1), next_notice_at: at(12, 7, 1), telling: true };
-    expect(streak(again)).toBe(
-      "Hỏng 9 lần liên tiếp từ Hôm qua 07:00. Đã báo Telegram lúc 01:01; còn hỏng thì nhắc lại sau 07:01.",
-    );
+  it("dates a streak begun before yesterday", () => {
+    expect(streak({ count: 2, since: at(9, 22, 5) })).toBe("Hỏng 2 lần liên tiếp từ 09/10 22:05.");
   });
 
   it("does not call one failed run a streak of runs", () => {
-    const once = { count: 1, since: at(12, 7), told_at: at(12, 7, 1), next_notice_at: at(12, 13, 1), telling: false };
-    expect(streak(once)).toBe("Hỏng từ 07:00. Đã báo Telegram lúc 07:01; còn hỏng thì nhắc lại sau 13:01.");
+    expect(streak({ count: 1, since: at(12, 7) })).toBe("Hỏng từ 07:00.");
   });
 
-  // The type lets a notice be told with no time for the next one; the sentence ends at
-  // what is known rather than naming a time that is not there.
-  it("stops at when the owner was told if the server names no time for the next notice", () => {
-    const told = { count: 4, since: at(11, 7), told_at: at(12, 7, 1), next_notice_at: null, telling: false };
-    expect(streak(told)).toBe("Hỏng 4 lần liên tiếp từ Hôm qua 07:00. Đã báo Telegram lúc 07:01.");
+  // A server from before the notices were dropped still sends what it told; the line
+  // reads none of it.
+  it("says nothing of a notice an older server names", () => {
+    const older = { count: 1, since: at(12, 7), told_at: at(12, 7, 1), next_notice_at: null, telling: true };
+    expect(streak(older)).toBe("Hỏng từ 07:00.");
   });
 
   it("says nothing on a row whose job is in no streak, although its last run failed", () => {
@@ -77,7 +58,7 @@ describe("a job that keeps failing, said on its row", () => {
   });
 
   it("puts the sentence under a job that has never finished a run as well", () => {
-    render(<JobLastRun job={{ ...brief, last_run: null, failing: { count: 1, since: at(12, 7), told_at: null, next_notice_at: null, telling: false } }} now={now} />);
+    render(<JobLastRun job={{ ...brief, last_run: null, failing: { count: 1, since: at(12, 7) } }} now={now} />);
     expect(screen.getByTestId("job-failing")).toHaveTextContent("Hỏng từ 07:00.");
   });
 });

@@ -2,8 +2,9 @@
 
 `jobs_daily_cost_cap_usd` in `config.yaml` is how much the runs of scheduled jobs may cost
 in one day of the home's. Once the day has spent it, a job that would call a model is not
-run: it leaves a halted run that says why, and the person is told once that day. A command
-job runs as ever, the next day starts from nothing, and with no cap set nothing changes.
+run: it leaves a halted run that says why, which the jobs page shows, and no channel is told
+(`test_jobs_tell_no_chat.py`). A command job runs as ever, the next day starts from nothing,
+and with no cap set nothing changes.
 
 What a day has spent is read off the runs the store keeps. Most tests here stand on a day
 far ahead, where no run of the test's own making falls, and write the day's spending as the
@@ -32,7 +33,7 @@ from my_agent_crew.server import create_app
 from my_agent_crew.store.db import Store
 from my_agent_crew.store.runs import DONE, FAILED, HALTED, RunRecord
 from my_agent_crew.store.stamps import new_id
-from tests.test_job_failure_streaks import Chat, Clock, Shell
+from tests.test_job_failure_streaks import Clock, Shell
 from tests.test_scheduler import with_schedules
 
 ZONE = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -47,10 +48,6 @@ def skipped_by(spent: float, cap: float = CAP) -> str:
     return words.JOB_CAP_SKIPPED.format(spent=f"{spent:.2f}", cap=f"{cap:.2f}")
 
 
-def reached(spent: float, cap: float = CAP, name: str = BRIEF.name) -> str:
-    return words.JOB_CAP_REACHED.format(spent=f"{spent:.2f}", cap=f"{cap:.2f}", name=name)
-
-
 def spend(deps: AgentDeps, usd: float, at: datetime, source: str = "job:default/earlier") -> None:
     """A run that cost `usd` and started at `at`, as the store would hold it."""
     stamp = at.astimezone(UTC).isoformat(timespec="seconds")
@@ -59,17 +56,16 @@ def spend(deps: AgentDeps, usd: float, at: datetime, source: str = "job:default/
 
 
 class Day:
-    """A clock over the jobs given, and the channel job notices go to."""
+    """A clock over the jobs given."""
 
     def __init__(self, deps: AgentDeps, *schedules: Schedule, at: datetime = MORNING):
         self.deps = with_schedules(deps, *schedules)
         self.clock = Clock(at)
-        self.chat = Chat(self.clock)
         self.sched = self.restarted()
 
     def restarted(self) -> Scheduler:
         hub = ActivityHub(self.deps.store)
-        self.sched = Scheduler({"default": self.deps}, hub, clock=self.clock, notify=self.chat)
+        self.sched = Scheduler({"default": self.deps}, hub, clock=self.clock)
         return self.sched
 
     async def run(self, job: str = "brief") -> RunRecord:
@@ -112,7 +108,6 @@ async def test_jobs_run_under_the_cap_and_are_skipped_once_the_day_has_spent_it(
 
     # 0.40 and 0.80 are under the cap, so three ran, and the third took the day to 1.20.
     assert [(run.status, run.spent_usd) for run in ran] == [(DONE, 0.4)] * 3
-    assert day.chat.asked == []
 
     skipped = await day.run()
 
@@ -120,12 +115,9 @@ async def test_jobs_run_under_the_cap_and_are_skipped_once_the_day_has_spent_it(
     assert (skipped.summary, skipped.steps, skipped.spent_usd) == (skipped_by(1.2), [], 0.0)
     assert skipped.source == "job:default/brief" and skipped.finished_at
     assert day.asked_model == 3
-    assert day.chat.texts == [reached(1.2)]
-    assert day.chat.texts[0] == (
-        "Chi phí các lịch chạy hôm nay đã là 1.20 USD, chạm hạn mức 1.00 USD một ngày.\n"
-        'Từ giờ đến hết ngày, các lịch gọi model bị bỏ qua, bắt đầu từ "Bản tin sáng"; lịch'
-        " chạy lệnh vẫn chạy, và trò chuyện không bị ảnh hưởng.\n"
-        "Đổi hạn mức ở khoá jobs_daily_cost_cap_usd trong config.yaml."
+    assert skipped.summary == (
+        "Bỏ qua, không chạy: chi phí các lịch hôm nay (1.20 USD) đã chạm hạn mức 1.00 USD"
+        " (jobs_daily_cost_cap_usd)."
     )
     [row] = day.sched.describe()
     assert row["last_run"]["id"] == skipped.id and row["last_run"]["summary"] == skipped_by(1.2)
@@ -133,7 +125,7 @@ async def test_jobs_run_under_the_cap_and_are_skipped_once_the_day_has_spent_it(
     # Two days on, none of that is the day's: the job runs again.
     day.clock.after(days=2)
     assert (await day.run()).status == DONE
-    assert day.asked_model == 4 and len(day.chat.texts) == 1
+    assert day.asked_model == 4
 
 
 # --- the day's spending, as the runs it left ---
@@ -150,7 +142,7 @@ async def test_spending_exactly_the_cap_is_the_cap_reached(capped):
     assert (skipped.status, skipped.summary) == (HALTED, skipped_by(1.0))
 
 
-async def test_the_person_is_told_once_a_day_and_again_on_a_later_day(capped):
+async def test_every_run_of_the_day_is_skipped_and_the_next_day_runs_again(capped):
     day = Day(capped(), BRIEF)
     spend(day.deps, 1.5, MORNING)
 
@@ -159,19 +151,18 @@ async def test_the_person_is_told_once_a_day_and_again_on_a_later_day(capped):
         [run] = await day.sched.tick()
         assert run.status == HALTED
 
-    assert day.chat.texts == [reached(1.5)] and day.asked_model == 0
+    assert day.asked_model == 0
 
-    # The next day has spent nothing, so the job runs and nothing is said.
+    # The next day has spent nothing, so the job runs.
     day.clock.after(days=1)
     [run] = await day.sched.tick()
-    assert run.status == DONE and len(day.chat.texts) == 1
+    assert run.status == DONE
 
-    # A day that reaches the cap too is told of on its own.
+    # A day that reaches the cap too skips on its own count.
     spend(day.deps, 2, day.clock.at)
     day.clock.after(minutes=5)
     [run] = await day.sched.tick()
-    assert run.status == HALTED
-    assert day.chat.texts == [reached(1.5), reached(2.0)]
+    assert (run.status, run.summary) == (HALTED, skipped_by(2.0))
 
 
 async def test_the_day_is_the_homes_day_not_utcs(capped):
@@ -200,7 +191,6 @@ async def test_only_what_scheduled_jobs_cost_counts(capped):
         spend(day.deps, 9, MORNING, source=source)
 
     assert (await day.run()).status == DONE
-    assert day.chat.asked == []
 
 
 async def test_a_command_job_runs_whatever_the_day_has_spent(capped, shell):
@@ -210,10 +200,8 @@ async def test_a_command_job_runs_whatever_the_day_has_spent(capped, shell):
     run = await day.run("sync")
 
     assert (run.status, shell.ran) == (DONE, 1)
-    # It calls no model, so it is not what the person is told the cap skipped either.
-    assert day.chat.asked == []
+    # It calls no model; a job that would is skipped.
     assert (await day.run()).status == HALTED
-    assert day.chat.texts == [reached(3.0)]
 
 
 async def test_every_job_that_would_call_a_model_is_skipped(capped):
@@ -224,7 +212,6 @@ async def test_every_job_that_would_call_a_model_is_skipped(capped):
     runs = [await day.run("brief"), await day.run("sum")]
 
     assert [(run.status, run.summary) for run in runs] == [(HALTED, skipped_by(1.0))] * 2
-    assert day.chat.texts == [reached(1.0)]
 
 
 async def test_with_no_cap_set_a_day_spends_what_it_spends(capped):
@@ -233,14 +220,14 @@ async def test_with_no_cap_set_a_day_spends_what_it_spends(capped):
 
     run = await day.run()
 
-    assert run.status == DONE and day.chat.asked == []
-    assert not day.deps.store.job_cap.told(MORNING.date().isoformat())
+    assert run.status == DONE
 
 
-# --- once a day, and only when it got there ---
+# --- across a restart ---
 
 
-async def test_a_restart_does_not_tell_the_same_day_again(capped):
+async def test_a_restart_still_skips_the_day_that_reached_the_cap(capped):
+    """What the day spent is read off the runs the store keeps, not held in the process."""
     day = Day(capped(), BRIEF)
     spend(day.deps, 1, MORNING)
     await day.run()
@@ -248,33 +235,6 @@ async def test_a_restart_does_not_tell_the_same_day_again(capped):
     day.restarted()
 
     assert (await day.run()).status == HALTED
-    assert day.chat.texts == [reached(1.0)]
-    assert day.deps.store.job_cap.told("2099-03-10")
-    assert not day.deps.store.job_cap.told("2099-03-11")
-
-
-async def test_a_message_the_channel_did_not_take_is_tried_with_the_next_job_skipped(capped):
-    day = Day(capped(), BRIEF)
-    spend(day.deps, 1, MORNING)
-    day.chat.answer = False
-
-    await day.run()
-    assert len(day.chat.asked) == 1 and day.chat.took == []
-
-    day.chat.answer = True
-    await day.run()
-    await day.run()
-
-    assert len(day.chat.asked) == 2 and day.chat.texts == [reached(1.0)]
-
-
-async def test_a_clock_with_nobody_to_tell_still_skips(capped):
-    day = Day(capped(), BRIEF)
-    day.sched = Scheduler({"default": day.deps}, ActivityHub(day.deps.store), clock=day.clock)
-    spend(day.deps, 1, MORNING)
-
-    assert (await day.run()).status == HALTED
-    assert not day.deps.store.job_cap.told("2099-03-10")
 
 
 async def test_a_job_skipped_is_neither_a_failure_nor_a_recovery(capped, shell):
@@ -285,7 +245,7 @@ async def test_a_job_skipped_is_neither_a_failure_nor_a_recovery(capped, shell):
     shell.breaks()
     assert (await day.run()).status == FAILED
     before = day.sched.describe()[0]["failing"]
-    assert before["count"] == 1 and len(day.chat.texts) == 1
+    assert before["count"] == 1
 
     spend(day.deps, 1, MORNING)
     skipped = await day.run()
@@ -293,8 +253,6 @@ async def test_a_job_skipped_is_neither_a_failure_nor_a_recovery(capped, shell):
     assert skipped.status == HALTED
     assert day.sched.describe()[0]["failing"] == before
     assert day.deps.store.streaks.all().keys() == {"default/brief"}
-    # The one message since is the cap's.
-    assert day.chat.texts[1:] == [reached(1.0)]
 
 
 # --- the key ---
@@ -327,16 +285,15 @@ def test_the_settings_page_is_given_the_cap(capped):
     assert body["jobs_daily_cost_cap_usd"] == 2.5
 
 
-def test_a_database_made_before_the_cap_gains_its_table(tmp_path: Path):
+def test_a_database_that_kept_the_days_the_person_was_told_opens_as_ever(tmp_path: Path):
+    """A home made while the cap was told to the chat holds a `job_cap_days` table, unused."""
     path = tmp_path / "agent.sqlite3"
     old = Store(path)
-    old._conn.execute("DROP TABLE job_cap_days")
+    old._conn.execute("CREATE TABLE job_cap_days (day TEXT PRIMARY KEY, told_at TEXT NOT NULL)")
+    old._conn.execute("INSERT INTO job_cap_days VALUES ('2099-03-10', '2099-03-09T23:00:00')")
     old._conn.commit()
     old.close()
 
     again = Store(path)
 
-    assert not again.job_cap.told("2099-03-10")
-    again.job_cap.tell("2099-03-10", "2099-03-09T23:00:00+00:00")
-    again.job_cap.tell("2099-03-10", "2099-03-09T23:05:00+00:00")
-    assert again.job_cap.told("2099-03-10")
+    assert again.job_cap.spent("job:", "2099-03-09T17:00:00+00:00") == 0.0

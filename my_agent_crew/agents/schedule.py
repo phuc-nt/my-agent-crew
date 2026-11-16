@@ -29,9 +29,6 @@ ROW_KEYS = SCHEDULE_KEYS | {"check"}
 # What a row does, one of these and never two.
 ACTIONS = ("prompt", "command", "script")
 PROMPT, COMMAND, SCRIPT, CONSOLIDATE = "prompt", "command", "script", "consolidate"
-# The kinds whose run may be a conversation's, which is what is sent on to the person: a
-# prompt job's always, a script job's when what it printed went on to the model.
-DELIVERED = (PROMPT, SCRIPT)
 
 
 @dataclass(frozen=True)
