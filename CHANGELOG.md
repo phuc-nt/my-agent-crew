@@ -9,6 +9,34 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
+## [0.43.0] — 2026-11-16
+
+### Added
+
+- **A job can state the routes its turn runs on**: a schedule row's `routes` (a list of
+  `provider:model`, as an agent's) runs a prompt job's turn on those models, thinking as hard
+  as the agent's own route, while every chat with the agent keeps the agent's routes. A route
+  the machine has no key for is passed over; with none left the agent's routes run. Read from
+  the file as `check` is: the web form keeps it through a save, the jobs list shows it.
+- **Egress count**: every HTTP client the engine makes counts the host of each request, and
+  the browsers' proxy the host of each connection, in the `egress_hosts` table (host names
+  only, 90 days). `GET /api/activity/egress?days=N` (1..90, default 7) reports calls per host,
+  and with `by_day=true` per host and day, and names the ways out it cannot see (shell commands,
+  hooks).
+
+### Changed
+
+- **Breaking: a command or an address that sends outward asks unless its host is listed.**
+  `shell_run` with a network program (curl, wget, ssh, scp, nc and the like, or a runtime
+  beside an address) stops for a person unless every host it names is in `outbound_hosts`;
+  a host that cannot be read stops too. `fetch_url` asks for an address the conversation was
+  not handed from outside the model (a person's message, a search result, a page) unless its
+  host is listed. The gate sits above autonomy, the allow list and `auto_approve`, and is not
+  read for an agent with `shell_network: false`. `outbound_hosts` is empty by default
+  (`config.yaml`, `MY_AGENT_OUTBOUND_HOSTS`, `agent.yaml`).
+- `fetch_url` is no longer callable from a `read_only` script and is not replayed; its answer
+  is fenced as data and a long page is read in parts with `offset`.
+
 ## [0.42.0] — 2026-11-16
 
 ### Added
