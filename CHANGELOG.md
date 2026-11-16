@@ -9,6 +9,28 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
+## [0.42.0] — 2026-11-16
+
+### Added
+
+- **A host can tell the owner something**: `POST /api/notices` with `{"text", "title"?}`
+  (text up to 2000 characters, title up to 80; 422 otherwise) records a finished run of the
+  master with the source `notice:host` and no conversation. The web inbox lists it with the
+  jobs' reports and counts it as unread; Web Push announces it with a fixed sentence and
+  never its words. The cloud's platform alerts (an edge node gone quiet, a stale drop, missed
+  scheduled runs, a last snapshot that failed) use it instead of a Telegram message.
+
+### Changed
+
+- `/api/inbound` refuses a `source` that starts with `notice:`, so a relay cannot pass for a
+  notice.
+- The inbox no longer lists a job report whose summary is only whitespace.
+
+### Fixed
+
+- A run with no conversation (a command, a script, a notice) no longer takes over another
+  run with no conversation that was paused for an approval.
+
 ## [0.41.0] — 2026-11-16
 
 ### Changed
