@@ -9,6 +9,30 @@ All notable changes to my-agent-crew. The format follows [Keep a Changelog](http
 versioning follows [SemVer](https://semver.org/). One version number for both backend and web: within a
 single release, `pyproject.toml` and `web/package.json` always carry the same number.
 
+## [0.41.0] — 2026-11-16
+
+### Changed
+
+- **A scheduled job tells no channel.** Its answer, its failures, the day-cap skip and a held
+  rewrite of memory are read on the web: the inbox lists the report, and Web Push announces
+  a job's result, failure and approval request. **Breaking:** a home that relied on the
+  morning brief arriving in Telegram now reads it in the web inbox.
+- **The Telegram chat settles only its own requests**, and those of a child delegated from
+  one of its own conversations. A job's request, and a request of a child delegated from the
+  web or from a job, is told and decided on the web only; `/pending`, `/approve`, `/deny`
+  and a button press no longer reach them. **Breaking.**
+- The jobs page shows a failing job's count and since when; the fields `told_at`,
+  `next_notice_at` and `telling` of a job's `failure_streak` are gone.
+
+### Removed
+
+- The failure, "failed again", "recovered", day-cap and held-rewrite messages to the chat.
+
+### Upgrade notes
+
+- Nothing to migrate. A home made earlier keeps a `told_at` column and a `job_cap_days`
+  table that nothing reads any more.
+
 ## [0.40.0] — 2026-11-11
 
 ### Removed
